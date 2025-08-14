@@ -9,3 +9,7 @@ res/KLS_Logic.chw
 /CMakeSettings.json
 .DS_Store
 *build/
+.direnv
+.crush
+.envrc
+result
