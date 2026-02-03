@@ -56,6 +56,10 @@ public:
 	MainApp();
 	virtual bool OnInit();
 	void SetCurrentCanvas(wxGLCanvas *canvas);
+#ifdef __WXOSX__
+	virtual void MacOpenFile(const wxString& fileName);
+	string pendingOpenFile;
+#endif
 
 public:
     // crit section protects access to all of the arrays below
