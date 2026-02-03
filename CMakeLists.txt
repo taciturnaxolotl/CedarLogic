@@ -88,7 +88,11 @@ file(GLOB SRC_FILES
 	"${PROJECT_SOURCE_DIR}/include/gui/GLFont/*.h"
 )
 
-add_executable(CedarLogic WIN32 "${SRC_FILES}")
+if(APPLE)
+    add_executable(CedarLogic MACOSX_BUNDLE "${SRC_FILES}")
+else()
+    add_executable(CedarLogic WIN32 "${SRC_FILES}")
+endif()
 
 # Add the external libraries for CedarLogic
 target_link_libraries(CedarLogic PRIVATE 
@@ -131,6 +135,40 @@ if (WIN32)
     )
 endif()
 
+if(APPLE)
+    # Set macOS bundle properties
+    set_target_properties(CedarLogic PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_BUNDLE_NAME "CedarLogic"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "edu.cedarville.cedarlogic"
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/res/macos/Info.plist.in"
+    )
+
+    # Copy icon into Resources (not in res/ subdirectory)
+    set(MACOS_ICON "${CMAKE_SOURCE_DIR}/res/macos/CedarLogic.icns")
+    set_source_files_properties(${MACOS_ICON} PROPERTIES
+        MACOSX_PACKAGE_LOCATION "Resources"
+    )
+    target_sources(CedarLogic PRIVATE ${MACOS_ICON})
+
+    # Copy res folder contents into Resources/res (app expects res/ subdirectory)
+    add_custom_command(TARGET CedarLogic POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_BUNDLE_DIR:CedarLogic>/Contents/Resources/res"
+        COMMAND ${CMAKE_COMMAND} -E copy
+            "${CMAKE_SOURCE_DIR}/res/arial.glf"
+            "${CMAKE_SOURCE_DIR}/res/cl_gatedefs.xml"
+            "${CMAKE_SOURCE_DIR}/res/KLS_Logic.chm"
+            "${CMAKE_SOURCE_DIR}/res/LICENSE.txt"
+            "$<TARGET_BUNDLE_DIR:CedarLogic>/Contents/Resources/res/"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/res/bitmaps"
+            "$<TARGET_BUNDLE_DIR:CedarLogic>/Contents/Resources/res/bitmaps"
+    )
+endif()
+
 
 ###
 ### Dev Setup.
@@ -146,14 +184,16 @@ vs_source_groups(src ${Sources})
 
 if (WIN32)
     install(TARGETS CedarLogic RUNTIME DESTINATION ".")
+    install_resources(res)
+elseif(APPLE)
+    install(TARGETS CedarLogic BUNDLE DESTINATION ".")
 else()
     install(TARGETS CedarLogic RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
     install(FILES res/CedarLogic.desktop DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications)
     install(FILES res/mime.xml DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/mime/packages RENAME CedarLogic.xml)
     install(FILES res/icon.png DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/64x64/apps RENAME CedarLogic.png)
+    install_resources(res)
 endif()
-
-install_resources(res)
 
 set(CPACK_PACKAGE_NAME "CedarLogic")
 # This exceptionally weird line is hard to understand even with the documentation.
@@ -166,7 +206,11 @@ set(CPACK_PACKAGE_VENDOR "Cedarville University")
 # set(CPACK_PACKAGE_VERSION_MAJOR "${CEDARLOGIC_MAJOR}")
 # set(CPACK_PACKAGE_VERSION_MINOR "${CEDARLOGIC_MINOR}")
 # set(CPACK_PACKAGE_VERSION_PATCH "${CEDARLOGIC_PATCH}")
-set(CPACK_PACKAGE_ICON ${CMAKE_SOURCE_DIR}/cmake\\\\InstallSmall.bmp)
+if(APPLE)
+    set(CPACK_PACKAGE_ICON ${CMAKE_SOURCE_DIR}/res/macos/CedarLogic.icns)
+else()
+    set(CPACK_PACKAGE_ICON ${CMAKE_SOURCE_DIR}/cmake\\\\InstallSmall.bmp)
+endif()
 set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/res/LICENSE.txt)
 set(CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/cmake\\\\icon.ico)
 set(CPACK_NSIS_MUI_WELCOMEFINISHPAGE_BITMAP ${CMAKE_SOURCE_DIR}/cmake\\\\InstallLarge.bmp)
@@ -178,5 +222,15 @@ set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS
 set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
     "\\\${unregisterExtension} \\\".cdl\\\" \\\"CedarLogic Project\\\""
 )
+
+# macOS DMG configuration
+if(APPLE)
+    set(CPACK_GENERATOR "DragNDrop")
+    set(CPACK_DMG_VOLUME_NAME "CedarLogic")
+    set(CPACK_DMG_FORMAT "UDZO")
+    set(CPACK_BUNDLE_NAME "CedarLogic")
+    set(CPACK_BUNDLE_PLIST "${CMAKE_SOURCE_DIR}/res/macos/Info.plist.in")
+    set(CPACK_BUNDLE_ICON "${CMAKE_SOURCE_DIR}/res/macos/CedarLogic.icns")
+endif()
 
 include(CPack)
