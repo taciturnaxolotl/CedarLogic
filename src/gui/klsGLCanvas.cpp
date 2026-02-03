@@ -608,9 +608,25 @@ void klsGLCanvas::wxOnMouseWheel(wxMouseEvent& event) {
 	int rotationLines = (int)wheelRotation / event.GetWheelDelta();
 	wheelRotation -= rotationLines * event.GetWheelDelta();
 
-
 	if (rotationLines != 0) {
+#ifdef __WXOSX__
+		// On macOS, use scroll for panning (standard trackpad behavior)
+		// Cmd + scroll = zoom
+		if (event.CmdDown()) {
+			OnMouseWheel(rotationLines / abs(rotationLines));
+		} else {
+			// Pan based on scroll direction (natural scrolling)
+			GLdouble panAmount = PAN_STEP * getZoom() * rotationLines;
+			if (event.GetWheelAxis() == wxMOUSE_WHEEL_HORIZONTAL) {
+				translatePan(-panAmount, 0.0);
+			} else {
+				translatePan(0.0, -panAmount);
+			}
+		}
+#else
+		// On other platforms, scroll = zoom (original behavior)
 		OnMouseWheel(rotationLines / abs(rotationLines));
+#endif
 	}
 
 	// Update the drag-pan event here if needed:
