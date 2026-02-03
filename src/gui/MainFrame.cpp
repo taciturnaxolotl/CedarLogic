@@ -1062,6 +1062,11 @@ void MainFrame::load(string filename) {
 	loadCircuitFile(filename);
 }
 
+void MainFrame::openFileFromFinder(const wxString& fileName) {
+	doOpenFile = true;
+	openedFilename = fileName;
+}
+
 void MainFrame::PreGateDrag() {
 	currentCanvas->CaptureMouse();
 }

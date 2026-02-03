@@ -73,9 +73,16 @@ bool MainApp::OnInit()
 		cmdFilename = argv[1].ToStdString();
 //		logfile << "cmdFilename = " << cmdFilename << endl;
 	}
+#ifdef __WXOSX__
+	// On macOS, MacOpenFile may have been called before OnInit
+	if (cmdFilename.empty() && !pendingOpenFile.empty()) {
+		cmdFilename = pendingOpenFile;
+		pendingOpenFile.clear();
+	}
+#endif
 	//End of edit
 	//**********************************
-	
+
 
     // create the main application window
     MainFrame *frame = new MainFrame(VERSION_TITLE(), cmdFilename);
@@ -154,3 +161,16 @@ void MainApp::SetCurrentCanvas(wxGLCanvas *canvas)
 		glContext = new wxGLContext(canvas);
 	glContext->SetCurrent(*canvas);
 }
+
+#ifdef __WXOSX__
+void MainApp::MacOpenFile(const wxString& fileName)
+{
+	if (mainframe) {
+		// Use the existing idle-based file opening mechanism
+		mainframe->openFileFromFinder(fileName);
+	} else {
+		// Store for later - OnInit hasn't completed yet
+		pendingOpenFile = fileName.ToStdString();
+	}
+}
+#endif

@@ -103,6 +103,7 @@ public:
 	void PauseSim( void );
 	
 	void loadCircuitFile( string fileName );
+	void openFileFromFinder( const wxString& fileName );
 
 	//Julian: Added to simplify timer use
 	void stopTimers();
