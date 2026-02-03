@@ -1073,7 +1073,8 @@ void GUICanvas::OnKeyDown(wxKeyEvent& event) {
 	case WXK_NUMPAD_DOWN:
 		translatePan(0.0, -PAN_STEP * getZoom());
 		break;
-	case 43: // + key on top row
+	case 43: // + key (Shift+=)
+	case 61: // = key (for zoom in without shift on Mac)
 	case WXK_NUMPAD_ADD:
 		zoomIn();
 		break;

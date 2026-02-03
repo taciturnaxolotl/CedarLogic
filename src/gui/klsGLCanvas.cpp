@@ -608,9 +608,24 @@ void klsGLCanvas::wxOnMouseWheel(wxMouseEvent& event) {
 	int rotationLines = (int)wheelRotation / event.GetWheelDelta();
 	wheelRotation -= rotationLines * event.GetWheelDelta();
 
-
 	if (rotationLines != 0) {
+#ifdef __WXOSX__
+		// On macOS: scroll = zoom, Cmd + scroll = pan
+		if (event.CmdDown()) {
+			// Pan based on scroll direction
+			GLdouble panAmount = PAN_STEP * getZoom() * rotationLines;
+			if (event.GetWheelAxis() == wxMOUSE_WHEEL_HORIZONTAL) {
+				translatePan(panAmount, 0.0);
+			} else {
+				translatePan(0.0, panAmount);
+			}
+		} else {
+			OnMouseWheel(rotationLines / abs(rotationLines));
+		}
+#else
+		// On other platforms, scroll = zoom (original behavior)
 		OnMouseWheel(rotationLines / abs(rotationLines));
+#endif
 	}
 
 	// Update the drag-pan event here if needed:
@@ -700,8 +715,8 @@ void klsGLCanvas::wxKeyDown(wxKeyEvent& event) {
 	case WXK_NUMPAD_DOWN:
 		translatePan(0.0, -PAN_STEP * getZoom());
 		break;
-	case 43: // + key on top row (Works for both '+' and '=')
-		//if (!shiftKeyOn) break;
+	case 43: // + key (Shift+=)
+	case 61: // = key (for zoom in without shift on Mac)
 	case WXK_NUMPAD_ADD:
 		setZoom( getZoom() * ZOOM_STEP );
 		break;
