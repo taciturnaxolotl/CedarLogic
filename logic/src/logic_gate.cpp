@@ -871,20 +871,20 @@ void Gate_REGISTER::gateProcess( void ) {
 
 	// Update outBus and currentValue based on the input states.
 	if( getInputState("clear") == ONE ) {
-		if(hasClockEdge()) {
+		if(hasClockEdge(syncClear)) {
 			// Clear.
 			currentValue = 0;
 			outBus = ulong_to_bus( currentValue, inBits );
 		}
 	} else if( getInputState("set") == ONE ) {
-		if(hasClockEdge()) {
+		if(hasClockEdge(syncSet)) {
 			// Set.
 			vector< StateType > allOnes( inBits, ONE );
 			outBus = allOnes;
 			currentValue = bus_to_ulong( outBus );
 		}
 	} else if( getInputState("load") == ONE ) {
-		if(hasClockEdge()){
+		if(hasClockEdge(syncLoad)){
 			// Load.
 			vector< StateType > inputBus = getInputBusState("IN");
 			for( unsigned long i = 0; i < inputBus.size(); i++ ) {
@@ -975,7 +975,7 @@ void Gate_REGISTER::gateProcess( void ) {
 
 		if( disableHold ) {
 		// Otherwise, load in what is on the input pins:
-			if(hasClockEdge()){
+			if(hasClockEdge(syncLoad)){
 				// Load.
 				vector< StateType > inputBus = getInputBusState("IN");
 				for( unsigned long i = 0; i < inputBus.size(); i++ ) {
@@ -1126,8 +1126,8 @@ string Gate_REGISTER::getParameter( string paramName ) {
 	}
 }
 
-bool Gate_REGISTER::hasClockEdge() {
-	return isRisingEdge("clock") && getInputState("clock_enable") != ZERO || !syncLoad;
+bool Gate_REGISTER::hasClockEdge(bool syncSignal) {
+	return isRisingEdge("clock") && getInputState("clock_enable") != ZERO || !syncSignal;
 }
 
 // **************************** END Register GATE ***********************************

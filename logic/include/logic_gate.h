@@ -389,7 +389,8 @@ protected:
 
 	// The clock pin had a triggering edge and clocking is enabled,
 	// or the register isn't synched to a clock.
-	bool hasClockEdge();
+	// syncSignal indicates whether this operation is synchronous.
+	bool hasClockEdge(bool syncSignal);
 };
 
 
