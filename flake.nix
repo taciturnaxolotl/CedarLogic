@@ -6,16 +6,22 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
       in
       {
         packages = {
           default = self.packages.${system}.cedarlogic;
-          
-          cedarlogic = pkgs.stdenv.mkDerivation rec {
+
+          cedarlogic = pkgs.stdenv.mkDerivation {
             pname = "cedarlogic";
             version = "2.3.8";
 
@@ -41,18 +47,18 @@
 
             # Patch CMakeLists.txt to use system Catch2 instead of FetchContent
             postPatch = ''
-              substituteInPlace logic/CMakeLists.txt \
-                --replace "# Bring in the Catch2 framework
-Include(FetchContent)
+                            substituteInPlace logic/CMakeLists.txt \
+                              --replace "# Bring in the Catch2 framework
+              Include(FetchContent)
 
-FetchContent_Declare(
-  Catch2
-  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG        v3.5.2
-)
+              FetchContent_Declare(
+                Catch2
+                GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+                GIT_TAG        v3.5.2
+              )
 
-FetchContent_MakeAvailable(Catch2)" "# Use system Catch2
-find_package(Catch2 3 REQUIRED)"
+              FetchContent_MakeAvailable(Catch2)" "# Use system Catch2
+              find_package(Catch2 3 REQUIRED)"
             '';
 
             meta = with pkgs.lib; {
@@ -68,16 +74,16 @@ find_package(Catch2 3 REQUIRED)"
 
         devShells.default = pkgs.mkShell {
           inputsFrom = [ self.packages.${system}.cedarlogic ];
-          
+
           buildInputs = with pkgs; [
             # Development tools
             gdb
             valgrind
             clang-tools
-            
+
             # Documentation
             doxygen
-            
+
             # Additional utilities
             git
             gnumake
@@ -101,3 +107,4 @@ find_package(Catch2 3 REQUIRED)"
       }
     );
 }
+

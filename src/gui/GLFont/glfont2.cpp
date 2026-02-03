@@ -13,10 +13,7 @@
 using namespace std;
 
 //OpenGL headers
-#ifdef _WINDOWS
-#include <windows.h>
-#endif
-#include <GL/gl.h>
+#include "gl_wrapper.h"
 
 //glFont header
 #include "glfont2.h"

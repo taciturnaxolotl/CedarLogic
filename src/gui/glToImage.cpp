@@ -2,9 +2,12 @@
 
 #include "MainApp.h"
 #include "wx/glcanvas.h"
+#include "gl_wrapper.h"
 #include "klsMiniMap.h"
 
 #include "paramDialog.h"
+
+#include <cstring>
 
 glImageCtx::glImageCtx(int a_width, int a_height, wxWindow *parent) {
 	width = a_width;
@@ -55,7 +58,7 @@ wxImage glImageCtx::getImage() {
 #ifdef _WINDOWS
 	// convert the DIB Section into a wxImage to return to the caller
 	return theBM.ConvertToImage();
-#elif __linux__
+#elif defined(__linux__) || defined(__APPLE__)
 	uint8_t* pixels = new uint8_t[3 * width * height];
 	uint8_t* flipped = new uint8_t[3 * width * height];
 
@@ -83,6 +86,7 @@ wxImage glImageCtx::getImage() {
 	wxImage mapImage(width, height, true);
 	mapImage.SetData(flipped);
 
+	delete[] pixels;
 	return mapImage;
 #endif
 };

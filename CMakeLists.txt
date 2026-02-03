@@ -46,7 +46,7 @@ else()
     FetchContent_Declare(
        wxWidgets_fetch
        GIT_REPOSITORY https://github.com/wxWidgets/wxWidgets.git
-       GIT_TAG 97e99707c5d2271a70cb686720b48dbf34ced496 # 3.2.1
+       GIT_TAG v3.2.9
        GIT_SHALLOW 1
     )
 
