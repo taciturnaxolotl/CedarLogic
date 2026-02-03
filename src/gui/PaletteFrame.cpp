@@ -29,7 +29,18 @@ PaletteFrame::PaletteFrame( wxWindow *parent, wxWindowID id, const wxPoint &pos,
 		strings.Add(libWalk->first);
 		libWalk++;
 	}
-	listBox = new wxListBox(this, ID_LISTBOX, wxDefaultPosition, wxSize(0,strings.GetCount()*14), strings, wxLB_SINGLE);
+	// Calculate minimum width based on longest string, with padding for scrollbar
+	int minWidth = 120; // Reasonable default minimum
+	for (unsigned int i = 0; i < strings.GetCount(); i++) {
+		int textWidth, textHeight;
+		GetTextExtent(strings[i], &textWidth, &textHeight);
+		if (textWidth + 30 > minWidth) { // Add padding for scrollbar and margins
+			minWidth = textWidth + 30;
+		}
+	}
+	// Calculate height based on item count and actual font metrics
+	int itemHeight = GetCharHeight() + 4; // Add some padding
+	listBox = new wxListBox(this, ID_LISTBOX, wxDefaultPosition, wxSize(minWidth, strings.GetCount() * itemHeight), strings, wxLB_SINGLE);
 	paletteSizer->Add( listBox, wxSizerFlags(0).Expand().Border(wxALL, 0) );
 	paletteSizer->Show( listBox );
 	for (unsigned int i = 0; i < strings.GetCount(); i++) {

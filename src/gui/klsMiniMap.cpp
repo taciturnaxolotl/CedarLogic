@@ -81,7 +81,9 @@ void klsMiniMap::setViewport() {
 
 	// gluOrtho2D(left, right, bottom, top); (In world-space coords.)
 	gluOrtho2D(orthoBoxTL.x, orthoBoxBR.x, orthoBoxBR.y, orthoBoxTL.y);
-	glViewport(0, 0, (GLint) sz.GetWidth(), (GLint) sz.GetHeight());
+	// Use physical pixels for glViewport on HiDPI/Retina displays
+	double scaleFactor = GetContentScaleFactor();
+	glViewport(0, 0, (GLint)(sz.GetWidth() * scaleFactor), (GLint)(sz.GetHeight() * scaleFactor));
 
 	// Store minCorner and maxCorner for use in mouse handler:
 	minCorner = orthoBoxTL;
@@ -99,7 +101,8 @@ void klsMiniMap::generateImage() {
 	// Setup the viewport for rendering:
 	setViewport();
 	// Reset the glViewport to the size of the bitmap:
-	glViewport(0, 0, (GLint) sz.GetWidth(), (GLint) sz.GetHeight());
+	double scaleFactorImg = GetContentScaleFactor();
+	glViewport(0, 0, (GLint)(sz.GetWidth() * scaleFactorImg), (GLint)(sz.GetHeight() * scaleFactorImg));
 	
 	// Set the bitmap clear color:
 	glClearColor (1.0, 1.0, 1.0, 0.0);

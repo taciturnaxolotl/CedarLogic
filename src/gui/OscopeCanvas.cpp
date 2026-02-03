@@ -61,7 +61,9 @@ void OscopeCanvas::OnRender(){
 	
 	
 	gluOrtho2D(0, OSCOPE_HORIZONTAL, numberOfWires * 1.5, -0.25);
-	glViewport(0, 0, (GLint) sz.GetWidth(), (GLint) sz.GetHeight());
+	// Use physical pixels for glViewport on HiDPI/Retina displays
+	double scaleFactor = GetContentScaleFactor();
+	glViewport(0, 0, (GLint)(sz.GetWidth() * scaleFactor), (GLint)(sz.GetHeight() * scaleFactor));
 
 	// Set the model matrix:
 	glMatrixMode (GL_MODELVIEW);

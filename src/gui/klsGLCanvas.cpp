@@ -150,14 +150,19 @@ wxImage klsGLCanvas::renderToImage( unsigned long width, unsigned long height, u
 // (This needs to be called everytime that the matrices will be used.)
 void klsGLCanvas::reclaimViewport( void ) {
 
-	// Set the projection matrix:	
+	// Set the projection matrix:
 	glMatrixMode (GL_PROJECTION);
 	glLoadIdentity ();
 
 	wxSize sz = GetClientSize();
 	// gluOrtho2D(left, right, bottom, top); (In world-space coords.)
-	gluOrtho2D(panX, panX + (sz.GetWidth() * viewZoom), panY - (sz.GetHeight() * viewZoom), panY); 
-	glViewport(0, 0, (GLint) sz.GetWidth(), (GLint) sz.GetHeight());
+	// Use logical coordinates for the projection matrix
+	gluOrtho2D(panX, panX + (sz.GetWidth() * viewZoom), panY - (sz.GetHeight() * viewZoom), panY);
+
+	// For glViewport, we need physical pixels on HiDPI/Retina displays
+	// GetContentScaleFactor() returns 2.0 on Retina Macs, 1.0 elsewhere
+	double scaleFactor = GetContentScaleFactor();
+	glViewport(0, 0, (GLint)(sz.GetWidth() * scaleFactor), (GLint)(sz.GetHeight() * scaleFactor));
 
 	// Set the model matrix:
 	glMatrixMode (GL_MODELVIEW);
