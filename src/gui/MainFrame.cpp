@@ -16,6 +16,7 @@
 #include "wx/image.h"
 #include "wx/thread.h"
 #include "wx/toolbar.h"
+#include "wx/artprov.h"
 #include "wx/clipbrd.h"
 #include "wx/dataobj.h"
 #include "wx/config.h"
@@ -161,23 +162,78 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	//////////////////////////////////////////////////////////////////////////
 	toolBar = new wxToolBar(this, TOOLBAR_ID, wxPoint(0,0), wxDefaultSize, wxTB_HORIZONTAL|wxNO_BORDER| wxTB_FLAT);
 
-	// formerly, we were using a resource file to associate the toolbar bitmaps to the program.  I modified the code
-	// to read the bitmaps from file directly, without the use of a resource file.  KAS
-	string    bitmaps[] = {"new", "open", "save", "undo", "redo", "copy", "paste", "print", "help", "pause", "step", "zoomin", "zoomout", "locked", "newtab"};
+#ifdef __WXOSX__
+	// On macOS, use wxArtProvider for native Cocoa icons
+	wxSize iconSize = wxArtProvider::GetNativeSizeHint(wxART_TOOLBAR);
+	if (iconSize == wxDefaultSize) {
+		iconSize = wxSize(24, 24);
+	}
+	toolBar->SetToolBitmapSize(iconSize);
+
+	// Helper to load custom icons with proper scaling
+	auto loadToolbarIcon = [&](const string& name) -> wxBitmap {
+		string pngPath = wxGetApp().resourcesDir + "res/bitmaps/" + name + ".png";
+		string bmpPath = wxGetApp().resourcesDir + "res/bitmaps/" + name + ".bmp";
+		wxImage img;
+		if (wxFileExists(pngPath)) {
+			img.LoadFile(pngPath, wxBITMAP_TYPE_PNG);
+		} else if (wxFileExists(bmpPath)) {
+			img.LoadFile(bmpPath, wxBITMAP_TYPE_BMP);
+			if (img.IsOk()) {
+				img.SetMaskColour(255, 255, 255);
+			}
+		}
+		if (img.IsOk()) {
+			img.Rescale(iconSize.GetWidth(), iconSize.GetHeight(), wxIMAGE_QUALITY_HIGH);
+			return wxBitmap(img);
+		}
+		return wxArtProvider::GetBitmap(wxART_QUESTION, wxART_TOOLBAR, iconSize);
+	};
+
+	toolBar->AddTool(wxID_NEW, "New", wxArtProvider::GetBitmap(wxART_NEW, wxART_TOOLBAR, iconSize), "New");
+	toolBar->AddTool(wxID_OPEN, "Open", wxArtProvider::GetBitmap(wxART_FILE_OPEN, wxART_TOOLBAR, iconSize), "Open");
+	toolBar->AddTool(wxID_SAVE, "Save", wxArtProvider::GetBitmap(wxART_FILE_SAVE, wxART_TOOLBAR, iconSize), "Save");
+	toolBar->AddSeparator();
+	toolBar->AddTool(wxID_UNDO, "Undo", wxArtProvider::GetBitmap(wxART_UNDO, wxART_TOOLBAR, iconSize), "Undo");
+	toolBar->AddTool(wxID_REDO, "Redo", wxArtProvider::GetBitmap(wxART_REDO, wxART_TOOLBAR, iconSize), "Redo");
+	toolBar->AddSeparator();
+	toolBar->AddTool(wxID_COPY, "Copy", wxArtProvider::GetBitmap(wxART_COPY, wxART_TOOLBAR, iconSize), "Copy");
+	toolBar->AddTool(wxID_PASTE, "Paste", wxArtProvider::GetBitmap(wxART_PASTE, wxART_TOOLBAR, iconSize), "Paste");
+	toolBar->AddSeparator();
+	toolBar->AddTool(Tool_ZoomIn, "Zoom In", wxArtProvider::GetBitmap(wxART_PLUS, wxART_TOOLBAR, iconSize), "Zoom In");
+	toolBar->AddTool(Tool_ZoomOut, "Zoom Out", wxArtProvider::GetBitmap(wxART_MINUS, wxART_TOOLBAR, iconSize), "Zoom Out");
+	toolBar->AddSeparator();
+	toolBar->AddTool(Tool_Pause, "Pause/Resume", loadToolbarIcon("pause"), "Pause/Resume", wxITEM_CHECK);
+	toolBar->AddTool(Tool_Step, "Step", loadToolbarIcon("step"), "Step");
+	timeStepModSlider = new wxSlider(toolBar, wxID_ANY, wxGetApp().timeStepMod, 1, 500, wxDefaultPosition, wxSize(125,-1), wxSL_HORIZONTAL|wxSL_AUTOTICKS);
+	wxString oss;
+	oss << wxGetApp().timeStepMod << "ms";
+	timeStepModVal = new wxStaticText(toolBar, wxID_ANY, oss, wxDefaultPosition, wxSize(45, -1), wxSUNKEN_BORDER | wxALIGN_RIGHT | wxST_NO_AUTORESIZE);
+	toolBar->AddControl( timeStepModSlider );
+	toolBar->AddControl( timeStepModVal );
+	toolBar->AddSeparator();
+	toolBar->AddTool(Tool_Lock, "Lock state", loadToolbarIcon("locked"), "Lock state", wxITEM_CHECK);
+	toolBar->AddSeparator();
+	toolBar->AddTool(wxID_ABOUT, "About", wxArtProvider::GetBitmap(wxART_HELP, wxART_TOOLBAR, iconSize), "About");
+	toolBar->AddSeparator();
+	toolBar->AddTool(Tool_NewTab, "New Tab", wxArtProvider::GetBitmap(wxART_NEW, wxART_TOOLBAR, iconSize), "New Tab");
+#else
+	// On Windows/Linux, use the original BMP icons
+	string bitmaps[] = {"new", "open", "save", "undo", "redo", "copy", "paste", "print", "help", "pause", "step", "zoomin", "zoomout", "locked", "newtab"};
 	wxBitmap *bmp[15];
 
-	for (int  i = 0; i < 15; i++) {
-		bitmaps[i] = wxGetApp().resourcesDir + "res/bitmaps/" + bitmaps[i] + ".bmp";
-		wxFileInputStream in(bitmaps[i]);
+	for (int i = 0; i < 15; i++) {
+		string bmpPath = wxGetApp().resourcesDir + "res/bitmaps/" + bitmaps[i] + ".bmp";
+		wxFileInputStream in(bmpPath);
 		bmp[i] = new wxBitmap(wxImage(in, wxBITMAP_TYPE_BMP));
 	}
 
-    int w = bmp[0]->GetWidth(),
-        h = bmp[0]->GetHeight();
-    toolBar->SetToolBitmapSize(wxSize(w, h));
+	int w = bmp[0]->GetWidth(),
+		h = bmp[0]->GetHeight();
+	toolBar->SetToolBitmapSize(wxSize(w, h));
 	toolBar->AddTool(wxID_NEW, "New", *bmp[0], "New");
 	toolBar->AddTool(wxID_OPEN, "Open", *bmp[1], "Open");
-	toolBar->AddTool(wxID_SAVE, "Save", *bmp[2], "Save"); 
+	toolBar->AddTool(wxID_SAVE, "Save", *bmp[2], "Save");
 	toolBar->AddSeparator();
 	toolBar->AddTool(wxID_UNDO, "Undo", *bmp[3], "Undo");
 	toolBar->AddTool(wxID_REDO, "Redo", *bmp[4], "Redo");
@@ -200,16 +256,15 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	toolBar->AddTool(Tool_Lock, "Lock state", *bmp[13], "Lock state", wxITEM_CHECK);
 	toolBar->AddSeparator();
 	toolBar->AddTool(wxID_ABOUT, "About", *bmp[8], "About");
-	//JV - Temporary tab button
 	toolBar->AddSeparator();
 	toolBar->AddTool(Tool_NewTab, "New Tab", *bmp[14], "New Tab");
-	SetToolBar(toolBar);
-	toolBar->Show(true);
 
-	//finished with the bitmaps, so we can release the pointers  KAS
 	for (int i = 0; i < 15; i++) {
 		delete bmp[i];
 	}
+#endif
+	SetToolBar(toolBar);
+	toolBar->Show(true);
 
     CreateStatusBar(2);
     SetStatusText("");
