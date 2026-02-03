@@ -554,6 +554,24 @@ void GUICanvas::mouseRightDown(wxMouseEvent& event) {
 }
 
 void GUICanvas::OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool CtrlDown ) {
+	// Handle gate dragging from palette (especially needed for macOS where OnMouseEnter
+	// may not fire correctly when mouse is captured)
+	if (wxGetApp().newGateToDrag.size() > 0 && currentDragState == DRAG_NONE && !(this->isLocked())) {
+		GLPoint2f m = getMouseCoords();
+		newDragGate = gCircuit->createGate(wxGetApp().newGateToDrag, -1);
+		if (newDragGate != NULL) {
+			newDragGate->setGLcoords(m.x, m.y);
+			currentDragState = DRAG_NEWGATE;
+			wxGetApp().newGateToDrag = "";
+			beginDrag( BUTTON_LEFT );
+			unselectAllGates();
+			newDragGate->select();
+			collisionChecker.addObject( newDragGate );
+		} else {
+			wxGetApp().newGateToDrag = "";
+		}
+	}
+
 	// Keep a flag for whether things have changed.  If nothing changes, then no render is necessary.
 	bool shouldRender = false;
 	if (wxGetApp().appSystemTime.Time() > wxGetApp().appSettings.refreshRate) {

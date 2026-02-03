@@ -69,8 +69,8 @@ void gateImage::mouseCallback( wxMouseEvent& event) {
 #ifndef USE_WX_DRAGDROP
 		wxGetApp().newGateToDrag = gateName;
 
-#ifdef __WXGTK__
-		// In gtk the canvas doesn't get mouse events when dragging over
+#if defined(__WXGTK__) || defined(__WXOSX__)
+		// On GTK and macOS the canvas doesn't get mouse events when dragging over
 		// it, so we have to tell it to capture the mouse.
 		wxGetApp().mainframe->PreGateDrag();
 
