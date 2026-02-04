@@ -143,6 +143,8 @@ private:
 
 	wxPanel* mainPanel;
 	wxToolBar* toolBar;
+	wxBitmap pauseIcon;
+	wxBitmap playIcon;
 
 	//Julian: Re-added timers to fix refresh error
 	wxTimer* simTimer;

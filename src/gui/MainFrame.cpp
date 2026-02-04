@@ -205,7 +205,9 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	toolBar->AddTool(Tool_ZoomIn, "Zoom In", wxArtProvider::GetBitmap(wxART_PLUS, wxART_TOOLBAR, iconSize), "Zoom In");
 	toolBar->AddTool(Tool_ZoomOut, "Zoom Out", wxArtProvider::GetBitmap(wxART_MINUS, wxART_TOOLBAR, iconSize), "Zoom Out");
 	toolBar->AddSeparator();
-	toolBar->AddTool(Tool_Pause, "Pause/Resume", loadToolbarIcon("pause"), "Pause/Resume", wxITEM_CHECK);
+	pauseIcon = loadToolbarIcon("pause");
+	playIcon = loadToolbarIcon("play");
+	toolBar->AddTool(Tool_Pause, "Pause/Resume", pauseIcon, "Pause/Resume", wxITEM_CHECK);
 	toolBar->AddTool(Tool_Step, "Step", loadToolbarIcon("step"), "Step");
 	timeStepModSlider = new wxSlider(toolBar, wxID_ANY, wxGetApp().timeStepMod, 1, 500, wxDefaultPosition, wxSize(125,-1), wxSL_HORIZONTAL|wxSL_AUTOTICKS);
 	wxString oss;
@@ -246,7 +248,14 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	toolBar->AddTool(Tool_ZoomIn, "Zoom In", *bmp[11], "Zoom In");
 	toolBar->AddTool(Tool_ZoomOut, "Zoom Out", *bmp[12], "Zoom Out");
 	toolBar->AddSeparator();
-	toolBar->AddTool(Tool_Pause, "Pause/Resume", *bmp[9], "Pause/Resume", wxITEM_CHECK);
+	pauseIcon = *bmp[9];
+	// Load play icon
+	{
+		string playPath = wxGetApp().resourcesDir + "res/bitmaps/play.bmp";
+		wxFileInputStream playIn(playPath);
+		playIcon = wxBitmap(wxImage(playIn, wxBITMAP_TYPE_BMP));
+	}
+	toolBar->AddTool(Tool_Pause, "Pause/Resume", pauseIcon, "Pause/Resume", wxITEM_CHECK);
 	toolBar->AddTool(Tool_Step, "Step", *bmp[10], "Step");
 	timeStepModSlider = new wxSlider(toolBar, wxID_ANY, wxGetApp().timeStepMod, 1, 500, wxDefaultPosition, wxSize(125,-1), wxSL_HORIZONTAL|wxSL_AUTOTICKS);
 	wxString oss;
@@ -1003,15 +1012,17 @@ void MainFrame::ResumeExecution() {
 	}
 }
 
-void MainFrame::PauseSim() {	
+void MainFrame::PauseSim() {
 	if (toolBar->GetToolState(Tool_Pause)) {
 		simTimer->Stop();
 		wxGetApp().appSystemTime.Start(0);
 		wxGetApp().appSystemTime.Pause();
+		toolBar->SetToolNormalBitmap(Tool_Pause, playIcon);
 	}
 	else {
 		wxGetApp().appSystemTime.Start(0);
 		simTimer->Start(20);
+		toolBar->SetToolNormalBitmap(Tool_Pause, pauseIcon);
 	}
 }
 
