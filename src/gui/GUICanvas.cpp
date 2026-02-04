@@ -854,24 +854,27 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 //			while( hit != hitThings.end() && !handled ) {
 //				if ((*hit)->getType() == COLL_GATE) {
 //					guiGate* hitGate = ((guiGate*)(*hit));
-					guiGate* hitGate = gateList[preMove[0].id];
-					if (!((event.ShiftDown()||event.ControlDown())) && ((event.LeftUp() && currentDragState == DRAG_SELECTION) || event.LeftDClick())) {
-						// Check for toggle switch
-						float x, y;
-						hitGate->getGLcoords(x,y);
-						bool handled = false;
-						if (!saveMove) {
-							klsMessage::Message_SET_GATE_PARAM* clickHandleGate = hitGate->checkClick( m.x, m.y );
-							if (clickHandleGate != NULL) {
-								gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_SET_GATE_PARAM, clickHandleGate));
+					// Check that gate still exists (may have been deleted by undo)
+					if (gateList.find(preMove[0].id) != gateList.end()) {
+						guiGate* hitGate = gateList[preMove[0].id];
+						if (!((event.ShiftDown()||event.ControlDown())) && ((event.LeftUp() && currentDragState == DRAG_SELECTION) || event.LeftDClick())) {
+							// Check for toggle switch
+							float x, y;
+							hitGate->getGLcoords(x,y);
+							bool handled = false;
+							if (!saveMove) {
+								klsMessage::Message_SET_GATE_PARAM* clickHandleGate = hitGate->checkClick( m.x, m.y );
+								if (clickHandleGate != NULL) {
+									gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_SET_GATE_PARAM, clickHandleGate));
+									handled = true;
+								}
+							}
+							if (event.LeftDClick() && !handled) {
+								hitGate->doParamsDialog( gCircuit, gCircuit->GetCommandProcessor() );
+								currentDragState = DRAG_NONE;
+								// setparams command will handle oscope update
 								handled = true;
 							}
-						}
-						if (event.LeftDClick() && !handled) {
-							hitGate->doParamsDialog( gCircuit, gCircuit->GetCommandProcessor() );
-							currentDragState = DRAG_NONE;
-							// setparams command will handle oscope update
-							handled = true;
 						}
 					}
 //				}
