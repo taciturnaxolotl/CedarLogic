@@ -2,26 +2,29 @@ cmake_minimum_required(VERSION 3.11)
 
 project(Logic VERSION 0.0.0)
 
+# specify the C++ standard BEFORE creating targets
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+
 configure_file(Logic_version.hpp.in Logic_version.hpp)
 
-file(GLOB SRC_FILES 
+file(GLOB SRC_FILES
 	"${PROJECT_SOURCE_DIR}/src/*.cpp"
 	"${PROJECT_SOURCE_DIR}/include/*.h"
 )
 
 add_library(Logic STATIC "${SRC_FILES}")
 
+# Ensure C++11 is used for this target
+target_compile_features(Logic PUBLIC cxx_std_11)
+
 # To build this library you must include it's headers
-include_directories(	
+include_directories(
 	"${PROJECT_SOURCE_DIR}/include/"
 )
 
 # Make it so anyone using this library (and CMake) knows to include the library's headers.
 target_include_directories(Logic PUBLIC "${PROJECT_SOURCE_DIR}/include")
-
-# specify the C++ standard
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Bring in the Catch2 framework
 Include(FetchContent)
