@@ -15,6 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install NSIS
+        run: choco install nsis -y
+
       - name: Configure CMake
         run: cmake -B build -A Win32
 
