@@ -1028,6 +1028,7 @@ void GUICanvas::OnMouseEnter(wxMouseEvent& event) {
 void GUICanvas::OnKeyDown(wxKeyEvent& event) {
 	switch (event.GetKeyCode()) {
 	case WXK_DELETE:
+	case WXK_BACK:  // macOS "delete" key (backspace)
 		if (currentDragState == DRAG_NONE && !(this->isLocked())) deleteSelection();
 		break;
 	case WXK_ESCAPE:
