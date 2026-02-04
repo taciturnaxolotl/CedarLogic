@@ -47,6 +47,8 @@ public:
 	//JV - Changed to return new canvases
 	vector<GUICanvas*> parseFile();
 	void saveCircuit(string, vector< GUICanvas* >, unsigned int currPage = 0);
+	// Save in v1.x compatible format (no version tag, no sentinel, single wire IDs)
+	bool saveCircuitLegacy(string, vector< GUICanvas* >, unsigned int currPage = 0);
 	
 private:
 	XMLParser* mParse;

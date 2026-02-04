@@ -38,6 +38,7 @@ BEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(wxID_SAVE, MainFrame::OnSave)
     EVT_MENU(wxID_SAVEAS, MainFrame::OnSaveAs)
 	EVT_MENU(File_Export, MainFrame::OnExportBitmap)
+	EVT_MENU(File_ExportLegacy, MainFrame::OnExportLegacy)
 	EVT_MENU(File_ClipCopy, MainFrame::OnCopyToClipboard)
 	
 	EVT_MENU(wxID_UNDO, MainFrame::OnUndo)
@@ -100,6 +101,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	fileMenu->Append(wxID_SAVEAS, "Save &As", "Save circuit");
 	fileMenu->AppendSeparator();
 	fileMenu->Append(File_Export, "Export to Image");
+	fileMenu->Append(File_ExportLegacy, "Export v1.x Compatible...", "Save in legacy format for older CedarLogic versions");
 	fileMenu->Append(File_ClipCopy, "Copy Canvas to Clipboard");
 	fileMenu->AppendSeparator();
 	fileMenu->Append(wxID_EXIT, "E&xit\tAlt+X", "Quit this program");
@@ -845,6 +847,40 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 	{
 		return;
 	}
+}
+
+void MainFrame::OnExportLegacy(wxCommandEvent& event) {
+	handlingEvent = true;
+
+	wxString caption = "Export v1.x Compatible Circuit";
+	wxString wildcard = "Circuit files (*.cdl)|*.cdl";
+	wxString defaultFilename = "";
+	wxFileDialog dialog(this, caption, wxEmptyString, defaultFilename, wildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+	dialog.SetDirectory(lastDirectory);
+	if (dialog.ShowModal() == wxID_OK) {
+		wxString path = dialog.GetPath();
+
+		// Pause system during save
+		lock();
+		gCircuit->setSimulate(false);
+
+		// Save in legacy format
+		CircuitParse cirp(currentCanvas);
+		bool success = cirp.saveCircuitLegacy((string)path, canvases);
+
+		// Resume system
+		gCircuit->setSimulate(true);
+		if (!(toolBar->GetToolState(Tool_Lock))) {
+			unlock();
+		}
+
+		if (!success) {
+			wxMessageBox("Warning: This circuit uses bus features that cannot be fully represented in v1.x format. "
+				"Some wire connections may be incomplete in the exported file.",
+				"Export Warning", wxOK | wxICON_WARNING);
+		}
+	}
+	handlingEvent = false;
 }
 
 void MainFrame::OnCopyToClipboard(wxCommandEvent& event) {
