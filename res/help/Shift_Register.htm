@@ -1,0 +1,191 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Shift Register</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="MS_Help.css"><style title="hcp" type="text/css">
+<!--
+p.hcp1 { text-align:center; }
+table.hcp2 { x-cell-content-align:top; border-spacing:0px; }
+tr.hcp3 { x-cell-content-align:top; }
+td.hcp4 { border-left-width:1px; border-left-color:#000000; border-left-style:Solid; border-top-style:Solid; border-top-color:#000000; border-top-width:1px; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+p.hcp5 { font-weight:bold; }
+td.hcp6 { border-top-style:Solid; border-top-color:#000000; border-top-width:1px; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+td.hcp7 { border-left-width:1px; border-left-color:#000000; border-left-style:Solid; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+td.hcp8 { border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+span.hcp9 { font-style:italic; }
+p.hcp10 { font-weight:bold; text-align:center; }
+-->
+</style>
+</head>
+<body>
+<h1>Shift Register</h1>
+
+<p align="center" class="hcp1"><img src="image34.gif"
+						style="width: 476px;
+								height: 385px;
+								border-left-width: 1px;
+								border-left-style: Solid;
+								border-top-width: 1px;
+								border-top-style: Solid;
+								border-right-width: 1px;
+								border-right-style: Solid;
+								border-bottom-width: 1px;
+								border-bottom-style: Solid;"
+						width=476
+						height=385
+						border=1></p>
+
+<table x-use-null-cells style="width:100%;" cellspacing="0" width="100%" class="hcp2">
+<col style="width: 33.333%;">
+<col style="width: 66.667%;">
+
+<tr valign="top" class="hcp3">
+<td style="width:33.333%;" width="33.333%" class="hcp4">
+<p class="hcp5">Pin(s)</td>
+<td rowspan="1" colspan="1" style="width:66.667%;" width="66.667%" class="hcp6">
+<p class="hcp5">Function</td></tr>
+
+<tr valign="top" class="hcp3">
+<td style="width:33.333%;" width="33.333%" class="hcp7">
+<p>Output</td>
+<td rowspan="1" colspan="1" style="width:66.667%;" width="66.667%" class="hcp8">
+<p>Shows the result of the last shift operation.</td></tr>
+
+<tr valign="top" class="hcp3">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp7">
+<p>Input</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp8">
+<p>Bus which provides the number that may be loaded into the register.</td></tr>
+
+<tr valign="top" class="hcp3">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp7">
+<p>SO (Shift Out)</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp8">
+<p>Outputs the current value of the MSB.</td></tr>
+
+<tr valign="top" class="hcp3">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp7">
+<p>SI (Shift IN)</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp8">
+<p>Inputs a value to put into the LSB of the Shift. </td></tr>
+
+<tr valign="top" class="hcp3">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp7">
+<p>R (Reset)</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp8">
+<p>When high, resets the value in the register to 0. When low, does nothing.</td></tr>
+
+<tr valign="top" class="hcp3">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp7">
+<p>L (Load)</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp8">
+<p>When high, the input is loaded into the shift register. </td></tr>
+
+<tr valign="top" class="hcp3">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp7">
+<p>&lt;-</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp8">
+<p>If shift is enabled, when high, the shift register will shift left. 
+ If shift is enabled, when low, the shift register will shift right.</td></tr>
+
+<tr valign="top" class="hcp3">
+<td style="width:33.333%;" width="33.333%" class="hcp7">
+<p>S (Shift Enable)</td>
+<td rowspan="1" colspan="1" style="width:66.667%;" width="66.667%" class="hcp8">
+<p>When high, the shift register will perform a shift on the rising edge 
+ of the clock. When low, the shift register just holds its current value.</td></tr>
+</table>
+
+<p><span class="hcp9">Note: Load and Reset can be asynchronous 
+ or synchronous by double clicking on the gate</span> <span class="hcp9">and 
+ choosing the appropriate dialog.</span></p>
+
+<p class="hcp5"><span class="hcp9">S</span>hift 
+ Register Function Table:</p>
+
+<table x-use-null-cells style="width:100%;" cellspacing="0" width="100%" class="hcp2">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+
+<tr valign="top" class="hcp3">
+<td style="width:20%;" width="20%" class="hcp4">
+<p align="center" class="hcp10">R</td>
+<td style="width:20%;" width="20%" class="hcp6">
+<p align="center" class="hcp10">L</td>
+<td style="width:20%;" width="20%" class="hcp6">
+<p align="center" class="hcp10">S</td>
+<td style="width:20%;" width="20%" class="hcp6">
+<p align="center" class="hcp10">&lt;-</td>
+<td style="width:20%;" width="20%" class="hcp6">
+<p align="center" class="hcp10">Command</td></tr>
+
+<tr valign="top" class="hcp3">
+<td style="width:20%;" width="20%" class="hcp7">
+<p align="center" class="hcp1">1</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">X</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">X</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">X</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">Reset</td></tr>
+
+<tr valign="top" class="hcp3">
+<td style="width:20%;" width="20%" class="hcp7">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">1</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">X</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">X</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">Load</td></tr>
+
+<tr valign="top" class="hcp3">
+<td style="width:20%;" width="20%" class="hcp7">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">1</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">Right Shift</td></tr>
+
+<tr valign="top" class="hcp3">
+<td style="width:20%;" width="20%" class="hcp7">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">1</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">1</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">Left Shift</td></tr>
+
+<tr valign="top" class="hcp3">
+<td style="width:20%;" width="20%" class="hcp7">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">X</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">Hold</td></tr>
+</table>
+
+</body>
+</html>

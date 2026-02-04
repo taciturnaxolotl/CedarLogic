@@ -160,12 +160,14 @@ if(APPLE)
         COMMAND ${CMAKE_COMMAND} -E copy
             "${CMAKE_SOURCE_DIR}/res/arial.glf"
             "${CMAKE_SOURCE_DIR}/res/cl_gatedefs.xml"
-            "${CMAKE_SOURCE_DIR}/res/KLS_Logic.chm"
             "${CMAKE_SOURCE_DIR}/res/LICENSE.txt"
             "$<TARGET_BUNDLE_DIR:CedarLogic>/Contents/Resources/res/"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_SOURCE_DIR}/res/bitmaps"
             "$<TARGET_BUNDLE_DIR:CedarLogic>/Contents/Resources/res/bitmaps"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/res/help"
+            "$<TARGET_BUNDLE_DIR:CedarLogic>/Contents/Resources/res/help"
     )
 endif()
 

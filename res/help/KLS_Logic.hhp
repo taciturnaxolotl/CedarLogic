@@ -1,0 +1,59 @@
+[OPTIONS]
+Compatibility=1.1 or later
+Compiled file=KLS_Logic.htb
+Contents file=KLS_Logic.hhc
+Default topic=Introduction.htm
+Display compile progress=No
+Index file=KLS_Logic.hhk
+Language=0x409 English (United States)
+Title=CedarLogic Help
+
+[FILES]
+About.htm
+Adding_Gates_To_A_Circuit.htm
+Adding_Text.htm
+Advanced_Navigation.htm
+Compare.htm
+Connecting_Gates.htm
+Copy.htm
+Copying_Pasting.htm
+Disconnecting_Gates.htm
+Exit.htm
+Export_Bitmap.htm
+Final_Project.htm
+Full_Adder.htm
+How_To_Have_A_Personal_Relationship_With_God.htm
+Introduction.htm
+Junction_Node.htm
+Manipulating_Selections_Of_Gates_Wires.htm
+New.htm
+Open.htm
+Oscope.htm
+Oscope_Mode.htm
+Paging.htm
+Paste.htm
+Pause_Simulation.htm
+Print.htm
+Print_Preview.htm
+Printing_Exporting_A_Circuit.htm
+RAM.htm
+Redo.htm
+Register.htm
+Review.htm
+ROM.htm
+Save.htm
+Save_As.htm
+Saving_Opening_A_Circuit.htm
+Selecting_Gates_Wires.htm
+Shift_Register.htm
+Step_Through_Simulation.htm
+Stepping.htm
+TO_FROM_Gates.htm
+Undo.htm
+Undo_Redo.htm
+Wiring.htm
+Z80_Control_Pannel.htm
+Z80_Microprocessor.htm
+ZAD_System_calls.htm
+Zoom_In.htm
+Zoom_Out.htm

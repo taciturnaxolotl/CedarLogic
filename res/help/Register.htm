@@ -1,0 +1,182 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Register</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="MS_Help.css"><style title="hcp" type="text/css">
+<!--
+p.hcp1 { text-align:center; }
+table.hcp2 { x-cell-content-align:top; border-spacing:0px; }
+tr.hcp3 { x-cell-content-align:top; }
+td.hcp4 { border-left-width:1px; border-left-color:#000000; border-left-style:Solid; border-top-style:Solid; border-top-color:#000000; border-top-width:1px; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+p.hcp5 { font-weight:bold; }
+td.hcp6 { border-top-style:Solid; border-top-color:#000000; border-top-width:1px; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+td.hcp7 { border-left-width:1px; border-left-color:#000000; border-left-style:Solid; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+td.hcp8 { border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+p.hcp9 { font-weight:bold; text-align:center; }
+-->
+</style>
+</head>
+<body>
+<h1>Register</h1>
+
+<p align="center" class="hcp1"><img src="image27.gif"
+						style="width: 339px;
+								height: 429px;
+								border-left-style: Solid;
+								border-top-style: Solid;
+								border-right-style: Solid;
+								border-bottom-style: Solid;
+								border-left-width: 1px;
+								border-top-width: 1px;
+								border-right-width: 1px;
+								border-bottom-width: 1px;"
+						width=339
+						height=429
+						border=1></p>
+
+<table x-use-null-cells style="width:100%;" cellspacing="0" width="100%" class="hcp2">
+<col style="width: 33.333%;">
+<col style="width: 66.667%;">
+
+<tr style="height:20px;" valign="top" class="hcp3">
+<td style="width:33.333%;" width="33.333%" class="hcp4">
+<p class="hcp5">Pin(s)</td>
+<td rowspan="1" colspan="1" style="width:66.667%;" width="66.667%" class="hcp6">
+<p class="hcp5">Function</td></tr>
+
+<tr style="height:35px;" valign="top" class="hcp3">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp7">
+<p>Output</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp8">
+<p>Supplies the output data from the current operation of the RAM</td></tr>
+
+<tr style="height:19px;" valign="top" class="hcp3">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp7">
+<p>R (Reset)</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp8">
+<p>When high, the register will be cleared.</td></tr>
+
+<tr style="height:19px;" valign="top" class="hcp3">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp7">
+<p>L (Load)</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp8">
+<p>When high, load value from input.</td></tr>
+
+<tr style="height:67px;" valign="top" class="hcp3">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp7">
+<p>U (Count Up/Down)</p>
+<p>&nbsp;</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp8">
+<p>When high, causes the register to count up on a rising clock edge when 
+ count is enabled. When low, causes the register to count down on a rising 
+ clock edge when count is enabled. </td></tr>
+
+<tr style="height:67px;" valign="top" class="hcp3">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp7">
+<p>C (Count Enable)</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp8">
+<p>When high, the register will count on a rising clock edge, When low, 
+ register will hold present state on a rising clock edge.</td></tr>
+
+<tr style="height:67px;" valign="top" class="hcp3">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp7">
+<p>C0 (Carry Out) (Output)</p>
+<p>&nbsp;</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp8">
+<p>When high, causes the register to count up on a rising clock edge when 
+ count is enabled. When low, causes the register to count down on a rising 
+ clock edge when count is enabled. </td></tr>
+</table>
+
+<p style="font-style: italic;">Note that load and reset can be made asynchronous 
+ or synchronous by double clicking on the register and selecting the appropriate 
+ option.</p>
+
+<p class="hcp5">Register Function Table:</p>
+
+<table x-use-null-cells style="width:100%;" cellspacing="0" width="100%" class="hcp2">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+
+<tr valign="top" class="hcp3">
+<td style="width:20%;" width="20%" class="hcp4">
+<p align="center" class="hcp9">R</td>
+<td style="width:20%;" width="20%" class="hcp6">
+<p align="center" class="hcp9">L</td>
+<td style="width:20%;" width="20%" class="hcp6">
+<p align="center" class="hcp9">C</td>
+<td style="width:20%;" width="20%" class="hcp6">
+<p align="center" class="hcp9">U</td>
+<td style="width:20%;" width="20%" class="hcp6">
+<p align="center" class="hcp9">Command</td></tr>
+
+<tr valign="top" class="hcp3">
+<td style="width:20%;" width="20%" class="hcp7">
+<p align="center" class="hcp1">1</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">X</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">X</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">X</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">Reset</td></tr>
+
+<tr valign="top" class="hcp3">
+<td style="width:20%;" width="20%" class="hcp7">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">1</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">X </td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">X</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">Load</td></tr>
+
+<tr valign="top" class="hcp3">
+<td style="width:20%;" width="20%" class="hcp7">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">1</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">Counts Down</td></tr>
+
+<tr valign="top" class="hcp3">
+<td style="width:20%;" width="20%" class="hcp7">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">1</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">1</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">Counts Up</td></tr>
+
+<tr valign="top" class="hcp3">
+<td style="width:20%;" width="20%" class="hcp7">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">0</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">X</td>
+<td style="width:20%;" width="20%" class="hcp8">
+<p align="center" class="hcp1">Hold</td></tr>
+</table>
+
+</body>
+</html>
