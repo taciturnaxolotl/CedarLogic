@@ -59,9 +59,73 @@ cmake --build build -j8
 
 There is now a CedarLogic executable in the `build` directory.
 
-## MacOS
+## macOS
 
-If you figure it out (and it should be do-able) please fill in the docs! Until this is filled out, slight changes to the Ubuntu instructions _should_ work on a Mac.
+### Required Programs
+
+- [ ] Xcode Command Line Tools (`xcode-select --install`)
+- [ ] [CMake](https://cmake.org/download/) (or `brew install cmake`)
+
+### Build CedarLogic App Bundle
+
+From within the root of the CedarLogic repo:
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+```
+
+There is now a `CedarLogic.app` in the `build` directory.
+
+### Build DMG Installer
+
+```bash
+cd build
+cpack -G DragNDrop
+```
+
+This creates `CedarLogic-<version>-Darwin.dmg` in the build directory.
+
+### Code Signing (Optional)
+
+For distribution outside the Mac App Store, you need an Apple Developer ID certificate.
+To sign the app and DMG:
+
+```bash
+# Sign the app bundle (replace with your Developer ID)
+codesign --deep --force --verify --verbose \
+    --sign "Developer ID Application: Your Name (TEAMID)" \
+    --options runtime \
+    build/CedarLogic.app
+
+# Create signed DMG
+hdiutil create -volname "CedarLogic" -srcfolder build/CedarLogic.app \
+    -ov -format UDZO build/CedarLogic-signed.dmg
+
+# Sign the DMG
+codesign --force --sign "Developer ID Application: Your Name (TEAMID)" \
+    build/CedarLogic-signed.dmg
+```
+
+For notarization (required for macOS 10.15+):
+
+```bash
+# Submit for notarization
+xcrun notarytool submit build/CedarLogic-signed.dmg \
+    --apple-id "your@email.com" \
+    --team-id "TEAMID" \
+    --password "app-specific-password" \
+    --wait
+
+# Staple the notarization ticket
+xcrun stapler staple build/CedarLogic-signed.dmg
+```
+
+For local development/testing without a Developer ID, you can use ad-hoc signing:
+
+```bash
+codesign --deep --force --sign - build/CedarLogic.app
+```
 
 ## Developing Notes
 
