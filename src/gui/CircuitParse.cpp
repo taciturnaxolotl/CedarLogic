@@ -485,3 +485,87 @@ void CircuitParse::saveCircuit(string filename, vector< GUICanvas* > glc, unsign
 	outfile << ossCircuit->str();
 	outfile.close();
 }
+
+// Save in v1.x compatible format (no version tag, no sentinel, single wire IDs)
+// Returns false if circuit uses bus features that can't be fully represented
+bool CircuitParse::saveCircuitLegacy(string filename, vector< GUICanvas* > glc, unsigned int currPage) {
+	bool hasBusFeatures = false;
+
+	// Check if any wire has multiple IDs (bus feature)
+	for (unsigned int i = 0; i < glc.size(); i++) {
+		unordered_map< unsigned long, guiWire* >* wireList = glc[i]->getWireList();
+		unordered_map< unsigned long, guiWire* >::iterator thisWire = wireList->begin();
+		while (thisWire != wireList->end()) {
+			if (thisWire->second != nullptr && thisWire->second->getIDs().size() > 1) {
+				hasBusFeatures = true;
+				break;
+			}
+			thisWire++;
+		}
+		if (hasBusFeatures) break;
+	}
+
+	ostringstream* ossCircuit = new ostringstream();
+	mParse = new XMLParser(ossCircuit);
+
+	// v1.x format: no version tag, no sentinel - just circuit directly
+	mParse->openTag("circuit");
+	unordered_map < unsigned long, guiGate* >* gateList;
+	unordered_map < unsigned long, guiWire* >* wireList;
+
+	// Save which page was current
+	mParse->openTag("CurrentPage");
+	ostringstream oss;
+	oss << currPage;
+	mParse->writeTag("CurrentPage", oss.str());
+	mParse->closeTag("CurrentPage");
+
+	for (unsigned int i = 0; i < glc.size(); i++) {
+		ostringstream oss;
+		oss << "page " << i;
+		string pageNumber = oss.str();
+		mParse->openTag(pageNumber);
+
+		// Save the page's last viewport
+		mParse->openTag("PageViewport");
+		oss.str("");
+		oss.clear();
+		GLPoint2f topLeft, bottomRight;
+		glc[i]->getViewport(topLeft, bottomRight);
+		oss << topLeft.x << "," << topLeft.y << "," << bottomRight.x << "," << bottomRight.y;
+		mParse->writeTag("PageViewport", oss.str());
+		mParse->closeTag("PageViewport");
+
+		gateList = glc[i]->getGateList();
+		wireList = glc[i]->getWireList();
+		unordered_map< unsigned long, guiGate* >::iterator thisGate = gateList->begin();
+		while (thisGate != gateList->end()) {
+			// Use legacy save method (single wire IDs)
+			(thisGate->second)->saveGateLegacy(mParse);
+			thisGate++;
+		}
+
+		unordered_map< unsigned long, guiWire* >::iterator thisWire = wireList->begin();
+		while (thisWire != wireList->end()) {
+			if (thisWire->second != nullptr) {
+				// Use legacy save method (single wire ID)
+				(thisWire->second)->saveWireLegacy(mParse);
+			}
+			thisWire++;
+		}
+
+		mParse->closeTag(pageNumber);
+	}
+
+	mParse->closeTag("circuit");
+
+	ofstream outfile(filename.c_str());
+	outfile << ossCircuit->str();
+	outfile.close();
+
+	delete mParse;
+	mParse = nullptr;
+	delete ossCircuit;
+
+	return !hasBusFeatures;
+}

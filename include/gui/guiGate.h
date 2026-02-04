@@ -222,7 +222,9 @@ public:
 	bool isConnectionInput(string idx) { return isInput[idx]; };
 	
 	void saveGate(XMLParser*);
-	
+	// Save in v1.x compatible format (single wire IDs)
+	void saveGateLegacy(XMLParser*);
+
 	//*********************************
 	//Edit by Joshua Lansford 6/06/2007
 	//I want the ram files to save their contents to file

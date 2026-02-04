@@ -392,8 +392,70 @@ void guiGate::saveGate(XMLParser* xparse) {
 	//save specific stuff.
 	this->saveGateTypeSpecifics( xparse );
 	//End of edit***********************
-	
-	xparse->closeTag("gate");	
+
+	xparse->closeTag("gate");
+}
+
+// Save in v1.x compatible format (single wire IDs)
+void guiGate::saveGateLegacy(XMLParser* xparse) {
+	float x, y;
+	this->getGLcoords( x, y );
+
+	xparse->openTag("gate");
+	xparse->openTag("ID");
+	ostringstream oss;
+	oss << gateID;
+	xparse->writeTag("ID", oss.str());
+	xparse->closeTag("ID");
+	xparse->openTag("type");
+	xparse->writeTag("type", libGateName);
+	xparse->closeTag("type");
+	oss.str("");
+	xparse->openTag("position");
+	oss << x << "," << y;
+	xparse->writeTag("position", oss.str());
+	xparse->closeTag("position");
+	map< string, guiWire* >::iterator pC = connections.begin();
+	while (pC != connections.end()) {
+		xparse->openTag((isInput[pC->first] ? "input" : "output"));
+		xparse->openTag("ID");
+		xparse->writeTag("ID", pC->first);
+		xparse->closeTag("ID");
+		oss.str("");
+		// v1.x format: save only first/primary wire ID
+		oss << pC->second->getID() << " ";
+		xparse->writeTag((isInput[pC->first] ? "input" : "output"), oss.str());
+		xparse->closeTag((isInput[pC->first] ? "input" : "output"));
+		pC++;
+	}
+	map< string, string >::iterator pParams = gparams.begin();
+	while (pParams != gparams.end()) {
+		xparse->openTag("gparam");
+		oss.str("");
+		oss << pParams->first << " " << pParams->second;
+		xparse->writeTag("gparam", oss.str());
+		xparse->closeTag("gparam");
+		pParams++;
+	}
+	pParams = lparams.begin();
+	LibraryGate lg = wxGetApp().libraries[getLibraryName()][getLibraryGateName()];
+	while (pParams != lparams.end()) {
+		bool found = false;
+		for (unsigned int i = 0; i < lg.dlgParams.size() && !found; i++) {
+			if (lg.dlgParams[i].isGui) continue;
+			if ((lg.dlgParams[i].type == "FILE_IN" || lg.dlgParams[i].type == "FILE_OUT") &&
+				lg.dlgParams[i].name == pParams->first) found = true;
+		}
+		if (found) { pParams++; continue; }
+		xparse->openTag("lparam");
+		oss.str("");
+		oss << pParams->first << " " << pParams->second;
+		xparse->writeTag("lparam", oss.str());
+		xparse->closeTag("lparam");
+		pParams++;
+	}
+	this->saveGateTypeSpecifics( xparse );
+	xparse->closeTag("gate");
 }
 
 void guiGate::doParamsDialog( void* gc, wxCommandProcessor* wxcmd ) {

@@ -92,6 +92,8 @@ public:
 
 	// Give directions for XML tag definition of wire
 	void saveWire(XMLParser* xparse);
+	// Save in v1.x compatible format (single wire ID)
+	void saveWireLegacy(XMLParser* xparse);
 
 	// Get the list of pointers to segments that constitute the wire shape
 	// Get the mapping of ID to segment that is the wire shape

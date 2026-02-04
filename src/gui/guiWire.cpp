@@ -516,6 +516,68 @@ void guiWire::saveWire(XMLParser* xparse) {
 	xparse->closeTag("wire");
 }
 
+// Save in v1.x compatible format (single wire ID)
+void guiWire::saveWireLegacy(XMLParser* xparse) {
+	xparse->openTag("wire");
+	// Save only the first/primary ID for v1.x compatibility
+	xparse->openTag("ID");
+	ostringstream oss;
+	oss << getID();  // Use single ID
+	xparse->writeTag("ID", oss.str());
+	xparse->closeTag("ID");
+	// Save the tree (same as modern format)
+	xparse->openTag("shape");
+	map < long, wireSegment >::iterator segWalk = segMap.begin();
+	while (segWalk != segMap.end()) {
+		if ((segWalk->second).isVertical()) xparse->openTag("vsegment");
+		else xparse->openTag("hsegment");
+		// ID
+		oss.str(""); oss.clear();
+		oss << (segWalk->second).id;
+		xparse->openTag("ID");
+		xparse->writeTag("ID", oss.str());
+		xparse->closeTag("ID");
+		// position - begin/end points
+		oss.str(""); oss.clear();
+		oss << (segWalk->second).begin.x << "," << (segWalk->second).begin.y << "," << (segWalk->second).end.x << "," << (segWalk->second).end.y;
+		xparse->openTag("points");
+		xparse->writeTag("points", oss.str());
+		xparse->closeTag("points");
+		// connections - gid and connection string
+		for (unsigned int i = 0; i < (segWalk->second).connections.size(); i++) {
+			xparse->openTag("connection");
+			oss.str(""); oss.clear();
+			oss << (segWalk->second).connections[i].gid;
+			xparse->openTag("GID");
+			xparse->writeTag("GID", oss.str());
+			xparse->closeTag("GID");
+			oss.str(""); oss.clear();
+			oss << (segWalk->second).connections[i].connection;
+			xparse->openTag("name");
+			xparse->writeTag("name", oss.str());
+			xparse->closeTag("name");
+			xparse->closeTag("connection");
+		}
+		// intersections
+		map < GLfloat, vector < long > >::iterator isectWalk = (segWalk->second).intersects.begin();
+		while (isectWalk != (segWalk->second).intersects.end()) {
+			for (unsigned int j = 0; j < (isectWalk->second).size(); j++) {
+				xparse->openTag("intersection");
+				oss.str(""); oss.clear();
+				oss << isectWalk->first << " " << (isectWalk->second)[j];
+				xparse->writeTag("intersection", oss.str());
+				xparse->closeTag("intersection");
+			}
+			isectWalk++;
+		}
+		if ((segWalk->second).isVertical()) xparse->closeTag("vsegment");
+		else xparse->closeTag("hsegment");
+		segWalk++;
+	}
+	xparse->closeTag("shape");
+	xparse->closeTag("wire");
+}
+
 map < long, wireSegment > guiWire::getSegmentMap(void) { return segMap; };
 
 void guiWire::setSegmentMap(map < long, wireSegment > newSegMap) {

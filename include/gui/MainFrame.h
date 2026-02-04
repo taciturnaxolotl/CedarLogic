@@ -32,6 +32,7 @@ enum
 {
 	File_Export = 5901, // out of range of wxWidgets constants
 	File_ClipCopy,
+	File_ExportLegacy,
 	
 	View_Oscope,
 	View_Gridline,
@@ -71,6 +72,7 @@ public:
     void OnSave(wxCommandEvent& event);
     void OnSaveAs(wxCommandEvent& event);
 	void OnExportBitmap(wxCommandEvent& event);
+	void OnExportLegacy(wxCommandEvent& event);
 	void OnCopyToClipboard(wxCommandEvent& event);
 	void OnTimer(wxTimerEvent& event);
 	void OnIdle(wxTimerEvent& event);
