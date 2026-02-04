@@ -1038,6 +1038,15 @@ void GUICanvas::OnKeyDown(wxKeyEvent& event) {
 			collisionChecker.removeObject( newDragGate );
 			delete newDragGate;
 			collisionChecker.update();
+		} else if (isWithinPaste) {
+			// Cancel paste operation: undo all pasted gates/wires
+			pasteCommand->Undo();
+			delete pasteCommand;
+			pasteCommand = nullptr;
+			isWithinPaste = false;
+			preMove.clear();
+			preMoveWire.clear();
+			collisionChecker.update();
 		} else {
 			if (preMove.size() > 0) {
 				saveMove = false;
@@ -1054,7 +1063,7 @@ void GUICanvas::OnKeyDown(wxKeyEvent& event) {
 					wireList[preMoveWire[i].id]->setSegmentMap(preMoveWire[i].oldWireTree);
 					wireList[preMoveWire[i].id]->select();
 				}
-			}			
+			}
 		}
 		currentDragState = DRAG_NONE;
 		endDrag(BUTTON_LEFT);
