@@ -1,0 +1,259 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<!-- Sitemap 1.0 -->
+<object type="text/site properties">
+  <param name="SiteType" value="toc">
+  <param name="Image Width" value="16">
+  <param name="Window Styles" value="0x800002">
+  <param name="ExWindow Styles" value="0x100">
+</object>
+<ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="About">
+    <param name="Local" value="About.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="How To Know God">
+    <param name="Local" value="How_To_Have_A_Personal_Relationship_With_God.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Menu Commands">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="File Commands">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="New">
+        <param name="Local" value="New.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Open">
+        <param name="Local" value="Open.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Save">
+        <param name="Local" value="Save.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Save As">
+        <param name="Local" value="Save_As.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Print">
+        <param name="Local" value="Print.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Print Preview">
+        <param name="Local" value="Print_Preview.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Exit">
+        <param name="Local" value="Exit.htm">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Edit Commands">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Undo">
+        <param name="Local" value="Undo.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Redo">
+        <param name="Local" value="Redo.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Copy">
+        <param name="Local" value="Copy.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Paste">
+        <param name="Local" value="Paste.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Export Bitmap">
+        <param name="Local" value="Export_Bitmap.htm">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="View Commands">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Oscope">
+        <param name="Local" value="Oscope.htm">
+      </object>
+      </ul>
+    </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Toolbar Commands">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Zoom In">
+      <param name="Local" value="Zoom_In.htm">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Zoom Out">
+      <param name="Local" value="Zoom_Out.htm">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Pause Simulation">
+      <param name="Local" value="Pause_Simulation.htm">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Step Through Simulation">
+      <param name="Local" value="Step_Through_Simulation.htm">
+    </object>
+    </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="High Level Gate Descriptions">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="RAM">
+      <param name="Local" value="RAM.htm">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="ROM">
+      <param name="Local" value="ROM.htm">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Junction Node">
+      <param name="Local" value="Junction_Node.htm">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Register">
+      <param name="Local" value="Register.htm">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Shift Register">
+      <param name="Local" value="Shift_Register.htm">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Full Adder">
+      <param name="Local" value="Full_Adder.htm">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Compare">
+      <param name="Local" value="Compare.htm">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="ZAD Microprocessor">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Z80 Microprocessor">
+        <param name="Local" value="Z80_Microprocessor.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Control Panel">
+        <param name="Local" value="Z80_Control_Pannel.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="ZAD System Calls">
+        <param name="Local" value="ZAD_System_calls.htm">
+      </object>
+      </ul>
+    </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Tutorial">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Introduction">
+      <param name="Local" value="Introduction.htm">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Getting Started">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Adding Gates To A Circuit">
+        <param name="Local" value="Adding_Gates_To_A_Circuit.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="TO/FROM Gates">
+        <param name="Local" value="TO_FROM_Gates.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Connecting Gates">
+        <param name="Local" value="Connecting_Gates.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Disconnecting Gates">
+        <param name="Local" value="Disconnecting_Gates.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Selecting Gates/Wires">
+        <param name="Local" value="Selecting_Gates_Wires.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Manipulating Selections Of Gates/Wires">
+        <param name="Local" value="Manipulating_Selections_Of_Gates_Wires.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Wiring">
+        <param name="Local" value="Wiring.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Adding Text">
+        <param name="Local" value="Adding_Text.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Printing/Exporting A Circuit">
+        <param name="Local" value="Printing_Exporting_A_Circuit.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Saving/Opening A Circuit">
+        <param name="Local" value="Saving_Opening_A_Circuit.htm">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Basic User Interface">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Review">
+        <param name="Local" value="Review.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Copying/Pasting">
+        <param name="Local" value="Copying_Pasting.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Undo/Redo">
+        <param name="Local" value="Undo_Redo.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Advanced Navigation">
+        <param name="Local" value="Advanced_Navigation.htm">
+      </object>
+      </ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Advanced Circuit Simulation">
+    </object>
+    <ul>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Stepping">
+        <param name="Local" value="Stepping.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Paging">
+        <param name="Local" value="Paging.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Oscope Mode">
+        <param name="Local" value="Oscope_Mode.htm">
+      </object>
+      <li><object type="text/sitemap">
+        <param name="Name" value="Final Project">
+        <param name="Local" value="Final_Project.htm">
+      </object>
+      </ul>
+    </ul>
+</ul>
+</html>

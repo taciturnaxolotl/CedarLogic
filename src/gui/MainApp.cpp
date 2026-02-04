@@ -46,8 +46,15 @@ bool MainApp::OnInit()
 	loadSettings();
 	
     wxFileSystem::AddHandler( new wxZipFSHandler );
+#ifdef __APPLE__
+	helpController = new wxHtmlHelpController(wxHF_DEFAULT_STYLE | wxHF_OPEN_FILES);
+	if (!helpController->AddBook(appSettings.helpFile)) {
+		wxLogWarning("Failed to load help file: %s", appSettings.helpFile);
+	}
+#else
 	helpController = new wxHelpController;
 	helpController->Initialize(appSettings.helpFile);
+#endif
 
 
 	//*****************************************
@@ -125,7 +132,11 @@ void MainApp::loadSettings() {
 	conf->Read("GateLib", &str, "res/cl_gatedefs.xml");
 	appSettings.gateLibFile = resourcesDir + str;
 
+	#ifdef __APPLE__
+	conf->Read("HelpFile", &str, "res/help/KLS_Logic.hhp");
+#else
 	conf->Read("HelpFile", &str, "res/KLS_Logic.chm");
+#endif
 	appSettings.helpFile = resourcesDir + str;
 
 	conf->Read("TextFont", &str, "res/arial.glf");

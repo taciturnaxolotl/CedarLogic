@@ -17,6 +17,7 @@
 #include "wx/image.h"
 #include "wx/docview.h"
 #include "wx/help.h"
+#include "wx/html/helpctrl.h"
 #include "wx/fs_zip.h"
 #include "wx/glcanvas.h"
 #include "threadLogic.h"
@@ -90,7 +91,11 @@ public:
     bool m_waitingUntilAllDone;
     
     // Help system
+#ifdef __APPLE__
+    wxHtmlHelpController* helpController;
+#else
     wxHelpController* helpController;
+#endif
     
     bool showDragImage;
 	string newGateToDrag;

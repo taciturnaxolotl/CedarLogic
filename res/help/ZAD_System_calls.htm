@@ -1,0 +1,264 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>ZAD System calls</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="MS_Help.css"><style title="hcp" type="text/css">
+<!--
+table.hcp1 { x-cell-content-align:top; border-spacing:0; }
+td.hcp2 { border-left-width:1px; border-left-color:#000000; border-left-style:Solid; border-top-style:Solid; border-top-color:#000000; border-top-width:1px; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+span.hcp3 { font-weight:bold; }
+td.hcp4 { border-top-style:Solid; border-top-color:#000000; border-top-width:1px; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+p.hcp5 { font-weight:bold; }
+td.hcp6 { border-left-width:1px; border-left-color:#000000; border-left-style:Solid; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+td.hcp7 { border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+-->
+</style>
+</head>
+<body>
+<h1>ZAD System calls</h1>
+
+<p>The following ZAD system calls have been emulated and can be called 
+ in emulated ZAD code by calling to the appropriate addresses when the 
+ emulated Z80 chip is in On or Smart ZAD mode.</p>
+
+<table x-use-null-cells style="width:100%;" cellspacing="0" width="100%" class="hcp1">
+<col style="width: 8.703%;">
+<col style="width: 8.774%;">
+<col style="width: 82.523%;">
+
+<tr valign=top>
+<td width="8.703%" class="hcp2">
+<p><span class="hcp3">Name</span></td>
+<td width="8.774%" class="hcp4">
+<p class="hcp5">Address</td>
+<td style="border-top-style: Solid;
+			border-top-color: #000000;
+			border-top-width: 1px;
+			border-right-width: 1px;
+			border-right-color: #000000;
+			border-right-style: Solid;
+			border-bottom-style: Solid;
+			border-bottom-color: #000000;
+			border-bottom-width: 1px;
+			padding-right: 10px;
+			padding-left: 10px;
+			x-cell-content-align: center;"
+	valign=middle
+	width=82.523%>
+<p class="hcp5">Description</td></tr>
+
+<tr valign=top>
+<td width="8.703%" class="hcp6">
+<p>KBRD</td>
+<td width="8.774%" class="hcp7">
+<p>0x0FEB</td>
+<td width="82.523%" class="hcp7">
+<p>Waits for a key press and returns a soft keycode. &nbsp;This 
+ method also powers the hex display.</td></tr>
+
+<tr valign=top>
+<td width="8.703%" class="hcp6">
+<p>SCAN</td>
+<td width="8.774%" class="hcp7">
+<p>0x0FEE</td>
+<td width="82.523%" class="hcp7">
+<p>Scans the keyboard once and returns a hard keycode. &nbsp;This 
+ method also powers the hex display.</td></tr>
+
+<tr valign=top>
+<td width="8.703%" class="hcp6">
+<p>HEXTO7</td>
+<td width="8.774%" class="hcp7">
+<p>0x0FF1</td>
+<td width="82.523%" class="hcp7">
+<p>Prepares the six hex digits in the DISPV for displaying on the hex display 
+ by KBRD or SCAN</td></tr>
+
+<tr valign=top>
+<td width="8.703%" class="hcp6">
+<p>MESOUT</td>
+<td width="8.774%" class="hcp7">
+<p>0x0FF4</td>
+<td width="82.523%" class="hcp7">
+<p>Prepares the six digit ASCII string pointed to by IX for displaying 
+ on the hex display by KBRD or SCAN</td></tr>
+
+<tr valign=top>
+<td colspan="1" rowspan="1" width="8.703%" class="hcp6">
+<p>DELAY</td>
+<td colspan="1" rowspan="1" width="8.774%" class="hcp7">
+<p>0x0FFD</td>
+<td colspan="1" rowspan="1" width="82.523%" class="hcp7">
+<p>Pauses the system by the amount specified in the HL register pair.</td></tr>
+
+<tr valign=top>
+<td width="8.703%" class="hcp6">
+<p>DISPV</td>
+<td width="8.774%" class="hcp7">
+<p>0x1F12</td>
+<td width="82.523%" class="hcp7">
+<p>The start of a 6 byte vector used as an argument to HEXTO7</td></tr>
+</table>
+
+<p>They keypad in the Z-80 Control panel can be accessed by the SCAN or 
+ KBRD method. &nbsp;The 
+ SCAN method returns a Hard code while the KBRD returns a Soft code.</p>
+
+<table x-use-null-cells style="width:21.776%;" width="21.776%" cellspacing="0" class="hcp1">
+<col style="width: 33.656%;">
+<col style="width: 32.201%;">
+<col style="width: 34.143%;">
+
+<tr valign=top>
+<td width="33.656%" class="hcp2">
+<p><span class="hcp3">Key</span></td>
+<td width="32.201%" class="hcp4">
+<p><span class="hcp3">Hard</span></td>
+<td width="34.143%" class="hcp4">
+<p class="hcp5">Soft</td></tr>
+
+<tr valign=top>
+<td width="33.656%" class="hcp6">
+<p>None</td>
+<td width="32.201%" class="hcp7">
+<p>00</td>
+<td width="34.143%" class="hcp7">
+<p>n/a</td></tr>
+
+<tr valign=top>
+<td width="33.656%" class="hcp6">
+<p>0</td>
+<td width="32.201%" class="hcp7">
+<p>06</td>
+<td width="34.143%" class="hcp7">
+<p>00</td></tr>
+
+<tr valign=top>
+<td width="33.656%" class="hcp6">
+<p>1</td>
+<td width="32.201%" class="hcp7">
+<p>05</td>
+<td width="34.143%" class="hcp7">
+<p>01</td></tr>
+
+<tr valign=top>
+<td width="33.656%" class="hcp6">
+<p>2</td>
+<td width="32.201%" class="hcp7">
+<p>01</td>
+<td width="34.143%" class="hcp7">
+<p>02</td></tr>
+
+<tr valign=top>
+<td width="33.656%" class="hcp6">
+<p>3</td>
+<td width="32.201%" class="hcp7">
+<p>08</td>
+<td width="34.143%" class="hcp7">
+<p>03</td></tr>
+
+<tr valign=top>
+<td width="33.656%" class="hcp6">
+<p>4</td>
+<td width="32.201%" class="hcp7">
+<p>0C</td>
+<td width="34.143%" class="hcp7">
+<p>04</td></tr>
+
+<tr valign=top>
+<td width="33.656%" class="hcp6">
+<p>5</td>
+<td width="32.201%" class="hcp7">
+<p>0B</td>
+<td width="34.143%" class="hcp7">
+<p>05</td></tr>
+
+<tr valign=top>
+<td width="33.656%" class="hcp6">
+<p>6</td>
+<td width="32.201%" class="hcp7">
+<p>07</td>
+<td width="34.143%" class="hcp7">
+<p>06</td></tr>
+
+<tr valign=top>
+<td colspan="1" rowspan="1" width="33.656%" class="hcp6">
+<p>7</td>
+<td colspan="1" rowspan="1" width="32.201%" class="hcp7">
+<p>09</td>
+<td colspan="1" rowspan="1" width="34.143%" class="hcp7">
+<p>07</td></tr>
+
+<tr valign=top>
+<td colspan="1" rowspan="1" width="33.656%" class="hcp6">
+<p>8</td>
+<td colspan="1" rowspan="1" width="32.201%" class="hcp7">
+<p>12</td>
+<td colspan="1" rowspan="1" width="34.143%" class="hcp7">
+<p>08</td></tr>
+
+<tr valign=top>
+<td colspan="1" rowspan="1" width="33.656%" class="hcp6">
+<p>9</td>
+<td colspan="1" rowspan="1" width="32.201%" class="hcp7">
+<p>17</td>
+<td colspan="1" rowspan="1" width="34.143%" class="hcp7">
+<p>09</td></tr>
+
+<tr valign=top>
+<td colspan="1" rowspan="1" width="33.656%" class="hcp6">
+<p>A</td>
+<td colspan="1" rowspan="1" width="32.201%" class="hcp7">
+<p>02</td>
+<td colspan="1" rowspan="1" width="34.143%" class="hcp7">
+<p>0A</td></tr>
+
+<tr valign=top>
+<td colspan="1" rowspan="1" width="33.656%" class="hcp6">
+<p>B</td>
+<td colspan="1" rowspan="1" width="32.201%" class="hcp7">
+<p>03</td>
+<td colspan="1" rowspan="1" width="34.143%" class="hcp7">
+<p>0B</td></tr>
+
+<tr valign=top>
+<td colspan="1" rowspan="1" width="33.656%" class="hcp6">
+<p>C</td>
+<td colspan="1" rowspan="1" width="32.201%" class="hcp7">
+<p>18</td>
+<td colspan="1" rowspan="1" width="34.143%" class="hcp7">
+<p>0C</td></tr>
+
+<tr valign=top>
+<td colspan="1" rowspan="1" width="33.656%" class="hcp6">
+<p>D</td>
+<td colspan="1" rowspan="1" width="32.201%" class="hcp7">
+<p>11</td>
+<td colspan="1" rowspan="1" width="34.143%" class="hcp7">
+<p>0D</td></tr>
+
+<tr valign=top>
+<td colspan="1" rowspan="1" width="33.656%" class="hcp6">
+<p>E</td>
+<td colspan="1" rowspan="1" width="32.201%" class="hcp7">
+<p>04</td>
+<td colspan="1" rowspan="1" width="34.143%" class="hcp7">
+<p>0E</td></tr>
+
+<tr valign=top>
+<td width="33.656%" class="hcp6">
+<p>F</td>
+<td width="32.201%" class="hcp7">
+<p>0A</td>
+<td width="34.143%" class="hcp7">
+<p>0F</td></tr>
+</table>
+
+<p>&nbsp;</p>
+
+</body>
+</html>

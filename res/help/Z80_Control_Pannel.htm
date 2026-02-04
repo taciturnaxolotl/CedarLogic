@@ -1,0 +1,172 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Z80 Control Panel</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="MS_Help.css"><style title="hcp" type="text/css">
+<!--
+tr.hcp1 { x-cell-content-align:top; }
+span.hcp2 { font-weight:bold; }
+td.hcp3 { border-left-width:1px; border-left-color:#000000; border-left-style:Solid; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+p.hcp4 { margin-left:0px; }
+td.hcp5 { border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+p.hcp6 { font-style:italic; }
+-->
+</style>
+</head>
+<body>
+<h1>Z80 Control Panel</h1>
+
+<p>The Z80 Control panel allows you to control the execution of Z80 programs 
+ as emulated by the Z80 gate. &nbsp;The 
+ Z80 control panel is accessed by double clicking on the Z80 gate that 
+ you wish to control.</p>
+
+<p><img src="Z80Popup.bmp"
+		x-maintain-ratio=TRUE
+		style="width: 358px;
+				height: 686px;
+				float: left;
+				float: left;
+				border-left-style: Solid;
+				border-top-style: Solid;
+				border-right-style: Solid;
+				border-bottom-style: Solid;
+				border-left-width: 1px;
+				border-top-width: 1px;
+				border-right-width: 1px;
+				border-bottom-width: 1px;"
+		width=358
+		height=686
+		align=left
+		border=1></p>
+
+<table x-use-null-cells
+		style="x-cell-content-align: top;
+				border-spacing: 0px;
+				left: 364px;
+				top: 85px;
+				width: 511px;
+				border-spacing: 0px;"
+		cellspacing=0
+		width=511>
+<col style="width: 9.305%;">
+<col style="width: 84.54%;">
+
+<tr valign="top" class="hcp1">
+<td style="width: 9.305%;
+			border-left-width: 1px;
+			border-left-color: #000000;
+			border-left-style: Solid;
+			border-top-style: Solid;
+			border-top-color: #000000;
+			border-top-width: 1px;
+			border-right-width: 1px;
+			border-right-color: #000000;
+			border-right-style: Solid;
+			border-bottom-style: Solid;
+			border-bottom-color: #000000;
+			border-bottom-width: 1px;
+			padding-right: 10px;
+			padding-left: 10px;"
+	width=9.305%>
+<p><span class="hcp2">#</span></td>
+<td rowspan=1
+	colspan=1
+	style="width: 84.54%;
+			border-top-style: Solid;
+			border-top-color: #000000;
+			border-top-width: 1px;
+			border-right-width: 1px;
+			border-right-color: #000000;
+			border-right-style: Solid;
+			border-bottom-style: Solid;
+			border-bottom-color: #000000;
+			border-bottom-width: 1px;
+			padding-right: 10px;
+			padding-left: 10px;"
+	width=84.54%>
+<p style="font-weight: bold;">Description</td></tr>
+
+<tr valign="top" class="hcp1">
+<td style="width:9.305%;" width="9.305%" class="hcp3">
+<p class="hcp4">1</td>
+<td rowspan="1" colspan="1" style="width:84.54%;" width="84.54%" class="hcp5">
+<p>Displays the primary registers and Interrupt mode. &nbsp;The 
+ PC stands for program counter, and the SP stands for stack pointer.</td></tr>
+
+<tr valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:9.305%;" width="9.305%" class="hcp3">
+<p class="hcp4">2</td>
+<td colspan="1" rowspan="1" style="width:84.54%;" width="84.54%" class="hcp5">
+<p>Displays the alternate registers.</td></tr>
+
+<tr valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:9.305%;" width="9.305%" class="hcp3">
+<p class="hcp4">3</td>
+<td colspan="1" rowspan="1" style="width:84.54%;" width="84.54%" class="hcp5">
+<p>Provides three levels of executing code to debug programs:<span class="hcp2"><br>
+Continuous</span>: will run your program without stopping.</p>
+<p><span class="hcp2">Instruction</span>: will run one compleat 
+ instruction and then break.</p>
+<p><span class="hcp2">T-State</span>: will run until the 
+ next rising or falling edge of the click and then will break.</td></tr>
+
+<tr valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:9.305%;" width="9.305%" class="hcp3">
+<p class="hcp4">4</td>
+<td colspan="1" rowspan="1" style="width:84.54%;" width="84.54%" class="hcp5">
+<p>This keypad &nbsp;emulates 
+ the keys on the ZAD trainer board. &nbsp;The 
+ are only accessible from code when the ZAD mode is on or in smart mode. 
+ See section 6. &nbsp;A 
+ key press is obtained by calling the ZAD operating system call KBRD at 
+ 0x0FEB or the ZAD system call SCAN at 0x0FEE.</p>
+<p class="hcp6">See ZAD System calls.</td></tr>
+
+<tr valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:9.305%;" width="9.305%" class="hcp3">
+<p class="hcp4">5</td>
+<td colspan="1" rowspan="1" style="width:84.54%;" width="84.54%" class="hcp5">
+<p>This window will display the currently executing instruction. &nbsp;It 
+ also displays a description of that instruction.</td></tr>
+
+<tr valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:9.305%;" width="9.305%" class="hcp3">
+<p class="hcp4">6</td>
+<td colspan="1" rowspan="1" style="width:84.54%;" width="84.54%" class="hcp5">
+<p>This selects the currently running ZAD mode.<span class="hcp2"><br>
+off</span>: disables any ZAD operating system commands.</p>
+<p><span class="hcp2">on</span>: forces ZAD operating system 
+ emulation despite memory conditions.</p>
+<p><span class="hcp2">smart</span>: only emulates the ZAD 
+ operating system if the targeted memory address contains a NOP. &nbsp;This 
+ is default.</p>
+<p class="hcp6">See ZAD System calls.</td></tr>
+
+<tr valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:9.305%;" width="9.305%" class="hcp3">
+<p class="hcp4">7</td>
+<td colspan="1" rowspan="1" style="width:84.54%;" width="84.54%" class="hcp5">
+<p>Emulates the ZAD trainer board's hexadecimal display. &nbsp;This 
+ is used by calling HEXTO7 at 0x0FF1 followed by calling KBRD or SCAN.</p>
+<p class="hcp6">See ZAD System calls.</td></tr>
+
+<tr valign="top" class="hcp1">
+<td style="width:9.305%;" width="9.305%" class="hcp3">
+<p class="hcp4">8</td>
+<td rowspan="1" colspan="1" style="width:84.54%;" width="84.54%" class="hcp5">
+<p>This shows a pop-up which allows direct manipulation of the Z-80 registers.</td></tr>
+</table>
+
+<p>&nbsp;</p>
+
+<p>&nbsp;</p>
+
+<p>&nbsp;</p>
+
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Full Adder</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="MS_Help.css"><style title="hcp" type="text/css">
+<!--
+tr.hcp1 { x-cell-content-align:top; }
+p.hcp2 { font-weight:bold; }
+td.hcp3 { border-left-width:1px; border-left-color:#000000; border-left-style:Solid; border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+td.hcp4 { border-right-width:1px; border-right-color:#000000; border-right-style:Solid; border-bottom-style:Solid; border-bottom-color:#000000; border-bottom-width:1px; padding-right:10px; padding-left:10px; }
+-->
+</style>
+</head>
+<body>
+<h1>Full Adder</h1>
+
+<p style="text-align: center;"
+	align=center><img src="image35.gif"
+						style="width: 476px;
+								height: 277px;
+								border-left-width: 1px;
+								border-left-style: Solid;
+								border-top-width: 1px;
+								border-top-style: Solid;
+								border-right-width: 1px;
+								border-right-style: Solid;
+								border-bottom-width: 1px;
+								border-bottom-style: Solid;"
+						width=476
+						height=277
+						border=1></p>
+
+<table x-use-null-cells
+		style="x-cell-content-align: top;
+				width: 100%;
+				border-spacing: 0px;
+				border-spacing: 0px;"
+		cellspacing=0
+		width=100%>
+<col style="width: 33.333%;">
+<col style="width: 66.667%;">
+
+<tr valign="top" class="hcp1">
+<td style="width: 33.333%;
+			border-left-width: 1px;
+			border-left-color: #000000;
+			border-left-style: Solid;
+			border-top-style: Solid;
+			border-top-color: #000000;
+			border-top-width: 1px;
+			border-right-width: 1px;
+			border-right-color: #000000;
+			border-right-style: Solid;
+			border-bottom-style: Solid;
+			border-bottom-color: #000000;
+			border-bottom-width: 1px;
+			padding-right: 10px;
+			padding-left: 10px;"
+	width=33.333%>
+<p class="hcp2">Pin(s)</td>
+<td rowspan=1
+	colspan=1
+	style="width: 66.667%;
+			border-top-style: Solid;
+			border-top-color: #000000;
+			border-top-width: 1px;
+			border-right-width: 1px;
+			border-right-color: #000000;
+			border-right-style: Solid;
+			border-bottom-style: Solid;
+			border-bottom-color: #000000;
+			border-bottom-width: 1px;
+			padding-right: 10px;
+			padding-left: 10px;"
+	width=66.667%>
+<p class="hcp2">Function</td></tr>
+
+<tr valign="top" class="hcp1">
+<td style="width:33.333%;" width="33.333%" class="hcp3">
+<p>X Input</td>
+<td rowspan="1" colspan="1" style="width:66.667%;" width="66.667%" class="hcp4">
+<p>Number to be added.</td></tr>
+
+<tr valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp3">
+<p>Y Input</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp4">
+<p>Number to be added.</td></tr>
+
+<tr valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp3">
+<p>CO (Carry Out)</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp4">
+<p>Equals 1 whenever the sum exceeds 15.</td></tr>
+
+<tr valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp3">
+<p>CI (Carry IN)</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp4">
+<p>This bit is added to the least significant bit of X and Y.</td></tr>
+
+<tr valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp3">
+<p>V (Overflow)</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp4">
+<p>When high, a 2's complement overflow occurred. When low, an overflow 
+ did not occur. This bit is the XOR or the carry_in and carry_out of the 
+ most significant bit (sign bit).</td></tr>
+
+<tr valign="top" class="hcp1">
+<td colspan="1" rowspan="1" style="width:33.333%;" width="33.333%" class="hcp3">
+<p>S (Sum)</td>
+<td colspan="1" rowspan="1" style="width:66.667%;" width="66.667%" class="hcp4">
+<p>Outputs the sum of the last addition operation.</td></tr>
+</table>
+
+</body>
+</html>
