@@ -6,6 +6,13 @@ cmake_minimum_required(VERSION 3.11)
 # Studio solution.
 project(CedarLogic VERSION 2.3.8)
 
+# macOS: Build universal binary and set minimum deployment target
+# arm64 requires 11.0 minimum, x86_64 can target 10.13
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Build universal binary")
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
+endif()
+
 # This configure file is where we store version info that's auto-populated by cmake configure.
 # This file is not considered part of the source code and it's stored in the build directory
 # It is made visible as an external header when we add CMAKE_CURRENT_BINARY_DIR (build) in 
