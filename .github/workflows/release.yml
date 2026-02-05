@@ -18,8 +18,22 @@ jobs:
       - name: Install NSIS
         run: choco install nsis -y
 
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: windows-msvc
+          variant: sccache
+
+      - name: Cache wxWidgets
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: wxwidgets-windows-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: |
+            wxwidgets-windows-
+
       - name: Configure CMake
-        run: cmake -B build -A Win32
+        run: cmake -B build -A Win32 -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
       - name: Build
         run: cmake --build build --config Release
@@ -43,10 +57,23 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake libgtk-3-dev libglu1-mesa-dev
+          sudo apt-get install -y build-essential cmake libgtk-3-dev libglu1-mesa-dev ccache
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: linux-gcc
+
+      - name: Cache wxWidgets
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: wxwidgets-linux-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: |
+            wxwidgets-linux-
 
       - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DUSE_SYSTEM_WXWIDGETS=0
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DUSE_SYSTEM_WXWIDGETS=0 -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build
         run: cmake --build build -j$(nproc)
@@ -88,8 +115,21 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
 
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: macos-clang
+
+      - name: Cache wxWidgets
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: wxwidgets-macos-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: |
+            wxwidgets-macos-
+
       - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build
         run: cmake --build build -j$(sysctl -n hw.ncpu)
