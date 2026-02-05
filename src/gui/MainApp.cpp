@@ -48,8 +48,11 @@ bool MainApp::OnInit()
     wxFileSystem::AddHandler( new wxZipFSHandler );
 #ifdef __APPLE__
 	helpController = new wxHtmlHelpController(wxHF_DEFAULT_STYLE | wxHF_OPEN_FILES);
-	if (!helpController->AddBook(appSettings.helpFile)) {
-		wxLogWarning("Failed to load help file: %s", appSettings.helpFile);
+	// Only load help if the file exists to avoid blocking
+	if (wxFileExists(appSettings.helpFile)) {
+		if (!helpController->AddBook(appSettings.helpFile)) {
+			wxLogWarning("Failed to load help file: %s", appSettings.helpFile);
+		}
 	}
 #else
 	helpController = new wxHelpController;
