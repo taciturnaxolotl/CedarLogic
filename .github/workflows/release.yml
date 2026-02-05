@@ -9,11 +9,24 @@ on:
         description: 'Version tag (e.g., v2.3.8)'
         required: false
 
+env:
+  # Extract version from tag (remove 'v' prefix if present)
+  VERSION: ${{ github.event.release.tag_name || github.event.inputs.tag || 'dev' }}
+
 jobs:
   build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          VERSION="${{ env.VERSION }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
 
       - name: Install NSIS
         run: choco install nsis -y
@@ -33,7 +46,7 @@ jobs:
             wxwidgets-windows-
 
       - name: Configure CMake
-        run: cmake -B build -A Win32 -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+        run: cmake -B build -A Win32 -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}"
 
       - name: Build
         run: cmake --build build --config Release
@@ -54,6 +67,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Get version
+        id: version
+        run: |
+          VERSION="${{ env.VERSION }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -73,7 +94,7 @@ jobs:
             wxwidgets-linux-
 
       - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DUSE_SYSTEM_WXWIDGETS=0 -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DUSE_SYSTEM_WXWIDGETS=0 -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}"
 
       - name: Build
         run: cmake --build build -j$(nproc)
@@ -93,6 +114,14 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION="${{ env.VERSION }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
 
       - name: Import Code Signing Certificate
         env:
@@ -129,7 +158,7 @@ jobs:
             wxwidgets-macos-
 
       - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}"
 
       - name: Build
         run: cmake --build build -j$(sysctl -n hw.ncpu)
