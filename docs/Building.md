@@ -127,6 +127,40 @@ For local development/testing without a Developer ID, you can use ad-hoc signing
 codesign --deep --force --sign - build/CedarLogic.app
 ```
 
+### Auto-Update Support (Optional - macOS only)
+
+CedarLogic uses [Sparkle](https://sparkle-project.org/) for automatic updates on macOS. Sparkle requires EdDSA signatures to verify updates. Windows uses [WinSparkle](https://winsparkle.org/) which doesn't require signature configuration.
+
+**Generate Sparkle keys:**
+
+```bash
+# Download Sparkle tools
+SPARKLE_VERSION="2.6.4"
+mkdir -p ~/.sparkle-tools
+cd ~/.sparkle-tools
+curl -L "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" | tar -xJ
+
+# Generate keys
+./bin/generate_keys
+```
+
+This outputs your public and private keys. **Save both securely** - you'll need the private key to sign future updates.
+
+**Build with Sparkle key:**
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release \
+  -DSPARKLE_ED_PUBLIC_KEY="your-public-key-here"
+cmake --build build
+```
+
+The public key gets embedded in the app's `Info.plist` and tells the updater how to verify signed updates.
+
+> [!IMPORTANT]
+> - Never commit the private key to version control
+> - Store the private key securely (you'll need it to sign every update)
+> - For CI/GitHub releases, add both keys to GitHub Secrets (see `.github/workflows/release.yml`)
+
 ## Developing Notes
 
 It is time-intensive to re-install CedarLogic each time you wish to test a code change. There is also an executable in the `build/<whatever build type you picked, like Release>`
