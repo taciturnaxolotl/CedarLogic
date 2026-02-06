@@ -6,9 +6,15 @@ cmake_minimum_required(VERSION 3.11)
 # Studio solution.
 project(CedarLogic VERSION 2.3.8)
 
+# macOS: Enable Objective-C++ for Sparkle updater (.mm files)
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
 # macOS: Set deployment target (arm64 only for now)
 if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
+    set(SPARKLE_ED_PUBLIC_KEY "" CACHE STRING "Sparkle EdDSA public key for auto-updates")
 endif()
 
 # This configure file is where we store version info that's auto-populated by cmake configure.
@@ -75,12 +81,25 @@ endif()
 
 find_package(OpenGL REQUIRED)
 
+# macOS: Download and setup Sparkle framework for auto-updates
+if(APPLE)
+    include(FetchContent)
+    set(SPARKLE_VERSION "2.6.4")
+    FetchContent_Declare(
+        Sparkle
+        URL "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    )
+    FetchContent_MakeAvailable(Sparkle)
+    set(SPARKLE_FRAMEWORK "${sparkle_SOURCE_DIR}/Sparkle.framework")
+endif()
+
 ###
 ### Build Config.
 ###
 
 # Glob all the source files to be added when CedarLogic executable is added later.
-file(GLOB SRC_FILES 
+file(GLOB SRC_FILES
 	"${PROJECT_SOURCE_DIR}/src/*.cpp"
 	"${PROJECT_SOURCE_DIR}/src/gui/*.cpp"
 	"${PROJECT_SOURCE_DIR}/src/logic/*.cpp"
@@ -93,6 +112,11 @@ file(GLOB SRC_FILES
 	"${PROJECT_SOURCE_DIR}/include/gui/GLFont/*.h"
 )
 
+# macOS: Add Objective-C++ sources for Sparkle updater
+if(APPLE)
+    list(APPEND SRC_FILES "${PROJECT_SOURCE_DIR}/src/gui/SparkleUpdater.mm")
+endif()
+
 if(APPLE)
     add_executable(CedarLogic MACOSX_BUNDLE "${SRC_FILES}")
 else()
@@ -100,12 +124,21 @@ else()
 endif()
 
 # Add the external libraries for CedarLogic
-target_link_libraries(CedarLogic PRIVATE 
+target_link_libraries(CedarLogic PRIVATE
     Logic
     ${OPENGL_opengl_LIBRARY}
     ${OPENGL_glu_LIBRARY}
     ${wxWidgets_LIBRARIES}
 )
+
+# macOS: Link Sparkle framework
+if(APPLE)
+    target_link_libraries(CedarLogic PRIVATE "${SPARKLE_FRAMEWORK}")
+    target_include_directories(CedarLogic PRIVATE "${sparkle_SOURCE_DIR}")
+    set_target_properties(CedarLogic PROPERTIES
+        XCODE_ATTRIBUTE_LD_RUNPATH_SEARCH_PATHS "@executable_path/../Frameworks"
+    )
+endif()
 
 # This is for internal headers
 include_directories(
@@ -173,6 +206,15 @@ if(APPLE)
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_SOURCE_DIR}/res/help"
             "$<TARGET_BUNDLE_DIR:CedarLogic>/Contents/Resources/res/help"
+    )
+
+    # Copy Sparkle.framework into the app bundle (cp -a preserves symlinks)
+    add_custom_command(TARGET CedarLogic POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_BUNDLE_DIR:CedarLogic>/Contents/Frameworks"
+        COMMAND cp -a
+            "${SPARKLE_FRAMEWORK}"
+            "$<TARGET_BUNDLE_DIR:CedarLogic>/Contents/Frameworks/Sparkle.framework"
     )
 endif()
 

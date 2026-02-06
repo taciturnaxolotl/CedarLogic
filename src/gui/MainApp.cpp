@@ -14,6 +14,9 @@
 #include "../version.h"
 #include "wx/stdpaths.h"
 #include "wx/fileconf.h"
+#ifdef __APPLE__
+#include "SparkleUpdater.h"
+#endif
 
 IMPLEMENT_APP(MainApp)
 
@@ -106,11 +109,16 @@ bool MainApp::OnInit()
     
     mainframe = frame;
     //End of edit***********************************************
-    
+
+#ifdef __APPLE__
+    // Initialize Sparkle auto-updater
+    SparkleUpdater_Initialize();
+#endif
+
     // success: wxApp::OnRun() will be called which will enter the main message
     // loop and the application will run. If we returned false here, the
     // application would exit immediately
-	
+
     return true;
 }
 

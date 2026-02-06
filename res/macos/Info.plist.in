@@ -41,5 +41,11 @@
             <string>Owner</string>
         </dict>
     </array>
+    <key>SUFeedURL</key>
+    <string>https://taciturnaxolotl.github.io/CedarLogic/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>${SPARKLE_ED_PUBLIC_KEY}</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
 </dict>
 </plist>

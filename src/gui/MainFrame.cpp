@@ -26,6 +26,9 @@
 #include "commands.h"
 #include "autoSaveThread.h"
 #include "../version.h"
+#ifdef __APPLE__
+#include "SparkleUpdater.h"
+#endif
 
 DECLARE_APP(MainApp)
 
@@ -119,7 +122,11 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	helpMenu->AppendSeparator();
 	//helpMenu->Append(Help_ReportABug, "Report a bug...");
 	//helpMenu->Append(Help_RequestAFeature, "Request a feature...");
+#ifdef __APPLE__
+	helpMenu->Append(Help_DownloadLatestVersion, "Check for Updates...");
+#else
 	helpMenu->Append(Help_DownloadLatestVersion, "Download latest version...");
+#endif
 	helpMenu->AppendSeparator();
     helpMenu->Append(wxID_ABOUT, "&About...", "Show about dialog");
 
@@ -1187,7 +1194,11 @@ void MainFrame::OnRequestAFeature(wxCommandEvent& event) {
 }
 
 void MainFrame::OnDownloadLatestVersion(wxCommandEvent& event) {
+#ifdef __APPLE__
+	SparkleUpdater_CheckForUpdates();
+#else
 	// Tyler Drake can remap the url using cedar.to/create
 	// Don't change the url here!
 	wxLaunchDefaultBrowser("https://cedar.to/vjyQw7", 0);
+#endif
 }
