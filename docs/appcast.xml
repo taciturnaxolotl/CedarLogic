@@ -5,6 +5,108 @@
     <link>https://taciturnaxolotl.github.io/CedarLogic/appcast.xml</link>
     <description>Most recent updates to CedarLogic</description>
     <language>en</language>
-    <!-- Items will be added by CI when releases are published -->
+    <!-- macOS -->
+    <item>
+      <title>Version 2.3.9</title>
+      <pubDate>Fri, 06 Feb 2026 05:42:35 +0000</pubDate>
+      <sparkle:version>2.3.9</sparkle:version>
+      <sparkle:shortVersionString>2.3.9</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[<h2>[2.3.9] - 2026-02-05</h2>
+<h3>Added</h3>
+<ul>
+  <li><b>Auto-Updates</b>: Automatic update checking on macOS and Windows</li>
+  <li>Check for updates via Help → "Check for Updates..."</li>
+  <li>Background update checks with user-friendly install dialog</li>
+  <li>Uses Sparkle (macOS) and WinSparkle (Windows)</li>
+  <li><b>Code Signing</b>: macOS releases are now signed and notarized</li>
+  <li>No more Gatekeeper warnings or "damaged app" messages</li>
+  <li>Automatic notarization through Apple's notary service</li>
+  <li><b>HTML Help System</b>: Native help viewer on macOS (replaces CHM)</li>
+  <li><b>Export v1.x Compatible</b>: New File menu option to export circuits for older CedarLogic versions (v1.5, v1.8, etc.)</li>
+  <li><b>macOS Input Support</b>:</li>
+  <li>Trackpad scroll-to-pan (hold Cmd + scroll)</li>
+  <li>Delete key (backspace) now works for deleting gates</li>
+  <li>Open files directly from Finder (double-click or drag-to-icon)</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li>Crash when clicking after undo deletes a gate (#64)</li>
+  <li>Paste operation now properly cancels when pressing Escape (#67)</li>
+  <li>macOS scroll/zoom behavior: scroll = zoom, Cmd+scroll = pan</li>
+  <li>Added <code>=</code> key for zoom in (in addition to <code>+</code>)</li>
+</ul>
+<h3>Changed</h3>
+<ul>
+  <li><b>Build Improvements</b>:</li>
+  <li>Added build caching for faster CI (~3-5x speedup on cache hits)</li>
+  <li>Package filenames now match release tag version</li>
+  <li>macOS builds are arm64 only (Apple Silicon native)</li>
+</ul>
+<h3>Infrastructure</h3>
+<ul>
+  <li>Automated release workflow with signing, notarization, and appcast updates</li>
+  <li>GitHub Pages hosts update feed at taciturnaxolotl.github.io/CedarLogic</li>
+  <li>Wiki documentation for CI/CD and release process</li>
+</ul>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.3.8...v2.3.9</p>]]></description>
+      <enclosure
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.3.9/CedarLogic-2.3.9-Darwin.dmg"
+        sparkle:edSignature="OlvFLgaN3QxBFjVcwXP6kDUrqOSIEPUM7YoT14bi/H0frKla5jjH0OncmgVv0Bet/hs8NIkV3zzmv6nEKIXMAQ=="
+        length="9012079"
+        type="application/octet-stream"
+        sparkle:os="macos"/>
+    </item>
+    <!-- Windows -->
+    <item>
+      <title>Version 2.3.9</title>
+      <pubDate>Fri, 06 Feb 2026 05:42:35 +0000</pubDate>
+      <sparkle:version>2.3.9</sparkle:version>
+      <sparkle:shortVersionString>2.3.9</sparkle:shortVersionString>
+      <description><![CDATA[<h2>[2.3.9] - 2026-02-05</h2>
+<h3>Added</h3>
+<ul>
+  <li><b>Auto-Updates</b>: Automatic update checking on macOS and Windows</li>
+  <li>Check for updates via Help → "Check for Updates..."</li>
+  <li>Background update checks with user-friendly install dialog</li>
+  <li>Uses Sparkle (macOS) and WinSparkle (Windows)</li>
+  <li><b>Code Signing</b>: macOS releases are now signed and notarized</li>
+  <li>No more Gatekeeper warnings or "damaged app" messages</li>
+  <li>Automatic notarization through Apple's notary service</li>
+  <li><b>HTML Help System</b>: Native help viewer on macOS (replaces CHM)</li>
+  <li><b>Export v1.x Compatible</b>: New File menu option to export circuits for older CedarLogic versions (v1.5, v1.8, etc.)</li>
+  <li><b>macOS Input Support</b>:</li>
+  <li>Trackpad scroll-to-pan (hold Cmd + scroll)</li>
+  <li>Delete key (backspace) now works for deleting gates</li>
+  <li>Open files directly from Finder (double-click or drag-to-icon)</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+  <li>Crash when clicking after undo deletes a gate (#64)</li>
+  <li>Paste operation now properly cancels when pressing Escape (#67)</li>
+  <li>macOS scroll/zoom behavior: scroll = zoom, Cmd+scroll = pan</li>
+  <li>Added <code>=</code> key for zoom in (in addition to <code>+</code>)</li>
+</ul>
+<h3>Changed</h3>
+<ul>
+  <li><b>Build Improvements</b>:</li>
+  <li>Added build caching for faster CI (~3-5x speedup on cache hits)</li>
+  <li>Package filenames now match release tag version</li>
+  <li>macOS builds are arm64 only (Apple Silicon native)</li>
+</ul>
+<h3>Infrastructure</h3>
+<ul>
+  <li>Automated release workflow with signing, notarization, and appcast updates</li>
+  <li>GitHub Pages hosts update feed at taciturnaxolotl.github.io/CedarLogic</li>
+  <li>Wiki documentation for CI/CD and release process</li>
+</ul>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.3.8...v2.3.9</p>]]></description>
+      <enclosure
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.3.9/CedarLogic-2.3.9-win32.exe"
+        length="10574334"
+        type="application/octet-stream"
+        sparkle:os="windows"
+        sparkle:installerArguments="/S"/>
+    </item>
   </channel>
 </rss>
