@@ -17,6 +17,9 @@
 #ifdef __APPLE__
 #include "SparkleUpdater.h"
 #endif
+#ifdef _WIN32
+#include "WinSparkleUpdater.h"
+#endif
 
 IMPLEMENT_APP(MainApp)
 
@@ -113,6 +116,10 @@ bool MainApp::OnInit()
 #ifdef __APPLE__
     // Initialize Sparkle auto-updater
     SparkleUpdater_Initialize();
+#endif
+#ifdef _WIN32
+    // Initialize WinSparkle auto-updater
+    WinSparkleUpdater_Initialize();
 #endif
 
     // success: wxApp::OnRun() will be called which will enter the main message

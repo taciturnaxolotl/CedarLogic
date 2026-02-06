@@ -29,6 +29,9 @@
 #ifdef __APPLE__
 #include "SparkleUpdater.h"
 #endif
+#ifdef _WIN32
+#include "WinSparkleUpdater.h"
+#endif
 
 DECLARE_APP(MainApp)
 
@@ -122,7 +125,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	helpMenu->AppendSeparator();
 	//helpMenu->Append(Help_ReportABug, "Report a bug...");
 	//helpMenu->Append(Help_RequestAFeature, "Request a feature...");
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_WIN32)
 	helpMenu->Append(Help_DownloadLatestVersion, "Check for Updates...");
 #else
 	helpMenu->Append(Help_DownloadLatestVersion, "Download latest version...");
@@ -1196,6 +1199,8 @@ void MainFrame::OnRequestAFeature(wxCommandEvent& event) {
 void MainFrame::OnDownloadLatestVersion(wxCommandEvent& event) {
 #ifdef __APPLE__
 	SparkleUpdater_CheckForUpdates();
+#elif defined(_WIN32)
+	WinSparkleUpdater_CheckForUpdates();
 #else
 	// Tyler Drake can remap the url using cedar.to/create
 	// Don't change the url here!

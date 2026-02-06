@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.11)
 
 # Name project, and set version. If updating version, change it here, and then re-generate your Visual
 # Studio solution.
-project(CedarLogic VERSION 2.3.8)
+project(CedarLogic VERSION 2.3.9)
 
 # macOS: Enable Objective-C++ for Sparkle updater (.mm files)
 if(APPLE)
@@ -94,6 +94,19 @@ if(APPLE)
     set(SPARKLE_FRAMEWORK "${sparkle_SOURCE_DIR}/Sparkle.framework")
 endif()
 
+# Windows: Download and setup WinSparkle for auto-updates
+if(WIN32)
+    include(FetchContent)
+    set(WINSPARKLE_VERSION "0.8.1")
+    FetchContent_Declare(
+        WinSparkle
+        URL "https://github.com/vslavik/winsparkle/releases/download/v${WINSPARKLE_VERSION}/WinSparkle-${WINSPARKLE_VERSION}.zip"
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    )
+    FetchContent_MakeAvailable(WinSparkle)
+    set(WINSPARKLE_DIR "${winsparkle_SOURCE_DIR}")
+endif()
+
 ###
 ### Build Config.
 ###
@@ -138,6 +151,12 @@ if(APPLE)
     set_target_properties(CedarLogic PROPERTIES
         XCODE_ATTRIBUTE_LD_RUNPATH_SEARCH_PATHS "@executable_path/../Frameworks"
     )
+endif()
+
+# Windows: Link WinSparkle
+if(WIN32)
+    target_include_directories(CedarLogic PRIVATE "${WINSPARKLE_DIR}/include")
+    target_link_libraries(CedarLogic PRIVATE "${WINSPARKLE_DIR}/Release/WinSparkle.lib")
 endif()
 
 # This is for internal headers
@@ -233,6 +252,7 @@ vs_source_groups(src ${Sources})
 
 if (WIN32)
     install(TARGETS CedarLogic RUNTIME DESTINATION ".")
+    install(FILES "${WINSPARKLE_DIR}/Release/WinSparkle.dll" DESTINATION ".")
     install_resources(res)
 elseif(APPLE)
     install(TARGETS CedarLogic BUNDLE DESTINATION ".")

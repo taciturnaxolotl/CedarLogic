@@ -2,6 +2,10 @@
 #include "CedarLogic.h"
 #include "version.h"
 #include <map>
+#ifdef _WIN32
+#include <codecvt>
+#include <locale>
+#endif
 using namespace std;
 
 string VERSION_NUMBER_STRING() {
@@ -40,6 +44,19 @@ string VERSION_NUMBER_STRING() {
 		std::to_string(CedarLogic_VERSION_PATCH) + " | " +
 		year + "-" + month + "-" + day + " " + hms;
 }
+
+string VERSION_NUMBER() {
+	return std::to_string(CedarLogic_VERSION_MAJOR) + "." +
+		std::to_string(CedarLogic_VERSION_MINOR) + "." +
+		std::to_string(CedarLogic_VERSION_PATCH);
+}
+
+#ifdef _WIN32
+wstring VERSION_NUMBER_W() {
+	string ver = VERSION_NUMBER();
+	return wstring(ver.begin(), ver.end());
+}
+#endif
 
 string VERSION_TITLE() {
 	return "Cedar Logic " + VERSION_NUMBER_STRING();

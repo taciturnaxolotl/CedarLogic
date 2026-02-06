@@ -9,6 +9,14 @@
 // VERSION_NUMBER_STRING anyway.
 std::string VERSION_NUMBER_STRING();
 
+// Get just the version number (e.g., "2.3.8")
+std::string VERSION_NUMBER();
+
+#ifdef _WIN32
+// Get version as wide string for Windows APIs
+std::wstring VERSION_NUMBER_W();
+#endif
+
 // Get title bar text.
 std::string VERSION_TITLE();
 
