@@ -149,7 +149,8 @@ if(APPLE)
     target_link_libraries(CedarLogic PRIVATE "${SPARKLE_FRAMEWORK}")
     target_include_directories(CedarLogic PRIVATE "${sparkle_SOURCE_DIR}")
     set_target_properties(CedarLogic PROPERTIES
-        XCODE_ATTRIBUTE_LD_RUNPATH_SEARCH_PATHS "@executable_path/../Frameworks"
+        INSTALL_RPATH "@executable_path/../Frameworks"
+        BUILD_RPATH "@executable_path/../Frameworks"
     )
 endif()
 
@@ -231,6 +232,8 @@ if(APPLE)
     add_custom_command(TARGET CedarLogic POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory
             "$<TARGET_BUNDLE_DIR:CedarLogic>/Contents/Frameworks"
+        COMMAND ${CMAKE_COMMAND} -E rm -rf
+            "$<TARGET_BUNDLE_DIR:CedarLogic>/Contents/Frameworks/Sparkle.framework"
         COMMAND cp -a
             "${SPARKLE_FRAMEWORK}"
             "$<TARGET_BUNDLE_DIR:CedarLogic>/Contents/Frameworks/Sparkle.framework"

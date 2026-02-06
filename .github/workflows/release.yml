@@ -16,6 +16,8 @@ env:
 jobs:
   build-windows:
     runs-on: windows-latest
+    outputs:
+      exe_size: ${{ steps.package.outputs.exe_size }}
     steps:
       - uses: actions/checkout@v4
 
@@ -45,6 +47,10 @@ jobs:
           restore-keys: |
             wxwidgets-windows-
 
+      - name: Ensure build/_deps exists
+        shell: bash
+        run: mkdir -p build/_deps
+
       - name: Configure CMake
         run: cmake -B build -A Win32 -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}"
 
@@ -52,9 +58,14 @@ jobs:
         run: cmake --build build --config Release
 
       - name: Package
+        id: package
+        shell: bash
         run: |
           cd build
           cpack -G NSIS -C Release
+          EXE_PATH=$(ls CedarLogic-*-win32.exe | head -1)
+          EXE_SIZE=$(stat -c%s "$EXE_PATH")
+          echo "exe_size=$EXE_SIZE" >> $GITHUB_OUTPUT
 
       - name: Upload Windows Installer
         uses: actions/upload-artifact@v4
@@ -112,6 +123,10 @@ jobs:
 
   build-macos:
     runs-on: macos-26
+    outputs:
+      dmg_name: ${{ steps.package.outputs.dmg_name }}
+      dmg_size: ${{ steps.sparkle_sign.outputs.dmg_size }}
+      sparkle_signature: ${{ steps.sparkle_sign.outputs.signature }}
     steps:
       - uses: actions/checkout@v4
 
@@ -158,30 +173,60 @@ jobs:
             wxwidgets-macos-
 
       - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}"
+        env:
+          SPARKLE_ED_PUBLIC_KEY: ${{ secrets.SPARKLE_ED_PUBLIC_KEY }}
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}" \
+            -DSPARKLE_ED_PUBLIC_KEY="$SPARKLE_ED_PUBLIC_KEY"
 
       - name: Build
         run: cmake --build build -j$(sysctl -n hw.ncpu)
 
-      - name: Sign Application
+      - name: Install and Sign Application
+        id: package
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          APP_PATH=$(find build -name "*.app" -type d | head -1)
+          SIGN_ID="Developer ID Application: Single Feather LLC ($APPLE_TEAM_ID)"
+
+          # Install to staging directory (runs install_name_tool fixups)
+          cmake --install build --prefix build/staging
+
+          # Find the .app in staging
+          APP_PATH=$(find build/staging -name "*.app" -type d | head -1)
           echo "Signing $APP_PATH"
 
-          codesign --force --deep --sign "Developer ID Application: Single Feather LLC ($APPLE_TEAM_ID)" \
-            --options runtime \
-            --timestamp \
-            "$APP_PATH"
+          # Sign Sparkle framework inside-out
+          # See: https://steipete.me/posts/2025/code-signing-and-notarization-sparkle-and-tears
+          SPARKLE_PATH="$APP_PATH/Contents/Frameworks/Sparkle.framework"
+          if [ -d "$SPARKLE_PATH" ]; then
+            codesign -f -s "$SIGN_ID" -o runtime --timestamp \
+              "$SPARKLE_PATH/Versions/B/XPCServices/Installer.xpc"
+            codesign -f -s "$SIGN_ID" -o runtime --timestamp --preserve-metadata=entitlements \
+              "$SPARKLE_PATH/Versions/B/XPCServices/Downloader.xpc"
+            codesign -f -s "$SIGN_ID" -o runtime --timestamp \
+              "$SPARKLE_PATH/Versions/B/Updater.app"
+            codesign -f -s "$SIGN_ID" -o runtime --timestamp \
+              "$SPARKLE_PATH/Versions/B/Autoupdate"
+            codesign -f -s "$SIGN_ID" -o runtime --timestamp \
+              "$SPARKLE_PATH"
+          fi
 
-          # Verify signature
+          # Sign the main app (never use --deep)
+          codesign -f -s "$SIGN_ID" -o runtime --timestamp "$APP_PATH"
           codesign -dv --verbose=2 "$APP_PATH"
 
-      - name: Package DMG
-        run: |
-          cd build
-          cpack -G DragNDrop
+          # Create DMG from signed app with Applications symlink
+          DMG_NAME="CedarLogic-${{ steps.version.outputs.version }}-Darwin.dmg"
+          DMG_STAGING=$(mktemp -d)
+          cp -a "$APP_PATH" "$DMG_STAGING/"
+          ln -s /Applications "$DMG_STAGING/Applications"
+          hdiutil create -volname "CedarLogic" -srcfolder "$DMG_STAGING" -ov -format UDZO "build/$DMG_NAME"
+          rm -rf "$DMG_STAGING"
+          echo "dmg_name=$DMG_NAME" >> $GITHUB_OUTPUT
 
       - name: Sign DMG
         env:
@@ -208,12 +253,42 @@ jobs:
             --apple-id "$APPLE_ID" \
             --password "$APPLE_ID_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
-            --wait
+            --wait \
+            --output-format json | tee notarization_result.json
+
+          # Log details if notarization failed
+          SUBMISSION_ID=$(cat notarization_result.json | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null || true)
+          if [ -n "$SUBMISSION_ID" ]; then
+            xcrun notarytool log "$SUBMISSION_ID" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_ID_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" || true
+          fi
 
           # Staple the ticket
           xcrun stapler staple "$DMG_PATH"
 
           echo "Notarization complete!"
+
+      - name: Sign for Sparkle
+        id: sparkle_sign
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          DMG_PATH=$(find build -name "*.dmg" -type f | head -1)
+
+          # Get DMG size
+          DMG_SIZE=$(stat -f%z "$DMG_PATH")
+          echo "dmg_size=$DMG_SIZE" >> $GITHUB_OUTPUT
+
+          # Download Sparkle tools
+          SPARKLE_VERSION="2.6.4"
+          curl -L "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" | tar -xJ
+
+          # Sign with EdDSA key (sign_update outputs: sparkle:edSignature="XXX" length="YYY")
+          SIGN_OUTPUT=$(echo -n "$SPARKLE_ED_PRIVATE_KEY" | ./bin/sign_update "$DMG_PATH" -f -)
+          SIGNATURE=$(echo "$SIGN_OUTPUT" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
+          echo "signature=$SIGNATURE" >> $GITHUB_OUTPUT
 
       - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
@@ -228,6 +303,17 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION="${{ env.VERSION }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -240,3 +326,24 @@ jobs:
             artifacts/windows-installer/*
             artifacts/linux-archive/*
             artifacts/macos-dmg/*
+
+      - name: Update Sparkle appcast
+        env:
+          RELEASE_BODY: ${{ github.event.release.body }}
+        run: |
+          ./scripts/update-appcast.sh \
+            "${{ steps.version.outputs.version }}" \
+            "${{ env.VERSION }}" \
+            "${{ needs.build-macos.outputs.dmg_size }}" \
+            "${{ needs.build-windows.outputs.exe_size }}" \
+            "${{ needs.build-macos.outputs.sparkle_signature }}" \
+            "$RELEASE_BODY" \
+            "${{ github.repository }}"
+
+      - name: Commit and push appcast
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/appcast.xml
+          git commit -m "Update appcast for ${{ env.VERSION }}" || exit 0
+          git push
