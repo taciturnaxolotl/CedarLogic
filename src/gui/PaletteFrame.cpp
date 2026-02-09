@@ -21,7 +21,7 @@ BEGIN_EVENT_TABLE(PaletteFrame, wxPanel)
 END_EVENT_TABLE()
 
 
-PaletteFrame::PaletteFrame( wxWindow *parent, wxWindowID id, const wxPoint &pos, const wxSize &size ) 
+PaletteFrame::PaletteFrame( wxWindow *parent, wxWindowID id, const wxPoint &pos, const wxSize &size )
 	: wxPanel( parent, id, pos, size, wxNO_BORDER ) {
 	paletteSizer = new wxBoxSizer( wxVERTICAL );
 	map < string, map < string, LibraryGate > >::iterator libWalk = wxGetApp().libraries.begin();
@@ -40,7 +40,11 @@ PaletteFrame::PaletteFrame( wxWindow *parent, wxWindowID id, const wxPoint &pos,
 	}
 	// Calculate height based on item count and actual font metrics
 	int itemHeight = GetCharHeight() + 4; // Add some padding
+#ifdef __WXOSX__
+	listBox = new wxListBox(this, ID_LISTBOX, wxDefaultPosition, wxSize(minWidth, strings.GetCount() * itemHeight + 8), strings, wxLB_SINGLE | wxLB_NO_SB);
+#else
 	listBox = new wxListBox(this, ID_LISTBOX, wxDefaultPosition, wxSize(minWidth, strings.GetCount() * itemHeight), strings, wxLB_SINGLE);
+#endif
 	paletteSizer->Add( listBox, wxSizerFlags(0).Expand().Border(wxALL, 0) );
 	paletteSizer->Show( listBox );
 	for (unsigned int i = 0; i < strings.GetCount(); i++) {

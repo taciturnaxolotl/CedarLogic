@@ -24,10 +24,10 @@ class PaletteFrame : public wxPanel {
 public:
 	PaletteFrame( wxWindow *parent, wxWindowID, const wxPoint &pos, const wxSize &size );
 	virtual ~PaletteFrame();
-	
+
 	void OnListSelect( wxCommandEvent& evt );
 	void OnPaint( wxPaintEvent& evt );
-	
+
 private:
 	wxBoxSizer* paletteSizer;
 	wxListBox* listBox;
