@@ -462,9 +462,17 @@ void guiGate::saveGateLegacy(XMLParser* xparse) {
 
 void guiGate::doParamsDialog( void* gc, wxCommandProcessor* wxcmd ) {
 	if (wxGetApp().libraries[libName][libGateName].dlgParams.size() == 0) return;
+#ifdef __WXOSX__
+	paramDialog* myDialog = new paramDialog("Parameters", gc, this, wxcmd);
+	myDialog->Bind(wxEVT_WINDOW_MODAL_DIALOG_CLOSED, [myDialog](wxWindowModalDialogEvent&) {
+		myDialog->Destroy();
+	});
+	myDialog->ShowWindowModal();
+#else
 	paramDialog myDialog("Parameters", gc, this, wxcmd);
 	myDialog.SetFocus();
 	myDialog.ShowModal();
+#endif
 }
 
 // *********************** guiGateTOGGLE *************************

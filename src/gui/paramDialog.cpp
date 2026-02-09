@@ -32,8 +32,13 @@ BEGIN_EVENT_TABLE(paramDialog, wxDialog)
 	EVT_TEXT(ID_TEXT, paramDialog::OnTextEntry)
 END_EVENT_TABLE()
 
+#ifdef __WXOSX__
+paramDialog::paramDialog(const wxString& title, void* gCircuit, guiGate* gGate, wxCommandProcessor* wxcmd)
+       : wxDialog(wxTheApp->GetTopWindow(), wxID_ANY, title, wxDefaultPosition, wxSize(250,400), wxDEFAULT_DIALOG_STYLE)
+#else
 paramDialog::paramDialog(const wxString& title, void* gCircuit, guiGate* gGate, wxCommandProcessor* wxcmd)
        : wxDialog(NULL, wxID_ANY, title, wxDefaultPosition, wxSize(250,400), wxCAPTION|wxFRAME_TOOL_WINDOW|wxSTAY_ON_TOP)
+#endif
 {
 	// Copy the circuit and gate pointers to this frame:
 	this->gCircuit = (GUICircuit*)gCircuit;
@@ -42,12 +47,23 @@ paramDialog::paramDialog(const wxString& title, void* gCircuit, guiGate* gGate, 
 	
 	LibraryGate* gateDef = &(wxGetApp().libraries[gGate->getLibraryName()][gGate->getLibraryGateName()]);
 	unsigned int numParams = gateDef->dlgParams.size();
-	dlgSizer = new wxGridSizer(numParams+1, 2, 2, 2);
-	SetSizer(dlgSizer);
-	
+
+#ifdef __WXOSX__
+	int padding = 10;
+	int gap = 8;
+#else
+	int padding = 3;
+	int gap = 2;
+#endif
+
+	wxBoxSizer* outerSizer = new wxBoxSizer(wxVERTICAL);
+	wxFlexGridSizer* flexSizer = new wxFlexGridSizer(numParams, 2, gap, gap);
+	flexSizer->AddGrowableCol(1, 1);
+	dlgSizer = flexSizer;
+
 	for (unsigned int i = 0; i < numParams; i++) {
 		paramNames.push_back(new wxStaticText(this, wxID_ANY, gateDef->dlgParams[i].textLabel));
-		dlgSizer->Add( paramNames[paramNames.size()-1], 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxALL, 3 );
+		dlgSizer->Add( paramNames[paramNames.size()-1], 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxALL, padding );
 		string initialString;
 		// Generate control from type. Type can be: STRING, INT, BOOL, FLOAT, FILE_IN, FILE_OUT.
 		if ( gateDef->dlgParams[i].type == "INT" ) {
@@ -58,12 +74,10 @@ paramDialog::paramDialog(const wxString& title, void* gCircuit, guiGate* gGate, 
 			int initValInt;
 			initVal >> initValInt;
 			paramVals.push_back(new wxSpinCtrl(this, ID_TEXT, initialString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, (int)(gateDef->dlgParams[i].Rmin), (int)(gateDef->dlgParams[i].Rmax), initValInt));
-//			wxGenericValidator* gv = new wxGenericValidator(wxFILTER_INCLUDE_CHAR_LIST, ((wxSpinCtrl*)(paramVals[paramVals.size()-1]))->GetValue())
-//			paramVals[paramVals.size()-1]->SetValidator(gv);
 		} else if ( gateDef->dlgParams[i].type == "STRING" ) {
 			if ( gateDef->dlgParams[i].isGui ) initialString = gGate->getGUIParam(gateDef->dlgParams[i].name);
 			else initialString = gGate->getLogicParam(gateDef->dlgParams[i].name);
-			paramVals.push_back(new wxTextCtrl(this, wxID_ANY, initialString));
+			paramVals.push_back(new wxTextCtrl(this, wxID_ANY, initialString, wxDefaultPosition, wxSize(200, -1)));
 		} else if ( gateDef->dlgParams[i].type == "BOOL" ) {
 			paramVals.push_back( new wxCheckBox( this, wxID_ANY, "" ) );
 			// Retrieve the current param setting
@@ -77,20 +91,31 @@ paramDialog::paramDialog(const wxString& title, void* gCircuit, guiGate* gGate, 
 		} else if ( gateDef->dlgParams[i].type == "FILE_IN" ) {
 			paramVals.push_back( new wxButton( this, ID_LOAD, "Load File" ) );
 		} else if ( gateDef->dlgParams[i].type == "FILE_OUT" ) {
-			paramVals.push_back( new wxButton( this, ID_SAVE, "Save File" ) );			
+			paramVals.push_back( new wxButton( this, ID_SAVE, "Save File" ) );
 		}
-		dlgSizer->Add( paramVals[paramVals.size()-1], 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxALL, 3 );
+		dlgSizer->Add( paramVals[paramVals.size()-1], 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxALL, padding );
 	}
-	
+
+	outerSizer->Add(dlgSizer, 0, wxALL | wxEXPAND, padding);
+
 	// Put in the standard dialog buttons
 	ok = new wxButton( this, wxID_OK, "&OK" );
-	dlgSizer->Add( ok, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 5 );
 	cancel = new wxButton( this, wxID_CANCEL, "&Cancel" );
+#ifdef __WXOSX__
+	wxStdDialogButtonSizer* btnSizer = new wxStdDialogButtonSizer();
+	btnSizer->AddButton(ok);
+	btnSizer->AddButton(cancel);
+	btnSizer->Realize();
+	outerSizer->Add(btnSizer, 0, wxALL | wxEXPAND, padding);
+#else
+	dlgSizer->Add( ok, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 5 );
 	dlgSizer->Add( cancel, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 5 );
+#endif
 	this->SetDefaultItem(ok);
 
-	dlgSizer->Fit(this);
-	dlgSizer->SetSizeHints(this);
+	SetSizer(outerSizer);
+	outerSizer->Fit(this);
+	outerSizer->SetSizeHints(this);
 }
 
 paramDialog::~paramDialog() {
