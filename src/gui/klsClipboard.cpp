@@ -63,7 +63,6 @@ cmdPasteBlock* klsClipboard::pasteBlock( GUICircuit* gCircuit, GUICanvas* gCanva
 				   logic to increment number on end of TO/FROM tag */
 
 				string numEnd = "";	// String of numbers on end that we will build
-				string temp2 = temp;
 
 				// If we are copying more than one thing, don't increment them -- that would be annoying
 				if (pasteText.find("creategate", pasteText.find("creategate") + 1) == std::string::npos) {
@@ -82,20 +81,19 @@ cmdPasteBlock* klsClipboard::pasteBlock( GUICircuit* gCircuit, GUICanvas* gCanva
 
 					// If we have numbers to add and we are naming a junction_id
 					if (numEnd != "" && temp.find("JUNCTION_ID") != std::string::npos) {
-						string *newPasteText = new string();
-						*newPasteText = pasteText; // This string will be modified and rewritten to the clipboard so that subsequent pastes continue to increment
+						string newPasteText = pasteText; // This string will be modified and rewritten to the clipboard so that subsequent pastes continue to increment
 
 						temp.erase(temp.length() - 1 - numEnd.length(), numEnd.length() + 1); // Erase number at end of tag, add 1 to erase the \t also
-						newPasteText->erase(newPasteText->length() - 2 - numEnd.length(), numEnd.length() + 2);  // Modify clipboard data similarly, but +2 so it erases the \n also
+						newPasteText.erase(newPasteText.length() - 2 - numEnd.length(), numEnd.length() + 2);  // Modify clipboard data similarly, but +2 so it erases the \n also
 
 						int holder = stoi(numEnd);
 						holder++; // The whole point of this -- increment number at end of tag by 1
 						string s = to_string(holder) + "\t";
 
 						temp += s; // Add it back to temp string
-						*newPasteText += s + "\n";
+						newPasteText += s + "\n";
 
-						wxTheClipboard->AddData(new wxTextDataObject(*newPasteText)); // Update clipboard data so subsequent pastes carry 
+						wxTheClipboard->AddData(new wxTextDataObject(newPasteText)); // Update clipboard data so subsequent pastes carry
 					/* END OF EDIT */
 					}
 
@@ -109,7 +107,6 @@ cmdPasteBlock* klsClipboard::pasteBlock( GUICircuit* gCircuit, GUICanvas* gCanva
     		cmdList.push_back( cg );
     		cg->setPointers( gCircuit, gCanvas, gateids, wireids );
     		cg->Do();
-	    	if (iss.str().find('\n',0) == string::npos) return NULL;
     	}
 		gCanvas->unselectAllGates();
 		gCanvas->unselectAllWires();
