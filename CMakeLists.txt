@@ -125,9 +125,12 @@ file(GLOB SRC_FILES
 	"${PROJECT_SOURCE_DIR}/include/gui/GLFont/*.h"
 )
 
-# macOS: Add Objective-C++ sources for Sparkle updater
+# macOS: Add Objective-C++ sources
 if(APPLE)
-    list(APPEND SRC_FILES "${PROJECT_SOURCE_DIR}/src/gui/SparkleUpdater.mm")
+    list(APPEND SRC_FILES
+        "${PROJECT_SOURCE_DIR}/src/gui/SparkleUpdater.mm"
+        "${PROJECT_SOURCE_DIR}/src/gui/NativeIcons.mm"
+    )
 endif()
 
 if(APPLE)

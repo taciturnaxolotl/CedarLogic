@@ -28,6 +28,7 @@
 #include "../version.h"
 #ifdef __APPLE__
 #include "SparkleUpdater.h"
+#include "NativeIcons.h"
 #endif
 #ifdef _WIN32
 #include "WinSparkleUpdater.h"
@@ -175,50 +176,30 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	toolBar = new wxToolBar(this, TOOLBAR_ID, wxPoint(0,0), wxDefaultSize, wxTB_HORIZONTAL|wxNO_BORDER| wxTB_FLAT);
 
 #ifdef __WXOSX__
-	// On macOS, use wxArtProvider for native Cocoa icons
-	wxSize iconSize = wxArtProvider::GetNativeSizeHint(wxART_TOOLBAR);
-	if (iconSize == wxDefaultSize) {
-		iconSize = wxSize(24, 24);
-	}
-	toolBar->SetToolBitmapSize(iconSize);
-
-	// Helper to load custom icons with proper scaling
-	auto loadToolbarIcon = [&](const string& name) -> wxBitmap {
-		string pngPath = wxGetApp().resourcesDir + "res/bitmaps/" + name + ".png";
-		string bmpPath = wxGetApp().resourcesDir + "res/bitmaps/" + name + ".bmp";
-		wxImage img;
-		if (wxFileExists(pngPath)) {
-			img.LoadFile(pngPath, wxBITMAP_TYPE_PNG);
-		} else if (wxFileExists(bmpPath)) {
-			img.LoadFile(bmpPath, wxBITMAP_TYPE_BMP);
-			if (img.IsOk()) {
-				img.SetMaskColour(255, 255, 255);
-			}
-		}
-		if (img.IsOk()) {
-			img.Rescale(iconSize.GetWidth(), iconSize.GetHeight(), wxIMAGE_QUALITY_HIGH);
-			return wxBitmap(img);
-		}
-		return wxArtProvider::GetBitmap(wxART_QUESTION, wxART_TOOLBAR, iconSize);
+	// On macOS, use native SF Symbols for toolbar icons (requires macOS 11+)
+	auto sfSymbol = [](const char* name) -> wxBitmap {
+		wxBitmap bmp = NativeIcon_GetSFSymbol(name, 18);
+		if (bmp.IsOk()) return bmp;
+		return wxArtProvider::GetBitmap(wxART_QUESTION, wxART_TOOLBAR);
 	};
 
-	toolBar->AddTool(wxID_NEW, "New", wxArtProvider::GetBitmap(wxART_NEW, wxART_TOOLBAR, iconSize), "New");
-	toolBar->AddTool(wxID_OPEN, "Open", wxArtProvider::GetBitmap(wxART_FILE_OPEN, wxART_TOOLBAR, iconSize), "Open");
-	toolBar->AddTool(wxID_SAVE, "Save", wxArtProvider::GetBitmap(wxART_FILE_SAVE, wxART_TOOLBAR, iconSize), "Save");
+	toolBar->AddTool(wxID_NEW, "New", sfSymbol("doc.badge.plus"), "New");
+	toolBar->AddTool(wxID_OPEN, "Open", sfSymbol("folder"), "Open");
+	toolBar->AddTool(wxID_SAVE, "Save", sfSymbol("square.and.arrow.down"), "Save");
 	toolBar->AddSeparator();
-	toolBar->AddTool(wxID_UNDO, "Undo", wxArtProvider::GetBitmap(wxART_UNDO, wxART_TOOLBAR, iconSize), "Undo");
-	toolBar->AddTool(wxID_REDO, "Redo", wxArtProvider::GetBitmap(wxART_REDO, wxART_TOOLBAR, iconSize), "Redo");
+	toolBar->AddTool(wxID_UNDO, "Undo", sfSymbol("arrow.uturn.backward"), "Undo");
+	toolBar->AddTool(wxID_REDO, "Redo", sfSymbol("arrow.uturn.forward"), "Redo");
 	toolBar->AddSeparator();
-	toolBar->AddTool(wxID_COPY, "Copy", wxArtProvider::GetBitmap(wxART_COPY, wxART_TOOLBAR, iconSize), "Copy");
-	toolBar->AddTool(wxID_PASTE, "Paste", wxArtProvider::GetBitmap(wxART_PASTE, wxART_TOOLBAR, iconSize), "Paste");
+	toolBar->AddTool(wxID_COPY, "Copy", sfSymbol("doc.on.doc"), "Copy");
+	toolBar->AddTool(wxID_PASTE, "Paste", sfSymbol("clipboard"), "Paste");
 	toolBar->AddSeparator();
-	toolBar->AddTool(Tool_ZoomIn, "Zoom In", wxArtProvider::GetBitmap(wxART_PLUS, wxART_TOOLBAR, iconSize), "Zoom In");
-	toolBar->AddTool(Tool_ZoomOut, "Zoom Out", wxArtProvider::GetBitmap(wxART_MINUS, wxART_TOOLBAR, iconSize), "Zoom Out");
+	toolBar->AddTool(Tool_ZoomIn, "Zoom In", sfSymbol("plus.magnifyingglass"), "Zoom In");
+	toolBar->AddTool(Tool_ZoomOut, "Zoom Out", sfSymbol("minus.magnifyingglass"), "Zoom Out");
 	toolBar->AddSeparator();
-	pauseIcon = loadToolbarIcon("pause");
-	playIcon = loadToolbarIcon("play");
+	pauseIcon = sfSymbol("pause.fill");
+	playIcon = sfSymbol("play.fill");
 	toolBar->AddTool(Tool_Pause, "Pause/Resume", pauseIcon, "Pause/Resume", wxITEM_CHECK);
-	toolBar->AddTool(Tool_Step, "Step", loadToolbarIcon("step"), "Step");
+	toolBar->AddTool(Tool_Step, "Step", sfSymbol("forward.frame.fill"), "Step");
 	timeStepModSlider = new wxSlider(toolBar, wxID_ANY, wxGetApp().timeStepMod, 1, 500, wxDefaultPosition, wxSize(125,-1), wxSL_HORIZONTAL|wxSL_AUTOTICKS);
 	wxString oss;
 	oss << wxGetApp().timeStepMod << "ms";
@@ -226,11 +207,11 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	toolBar->AddControl( timeStepModSlider );
 	toolBar->AddControl( timeStepModVal );
 	toolBar->AddSeparator();
-	toolBar->AddTool(Tool_Lock, "Lock state", loadToolbarIcon("locked"), "Lock state", wxITEM_CHECK);
+	toolBar->AddTool(Tool_Lock, "Lock state", sfSymbol("lock.fill"), "Lock state", wxITEM_CHECK);
 	toolBar->AddSeparator();
-	toolBar->AddTool(wxID_ABOUT, "About", wxArtProvider::GetBitmap(wxART_HELP, wxART_TOOLBAR, iconSize), "About");
+	toolBar->AddTool(wxID_ABOUT, "About", sfSymbol("info.circle"), "About");
 	toolBar->AddSeparator();
-	toolBar->AddTool(Tool_NewTab, "New Tab", wxArtProvider::GetBitmap(wxART_NEW, wxART_TOOLBAR, iconSize), "New Tab");
+	toolBar->AddTool(Tool_NewTab, "New Tab", sfSymbol("plus.square"), "New Tab");
 #else
 	// On Windows/Linux, use the original BMP icons
 	string bitmaps[] = {"new", "open", "save", "undo", "redo", "copy", "paste", "print", "help", "pause", "step", "zoomin", "zoomout", "locked", "newtab"};
