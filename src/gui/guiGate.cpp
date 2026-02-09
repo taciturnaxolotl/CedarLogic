@@ -26,8 +26,10 @@ guiGate::guiGate() : klsCollisionObject(COLL_GATE) {
 }
 
 guiGate::~guiGate(){
-	// Destry the hotspots:
-	
+	// Clean up collision sub-objects before deleting hotspots to prevent
+	// use-after-free in ~klsCollisionObject (which also iterates subObjs)
+	deleteSubObjects();
+
 	map< string, gateHotspot* >::iterator hs = hotspots.begin();
 	while( hs != hotspots.end() ) {
 		delete hs->second;
