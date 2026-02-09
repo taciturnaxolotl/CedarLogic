@@ -65,7 +65,9 @@ cmdPasteBlock* klsClipboard::pasteBlock( GUICircuit* gCircuit, GUICanvas* gCanva
 				string numEnd = "";	// String of numbers on end that we will build
 
 				// If we are copying more than one thing, don't increment them -- that would be annoying
-				if (pasteText.find("creategate", pasteText.find("creategate") + 1) == std::string::npos) {
+				// Hold Shift during paste to bypass the auto-increment
+				if (pasteText.find("creategate", pasteText.find("creategate") + 1) == std::string::npos
+					&& !wxGetKeyState(WXK_SHIFT)) {
 
 					// Loop from end of temp to beginning, gathering up numbers to build unto numEnd
 					// Starts at temp.length() - 2 so that it starts at the end minus one because 
