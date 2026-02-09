@@ -34,6 +34,7 @@ cmdDeleteTab::cmdDeleteTab(GUICircuit* gCircuit, GUICanvas* gCanvas,
 
 cmdDeleteTab::~cmdDeleteTab() {
 	while (!(cmdList.empty())) {
+		delete cmdList.top();
 		cmdList.pop();
 	}
 }

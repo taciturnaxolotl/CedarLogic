@@ -46,6 +46,11 @@ Circuit::~Circuit()
 	// any Circuit methods, they won't crash.)
 
 	gateList.clear();
+
+#ifndef _PRODUCTION_
+	delete logiclog;
+	logiclog = nullptr;
+#endif
 }
 
 // **************** The visible interface of the circuit ********************
