@@ -1,15 +1,26 @@
 
 #include "cmdDeleteTab.h"
+#ifdef __WXOSX__
+#include "wx/notebook.h"
+#else
 #include "wx/aui/auibook.h"
+#endif
 #include "GUICanvas.h"
 
 class guiGate;
 class guiWire;
 
+#ifdef __WXOSX__
+cmdDeleteTab::cmdDeleteTab(GUICircuit* gCircuit, GUICanvas* gCanvas,
+		wxNotebook* book, std::vector< GUICanvas* >* canvases,
+		unsigned long ID) :
+			klsCommand(true, "Delete Tab") {
+#else
 cmdDeleteTab::cmdDeleteTab(GUICircuit* gCircuit, GUICanvas* gCanvas,
 		wxAuiNotebook* book, std::vector< GUICanvas* >* canvases,
 		unsigned long ID) :
 			klsCommand(true, "Delete Tab") {
+#endif
 
 	this->gCircuit = gCircuit;
 	this->gCanvas = gCanvas;

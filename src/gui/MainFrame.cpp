@@ -75,8 +75,10 @@ BEGIN_EVENT_TABLE(MainFrame, wxFrame)
 	EVT_TIMER(TIMER_ID, MainFrame::OnTimer)
 	EVT_TIMER(IDLETIMER_ID, MainFrame::OnIdle)
 
+#ifndef __WXOSX__
 	EVT_AUINOTEBOOK_PAGE_CHANGED(NOTEBOOK_ID, MainFrame::OnNotebookPage)
 	EVT_AUINOTEBOOK_PAGE_CLOSE(NOTEBOOK_ID, MainFrame::OnDeleteTab)
+#endif
 	
 	EVT_CLOSE(MainFrame::OnClose)
 END_EVENT_TABLE()
@@ -139,6 +141,9 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	editMenu->Append(wxID_REDO, "Redo", "Redo last operation");
 	editMenu->AppendSeparator();
 	editMenu->Append(Tool_NewTab, "New Tab\tCtrl+T", "New Tab");
+#ifdef __WXOSX__
+	editMenu->Append(Tool_CloseTab, "Close Tab\tCtrl+W", "Close current tab");
+#endif
 	editMenu->AppendSeparator();
 	editMenu->Append(wxID_COPY, "Copy\tCtrl+C", "Copy selection to clipboard");
 	editMenu->Append(wxID_PASTE, "Paste\tCtrl+V", "Paste selection from clipboard");
@@ -290,7 +295,11 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	gCircuit->GetCommandProcessor()->SetEditMenu(editMenu);
 	gCircuit->GetCommandProcessor()->Initialize();
 
+#ifdef __WXOSX__
+	canvasBook = new wxNotebook(this, NOTEBOOK_ID, wxDefaultPosition, wxSize(400,400), wxNB_TOP);
+#else
 	canvasBook = new wxAuiNotebook(this, NOTEBOOK_ID, wxDefaultPosition, wxSize(400,400), wxAUI_NB_CLOSE_ON_ACTIVE_TAB| wxAUI_NB_SCROLL_BUTTONS);
+#endif
 	mainSizer->Add( canvasBook, wxSizerFlags(1).Expand().Border(wxALL, 0) );
 
 	//add 1 tab: Left loop to allow for different default
@@ -334,6 +343,11 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	g_printData->SetOrientation(wxLANDSCAPE);
 	
 	this->SetSize( wxGetApp().appSettings.mainFrameLeft, wxGetApp().appSettings.mainFrameTop, wxGetApp().appSettings.mainFrameWidth, wxGetApp().appSettings.mainFrameHeight );
+
+#ifdef __WXOSX__
+	canvasBook->Bind(wxEVT_NOTEBOOK_PAGE_CHANGED, &MainFrame::OnNotebookPage, this);
+	Bind(wxEVT_MENU, &MainFrame::OnCloseTab, this, Tool_CloseTab);
+#endif
 
 	// Show the main window
 	Show(true);
@@ -757,7 +771,11 @@ void MainFrame::OnMaximize(wxMaximizeEvent& event) {
 	sizeChanged = true;
 }
 
+#ifdef __WXOSX__
+void MainFrame::OnNotebookPage(wxBookCtrlEvent& event) {
+#else
 void MainFrame::OnNotebookPage(wxAuiNotebookEvent& event) {
+#endif
 	long canvasID = event.GetSelection();
 	if (currentCanvas == NULL || canvases[canvasID] == currentCanvas) return;
 	//**********************************
@@ -1130,12 +1148,35 @@ void MainFrame::OnNewTab(wxCommandEvent& event) {
 
 }
 
+#ifdef __WXOSX__
+//macOS: Close current tab via Edit > Close Tab (Cmd+W)
+void MainFrame::OnCloseTab(wxCommandEvent& event) {
+	int canvasID = canvasBook->GetSelection();
+	int canSize = canvases.size();
+
+	if (canSize > 1) {
+		if (!canvases[canvasID]->getGateList()->empty()) {
+			wxMessageDialog dialog(this, "All work on this tab will be lost. Would you like to close it?", "Close Tab", wxYES_DEFAULT | wxYES_NO | wxICON_QUESTION);
+			switch (dialog.ShowModal()) {
+				case wxID_YES:
+					break;
+				case wxID_NO:
+					return;
+			}
+		}
+		gCircuit->GetCommandProcessor()->Submit((wxCommand*)(new cmdDeleteTab(gCircuit, canvases[canvasID], canvasBook, &canvases, canvasID)));
+	}
+	else {
+		wxMessageBox("Tab cannot be closed", "Close", wxOK);
+	}
+}
+#else
 //JV - Handle deletetab event. Remove tab and decrement all following tabs numbers
 void MainFrame::OnDeleteTab(wxAuiNotebookEvent& event) {
 	int canvasID = event.GetSelection();
 	int canSize = canvases.size();
 
-	
+
 	if (canSize > 1) {
 		if (!canvases[canvasID]->getGateList()->empty()) {
 			wxMessageDialog dialog(this, "All work on this tab will be lost. Would you like to close it?", "Close Tab", wxYES_DEFAULT | wxYES_NO | wxICON_QUESTION);
@@ -1148,15 +1189,6 @@ void MainFrame::OnDeleteTab(wxAuiNotebookEvent& event) {
 			}
 		}
 		gCircuit->GetCommandProcessor()->Submit((wxCommand*)(new cmdDeleteTab(gCircuit, currentCanvas, canvasBook, &canvases, canvasID)));
-/*		canvases.erase(canvases.begin() + canvasID);
-
-		if (canvasID < (canSize - 1)) {
-			for (unsigned int i = canvasID; i < canSize; i++) {
-				string text = "Page " + to_string(i);
-				canvasBook->SetPageText(i, text);
-			}
-		}*/
-		//canvasBook->RemovePage(canvasID - 1);
 		event.Veto();
 	}
 	else {
@@ -1164,6 +1196,7 @@ void MainFrame::OnDeleteTab(wxAuiNotebookEvent& event) {
 		event.Veto();
 	}
 }
+#endif
 
 void MainFrame::OnReportABug(wxCommandEvent& event) {
 	// Tyler Drake can remap the url using cedar.to/create

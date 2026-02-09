@@ -17,8 +17,11 @@
 #include "wx/thread.h"
 #include "wx/toolbar.h"
 #include "wx/gbsizer.h"
+#ifdef __WXOSX__
 #include "wx/notebook.h"
+#else
 #include "wx/aui/auibook.h"
+#endif
 #include "wx/slider.h"
 #include "threadLogic.h"
 #include "GUICanvas.h"
@@ -50,6 +53,7 @@ enum
     Tool_Lock,
 	Tool_NewTab,
 	Tool_DeleteTab,
+	Tool_CloseTab,
 
 	Help_ReportABug,
 	Help_RequestAFeature,
@@ -77,7 +81,11 @@ public:
 	void OnTimer(wxTimerEvent& event);
 	void OnIdle(wxTimerEvent& event);
 	void OnSize(wxSizeEvent& event);
+#ifdef __WXOSX__
+	void OnNotebookPage(wxBookCtrlEvent& event);
+#else
 	void OnNotebookPage(wxAuiNotebookEvent& event);
+#endif
 	void OnMaximize(wxMaximizeEvent& event);
 	void OnUndo(wxCommandEvent& event);
 	void OnRedo(wxCommandEvent& event);
@@ -93,7 +101,11 @@ public:
 	void OnTimeStepModSlider(wxScrollEvent& event);
 	void OnLock(wxCommandEvent& event);
 	void OnNewTab(wxCommandEvent& event);
+#ifdef __WXOSX__
+	void OnCloseTab(wxCommandEvent& event);
+#else
 	void OnDeleteTab(wxAuiNotebookEvent& event);
+#endif
 	void OnReportABug(wxCommandEvent& event);
 	void OnRequestAFeature(wxCommandEvent& event);
 	void OnDownloadLatestVersion(wxCommandEvent& event);
@@ -150,8 +162,12 @@ private:
 	wxTimer* simTimer;
 	wxTimer* idleTimer;
 
+#ifdef __WXOSX__
+	wxNotebook* canvasBook;
+#else
 	//JV - Changed to AuiNoteBook to allow for close tab button
 	wxAuiNotebook* canvasBook;
+#endif
 	
 	// Instance variables
 	bool sizeChanged;

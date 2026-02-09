@@ -1,11 +1,21 @@
 
 #include "cmdAddTab.h"
+#ifdef __WXOSX__
+#include "wx/notebook.h"
+#else
 #include "wx/aui/auibook.h"
+#endif
 #include "../GUICanvas.h"
 
+#ifdef __WXOSX__
+cmdAddTab::cmdAddTab(GUICircuit* gCircuit, wxNotebook* book,
+		std::vector<GUICanvas *> *canvases) :
+			klsCommand(true, "Add Tab") {
+#else
 cmdAddTab::cmdAddTab(GUICircuit* gCircuit, wxAuiNotebook* book,
 		std::vector<GUICanvas *> *canvases) :
 			klsCommand(true, "Add Tab") {
+#endif
 
 	this->gCircuit = gCircuit;
 	this->canvasBook = book;
