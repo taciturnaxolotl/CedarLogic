@@ -424,6 +424,8 @@ MainFrame::~MainFrame() {
 	simTimer = NULL;
 	delete idleTimer;
 	idleTimer = NULL;
+	delete g_printData;
+	g_printData = NULL;
 }
 
 threadLogic *MainFrame::CreateThread()

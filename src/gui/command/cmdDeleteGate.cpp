@@ -26,7 +26,7 @@ cmdDeleteGate::cmdDeleteGate(GUICircuit* gCircuit, GUICanvas* gCanvas,
 cmdDeleteGate::~cmdDeleteGate() {
 
 	while (!(cmdList.empty())) {
-		//		delete cmdList.top();
+		delete cmdList.top();
 		cmdList.pop();
 	}
 }

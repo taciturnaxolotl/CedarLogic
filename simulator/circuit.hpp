@@ -23,6 +23,12 @@
  */
 class Circuit {
 public:
+  ~Circuit() {
+    for (auto *g : gates) delete g;
+    for (auto *j : junctions) delete j;
+    for (auto *w : wires) delete w;
+  }
+
   /**
    * Simulate the circuit for one frame. The main function or simulation class
    * (whoever owns this) will manage ticking and passing events between

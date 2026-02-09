@@ -30,9 +30,9 @@ guiGate::~guiGate(){
 	
 	map< string, gateHotspot* >::iterator hs = hotspots.begin();
 	while( hs != hotspots.end() ) {
-		// delete (hs->second);
+		delete hs->second;
 		hotspots.erase(hs);
-		hs = hotspots.begin(); 
+		hs = hotspots.begin();
 	}
 }
 

@@ -56,6 +56,7 @@ class MainApp : public wxApp {
 public:
 	MainApp();
 	virtual bool OnInit();
+	virtual int OnExit();
 	void SetCurrentCanvas(wxGLCanvas *canvas);
 #ifdef __WXOSX__
 	virtual void MacOpenFile(const wxString& fileName);

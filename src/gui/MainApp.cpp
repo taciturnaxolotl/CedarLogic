@@ -184,6 +184,12 @@ void MainApp::loadSettings() {
 	}
 }
 
+int MainApp::OnExit() {
+	delete glContext;
+	glContext = NULL;
+	return wxApp::OnExit();
+}
+
 void MainApp::SetCurrentCanvas(wxGLCanvas *canvas)
 {
 	if (!glContext)
