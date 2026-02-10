@@ -157,6 +157,8 @@ private:
 	wxToolBar* toolBar;
 	wxBitmap pauseIcon;
 	wxBitmap playIcon;
+	wxBitmap lockedIcon;
+	wxBitmap unlockedIcon;
 
 	//Julian: Re-added timers to fix refresh error
 	wxTimer* simTimer;

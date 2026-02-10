@@ -14,6 +14,11 @@
 // Returns wxNullBitmap if the symbol name is not found.
 wxBitmap NativeIcon_GetSFSymbol(const char* symbolName, int pointSize);
 
+// Updates a toolbar item's image to an SF Symbol, bypassing wxWidgets'
+// broken alternate-image generation for toggle tools.
+void NativeIcon_SetToolbarSFSymbol(wxToolBar* toolbar, int toolId,
+                                    const char* symbolName, int pointSize);
+
 #endif // __APPLE__
 
 #endif // NATIVEICONS_H

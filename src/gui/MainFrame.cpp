@@ -212,7 +212,9 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	toolBar->AddControl( timeStepModSlider );
 	toolBar->AddControl( timeStepModVal );
 	toolBar->AddSeparator();
-	toolBar->AddTool(Tool_Lock, "Lock state", sfSymbol("lock.fill"), "Lock state", wxITEM_CHECK);
+	lockedIcon = sfSymbol("lock.fill");
+	unlockedIcon = sfSymbol("lock.open.fill");
+	toolBar->AddTool(Tool_Lock, "Lock state", unlockedIcon, "Lock state", wxITEM_CHECK);
 	toolBar->AddSeparator();
 	toolBar->AddTool(wxID_ABOUT, "About", sfSymbol("info.circle"), "About");
 	toolBar->AddSeparator();
@@ -954,8 +956,18 @@ void MainFrame::OnStep(wxCommandEvent& event) {
 void MainFrame::OnLock(wxCommandEvent& event) {
 	if (toolBar->GetToolState(Tool_Lock)) {
 		lock();
+#ifdef __WXOSX__
+		NativeIcon_SetToolbarSFSymbol(toolBar, Tool_Lock, "lock.fill", 18);
+#else
+		toolBar->SetToolNormalBitmap(Tool_Lock, lockedIcon);
+#endif
 	} else {
 		unlock();
+#ifdef __WXOSX__
+		NativeIcon_SetToolbarSFSymbol(toolBar, Tool_Lock, "lock.open.fill", 18);
+#else
+		toolBar->SetToolNormalBitmap(Tool_Lock, unlockedIcon);
+#endif
 	}
 }
 
@@ -1028,12 +1040,20 @@ void MainFrame::PauseSim() {
 		simTimer->Stop();
 		wxGetApp().appSystemTime.Start(0);
 		wxGetApp().appSystemTime.Pause();
+#ifdef __WXOSX__
+		NativeIcon_SetToolbarSFSymbol(toolBar, Tool_Pause, "play.fill", 18);
+#else
 		toolBar->SetToolNormalBitmap(Tool_Pause, playIcon);
+#endif
 	}
 	else {
 		wxGetApp().appSystemTime.Start(0);
 		simTimer->Start(20);
+#ifdef __WXOSX__
+		NativeIcon_SetToolbarSFSymbol(toolBar, Tool_Pause, "pause.fill", 18);
+#else
 		toolBar->SetToolNormalBitmap(Tool_Pause, pauseIcon);
+#endif
 	}
 }
 
