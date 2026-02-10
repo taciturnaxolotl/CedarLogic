@@ -219,6 +219,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	toolBar->AddTool(wxID_ABOUT, "About", sfSymbol("info.circle"), "About");
 	toolBar->AddSeparator();
 	toolBar->AddTool(Tool_NewTab, "New Tab", sfSymbol("plus.square"), "New Tab");
+	toolBar->AddStretchableSpace();
 #else
 	// On Windows/Linux, use the original BMP icons
 	string bitmaps[] = {"new", "open", "save", "undo", "redo", "copy", "paste", "print", "help", "pause", "step", "zoomin", "zoomout", "locked", "newtab"};
@@ -353,6 +354,10 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 
 	// Show the main window
 	Show(true);
+
+#ifdef __WXOSX__
+	NativeWindow_ConfigureTitleBar(this);
+#endif
 
 	doOpenFile = (cmdFilename.size() > 0);
 	this->openedFilename = cmdFilename;
@@ -1187,7 +1192,7 @@ void MainFrame::OnCloseTab(wxCommandEvent& event) {
 		gCircuit->GetCommandProcessor()->Submit((wxCommand*)(new cmdDeleteTab(gCircuit, canvases[canvasID], canvasBook, &canvases, canvasID)));
 	}
 	else {
-		wxMessageBox("Tab cannot be closed", "Close", wxOK);
+		wxBell();
 	}
 }
 #else

@@ -8,6 +8,7 @@
 #import <Cocoa/Cocoa.h>
 #include "wx/bitmap.h"
 #include "wx/toolbar.h"
+#include "wx/frame.h"
 #include "NativeIcons.h"
 
 wxBitmap NativeIcon_GetSFSymbol(const char* symbolName, int pointSize) {
@@ -58,6 +59,27 @@ void NativeIcon_SetToolbarSFSymbol(wxToolBar* toolbar, int toolId,
                 [item setImage:symbol];
                 return;
             }
+        }
+    }
+}
+
+void NativeWindow_ConfigureTitleBar(wxFrame* frame) {
+    @autoreleasepool {
+        NSView* view = (NSView*)frame->GetHandle();
+        if (!view) return;
+
+        NSWindow *window = [view window];
+        if (!window) return;
+
+        // Merge the title bar and toolbar into one unified area
+        window.styleMask |= NSWindowStyleMaskUnifiedTitleAndToolbar;
+
+        // Keep the title visible alongside toolbar items
+        window.titleVisibility = NSWindowTitleVisible;
+
+        // Use the modern unified toolbar style (macOS 11+)
+        if (@available(macOS 11.0, *)) {
+            window.toolbarStyle = NSWindowToolbarStyleUnified;
         }
     }
 }
