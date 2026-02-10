@@ -11,6 +11,7 @@
 #include "GUICanvas.h"
 #include "MainApp.h"
 #include "paramDialog.h"
+#include "QuickAddDialog.h"
 #include "klsClipboard.h"
 #include "guiWire.h"
 
@@ -75,6 +76,19 @@ GUICanvas::GUICanvas(wxWindow *parent, GUICircuit* gCircuit, wxWindowID id,
 	collisionChecker.addObject( dragselectbox );
 
 	SetDropTarget(new DnDText(this));
+
+#ifdef __WXOSX__
+	// Suppress macOS bonk sound for keys handled in OnKeyDown
+	Bind(wxEVT_CHAR, [](wxKeyEvent& evt) {
+		int key = evt.GetKeyCode();
+		if (key == 'a' || key == 'A' || key == WXK_SPACE ||
+			key == '+' || key == '=' || key == '-') {
+			// Swallow — already handled in OnKeyDown
+		} else {
+			evt.Skip();
+		}
+	});
+#endif
 }
 
 GUICanvas::~GUICanvas() {
@@ -338,6 +352,8 @@ renderNum++;
 void GUICanvas::mouseLeftDown(wxMouseEvent& event) {
 	GLPoint2f m = getMouseCoords();
 	bool handled = false;
+	// If placing a new gate (snap-to-cursor), let OnMouseUp finalize it
+	if (currentDragState == DRAG_NEWGATE) return;
 	// If I am in a paste operation then mouse-up is all I am concerned with
 	if (isWithinPaste) return;
 	
@@ -1097,6 +1113,26 @@ void GUICanvas::OnKeyDown(wxKeyEvent& event) {
 		break;
 	case WXK_SPACE:
 		setZoomAll();
+		break;
+	case 'A':
+	case 'a':
+		if (!event.ControlDown() && !event.AltDown() && !event.CmdDown() && currentDragState == DRAG_NONE && !this->isLocked()) {
+#ifdef __WXOSX__
+			QuickAddDialog* dlg = new QuickAddDialog(wxTheApp->GetTopWindow());
+			dlg->Bind(wxEVT_WINDOW_MODAL_DIALOG_CLOSED, [dlg](wxWindowModalDialogEvent& evt) {
+				if (evt.GetReturnCode() == wxID_OK && !dlg->getSelectedGate().empty()) {
+					wxGetApp().newGateToDrag = dlg->getSelectedGate();
+				}
+				dlg->Destroy();
+			});
+			dlg->ShowWindowModal();
+#else
+			QuickAddDialog dlg(this->GetParent()->GetParent());
+			if (dlg.ShowModal() == wxID_OK && !dlg.getSelectedGate().empty()) {
+				wxGetApp().newGateToDrag = dlg.getSelectedGate();
+			}
+#endif
+		}
 		break;
 	}
 }
