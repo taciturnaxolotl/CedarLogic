@@ -298,12 +298,15 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	gCircuit->GetCommandProcessor()->SetEditMenu(editMenu);
 	gCircuit->GetCommandProcessor()->Initialize();
 
+	// Create splitter for canvasBook (top) and oscope (bottom)
+	rightSplitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSP_3D | wxSP_LIVE_UPDATE);
+	rightSplitter->SetMinimumPaneSize(100);
+
 #ifdef __WXOSX__
-	canvasBook = new wxNotebook(this, NOTEBOOK_ID, wxDefaultPosition, wxSize(400,400), wxNB_TOP);
+	canvasBook = new wxNotebook(rightSplitter, NOTEBOOK_ID, wxDefaultPosition, wxSize(400,400), wxNB_TOP);
 #else
-	canvasBook = new wxAuiNotebook(this, NOTEBOOK_ID, wxDefaultPosition, wxSize(400,400), wxAUI_NB_CLOSE_ON_ACTIVE_TAB| wxAUI_NB_SCROLL_BUTTONS);
+	canvasBook = new wxAuiNotebook(rightSplitter, NOTEBOOK_ID, wxDefaultPosition, wxSize(400,400), wxAUI_NB_CLOSE_ON_ACTIVE_TAB| wxAUI_NB_SCROLL_BUTTONS);
 #endif
-	mainSizer->Add( canvasBook, wxSizerFlags(1).Expand().Border(wxALL, 0) );
 
 	//add 1 tab: Left loop to allow for different default
 	for (int i = 0; i < 1; i++) {
@@ -316,8 +319,11 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	currentCanvas = canvases[0];
 	gCircuit->setCurrentCanvas(currentCanvas);
 	currentCanvas->setMinimap(miniMap);
-	mainSizer->Show(canvasBook);
 	currentCanvas->SetFocus();
+
+	// Initialize splitter showing only canvasBook (oscope hidden)
+	rightSplitter->Initialize(canvasBook);
+	mainSizer->Add( rightSplitter, wxSizerFlags(1).Expand().Border(wxALL, 0) );
 
 	SetSizer( mainSizer);
 		
@@ -337,7 +343,9 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	// Setup the "Maximize Catch" flag:
 	sizeChanged = false;
 	
-	gCircuit->setOscope(new OscopeFrame(this, "O-Scope", gCircuit));
+	oscopePanel = new OscopeFrame(rightSplitter, gCircuit);
+	oscopePanel->Hide();
+	gCircuit->setOscope(oscopePanel);
 	
 	toolBar->Realize();
 
@@ -662,7 +670,7 @@ void MainFrame::loadCircuitFile( string fileName ){
 	currentCanvas = canvases[0];
 	gCircuit->setCurrentCanvas(currentCanvas);
 	currentCanvas->setMinimap(miniMap);
-	mainSizer->Show(canvasBook);
+	mainSizer->Show(rightSplitter);
 	currentCanvas->SetFocus();
 
 	removeTempFile();
@@ -696,7 +704,12 @@ void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) {
 }
 
 void MainFrame::OnOscope(wxCommandEvent& WXUNUSED(event)) {
-	gCircuit->getOscope()->Show(true);
+	if (rightSplitter->IsSplit()) {
+		rightSplitter->Unsplit(oscopePanel);
+	} else {
+		oscopePanel->Show();
+		rightSplitter->SplitHorizontally(canvasBook, oscopePanel, -250);
+	}
 }
 
 void MainFrame::OnViewGridline(wxCommandEvent& event) {

@@ -42,7 +42,7 @@ OscopeCanvas::~OscopeCanvas(){
 	return;
 }
 
-void OscopeCanvas::OnRender(){ 
+void OscopeCanvas::OnRender(double scaleOverride){
 	
 	//Gets number of wires to render
 	//unsigned int numberOfWires = stateValues.size();
@@ -62,7 +62,8 @@ void OscopeCanvas::OnRender(){
 	
 	gluOrtho2D(0, OSCOPE_HORIZONTAL, numberOfWires * 1.5, -0.25);
 	// Use physical pixels for glViewport on HiDPI/Retina displays
-	double scaleFactor = GetContentScaleFactor();
+	// (scaleOverride allows generateImage to force logical pixels for export)
+	double scaleFactor = (scaleOverride > 0.0) ? scaleOverride : GetContentScaleFactor();
 	glViewport(0, 0, (GLint)(sz.GetWidth() * scaleFactor), (GLint)(sz.GetHeight() * scaleFactor));
 
 	// Set the model matrix:
@@ -108,9 +109,7 @@ void OscopeCanvas::OnRender(){
 	glEnd();
 
 	for (unsigned int i = 0; i < numberOfWires; i++) {
-		if (parentFrame->getFeedName(i) == NONE_STR) { wireNum++; continue; }//<-Josh Edit using access method
-
-		map< string, deque< StateType > >::iterator thisWire = stateValues.find(parentFrame->getFeedName(i).c_str()); //<-Josh Edit using access method
+		map< string, deque< StateType > >::iterator thisWire = stateValues.find(parentFrame->getFeedName(i).c_str());
 		if (thisWire == stateValues.end()) { wireNum++; continue; }
 		deque< StateType >::reverse_iterator wireVal = (thisWire->second).rbegin();
 		GLdouble horizLoc = OSCOPE_HORIZONTAL;
@@ -221,7 +220,7 @@ void OscopeCanvas::UpdateData(void){
 	
 	set< string > liveTOs;
 	vector < guiGate* > toGates;
-	if (parentFrame->numberOfFeeds() > 1) {
+	if (parentFrame->numberOfFeeds() > 0) {
 		// Set up a list of TO gates so I only search the whole gate list once.
 		theGate = gateList->begin();
 		while (theGate != gateList->end()) {
@@ -229,13 +228,13 @@ void OscopeCanvas::UpdateData(void){
 			theGate++;
 		}
 	}
-	
+
 	//Check to see if wire has already been added to OSCOPE
-	map< string, bool > hasBeenAdded; 
-	
-	for (unsigned int i = 0; i < parentFrame->numberOfFeeds()-1; i++) {
+	map< string, bool > hasBeenAdded;
+
+	for (unsigned int i = 0; i < parentFrame->numberOfFeeds(); i++) {
 		string junctionName = parentFrame->getFeedName(i).c_str();
-		if (junctionName == NONE_STR || junctionName == RMOVE_STR || junctionName == "") continue;	
+		if (junctionName == NONE_STR || junctionName == "") continue;
 			
 		if(hasBeenAdded.find(junctionName) == hasBeenAdded.end()) {
 			hasBeenAdded[junctionName] = true;
@@ -435,31 +434,16 @@ wxImage OscopeCanvas::generateImage(){
 	wxSize sz = GetClientSize();
 	glImageCtx glCtx(sz.GetWidth(), sz.GetHeight(), this);
 
-	// Setup the viewport for rendering:
-//	setViewport();
-	// Reset the glViewport to the size of the bitmap:
-//	glViewport(0, 0, (GLint) sz.GetWidth(), (GLint) sz.GetHeight());
-	
-	// Set the bitmap clear color:
 	glClearColor (1.0, 1.0, 1.0, 0.0);
 	glColor3b(0, 0, 0);
-		
-	//TODO: Check if alpha is hardware supported, and
-	// don't enable it if not!
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_BLEND);
-	
-	//*********************************
-	//Edit by Joshua Lansford 4/09/07
-	//anti-alis ing is nice
 	glEnable( GL_LINE_SMOOTH );
-	//End of edit
 
-	// Do the rendering here.
-	OnRender();
+	// Use scale 1.0 so OnRender sets glViewport to logical pixels,
+	// matching the glReadPixels dimensions in glImageCtx::getImage().
+	OnRender(1.0);
 
-	// Flush the OpenGL buffer to make sure the rendering has happened:	
 	glFlush();
-
 	return glCtx.getImage();
 }

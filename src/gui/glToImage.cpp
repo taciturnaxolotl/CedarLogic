@@ -74,7 +74,7 @@ wxImage glImageCtx::getImage() {
 	//    we can get a pointer to the start of a row
 	int row_size = width*3; // The width of a row in bytes; one for each color
 	for (int y=0; y < height; y++) {
-		memcpy(&flipped[y*row_size], &pixels[(height-y)*row_size], row_size);
+		memcpy(&flipped[y*row_size], &pixels[(height-1-y)*row_size], row_size);
 	}
 
 /* 	for (int y=0; y < height; y++) { */

@@ -20,6 +20,13 @@ wxBitmap NativeIcon_GetSFSymbol(const char* symbolName, int pointSize);
 void NativeIcon_SetToolbarSFSymbol(wxToolBar* toolbar, int toolId,
                                     const char* symbolName, int pointSize);
 
+// Configures an embedded wxToolBar toggle button with SF Symbol images for
+// both normal and checked states. Call once after Realize().
+void NativeIcon_ConfigureEmbeddedToggleTool(wxToolBar* toolbar, int toolId,
+                                             const char* normalSymbol,
+                                             const char* alternateSymbol,
+                                             int pointSize);
+
 // Configures the NSWindow for a modern unified title bar + toolbar appearance.
 // Requires macOS 11+ for full effect; degrades gracefully on older versions.
 void NativeWindow_ConfigureTitleBar(wxFrame* frame);

@@ -23,6 +23,7 @@
 #include "wx/aui/auibook.h"
 #endif
 #include "wx/slider.h"
+#include "wx/splitter.h"
 #include "threadLogic.h"
 #include "GUICanvas.h"
 #include "GUICircuit.h"
@@ -185,6 +186,8 @@ private:
 	wxStaticText* timeStepModVal;
 	PaletteFrame* gatePalette;
 	
+	wxSplitterWindow* rightSplitter;
+	OscopeFrame* oscopePanel;
 	wxBoxSizer* mainSizer;
 	
     // any class wishing to process wxWidgets events must use this macro

@@ -63,6 +63,53 @@ void NativeIcon_SetToolbarSFSymbol(wxToolBar* toolbar, int toolId,
     }
 }
 
+void NativeIcon_ConfigureEmbeddedToggleTool(wxToolBar* toolbar, int toolId,
+                                             const char* normalSymbol,
+                                             const char* alternateSymbol,
+                                             int pointSize) {
+    @autoreleasepool {
+        NSImage* (^makeSFSymbol)(const char*) = ^NSImage*(const char* symName) {
+            NSString *name = [NSString stringWithUTF8String:symName];
+            NSImage *symbol = [NSImage imageWithSystemSymbolName:name
+                                        accessibilityDescription:nil];
+            if (!symbol) return nil;
+            NSImageSymbolConfiguration *config = [NSImageSymbolConfiguration
+                configurationWithPointSize:(CGFloat)pointSize
+                weight:NSFontWeightRegular
+                scale:NSImageSymbolScaleMedium];
+            return [symbol imageWithSymbolConfiguration:config];
+        };
+
+        NSImage* normalImage = makeSFSymbol(normalSymbol);
+        NSImage* altImage = makeSFSymbol(alternateSymbol);
+        if (!normalImage || !altImage) return;
+
+        // For embedded wxToolBar, each tool is an NSButton subview.
+        int toolPos = toolbar->GetToolPos(toolId);
+        if (toolPos == wxNOT_FOUND) return;
+
+        int buttonIndex = 0;
+        for (int i = 0; i < toolPos; i++) {
+            const wxToolBarToolBase* t = toolbar->GetToolByPos(i);
+            if (t && !t->IsSeparator()) buttonIndex++;
+        }
+
+        NSView* tbView = (NSView*)toolbar->GetHandle();
+        int count = 0;
+        for (NSView* subview in [tbView subviews]) {
+            if ([subview isKindOfClass:[NSButton class]]) {
+                if (count == buttonIndex) {
+                    NSButton* button = (NSButton*)subview;
+                    [button setImage:normalImage];
+                    [button setAlternateImage:altImage];
+                    return;
+                }
+                count++;
+            }
+        }
+    }
+}
+
 void NativeWindow_ConfigureTitleBar(wxFrame* frame) {
     @autoreleasepool {
         NSView* view = (NSView*)frame->GetHandle();

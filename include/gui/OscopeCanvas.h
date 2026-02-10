@@ -48,8 +48,8 @@ public:
     void UpdateMenu(void);
 	void UpdateData(void);
 		
-	// Render this page
-    void OnRender();
+	// Render this page (scaleOverride > 0 uses that instead of GetContentScaleFactor)
+    void OnRender(double scaleOverride = 0.0);
     wxImage generateImage();
     
     void clearData( void ) {
