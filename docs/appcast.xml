@@ -7,103 +7,97 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 2.3.9</title>
-      <pubDate>Fri, 06 Feb 2026 05:42:35 +0000</pubDate>
-      <sparkle:version>2.3.9</sparkle:version>
-      <sparkle:shortVersionString>2.3.9</sparkle:shortVersionString>
+      <title>Version 2.3.10</title>
+      <pubDate>Tue, 10 Feb 2026 04:17:27 +0000</pubDate>
+      <sparkle:version>2.3.10</sparkle:version>
+      <sparkle:shortVersionString>2.3.10</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<h2>[2.3.9] - 2026-02-05</h2>
+      <description><![CDATA[<h2>[2.3.10] - 2026-02-09</h2>
 <h3>Added</h3>
 <ul>
-  <li><b>Auto-Updates</b>: Automatic update checking on macOS and Windows</li>
-  <li>Check for updates via Help → "Check for Updates..."</li>
-  <li>Background update checks with user-friendly install dialog</li>
-  <li>Uses Sparkle (macOS) and WinSparkle (Windows)</li>
-  <li><b>Code Signing</b>: macOS releases are now signed and notarized</li>
-  <li>No more Gatekeeper warnings or "damaged app" messages</li>
-  <li>Automatic notarization through Apple's notary service</li>
-  <li><b>HTML Help System</b>: Native help viewer on macOS (replaces CHM)</li>
-  <li><b>Export v1.x Compatible</b>: New File menu option to export circuits for older CedarLogic versions (v1.5, v1.8, etc.)</li>
-  <li><b>macOS Input Support</b>:</li>
-  <li>Trackpad scroll-to-pan (hold Cmd + scroll)</li>
-  <li>Delete key (backspace) now works for deleting gates</li>
-  <li>Open files directly from Finder (double-click or drag-to-icon)</li>
+  <li><b>Quick Add Dialog</b>: Search and place gates by name (Cmd/Ctrl+E)</li>
+  <li>Fuzzy search across all available gate categories</li>
+  <li>Keyboard-driven: type, arrow-key select, Enter to place</li>
+  <li>ESC cancels cleanly without ghost gates</li>
+  <li><b>Docked Oscilloscope</b>: Oscilloscope is now a bottom panel instead of a floating window</li>
+  <li>Toggle via View → Oscope (Ctrl+G) with a draggable splitter</li>
+  <li>Toolbar with add/remove signal buttons, pause/reset, export, load/save layout</li>
+  <li>Signal list replaces the old combo box grid — add signals from a popup menu, remove with one click</li>
+  <li><b>Native macOS UI</b>:</li>
+  <li>SF Symbol icons throughout the toolbar (adapts to light/dark mode automatically)</li>
+  <li>Native tab bar using wxNotebook instead of wxAuiNotebook</li>
+  <li>Gate parameters dialog presented as a native sheet</li>
+  <li>Redesigned sidebar with improved scroll height</li>
+  <li><b>Shift+Paste</b>: Hold Shift while pasting a TO/FROM gate to keep the original junction name (bypasses auto-increment)</li>
 </ul>
 <h3>Fixed</h3>
 <ul>
-  <li>Crash when clicking after undo deletes a gate (#64)</li>
-  <li>Paste operation now properly cancels when pressing Escape (#67)</li>
-  <li>macOS scroll/zoom behavior: scroll = zoom, Cmd+scroll = pan</li>
-  <li>Added <code>=</code> key for zoom in (in addition to <code>+</code>)</li>
+  <li>Use-after-free crash in guiGate destructor during palette rendering</li>
+  <li>Memory leaks across the codebase: command destructors, gate hotspots, GL context, print data, circuit teardown</li>
+  <li>Memory leak in paste clipboard logic (heap-allocated string never freed)</li>
+  <li>SF Symbol toolbar icons rasterizing into bitmaps on toggle (now patches NSButton directly via Cocoa)</li>
+  <li>Oscilloscope export on Retina displays (viewport mismatch caused partial capture)</li>
+  <li>Off-by-one buffer overrun in GL-to-image export (<code>glToImage.cpp</code>)</li>
+  <li>ESC key not canceling quick add on Windows</li>
+  <li>Quick add focus issues after modal dialog on macOS</li>
 </ul>
 <h3>Changed</h3>
 <ul>
-  <li><b>Build Improvements</b>:</li>
-  <li>Added build caching for faster CI (~3-5x speedup on cache hits)</li>
-  <li>Package filenames now match release tag version</li>
-  <li>macOS builds are arm64 only (Apple Silicon native)</li>
+  <li>Oscilloscope rewritten: <code>wxFrame</code> → <code>wxPanel</code>, combo boxes → list + toolbar, encoding hacks removed</li>
+  <li>Sidebar layout improved with better gate picker scroll area</li>
 </ul>
-<h3>Infrastructure</h3>
-<ul>
-  <li>Automated release workflow with signing, notarization, and appcast updates</li>
-  <li>GitHub Pages hosts update feed at taciturnaxolotl.github.io/CedarLogic</li>
-  <li>Wiki documentation for CI/CD and release process</li>
-</ul>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.3.8...v2.3.9</p>]]></description>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.3.9...v2.3.10</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.3.9/CedarLogic-2.3.9-Darwin.dmg"
-        sparkle:edSignature="OlvFLgaN3QxBFjVcwXP6kDUrqOSIEPUM7YoT14bi/H0frKla5jjH0OncmgVv0Bet/hs8NIkV3zzmv6nEKIXMAQ=="
-        length="9012079"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.3.10/CedarLogic-2.3.10-Darwin.dmg"
+        sparkle:edSignature="uc2VoKHkY47oxv658AqvbLrVcSFMwbf3h/wE+WCv3wAWm+qaaQZ8X95ZTpAg2GdaTatvHG9ujGEhdN9CC9LaCg=="
+        length="8930627"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 2.3.9</title>
-      <pubDate>Fri, 06 Feb 2026 05:42:35 +0000</pubDate>
-      <sparkle:version>2.3.9</sparkle:version>
-      <sparkle:shortVersionString>2.3.9</sparkle:shortVersionString>
-      <description><![CDATA[<h2>[2.3.9] - 2026-02-05</h2>
+      <title>Version 2.3.10</title>
+      <pubDate>Tue, 10 Feb 2026 04:17:27 +0000</pubDate>
+      <sparkle:version>2.3.10</sparkle:version>
+      <sparkle:shortVersionString>2.3.10</sparkle:shortVersionString>
+      <description><![CDATA[<h2>[2.3.10] - 2026-02-09</h2>
 <h3>Added</h3>
 <ul>
-  <li><b>Auto-Updates</b>: Automatic update checking on macOS and Windows</li>
-  <li>Check for updates via Help → "Check for Updates..."</li>
-  <li>Background update checks with user-friendly install dialog</li>
-  <li>Uses Sparkle (macOS) and WinSparkle (Windows)</li>
-  <li><b>Code Signing</b>: macOS releases are now signed and notarized</li>
-  <li>No more Gatekeeper warnings or "damaged app" messages</li>
-  <li>Automatic notarization through Apple's notary service</li>
-  <li><b>HTML Help System</b>: Native help viewer on macOS (replaces CHM)</li>
-  <li><b>Export v1.x Compatible</b>: New File menu option to export circuits for older CedarLogic versions (v1.5, v1.8, etc.)</li>
-  <li><b>macOS Input Support</b>:</li>
-  <li>Trackpad scroll-to-pan (hold Cmd + scroll)</li>
-  <li>Delete key (backspace) now works for deleting gates</li>
-  <li>Open files directly from Finder (double-click or drag-to-icon)</li>
+  <li><b>Quick Add Dialog</b>: Search and place gates by name (Cmd/Ctrl+E)</li>
+  <li>Fuzzy search across all available gate categories</li>
+  <li>Keyboard-driven: type, arrow-key select, Enter to place</li>
+  <li>ESC cancels cleanly without ghost gates</li>
+  <li><b>Docked Oscilloscope</b>: Oscilloscope is now a bottom panel instead of a floating window</li>
+  <li>Toggle via View → Oscope (Ctrl+G) with a draggable splitter</li>
+  <li>Toolbar with add/remove signal buttons, pause/reset, export, load/save layout</li>
+  <li>Signal list replaces the old combo box grid — add signals from a popup menu, remove with one click</li>
+  <li><b>Native macOS UI</b>:</li>
+  <li>SF Symbol icons throughout the toolbar (adapts to light/dark mode automatically)</li>
+  <li>Native tab bar using wxNotebook instead of wxAuiNotebook</li>
+  <li>Gate parameters dialog presented as a native sheet</li>
+  <li>Redesigned sidebar with improved scroll height</li>
+  <li><b>Shift+Paste</b>: Hold Shift while pasting a TO/FROM gate to keep the original junction name (bypasses auto-increment)</li>
 </ul>
 <h3>Fixed</h3>
 <ul>
-  <li>Crash when clicking after undo deletes a gate (#64)</li>
-  <li>Paste operation now properly cancels when pressing Escape (#67)</li>
-  <li>macOS scroll/zoom behavior: scroll = zoom, Cmd+scroll = pan</li>
-  <li>Added <code>=</code> key for zoom in (in addition to <code>+</code>)</li>
+  <li>Use-after-free crash in guiGate destructor during palette rendering</li>
+  <li>Memory leaks across the codebase: command destructors, gate hotspots, GL context, print data, circuit teardown</li>
+  <li>Memory leak in paste clipboard logic (heap-allocated string never freed)</li>
+  <li>SF Symbol toolbar icons rasterizing into bitmaps on toggle (now patches NSButton directly via Cocoa)</li>
+  <li>Oscilloscope export on Retina displays (viewport mismatch caused partial capture)</li>
+  <li>Off-by-one buffer overrun in GL-to-image export (<code>glToImage.cpp</code>)</li>
+  <li>ESC key not canceling quick add on Windows</li>
+  <li>Quick add focus issues after modal dialog on macOS</li>
 </ul>
 <h3>Changed</h3>
 <ul>
-  <li><b>Build Improvements</b>:</li>
-  <li>Added build caching for faster CI (~3-5x speedup on cache hits)</li>
-  <li>Package filenames now match release tag version</li>
-  <li>macOS builds are arm64 only (Apple Silicon native)</li>
+  <li>Oscilloscope rewritten: <code>wxFrame</code> → <code>wxPanel</code>, combo boxes → list + toolbar, encoding hacks removed</li>
+  <li>Sidebar layout improved with better gate picker scroll area</li>
 </ul>
-<h3>Infrastructure</h3>
-<ul>
-  <li>Automated release workflow with signing, notarization, and appcast updates</li>
-  <li>GitHub Pages hosts update feed at taciturnaxolotl.github.io/CedarLogic</li>
-  <li>Wiki documentation for CI/CD and release process</li>
-</ul>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.3.8...v2.3.9</p>]]></description>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.3.9...v2.3.10</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.3.9/CedarLogic-2.3.9-win32.exe"
-        length="10574334"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.3.10/CedarLogic-2.3.10-win32.exe"
+        length="10585666"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
