@@ -30,7 +30,7 @@ public:
 
 private:
 	wxBoxSizer* paletteSizer;
-	wxListBox* listBox;
+	wxChoice* sectionChoice;
 	wxArrayString strings;
 	PaletteCanvas* currentPalette;
 	map < wxString, PaletteCanvas* > pcanvases;

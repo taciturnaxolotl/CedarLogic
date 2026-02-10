@@ -22,8 +22,8 @@ class gateImage;
 #define wxDragImage wxGenericDragImage
 #include <string>
 
-#define GATEIMAGESIZE 32
-#define IMAGESIZE 34
+#define GATEIMAGESIZE 46
+#define IMAGESIZE 48
 
 using namespace std;
 

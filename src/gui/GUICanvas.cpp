@@ -1030,14 +1030,15 @@ void GUICanvas::OnMouseEnter(wxMouseEvent& event) {
 		newDragGate = gCircuit->createGate(wxGetApp().newGateToDrag, -1);
 		if (newDragGate == NULL) { wxGetApp().newGateToDrag = ""; return; }
 		newDragGate->setGLcoords(m.x, m.y);
-		//wxGetApp().logfile << m.x << " " << (panY-(y*viewZoom)) << endl << flush;
 		currentDragState = DRAG_NEWGATE;
 		wxGetApp().newGateToDrag = "";
 		beginDrag( BUTTON_LEFT );
 		unselectAllGates();
 		newDragGate->select();
 		collisionChecker.addObject( newDragGate );
-	} else wxGetApp().newGateToDrag = "";
+	}
+	// Don't clear newGateToDrag here — OnMouseMove handles it for
+	// both palette drags and quick-add placement.
 }
 
 
