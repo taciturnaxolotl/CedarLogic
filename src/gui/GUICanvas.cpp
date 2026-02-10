@@ -1056,6 +1056,7 @@ void GUICanvas::OnKeyDown(wxKeyEvent& event) {
 			collisionChecker.removeObject( newDragGate );
 			delete newDragGate;
 			collisionChecker.update();
+			wxGetApp().newGateToDrag = "";
 		} else if (isWithinPaste) {
 			// Cancel paste operation: undo all pasted gates/wires
 			pasteCommand->Undo();
@@ -1128,9 +1129,10 @@ void GUICanvas::OnKeyDown(wxKeyEvent& event) {
 			});
 			dlg->ShowWindowModal();
 #else
-			QuickAddDialog dlg(this->GetParent()->GetParent());
+			QuickAddDialog dlg(wxGetTopLevelParent(this));
 			if (dlg.ShowModal() == wxID_OK && !dlg.getSelectedGate().empty()) {
 				wxGetApp().newGateToDrag = dlg.getSelectedGate();
+				CallAfter([this]() { SetFocus(); });
 			}
 #endif
 		}
