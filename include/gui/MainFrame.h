@@ -139,7 +139,7 @@ public:
 	void PreGateDrag();
 
 	//Julian: Added to simplify exporting and copying to clipboard
-	wxBitmap getBitmap(bool withGrid);
+	wxBitmap getBitmap(bool withGrid, bool noColor = false, int multiplier = 2);
 	
 private:
     // helper function - creates a new thread (but doesn't run it)

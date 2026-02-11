@@ -51,6 +51,32 @@ glImageCtx::glImageCtx(int a_width, int a_height, wxWindow *parent) {
     oldhRC = ::wglGetCurrentContext();
     oldDC = ::wglGetCurrentDC();
     ::wglMakeCurrent( (HDC) theHDC, hRC );
+#elif defined(__linux__) || defined(__APPLE__)
+	// Create an offscreen framebuffer object (FBO) for rendering at any size
+
+	// Save the current FBO binding so we can restore it later
+	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &oldFBO);
+
+	// Generate and bind a new FBO
+	glGenFramebuffers(1, &fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+	// Create a texture to render to
+	glGenTextures(1, &renderTexture);
+	glBindTexture(GL_TEXTURE_2D, renderTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// Attach the texture to the FBO
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, renderTexture, 0);
+
+	// Check FBO status
+	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (status != GL_FRAMEBUFFER_COMPLETE) {
+		// FBO creation failed - this shouldn't happen, but handle it gracefully
+		glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+	}
 #endif
 }
 
@@ -97,5 +123,10 @@ glImageCtx::~glImageCtx() {
 	::wglMakeCurrent( oldDC, oldhRC );
 	::wglDeleteContext( hRC );
 	myDC->SelectObject(wxNullBitmap);
+#elif defined(__linux__) || defined(__APPLE__)
+	// Clean up the FBO and texture
+	glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+	glDeleteTextures(1, &renderTexture);
+	glDeleteFramebuffers(1, &fbo);
 #endif
 };

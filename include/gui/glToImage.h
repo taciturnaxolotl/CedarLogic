@@ -12,6 +12,10 @@ class glImageCtx {
     HGLRC hRC;
     HGLRC oldhRC;
     HDC oldDC;
+#elif defined(__linux__) || defined(__APPLE__)
+	GLuint fbo;
+	GLuint renderTexture;
+	GLint oldFBO;
 #endif
 
 public:

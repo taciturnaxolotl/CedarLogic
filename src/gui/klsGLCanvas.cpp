@@ -109,10 +109,20 @@ wxImage klsGLCanvas::renderToImage( unsigned long width, unsigned long height, u
 	wxGetApp().SetCurrentCanvas(this);
 	glImageCtx glCtx((int)width, (int)height, this);
 
-	// Setup the viewport for rendering:
-	reclaimViewport();
-	// Reset the glViewport to the size of the bitmap:
+	// Setup the projection matrix - use canvas size for world coordinates
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+
+	// Use canvas dimensions for world coordinates (what area we're looking at)
+	wxSize sz = GetClientSize();
+	gluOrtho2D(panX, panX + (sz.GetWidth() * viewZoom), panY - (sz.GetHeight() * viewZoom), panY);
+
+	// Set the viewport to bitmap size (resolution we're rendering at)
 	glViewport(0, 0, (GLint) width, (GLint) height);
+
+	// Set the model matrix:
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
 	
 	// Set the bitmap clear color:
 	glClearColor (1.0, 1.0, 1.0, 0.0);

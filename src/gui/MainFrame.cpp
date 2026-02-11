@@ -20,6 +20,12 @@
 #include "wx/clipbrd.h"
 #include "wx/dataobj.h"
 #include "wx/config.h"
+#include "wx/checkbox.h"
+#include "wx/radiobox.h"
+#include "wx/stattext.h"
+#include "wx/sizer.h"
+#include "wx/dialog.h"
+#include "wx/button.h"
 #include "CircuitParse.h"
 #include "OscopeFrame.h"
 #include "wx/docview.h"
@@ -109,9 +115,8 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	fileMenu->Append(wxID_SAVE, "&Save\tCtrl+S", "Save circuit");
 	fileMenu->Append(wxID_SAVEAS, "Save &As", "Save circuit");
 	fileMenu->AppendSeparator();
-	fileMenu->Append(File_Export, "Export to Image");
-	fileMenu->Append(File_ExportLegacy, "Export v1.x Compatible...", "Save in legacy format for older CedarLogic versions");
-	fileMenu->Append(File_ClipCopy, "Copy Canvas to Clipboard");
+	fileMenu->Append(File_Export, "Export as Image...\tCtrl+E", "Export or copy circuit image");
+	fileMenu->Append(File_ExportLegacy, "Export v1.x Compatible...", "Save in legacy format");
 	fileMenu->AppendSeparator();
 	fileMenu->Append(wxID_EXIT, "E&xit\tAlt+X", "Quit this program");
 
@@ -834,58 +839,105 @@ void MainFrame::OnPaste(wxCommandEvent& event) {
 }
 
 void MainFrame::OnExportBitmap(wxCommandEvent& event) {
+	// Create unified export dialog with horizontal layout
+	wxDialog exportDialog(this, wxID_ANY, "Export as Image", wxDefaultPosition, wxSize(480, 280));
+	wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
 
-	bool showGrid = false;
-	wxMessageDialog gridDialog(this, "Export with Grid?", "Export", wxYES_DEFAULT | wxYES_NO | wxCANCEL | wxICON_QUESTION);
-	switch (gridDialog.ShowModal()) {
-	case wxID_YES:
-		showGrid = true;
-		break;
-	case wxID_CANCEL:
-		return;
-	}
+	// Grid option
+	wxCheckBox* gridCheck = new wxCheckBox(&exportDialog, wxID_ANY, "Include grid lines");
+	gridCheck->SetValue(false);
+	mainSizer->Add(gridCheck, 0, wxALL, 15);
 
-	bool showColor = false;
-	wxMessageDialog colorDialog(this, "Export with Color?", "Export", wxYES_DEFAULT | wxYES_NO | wxCANCEL | wxICON_QUESTION);
-	switch (colorDialog.ShowModal()) {
-	case wxID_YES:
-		showColor = true;
-		break;
-	case wxID_CANCEL:
-		return;
-	}
+	// Horizontal sizer for output style and resolution side-by-side
+	mainSizer->AddSpacer(10);
+	wxBoxSizer* optionsSizer = new wxBoxSizer(wxHORIZONTAL);
 
-	wxBitmap bitmap = getBitmap(showGrid);
-	if (!showColor) {
+	// Output style box with better spacing
+	wxStaticBoxSizer* styleBox = new wxStaticBoxSizer(wxVERTICAL, &exportDialog, "Output style");
+	wxString styles[] = {"Color", "Black & White", "Grayscale"};
+	wxRadioButton* colorRadio = new wxRadioButton(&exportDialog, wxID_ANY, "Color", wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
+	wxRadioButton* bwRadio = new wxRadioButton(&exportDialog, wxID_ANY, "Black & White");
+	wxRadioButton* grayRadio = new wxRadioButton(&exportDialog, wxID_ANY, "Grayscale");
+	colorRadio->SetValue(true);
+	styleBox->Add(colorRadio, 0, wxALL, 5);
+	styleBox->Add(bwRadio, 0, wxALL, 5);
+	styleBox->Add(grayRadio, 0, wxALL, 5);
+	optionsSizer->Add(styleBox, 1, wxRIGHT | wxEXPAND, 10);
+
+	// Resolution box with better spacing
+	wxStaticBoxSizer* resBox = new wxStaticBoxSizer(wxVERTICAL, &exportDialog, "Resolution");
+	wxString resolutions[] = {"Screen (2×)", "Print (4×)", "High Quality (6×)"};
+	wxRadioButton* screen2x = new wxRadioButton(&exportDialog, wxID_ANY, "Screen (2×)", wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
+	wxRadioButton* print4x = new wxRadioButton(&exportDialog, wxID_ANY, "Print (4×)");
+	wxRadioButton* high6x = new wxRadioButton(&exportDialog, wxID_ANY, "High Quality (6×)");
+	print4x->SetValue(true); // Default to Print
+	resBox->Add(screen2x, 0, wxALL, 5);
+	resBox->Add(print4x, 0, wxALL, 5);
+	resBox->Add(high6x, 0, wxALL, 5);
+	optionsSizer->Add(resBox, 1, wxLEFT | wxEXPAND, 10);
+
+	mainSizer->Add(optionsSizer, 0, wxLEFT | wxRIGHT | wxEXPAND, 15);
+
+	// Buttons with proper spacing and styling
+	mainSizer->AddSpacer(25);
+	wxBoxSizer* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
+
+	wxButton* saveBtn = new wxButton(&exportDialog, wxID_OK, "Export to File...");
+	wxButton* copyBtn = new wxButton(&exportDialog, wxID_APPLY, "Copy to Clipboard");
+	wxButton* cancelBtn = new wxButton(&exportDialog, wxID_CANCEL, "Cancel");
+
+	saveBtn->SetDefault(); // Make it blue (default button)
+
+	buttonSizer->Add(0, 0, 1); // Stretchable space
+	buttonSizer->Add(saveBtn, 0, wxRIGHT, 10);
+	buttonSizer->Add(copyBtn, 0, wxRIGHT, 10);
+	buttonSizer->Add(cancelBtn, 0, 0, 0);
+	buttonSizer->Add(0, 0, 1); // Stretchable space
+
+	mainSizer->Add(buttonSizer, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 20);
+
+	exportDialog.SetSizer(mainSizer);
+	exportDialog.Centre();
+
+	int result = exportDialog.ShowModal();
+	if (result == wxID_CANCEL) return;
+
+	// Get user choices
+	bool showGrid = gridCheck->GetValue();
+	bool useNoColor = bwRadio->GetValue();
+	bool useGrayscale = grayRadio->GetValue();
+	int multiplier = screen2x->GetValue() ? 2 : (print4x->GetValue() ? 4 : 6);
+
+	// Generate bitmap
+	wxBitmap bitmap = getBitmap(showGrid, useNoColor, multiplier);
+	if (useGrayscale) {
 		bitmap = wxBitmap(bitmap.ConvertToImage().ConvertToGreyscale());
 	}
 
-	wxString caption = "Export Circuit";
-	wxString wildcard = "PNG (*.png)|*.png|JPEG (*.jpg;*.jpeg)|*.jpg;*.jpeg|Bitmap (*.bmp)|*.bmp";
-	wxString defaultFilename = "";
-	wxFileDialog saveDialog(this, caption, wxEmptyString, defaultFilename, wildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-	saveDialog.SetDirectory(lastDirectory);
-	if (saveDialog.ShowModal() == wxID_OK) {
-		wxString path = saveDialog.GetPath();
-		wxBitmapType fileType;
-		if (path.SubString(path.find_last_of(".") + 1, path.length()) == "bmp")
-		{
-			fileType = wxBITMAP_TYPE_BMP;
+	// Handle action
+	if (result == wxID_APPLY) {
+		// Copy to clipboard
+		if (wxTheClipboard->Open()) {
+			wxTheClipboard->SetData(new wxBitmapDataObject(bitmap));
+			wxTheClipboard->Close();
 		}
-		else if (path.SubString(path.find_last_of(".") + 1, path.length()) == "png")
-		{
-			fileType = wxBITMAP_TYPE_PNG;
-		}
-		else
-		{
-			fileType = wxBITMAP_TYPE_JPEG;
-		}
+	} else if (result == wxID_OK) {
+		// Save to file
+		wxString caption = "Export Circuit";
+		wxString wildcard = "PNG (*.png)|*.png|JPEG (*.jpg;*.jpeg)|*.jpg;*.jpeg|Bitmap (*.bmp)|*.bmp";
+		wxFileDialog saveDialog(this, caption, wxEmptyString, "", wildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+		saveDialog.SetDirectory(lastDirectory);
 
-		bitmap.SaveFile(path,fileType);
-	}
-	else
-	{
-		return;
+		if (saveDialog.ShowModal() == wxID_OK) {
+			wxString path = saveDialog.GetPath();
+			wxBitmapType fileType;
+			wxString ext = path.SubString(path.find_last_of(".") + 1, path.length());
+			if (ext == "bmp") fileType = wxBITMAP_TYPE_BMP;
+			else if (ext == "png") fileType = wxBITMAP_TYPE_PNG;
+			else fileType = wxBITMAP_TYPE_JPEG;
+
+			bitmap.SaveFile(path, fileType);
+		}
 	}
 }
 
@@ -924,32 +976,19 @@ void MainFrame::OnExportLegacy(wxCommandEvent& event) {
 }
 
 void MainFrame::OnCopyToClipboard(wxCommandEvent& event) {
-	bool showGrid = false;
-	wxMessageDialog gridDialog(this, "Copy with Grid?", "Copy to Clipboard", wxYES_DEFAULT | wxYES_NO | wxCANCEL | wxICON_QUESTION);
-	switch (gridDialog.ShowModal()) {
-	case wxID_YES:
-		showGrid = true;
-		break;
-	case wxID_CANCEL:
-		return;
-	}
-
-	wxBitmap bitmap = getBitmap(showGrid);
-
-	if (wxTheClipboard->Open()) {
-		wxTheClipboard->SetData(new wxBitmapDataObject(bitmap));
-		wxTheClipboard->Close();
-	}
+	// Redirect to unified export dialog
+	OnExportBitmap(event);
 }
 
-wxBitmap MainFrame::getBitmap(bool withGrid) {
+wxBitmap MainFrame::getBitmap(bool withGrid, bool noColor, int multiplier) {
 	bool gridlineVisible = wxGetApp().appSettings.gridlineVisible;
 	wxGetApp().appSettings.gridlineVisible = withGrid;
 	wxGetApp().doingBitmapExport = true;
 
 	// render the image
+	// When noColor is true, it renders gates/wires as black line drawings (perfect for printing)
 	wxSize imageSize = currentCanvas->GetClientSize();
-	wxImage circuitImage = currentCanvas->renderToImage(imageSize.GetWidth() * 2, imageSize.GetHeight() * 2, 32);
+	wxImage circuitImage = currentCanvas->renderToImage(imageSize.GetWidth() * multiplier, imageSize.GetHeight() * multiplier, 32, noColor);
 	wxBitmap circuitBitmap(circuitImage);
 
 	// restore grid display setting
