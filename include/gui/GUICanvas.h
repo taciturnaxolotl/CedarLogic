@@ -141,7 +141,10 @@ public:
 	
 	// Deletes the currently selected gates and wires
 	void deleteSelection();
-	
+
+	// Rotates the currently selected gates, gates being pasted, or gate being placed by 90 degrees
+	void rotateSelection();
+
 	// Render this page
     void OnRender( bool noColor = false );
 

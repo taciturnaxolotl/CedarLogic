@@ -81,8 +81,8 @@ GUICanvas::GUICanvas(wxWindow *parent, GUICircuit* gCircuit, wxWindowID id,
 	// Suppress macOS bonk sound for keys handled in OnKeyDown
 	Bind(wxEVT_CHAR, [](wxKeyEvent& evt) {
 		int key = evt.GetKeyCode();
-		if (key == 'a' || key == 'A' || key == WXK_SPACE ||
-			key == '+' || key == '=' || key == '-') {
+		if (key == 'a' || key == 'A' || key == 'r' || key == 'R' ||
+			key == WXK_SPACE || key == '+' || key == '=' || key == '-') {
 			// Swallow — already handled in OnKeyDown
 		} else {
 			evt.Skip();
@@ -1137,6 +1137,13 @@ void GUICanvas::OnKeyDown(wxKeyEvent& event) {
 #endif
 		}
 		break;
+	case 'R':
+	case 'r':
+		if (!event.ControlDown() && !event.AltDown() && !event.CmdDown() && !this->isLocked()) {
+			rotateSelection();
+			Refresh();
+		}
+		break;
 	}
 }
 
@@ -1465,5 +1472,70 @@ klsCommand * GUICanvas::createGateConnectionCommand(IDType gate1Id, const string
 				hotspot1, gate2->getConnection(hotspot2)->getID());
 		}
 		return nullptr;
+	}
+}
+
+void GUICanvas::rotateSelection() {
+	// Rotate by 90 degrees clockwise
+	const float ROTATION_STEP = 90.0f;
+
+	// If we're placing a gate from quick add menu, rotate that gate
+	if (currentDragState == DRAG_NEWGATE && newDragGate != nullptr) {
+		istringstream iss(newDragGate->getGUIParam("angle"));
+		float currentAngle = 0.0f;
+		iss >> currentAngle;
+
+		float newAngle = fmod(currentAngle + ROTATION_STEP, 360.0f);
+		ostringstream oss;
+		oss << newAngle;
+		newDragGate->setGUIParam("angle", oss.str());
+		return;
+	}
+
+	// If we're in paste mode, rotate all gates being pasted
+	if (isWithinPaste) {
+		for (unsigned int i = 0; i < preMove.size(); i++) {
+			if (gateList.find(preMove[i].id) == gateList.end()) continue;
+			guiGate* gate = gateList[preMove[i].id];
+
+			istringstream iss(gate->getGUIParam("angle"));
+			float currentAngle = 0.0f;
+			iss >> currentAngle;
+
+			float newAngle = fmod(currentAngle + ROTATION_STEP, 360.0f);
+			ostringstream oss;
+			oss << newAngle;
+			gate->setGUIParam("angle", oss.str());
+		}
+		return;
+	}
+
+	// Otherwise rotate all selected gates that aren't connected to wires
+	unordered_map< unsigned long, guiGate* >::iterator gateWalk = gateList.begin();
+	while (gateWalk != gateList.end()) {
+		if (gateWalk->second->isSelected()) {
+			// Check if gate has any connections - if so, skip it
+			map< string, GLPoint2f > hotspots = gateWalk->second->getHotspotList();
+			bool hasConnections = false;
+			for (auto& hotspot : hotspots) {
+				if (gateWalk->second->isConnected(hotspot.first)) {
+					hasConnections = true;
+					break;
+				}
+			}
+
+			// Only rotate if gate has no connections
+			if (!hasConnections) {
+				istringstream iss(gateWalk->second->getGUIParam("angle"));
+				float currentAngle = 0.0f;
+				iss >> currentAngle;
+
+				float newAngle = fmod(currentAngle + ROTATION_STEP, 360.0f);
+				ostringstream oss;
+				oss << newAngle;
+				gateWalk->second->setGUIParam("angle", oss.str());
+			}
+		}
+		gateWalk++;
 	}
 }
