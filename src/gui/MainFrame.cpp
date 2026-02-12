@@ -687,8 +687,13 @@ void MainFrame::loadCircuitFile( string fileName ){
 void MainFrame::OnSave(wxCommandEvent& event) {
 	if (openedFilename == "") OnSaveAs(event);
 	else {
-		commandProcessor->MarkAsSaved();
-		save((string)openedFilename);
+		bool success = save((string)openedFilename);
+		if (success) {
+			commandProcessor->MarkAsSaved();
+		} else {
+			wxString errorMsg = "Failed to save file:\n\n" + lastSaveError;
+			wxMessageBox(errorMsg, "Save Error", wxOK | wxICON_ERROR, this);
+		}
 	}
 }
 
@@ -701,12 +706,17 @@ void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) {
 	wxFileDialog dialog(this, caption, wxEmptyString, defaultFilename, wildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 	dialog.SetDirectory(lastDirectory);
 	if (dialog.ShowModal() == wxID_OK) {
-		removeTempFile();
 		wxString path = dialog.GetPath();
-		openedFilename = path;
-		this->SetTitle(VERSION_TITLE() + " - " + path );
-		commandProcessor->MarkAsSaved();
-		save((string)openedFilename);
+		bool success = save((string)path);
+		if (success) {
+			removeTempFile();
+			openedFilename = path;
+			this->SetTitle(VERSION_TITLE() + " - " + path );
+			commandProcessor->MarkAsSaved();
+		} else {
+			wxString errorMsg = "Failed to save file:\n\n" + lastSaveError;
+			wxMessageBox(errorMsg, "Save Error", wxOK | wxICON_ERROR, this);
+		}
 	}
 	handlingEvent = false;
 }
@@ -983,9 +993,18 @@ void MainFrame::OnExportLegacy(wxCommandEvent& event) {
 		}
 
 		if (!success) {
-			wxMessageBox("Warning: This circuit uses bus features that cannot be fully represented in v1.x format. "
-				"Some wire connections may be incomplete in the exported file.",
-				"Export Warning", wxOK | wxICON_WARNING);
+			// Check the error message to distinguish between I/O error and bus features
+			CircuitParse cirpCheck(currentCanvas);
+			string errorMsg = cirp.getLastError();
+
+			if (errorMsg.find("Warning:") == 0) {
+				// This is a bus features warning, file was saved successfully
+				wxMessageBox(errorMsg, "Export Warning", wxOK | wxICON_WARNING);
+			} else {
+				// This is an I/O error
+				wxString fullMsg = "Failed to export file:\n\n" + errorMsg;
+				wxMessageBox(fullMsg, "Export Error", wxOK | wxICON_ERROR);
+			}
 		}
 	}
 	handlingEvent = false;
@@ -1160,20 +1179,26 @@ void MainFrame::resumeTimers(int at) {
 //Julian: All of the following functions were added to support autosave functionality.
 
 void MainFrame::autosave() {
+	// Attempt to autosave - if it fails, the user can still manually save
 	save(CRASH_FILENAME);
 }
 
-void MainFrame::save(string filename) {
+bool MainFrame::save(string filename) {
 	//Pause system so that user can't modify during save
 	lock();
 	gCircuit->setSimulate(false);
-	
+
 	// Disabling timers from autosave thread caused an assertion fail.
 	//pauseTimers();
 
 	//Save file
 	CircuitParse cirp(currentCanvas);
-	cirp.saveCircuit(filename, canvases);
+	bool success = cirp.saveCircuit(filename, canvases);
+
+	// Store the error message for the caller
+	if (!success) {
+		lastSaveError = cirp.getLastError();
+	}
 
 	// Disabling timers from autosave thread caused an assertion fail.
 	//Resume system
@@ -1183,6 +1208,8 @@ void MainFrame::save(string filename) {
 	if (!(toolBar->GetToolState(Tool_Lock))) {
 		unlock();
 	}
+
+	return success;
 }
 
 bool MainFrame::fileIsDirty() {

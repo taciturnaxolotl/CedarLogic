@@ -46,17 +46,20 @@ public:
 	void loadFile(string);
 	//JV - Changed to return new canvases
 	vector<GUICanvas*> parseFile();
-	void saveCircuit(string, vector< GUICanvas* >, unsigned int currPage = 0);
+	bool saveCircuit(string, vector< GUICanvas* >, unsigned int currPage = 0);
 	// Save in v1.x compatible format (no version tag, no sentinel, single wire IDs)
 	bool saveCircuitLegacy(string, vector< GUICanvas* >, unsigned int currPage = 0);
-	
+	// Get detailed error message from last save operation
+	string getLastError() const { return lastError; }
+
 private:
 	XMLParser* mParse;
 	string fileName;
+	string lastError;  // Detailed error message from last save operation
 
 	vector< GUICanvas* > gCanvases;
 	GUICanvas* gCanvas;
-	
+
 	// Takes the pieces of gate info found in parseFile and implements them
 	void parseGateToSend(string type, string ID, string position, vector < gateConnector > &inputs, vector < gateConnector > &outputs, vector < parameter > &params);
 	// Parses, builds, and sets a wire's information (shape, id, etc)

@@ -135,7 +135,7 @@ public:
 	bool isHandlingEvent();
 	void lock();
 	void unlock();
-	void save(string filename);
+	bool save(string filename);
 	void load(string filename);
 
 	void PreGateDrag();
@@ -183,6 +183,7 @@ private:
 
 	bool handlingEvent; //Julian: Prevents autosaving from occuring during an open/new/saveas/etc...
 	const string CRASH_FILENAME = "crashfile.temp"; //Julian: Filename to check.
+	string lastSaveError; // Detailed error message from last save attempt
 	
 	wxSlider* timeStepModSlider;
 	wxStaticText* timeStepModVal;
