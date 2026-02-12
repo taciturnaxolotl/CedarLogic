@@ -47,6 +47,7 @@ BEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(wxID_EXIT,  MainFrame::OnQuit)
     EVT_MENU(wxID_ABOUT, MainFrame::OnAbout)
     EVT_MENU(wxID_HELP_CONTENTS, MainFrame::OnHelpContents)
+    EVT_MENU(Help_KeyboardShortcuts, MainFrame::OnKeyboardShortcuts)
     EVT_MENU(wxID_NEW, MainFrame::OnNew)
     EVT_MENU(wxID_OPEN, MainFrame::OnOpen)
     EVT_MENU(wxID_SAVE, MainFrame::OnSave)
@@ -131,6 +132,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
     
     wxMenu *helpMenu = new wxMenu; // HELP MENU
     helpMenu->Append(wxID_HELP_CONTENTS, "&Contents...\tF1", "Show Help system");
+	helpMenu->Append(Help_KeyboardShortcuts, "&Keyboard Shortcuts...", "Show keyboard shortcuts");
 	helpMenu->AppendSeparator();
 	//helpMenu->Append(Help_ReportABug, "Report a bug...");
 	//helpMenu->Append(Help_RequestAFeature, "Request a feature...");
@@ -1313,4 +1315,49 @@ void MainFrame::OnDownloadLatestVersion(wxCommandEvent& event) {
 	// Don't change the url here!
 	wxLaunchDefaultBrowser("https://cedar.to/vjyQw7", 0);
 #endif
+}
+
+void MainFrame::OnKeyboardShortcuts(wxCommandEvent& event) {
+#ifdef __WXOSX__
+	wxString mod = "Cmd";
+#else
+	wxString mod = "Ctrl";
+#endif
+
+	wxString shortcuts =
+		"File Operations:\n"
+		"  " + mod + "+N          New Circuit\n"
+		"  " + mod + "+O          Open Circuit\n"
+		"  " + mod + "+S          Save Circuit\n"
+		"  " + mod + "+E          Export as Image\n"
+		"\n"
+		"Edit:\n"
+		"  " + mod + "+Z          Undo\n"
+		"  " + mod + "+Shift+Z    Redo\n"
+		"  " + mod + "+C          Copy\n"
+		"  " + mod + "+V          Paste\n"
+		"  Delete            Delete Selection\n"
+		"  Escape            Clear Selection\n"
+		"\n"
+		"View:\n"
+		"  +/=               Zoom In\n"
+		"  -                 Zoom Out\n"
+		"  Space             Zoom to Fit\n"
+		"  Arrow Keys        Pan View\n"
+		"  " + mod + "+G          Show Oscilloscope\n"
+		"\n"
+		"Gates:\n"
+		"  A                 Quick Add Gate\n"
+		"  R                 Rotate Selection\n"
+		"\n"
+		"Tabs:\n"
+		"  " + mod + "+T          New Tab\n"
+#ifdef __WXOSX__
+		"  " + mod + "+W          Close Tab";
+#else
+		"";
+#endif
+
+	wxMessageBox(shortcuts, "Keyboard Shortcuts",
+				 wxOK | wxICON_INFORMATION, this);
 }

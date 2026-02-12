@@ -58,7 +58,8 @@ enum
 
 	Help_ReportABug,
 	Help_RequestAFeature,
-	Help_DownloadLatestVersion
+	Help_DownloadLatestVersion,
+	Help_KeyboardShortcuts
 };
 
 class MainFrame : public wxFrame {
@@ -110,6 +111,7 @@ public:
 	void OnReportABug(wxCommandEvent& event);
 	void OnRequestAFeature(wxCommandEvent& event);
 	void OnDownloadLatestVersion(wxCommandEvent& event);
+	void OnKeyboardShortcuts(wxCommandEvent& event);
 	
 	void saveSettings( void );
 	
