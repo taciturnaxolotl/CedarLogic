@@ -90,6 +90,9 @@ public:
 	// Get the state for each wire id.
 	const std::vector<StateType> & getState() const;
 
+	// Get the intersection points for drawing connection dots
+	const std::vector<GLPoint2f>& getIntersectPoints() const { return renderInfo.intersectPoints; }
+
 	// Give directions for XML tag definition of wire
 	void saveWire(XMLParser* xparse);
 	// Save in v1.x compatible format (single wire ID)

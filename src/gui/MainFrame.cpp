@@ -31,6 +31,7 @@
 #include "wx/docview.h"
 #include "commands.h"
 #include "autoSaveThread.h"
+#include "svgExport.h"
 #include "../version.h"
 #ifdef __APPLE__
 #include "SparkleUpdater.h"
@@ -924,19 +925,32 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 	} else if (result == wxID_OK) {
 		// Save to file
 		wxString caption = "Export Circuit";
-		wxString wildcard = "PNG (*.png)|*.png|JPEG (*.jpg;*.jpeg)|*.jpg;*.jpeg|Bitmap (*.bmp)|*.bmp";
+		wxString wildcard = "SVG (*.svg)|*.svg|PNG (*.png)|*.png|JPEG (*.jpg;*.jpeg)|*.jpg;*.jpeg|Bitmap (*.bmp)|*.bmp";
 		wxFileDialog saveDialog(this, caption, wxEmptyString, "", wildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 		saveDialog.SetDirectory(lastDirectory);
 
 		if (saveDialog.ShowModal() == wxID_OK) {
 			wxString path = saveDialog.GetPath();
-			wxBitmapType fileType;
 			wxString ext = path.SubString(path.find_last_of(".") + 1, path.length());
-			if (ext == "bmp") fileType = wxBITMAP_TYPE_BMP;
-			else if (ext == "png") fileType = wxBITMAP_TYPE_PNG;
-			else fileType = wxBITMAP_TYPE_JPEG;
 
-			bitmap.SaveFile(path, fileType);
+			if (ext == "svg") {
+				// Export as SVG
+				// Convert multiplier to scale (2x, 4x, 6x)
+				float scale = multiplier / 2.0f;
+				bool success = SVGExporter::exportToSVG(currentCanvas, std::string(path.mb_str()),
+				                                       showGrid, useNoColor, scale);
+				if (!success) {
+					wxMessageBox("Failed to export SVG file.", "Export Error", wxOK | wxICON_ERROR);
+				}
+			} else {
+				// Export as bitmap
+				wxBitmapType fileType;
+				if (ext == "bmp") fileType = wxBITMAP_TYPE_BMP;
+				else if (ext == "png") fileType = wxBITMAP_TYPE_PNG;
+				else fileType = wxBITMAP_TYPE_JPEG;
+
+				bitmap.SaveFile(path, fileType);
+			}
 		}
 	}
 }

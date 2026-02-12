@@ -200,6 +200,12 @@ public:
 		return hotspots[hotspotName];
 	}
 
+	// Get the gate's vertices (for SVG export, etc.)
+	const vector<GLPoint2f>& getVertices() const { return vertices; }
+
+	// Get the gate's transformation matrix (for SVG export, etc.)
+	const GLdouble* getModelMatrix() const { return mModel; }
+
 protected:
 	// Convert model->world coordinates:
 	GLPoint2f modelToWorld( GLPoint2f c );
