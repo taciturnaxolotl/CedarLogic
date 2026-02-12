@@ -619,22 +619,44 @@ void klsGLCanvas::wxOnMouseWheel(wxMouseEvent& event) {
 	wheelRotation -= rotationLines * event.GetWheelDelta();
 
 	if (rotationLines != 0) {
+		GLdouble panAmount = PAN_STEP * getZoom() * rotationLines;
+
 #ifdef __WXOSX__
-		// On macOS: scroll = zoom, Cmd + scroll = pan
+		// On macOS: Cmd + scroll/swipe = pan in scroll direction
+		// Trackpad: two-finger swipe naturally pans in both directions with Cmd
 		if (event.CmdDown()) {
-			// Pan based on scroll direction
-			GLdouble panAmount = PAN_STEP * getZoom() * rotationLines;
 			if (event.GetWheelAxis() == wxMOUSE_WHEEL_HORIZONTAL) {
 				translatePan(panAmount, 0.0);
 			} else {
 				translatePan(0.0, panAmount);
 			}
+		} else if (event.ShiftDown()) {
+			// Shift + scroll = horizontal pan (for mouse users)
+			translatePan(panAmount, 0.0);
+		} else if (event.ControlDown()) {
+			// Ctrl + scroll = vertical pan (for mouse users)
+			translatePan(0.0, panAmount);
 		} else {
+			// Default scroll = zoom
 			OnMouseWheel(rotationLines / abs(rotationLines));
 		}
 #else
-		// On other platforms, scroll = zoom (original behavior)
-		OnMouseWheel(rotationLines / abs(rotationLines));
+		// On Windows/Linux: Natural trackpad scrolling + modifier keys for mouse
+		// Trackpad: two-finger horizontal swipe = horizontal pan, vertical swipe with Ctrl = vertical pan
+		// Mouse: Shift + scroll = horizontal pan, Ctrl + scroll = vertical pan
+		if (event.GetWheelAxis() == wxMOUSE_WHEEL_HORIZONTAL) {
+			// Natural horizontal scrolling from trackpad
+			translatePan(panAmount, 0.0);
+		} else if (event.ShiftDown()) {
+			// Shift + vertical scroll = horizontal pan (for mouse users)
+			translatePan(panAmount, 0.0);
+		} else if (event.ControlDown()) {
+			// Ctrl + vertical scroll = vertical pan (trackpad or mouse)
+			translatePan(0.0, panAmount);
+		} else {
+			// Default vertical scroll = zoom
+			OnMouseWheel(rotationLines / abs(rotationLines));
+		}
 #endif
 	}
 

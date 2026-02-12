@@ -1342,8 +1342,16 @@ void MainFrame::OnKeyboardShortcuts(wxCommandEvent& event) {
 		"View:\n"
 		"  +/=               Zoom In\n"
 		"  -                 Zoom Out\n"
+		"  Scroll            Zoom In/Out\n"
 		"  Space             Zoom to Fit\n"
 		"  Arrow Keys        Pan View\n"
+#ifdef __WXOSX__
+		"  Cmd+Scroll/Swipe  Pan View\n"
+#else
+		"  Trackpad Swipe    Pan Horizontally (natural)\n"
+#endif
+		"  Shift+Scroll      Pan Horizontally\n"
+		"  Ctrl+Scroll       Pan Vertically\n"
 		"  " + mod + "+G          Show Oscilloscope\n"
 		"\n"
 		"Gates:\n"
