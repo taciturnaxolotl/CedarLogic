@@ -59,7 +59,7 @@ wstring VERSION_NUMBER_W() {
 #endif
 
 string VERSION_TITLE() {
-	return "Cedar Logic " + VERSION_NUMBER_STRING();
+	return "Cedar Logic " + VERSION_NUMBER();
 }
 
 string VERSION_ABOUT_TEXT() {
