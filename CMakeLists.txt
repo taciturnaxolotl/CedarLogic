@@ -183,6 +183,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 target_compile_definitions(CedarLogic PRIVATE "_PRODUCTION_")
 
+# Linux: Define GL_GLEXT_PROTOTYPES for OpenGL extension functions
+if(UNIX AND NOT APPLE)
+    target_compile_definitions(CedarLogic PRIVATE "GL_GLEXT_PROTOTYPES")
+endif()
+
 if (WIN32)
     target_compile_options(CedarLogic PRIVATE /MP)
     target_compile_definitions(CedarLogic PRIVATE
