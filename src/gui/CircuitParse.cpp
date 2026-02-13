@@ -60,6 +60,31 @@ void CircuitParse::loadFile(string fileName) {
 	this->fileName = fileName;
 }
 
+// Helper function to check if file has a breaking (major) version change
+// Returns true if fileVersion has a newer major version than currentVersion
+static bool hasBreakingVersion(const string& fileVersion, const string& currentVersion) {
+	// Extract just the version numbers (before the " | " timestamp separator)
+	size_t fileSep = fileVersion.find(" | ");
+	size_t currSep = currentVersion.find(" | ");
+
+	string fileVer = (fileSep != string::npos) ? fileVersion.substr(0, fileSep) : fileVersion;
+	string currVer = (currSep != string::npos) ? currentVersion.substr(0, currSep) : currentVersion;
+
+	// Parse version components (major.minor.patch)
+	istringstream fileStream(fileVer);
+	istringstream currStream(currVer);
+
+	int fileMajor = 0, fileMinor = 0, filePatch = 0;
+	int currMajor = 0, currMinor = 0, currPatch = 0;
+	char dot;
+
+	fileStream >> fileMajor >> dot >> fileMinor >> dot >> filePatch;
+	currStream >> currMajor >> dot >> currMinor >> dot >> currPatch;
+
+	// Only block if major version is newer (breaking changes)
+	return fileMajor > currMajor;
+}
+
 vector<GUICanvas*> CircuitParse::parseFile() {
 
 	string firstTag = mParse->readTag();
@@ -68,7 +93,7 @@ vector<GUICanvas*> CircuitParse::parseFile() {
 	// of Cedar Logic from opening new, incompatable files.
 	if (firstTag == "version") {
 		std::string versionNumber = mParse->readTagValue("version");
-		if (versionNumber > VERSION_NUMBER_STRING()) {
+		if (hasBreakingVersion(versionNumber, VERSION_NUMBER_STRING())) {
 
 			//show error message!!! And quit.
 			wxMessageBox("This file was made with a newer version of Cedar Logic. "
