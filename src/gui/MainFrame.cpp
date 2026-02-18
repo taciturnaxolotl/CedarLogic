@@ -932,6 +932,7 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 		// Copy to clipboard
 		if (wxTheClipboard->Open()) {
 			wxTheClipboard->SetData(new wxBitmapDataObject(bitmap));
+			wxTheClipboard->Flush();
 			wxTheClipboard->Close();
 		}
 	} else if (result == wxID_OK) {
