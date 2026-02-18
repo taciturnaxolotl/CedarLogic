@@ -28,6 +28,7 @@
 #include "wx/button.h"
 #include "CircuitParse.h"
 #include "OscopeFrame.h"
+#include "SettingsDialog.h"
 #include "wx/docview.h"
 #include "commands.h"
 #include "autoSaveThread.h"
@@ -64,6 +65,7 @@ BEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(View_Oscope, MainFrame::OnOscope)
     EVT_MENU(View_Gridline, MainFrame::OnViewGridline)
     EVT_MENU(View_WireConn, MainFrame::OnViewWireConn)
+    EVT_MENU(View_Preferences, MainFrame::OnPreferences)
     
 	EVT_TOOL(Tool_Pause, MainFrame::OnPause)
 	EVT_TOOL(Tool_Step, MainFrame::OnStep)
@@ -127,6 +129,8 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
     wxMenu *settingsMenu = new wxMenu;
     settingsMenu->AppendCheckItem(View_Gridline, "Display Gridlines", "Toggle gridline display");
     settingsMenu->AppendCheckItem(View_WireConn, "Display Wire Connection Points", "Toggle wire connection points");
+    settingsMenu->AppendSeparator();
+    settingsMenu->Append(View_Preferences, "Preferences...\tCtrl+,", "Open preferences dialog");
     viewMenu->AppendSeparator();
     viewMenu->AppendSubMenu(settingsMenu, "Settings");
     
@@ -740,6 +744,22 @@ void MainFrame::OnViewWireConn(wxCommandEvent& event) {
 	if (currentCanvas != NULL) currentCanvas->Update();
 }
 
+void MainFrame::OnPreferences(wxCommandEvent& event) {
+	SettingsDialog dlg(this);
+	if (dlg.ShowModal() == wxID_OK) {
+		wxGetApp().appSettings.wireConnVisible = dlg.getWireConnVisible();
+		wxGetApp().appSettings.wireConnRadius = (float)dlg.getWireConnRadius();
+		wxGetApp().appSettings.gridlineVisible = dlg.getGridlineVisible();
+		wxGetApp().appSettings.refreshRate = dlg.getRefreshRate();
+
+		// Sync menu checkmarks
+		GetMenuBar()->Check(View_Gridline, wxGetApp().appSettings.gridlineVisible);
+		GetMenuBar()->Check(View_WireConn, wxGetApp().appSettings.wireConnVisible);
+
+		if (currentCanvas != NULL) currentCanvas->Update();
+	}
+}
+
 void MainFrame::OnTimer(wxTimerEvent& event) {
 	ostringstream oss;
 	if (!(currentCanvas->getCircuit()->getSimulate())) {
@@ -777,6 +797,11 @@ void MainFrame::OnIdle(wxTimerEvent& event) {
 	if ( gCircuit->panic ) {
 		gCircuit->panic = false;
 		toolBar->ToggleTool( Tool_Pause, true );
+#ifdef __WXOSX__
+		NativeIcon_SetToolbarSFSymbol(toolBar, Tool_Pause, "play.fill", 18);
+#else
+		toolBar->SetToolNormalBitmap(Tool_Pause, playIcon);
+#endif
 		simTimer->Stop();
 		wxGetApp().appSystemTime.Start(0);
 		wxGetApp().appSystemTime.Pause();

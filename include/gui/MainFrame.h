@@ -41,6 +41,7 @@ enum
 	View_Oscope,
 	View_Gridline,
 	View_WireConn,
+	View_Preferences,
 	
     TIMER_ID,
     IDLETIMER_ID,
@@ -96,6 +97,7 @@ public:
 	void OnOscope(wxCommandEvent& event);
 	void OnViewGridline(wxCommandEvent& event);
 	void OnViewWireConn(wxCommandEvent& event);
+	void OnPreferences(wxCommandEvent& event);
 	void OnPause(wxCommandEvent& event);
 	void OnStep(wxCommandEvent& event);
 	void OnZoomIn(wxCommandEvent& event);
