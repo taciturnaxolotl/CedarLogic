@@ -28,6 +28,7 @@
 #include "klsMessage.h"
 #include <deque>
 #include <string>
+#include <unordered_map>
 #include <fstream>
 #include <sstream>
 #include <cmath>
@@ -75,6 +76,8 @@ public:
 	wxMutex mexMessages;
 	deque< klsMessage::Message > dGUItoLOGIC;
 	deque< klsMessage::Message > dLOGICtoGUI;
+	wxMutex wireStateMutex;
+	unordered_map<IDType, StateType> wireStateBuffer;
 	// Use a stopwatch for timing between step calls
 	wxStopWatch appSystemTime;
 	unsigned long timeStepMod;

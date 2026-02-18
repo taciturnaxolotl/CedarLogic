@@ -53,8 +53,8 @@ public:
 	// Sets a named input/output of a gate to be connected; returns pointer to wire
 	guiWire* setWireConnection(const std::vector<IDType> &wireIds, long gid, string connection, bool openMode = false);
 
-	// Sets a wire's state
-	void setWireState(long wid, long state);
+	// Sync wire states from shared buffer
+	void syncWireStates();
 	// Delete components and sync the core
 	void deleteWire(unsigned long wid);
 	void deleteGate(unsigned long gid, bool waitToUpdate = false);

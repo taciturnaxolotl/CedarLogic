@@ -175,10 +175,13 @@ bool threadLogic::parseMessage(klsMessage::Message input) {
 			ID_SET< IDType > changedWires;
 			
 			cir->step(&changedWires);
-			ID_SET< IDType >::iterator cw = changedWires.begin();
-			while (cw != changedWires.end()) {
-				sendMessage(klsMessage::Message(klsMessage::MT_SET_WIRE_STATE, new klsMessage::Message_SET_WIRE_STATE(*cw, (int) cir->getWireState(*cw))));
-				cw++;
+			{
+				wxMutexLocker lock(wxGetApp().wireStateMutex);
+				ID_SET< IDType >::iterator cw = changedWires.begin();
+				while (cw != changedWires.end()) {
+					wxGetApp().wireStateBuffer[*cw] = (StateType)cir->getWireState(*cw);
+					cw++;
+				}
 			}
 			
 			// Update the possibly changed parameters:

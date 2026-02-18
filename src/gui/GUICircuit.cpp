@@ -188,45 +188,26 @@ void GUICircuit::Render() {
 	return;
 }
 
+void GUICircuit::syncWireStates() {
+	wxMutexLocker lock(wxGetApp().wireStateMutex);
+	for (auto& entry : wxGetApp().wireStateBuffer) {
+		if (buslineToWire.find(entry.first) != buslineToWire.end()) {
+			buslineToWire[entry.first]->setSubState(entry.first, entry.second);
+		}
+	}
+}
+
 void GUICircuit::parseMessage(klsMessage::Message message) {
 	string temp, type;
-	static bool shouldRender = false;
 	switch (message.mType) {
-		case klsMessage::MT_SET_WIRE_STATE: {
-			// SET WIRE id STATE TO state
-			shouldRender = true;
-			klsMessage::Message_SET_WIRE_STATE* msgSetWireState = (klsMessage::Message_SET_WIRE_STATE*)(message.mStruct);
-			setWireState(msgSetWireState->wireId, msgSetWireState->state);
-			delete msgSetWireState;
-			break;
-		}
 		case klsMessage::MT_SET_GATE_PARAM: {
 			// SET GATE id PARAMETER name val
-			shouldRender = true;
 			klsMessage::Message_SET_GATE_PARAM* msgSetGateParam = (klsMessage::Message_SET_GATE_PARAM*)(message.mStruct);
 			if (gateList.find(msgSetGateParam->gateId) != gateList.end()) gateList[msgSetGateParam->gateId]->setLogicParam(msgSetGateParam->paramName, msgSetGateParam->paramValue);
-			//************************************************************
-			//Edit by Joshua Lansford 11/24/06
-			//the perpose of this edit is to allow logic gates to be able
-			//to pause the simulation.  This is so that the 
-			//Z_80LogicGate can 'single step' through T states and
-			//instruction states by pauseing the simulation when it
-			//compleates eather.
-			//
-			//The way that this is acomplished is that when ever any gate
-			//signals that a property has changed, and the name of that
-			//property is "PAUSE_SIM", then the core should bail out
-			//and not finnish the requested number of steps.
-			//The GUI will also see this property fly by and will toggle
-			//the pause button.
-			//
-			//This spacific edit is so that the GUI thread will
-			//hit the pause button
 			if( msgSetGateParam->paramName == "PAUSE_SIM" ){
 				pausing = true;
 				panic = true;
 			}
-			//End of edit*************************************************
 			delete msgSetGateParam;
 			break;
 		}
@@ -238,13 +219,14 @@ void GUICircuit::parseMessage(klsMessage::Message message) {
 			// Now we can send the waiting messages
 			for (unsigned int i = 0; i < messageQueue.size(); i++) sendMessageToCore(messageQueue[i]);
 			messageQueue.clear();
-			// Only render at the end of a step and only if necessary
-			if (shouldRender) gCanvas->Refresh();
-			shouldRender = false;
+			// Sync wire states and always refresh
+			syncWireStates();
+			gCanvas->Refresh();
 			delete ((klsMessage::Message_DONESTEP*)(message.mStruct));
 			break;
 		}
 		case klsMessage::MT_COMPLETE_INTERIM_STEP: {// COMPLETE INTERIM STEP - UPDATE OSCOPE
+			syncWireStates();
 			myOscope->UpdateData();
 			break;
 		}
@@ -268,14 +250,6 @@ void GUICircuit::sendMessageToCore(klsMessage::Message message) {
 	}	
 }
 
-void GUICircuit::setWireState( long wid, long state ) {
-	// If the wire doesn't exist, then don't set it's state!
-	if( wireList.find(wid) == wireList.end() ) return;
-	
-	buslineToWire[wid]->setSubState(wid, state);
-	gCanvas->Refresh();
-	return;
-}
 
 void GUICircuit::printState() {
 	wxGetApp().logfile << "print state" << endl << flush;

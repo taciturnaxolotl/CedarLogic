@@ -590,26 +590,6 @@ void GUICanvas::OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool Ct
 
 	// Keep a flag for whether things have changed.  If nothing changes, then no render is necessary.
 	bool shouldRender = false;
-	if (wxGetApp().appSystemTime.Time() > wxGetApp().appSettings.refreshRate) {
-		wxGetApp().appSystemTime.Pause();
-		if (gCircuit->panic) return;
-		wxCriticalSectionLocker locker(wxGetApp().m_critsect);
-		while (wxGetApp().mexMessages.TryLock() == wxMUTEX_BUSY) wxYield();
-		while (wxGetApp().dLOGICtoGUI.size() > 0) {
-			gCircuit->parseMessage(wxGetApp().dLOGICtoGUI.front());
-			wxGetApp().dLOGICtoGUI.pop_front();
-		}
-		wxGetApp().mexMessages.Unlock();
-		if (gCircuit->panic) return;
-		// Do function of number of milliseconds that passed since last step
-		gCircuit->lastTime = wxGetApp().appSystemTime.Time();
-		gCircuit->lastTimeMod = wxGetApp().timeStepMod;
-		gCircuit->lastNumSteps = wxGetApp().appSystemTime.Time() / wxGetApp().timeStepMod;
-		gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_STEPSIM, new klsMessage::Message_STEPSIM(wxGetApp().appSystemTime.Time() / wxGetApp().timeStepMod)));
-		gCircuit->setSimulate(false);
-		wxGetApp().appSystemTime.Start(wxGetApp().appSystemTime.Time() % wxGetApp().timeStepMod);
-		shouldRender = true;
-	}
 
 	GLPoint2f m = getMouseCoords();
 	GLPoint2f dStart = getDragStartCoords(BUTTON_LEFT);
@@ -1345,27 +1325,6 @@ void GUICanvas::printLists() {
 void GUICanvas::Update() {
 	if (minimap == NULL){
 		return;
-	}
-
-	// In case of resize, we should update every so often
-	if (wxGetApp().appSystemTime.Time() > wxGetApp().appSettings.refreshRate) {
-		wxGetApp().appSystemTime.Pause();
-		if (gCircuit->panic) return;
-		wxCriticalSectionLocker locker(wxGetApp().m_critsect);
-		while (wxGetApp().mexMessages.TryLock() == wxMUTEX_BUSY) wxYield();
-		while (wxGetApp().dLOGICtoGUI.size() > 0) {
-			gCircuit->parseMessage(wxGetApp().dLOGICtoGUI.front());
-			wxGetApp().dLOGICtoGUI.pop_front();
-		}
-		wxGetApp().mexMessages.Unlock();
-		if (gCircuit->panic) return;
-		// Do function of number of milliseconds that passed since last step
-		gCircuit->lastTime = wxGetApp().appSystemTime.Time();
-		gCircuit->lastTimeMod = wxGetApp().timeStepMod;
-		gCircuit->lastNumSteps = wxGetApp().appSystemTime.Time() / wxGetApp().timeStepMod;
-		gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_STEPSIM, new klsMessage::Message_STEPSIM(wxGetApp().appSystemTime.Time() / wxGetApp().timeStepMod)));
-		gCircuit->setSimulate(false);
-		wxGetApp().appSystemTime.Start(wxGetApp().appSystemTime.Time() % wxGetApp().timeStepMod);
 	}
 
 	minimap->setLists( &gateList, &wireList );
