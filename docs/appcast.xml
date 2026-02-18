@@ -7,117 +7,75 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 2.3.11</title>
-      <pubDate>Fri, 13 Feb 2026 05:05:34 +0000</pubDate>
-      <sparkle:version>2.3.11</sparkle:version>
-      <sparkle:shortVersionString>2.3.11</sparkle:shortVersionString>
+      <title>Version 2.3.12</title>
+      <pubDate>Wed, 18 Feb 2026 23:37:12 +0000</pubDate>
+      <sparkle:version>2.3.12</sparkle:version>
+      <sparkle:shortVersionString>2.3.12</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<h2>[2.3.11] - 2026-02-12</h2>
+      <description><![CDATA[<h2>[2.3.12] - 2026-02-18</h2>
 <h3>Added</h3>
 <ul>
-  <li><b>SVG Export</b>: Export circuits as scalable vector graphics</li>
-  <li>Available in File → Export as Image with .svg option</li>
-  <li>Supports grid lines, color/B&W/grayscale modes, and multiple scale factors</li>
-  <li>Perfect for documentation and high-quality prints</li>
-  <li><b>Mouse Panning</b>: Pan the canvas using the mouse</li>
-  <li>Cmd+Drag (macOS) or trackpad gestures for smooth navigation</li>
-  <li>Works alongside existing keyboard arrow key panning</li>
-  <li><b>Rotation Keybind</b>: Press 'R' to rotate selected gates</li>
-  <li>Quick keyboard shortcut for faster circuit building</li>
-  <li>Complements the existing rotation functionality</li>
-  <li><b>Keyboard Shortcuts Dialog</b>: View → Keyboard Shortcuts shows all available shortcuts</li>
-  <li>Platform-specific key mappings (Cmd on macOS, Ctrl elsewhere)</li>
-  <li>Comprehensive list of file, edit, view, and gate operations</li>
+  <li><b>Preferences Dialog</b>: View → Settings → Preferences (Ctrl+,) opens a settings dialog</li>
+  <li>Configure wire connection visibility and radius, gridline display, and refresh rate</li>
+  <li>Refresh rate shown as FPS for clarity, stored as milliseconds internally</li>
+  <li>Settings apply immediately and persist across sessions</li>
+  <li><b>Save As Shortcut</b>: Cmd+Shift+S (macOS) / Ctrl+Shift+S for quick Save As access</li>
 </ul>
 <h3>Fixed</h3>
 <ul>
-  <li><b>Critical: Save error handling and data loss prevention</b></li>
-  <li>Files are now only marked as saved AFTER successful write to disk</li>
-  <li>Added comprehensive I/O error checking with specific, actionable error messages:</li>
-  <li>Permission denied</li>
-  <li>Disk full/quota exceeded</li>
-  <li>Read-only filesystem</li>
-  <li>Network/I/O errors</li>
-  <li>Prevents silent data loss on Linux with NFS mounts, disk quotas, or filesystem errors</li>
-  <li>Users now receive clear error dialogs instead of losing work</li>
-  <li><b>Critical: Version comparison bug that prevented opening v2 files</b></li>
-  <li>Fixed lexicographic string comparison bug where "2.3.9" > "2.3.11"</li>
-  <li>Now uses proper numeric version comparison</li>
-  <li>Changed to only block files with newer major versions (breaking changes)</li>
-  <li>Files from any 2.x version can now open in other 2.x versions</li>
-  <li><b>Linux Build</b>: Fixed OpenGL framebuffer compilation errors</li>
-  <li>Added GL_GLEXT_PROTOTYPES for proper extension function declarations</li>
-  <li>Ensures image export features work correctly on Linux</li>
-  <li><b>Export Dialog</b>: Restored v1.x print-style compatibility for legacy format exports</li>
+  <li><b>Critical: Simulation freeze on conflicting inputs</b></li>
+  <li>Added max events cap to prevent infinite event loops when gates receive conflicting signals</li>
+  <li>Simulator no longer locks up requiring force quit</li>
+  <li><b>Critical: Simulation/rendering decoupling</b></li>
+  <li>Decoupled simulation thread from rendering via shared state buffer</li>
+  <li>Eliminates rendering stalls caused by simulation load and vice versa</li>
+  <li><b>Pause icon not updating on simulator panic (macOS)</b></li>
+  <li>Toolbar now correctly swaps to the play icon when the simulator enters panic/pause state</li>
+  <li>Previously only toggled the button state without updating the SF Symbol</li>
+  <li><b>Clipboard copy on macOS</b></li>
+  <li>Fixed clipboard export failing silently on macOS</li>
 </ul>
-<h3>Changed</h3>
-<ul>
-  <li>Save operations now provide detailed error messages instead of generic failures</li>
-  <li>File close warnings now properly detect unsaved changes after failed saves</li>
-  <li>Window title now shows cleaner version without build timestamp (e.g., "Cedar Logic 2.3.11")</li>
-</ul>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.3.10...v2.3.11</p>]]></description>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.3.11...v2.3.12</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.3.11/CedarLogic-2.3.11-Darwin.dmg"
-        sparkle:edSignature="RPDfm+DKrmgUaNLYKaPwCFaV3XOw1yFO2WDSzhHYRnPkr5+/y/TMULIpkUNF856O5KuPtK2RRnBi9VvY/qGuAg=="
-        length="8965948"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.3.12/CedarLogic-2.3.12-Darwin.dmg"
+        sparkle:edSignature="hOXkuliiR/QwtawUKTeb9wTPFgp/3IUeobpPS3eMqs5DoN2rWxKHC3GAFkwPSjdd+sBSWEUcvMFrvB9b3FyTDA=="
+        length="8904659"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 2.3.11</title>
-      <pubDate>Fri, 13 Feb 2026 05:05:34 +0000</pubDate>
-      <sparkle:version>2.3.11</sparkle:version>
-      <sparkle:shortVersionString>2.3.11</sparkle:shortVersionString>
-      <description><![CDATA[<h2>[2.3.11] - 2026-02-12</h2>
+      <title>Version 2.3.12</title>
+      <pubDate>Wed, 18 Feb 2026 23:37:12 +0000</pubDate>
+      <sparkle:version>2.3.12</sparkle:version>
+      <sparkle:shortVersionString>2.3.12</sparkle:shortVersionString>
+      <description><![CDATA[<h2>[2.3.12] - 2026-02-18</h2>
 <h3>Added</h3>
 <ul>
-  <li><b>SVG Export</b>: Export circuits as scalable vector graphics</li>
-  <li>Available in File → Export as Image with .svg option</li>
-  <li>Supports grid lines, color/B&W/grayscale modes, and multiple scale factors</li>
-  <li>Perfect for documentation and high-quality prints</li>
-  <li><b>Mouse Panning</b>: Pan the canvas using the mouse</li>
-  <li>Cmd+Drag (macOS) or trackpad gestures for smooth navigation</li>
-  <li>Works alongside existing keyboard arrow key panning</li>
-  <li><b>Rotation Keybind</b>: Press 'R' to rotate selected gates</li>
-  <li>Quick keyboard shortcut for faster circuit building</li>
-  <li>Complements the existing rotation functionality</li>
-  <li><b>Keyboard Shortcuts Dialog</b>: View → Keyboard Shortcuts shows all available shortcuts</li>
-  <li>Platform-specific key mappings (Cmd on macOS, Ctrl elsewhere)</li>
-  <li>Comprehensive list of file, edit, view, and gate operations</li>
+  <li><b>Preferences Dialog</b>: View → Settings → Preferences (Ctrl+,) opens a settings dialog</li>
+  <li>Configure wire connection visibility and radius, gridline display, and refresh rate</li>
+  <li>Refresh rate shown as FPS for clarity, stored as milliseconds internally</li>
+  <li>Settings apply immediately and persist across sessions</li>
+  <li><b>Save As Shortcut</b>: Cmd+Shift+S (macOS) / Ctrl+Shift+S for quick Save As access</li>
 </ul>
 <h3>Fixed</h3>
 <ul>
-  <li><b>Critical: Save error handling and data loss prevention</b></li>
-  <li>Files are now only marked as saved AFTER successful write to disk</li>
-  <li>Added comprehensive I/O error checking with specific, actionable error messages:</li>
-  <li>Permission denied</li>
-  <li>Disk full/quota exceeded</li>
-  <li>Read-only filesystem</li>
-  <li>Network/I/O errors</li>
-  <li>Prevents silent data loss on Linux with NFS mounts, disk quotas, or filesystem errors</li>
-  <li>Users now receive clear error dialogs instead of losing work</li>
-  <li><b>Critical: Version comparison bug that prevented opening v2 files</b></li>
-  <li>Fixed lexicographic string comparison bug where "2.3.9" > "2.3.11"</li>
-  <li>Now uses proper numeric version comparison</li>
-  <li>Changed to only block files with newer major versions (breaking changes)</li>
-  <li>Files from any 2.x version can now open in other 2.x versions</li>
-  <li><b>Linux Build</b>: Fixed OpenGL framebuffer compilation errors</li>
-  <li>Added GL_GLEXT_PROTOTYPES for proper extension function declarations</li>
-  <li>Ensures image export features work correctly on Linux</li>
-  <li><b>Export Dialog</b>: Restored v1.x print-style compatibility for legacy format exports</li>
+  <li><b>Critical: Simulation freeze on conflicting inputs</b></li>
+  <li>Added max events cap to prevent infinite event loops when gates receive conflicting signals</li>
+  <li>Simulator no longer locks up requiring force quit</li>
+  <li><b>Critical: Simulation/rendering decoupling</b></li>
+  <li>Decoupled simulation thread from rendering via shared state buffer</li>
+  <li>Eliminates rendering stalls caused by simulation load and vice versa</li>
+  <li><b>Pause icon not updating on simulator panic (macOS)</b></li>
+  <li>Toolbar now correctly swaps to the play icon when the simulator enters panic/pause state</li>
+  <li>Previously only toggled the button state without updating the SF Symbol</li>
+  <li><b>Clipboard copy on macOS</b></li>
+  <li>Fixed clipboard export failing silently on macOS</li>
 </ul>
-<h3>Changed</h3>
-<ul>
-  <li>Save operations now provide detailed error messages instead of generic failures</li>
-  <li>File close warnings now properly detect unsaved changes after failed saves</li>
-  <li>Window title now shows cleaner version without build timestamp (e.g., "Cedar Logic 2.3.11")</li>
-</ul>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.3.10...v2.3.11</p>]]></description>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.3.11...v2.3.12</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.3.11/CedarLogic-2.3.11-win32.exe"
-        length="10602967"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.3.12/CedarLogic-2.3.12-win32.exe"
+        length="10610574"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
