@@ -115,7 +115,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	fileMenu->Append(wxID_NEW, "&New\tCtrl+N", "Create new circuit");
 	fileMenu->Append(wxID_OPEN, "&Open\tCtrl+O", "Open circuit");
 	fileMenu->Append(wxID_SAVE, "&Save\tCtrl+S", "Save circuit");
-	fileMenu->Append(wxID_SAVEAS, "Save &As", "Save circuit");
+	fileMenu->Append(wxID_SAVEAS, "Save &As\tCtrl+Shift+S", "Save circuit");
 	fileMenu->AppendSeparator();
 	fileMenu->Append(File_Export, "Export as Image...\tCtrl+E", "Export or copy circuit image");
 	fileMenu->Append(File_ExportLegacy, "Export v1.x Compatible...", "Save in legacy format");
@@ -1356,6 +1356,7 @@ void MainFrame::OnKeyboardShortcuts(wxCommandEvent& event) {
 		"  " + mod + "+N          New Circuit\n"
 		"  " + mod + "+O          Open Circuit\n"
 		"  " + mod + "+S          Save Circuit\n"
+		"  " + mod + "+Shift+S    Save As\n"
 		"  " + mod + "+E          Export as Image\n"
 		"\n"
 		"Edit:\n"
