@@ -84,9 +84,11 @@ void Circuit::step(ID_SET< IDType > *changedWires)
 	stepOnlyGates();
 
 	int processedEvents = 0;
+	static const int MAX_EVENTS_PER_STEP = 10000;
 	Event myEvent;
 	if (!eventQueue.empty()) myEvent = eventQueue.top();
-	while (!eventQueue.empty() && (myEvent.eventTime <= systemTime)) {
+	while (!eventQueue.empty() && (myEvent.eventTime <= systemTime)
+	       && processedEvents < MAX_EVENTS_PER_STEP) {
 		// Pop the event off of the event queue:
 		eventQueue.pop();
 
@@ -114,6 +116,16 @@ void Circuit::step(ID_SET< IDType > *changedWires)
 		if (!eventQueue.empty()) myEvent = eventQueue.top();
 
 		processedEvents++;
+	}
+
+	// If we hit the event limit, drain remaining events at this timestep
+	// to prevent unbounded accumulation across steps.
+	if (processedEvents >= MAX_EVENTS_PER_STEP) {
+		while (!eventQueue.empty()) {
+			Event staleEvent = eventQueue.top();
+			if (staleEvent.eventTime > systemTime) break;
+			eventQueue.pop();
+		}
 	}
 
 	// Insert the wires that have been disconnected (or were part of a junction that changed) within
