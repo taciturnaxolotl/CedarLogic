@@ -17,7 +17,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   wireStates: new Map(),
   simTime: 0,
   running: true,
-  stepsPerFrame: 5,
+  stepsPerFrame: 16,
 
   updateWireStates: (updates) =>
     set((s) => {
