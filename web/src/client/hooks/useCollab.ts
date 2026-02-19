@@ -13,12 +13,23 @@ export function useCollab(fileId: string | null) {
     let cancelled = false;
 
     async function connect() {
-      // Fetch a WebSocket token from the server (cookies sent automatically)
-      const res = await fetch("/api/auth/ws-token", { method: "POST" });
-      if (!res.ok || cancelled) return;
-      const { token } = await res.json();
+      // Try to get a WS token (will fail for anonymous users)
+      let token = "";
+      try {
+        const res = await fetch("/api/auth/ws-token", { method: "POST" });
+        if (res.ok) {
+          const data = await res.json();
+          token = data.token;
+        }
+      } catch {
+        // Anonymous user — connect without auth token
+      }
 
-      const collab = createCollabProvider(fileId!, token);
+      if (cancelled) return;
+
+      // For anonymous users, use the fileId as a public token
+      // The server will check link_sharing permissions
+      const collab = createCollabProvider(fileId!, token || `public:${fileId}`);
       providerRef.current = collab;
 
       collab.provider.on("connect", () => setConnected(true));
