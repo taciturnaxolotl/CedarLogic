@@ -405,7 +405,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
 
       - name: Publish npm package
@@ -413,4 +413,4 @@ jobs:
           mkdir -p npm-publish
           tar -xzf artifacts/wasm-bundle/CedarLogic-*-wasm.tar.gz -C npm-publish
           cd npm-publish
-          npm publish --access public --provenance
+          npm publish --access public
