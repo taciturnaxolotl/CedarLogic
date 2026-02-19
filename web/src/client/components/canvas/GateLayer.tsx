@@ -412,11 +412,7 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
       const def = defsMap.get(defId);
       if (!def) return;
 
-      if (def.guiType === "TOGGLE") {
-        const current = yGate.get("param:OUTPUT_NUM") ?? "0";
-        const next = current === "1" ? "0" : "1";
-        yGate.set("param:OUTPUT_NUM", next);
-      } else if (def.guiType === "PULSE") {
+      if (def.guiType === "PULSE") {
         yGate.set("param:OUTPUT_NUM", "1");
         setTimeout(() => {
           const stillExists = gatesMap.get(id);
@@ -425,6 +421,19 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
       }
     },
     [selectOnly, toggleSelection, readOnly, doc, defsMap]
+  );
+
+  const handleToggleClick = useCallback(
+    (id: string, e: Konva.KonvaEventObject<MouseEvent>) => {
+      e.cancelBubble = true;
+      if (readOnly || e.evt.button !== 0) return;
+      const gatesMap = getGatesMap(doc);
+      const yGate = gatesMap.get(id);
+      if (!yGate) return;
+      const current = yGate.get("param:OUTPUT_NUM") ?? "0";
+      yGate.set("param:OUTPUT_NUM", current === "1" ? "0" : "1");
+    },
+    [readOnly, doc]
   );
 
   const handlePinMouseDown = useCallback(
@@ -609,7 +618,7 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
                 height={1.2 * GRID_SIZE}
                 fill={toggleOn ? "#ef4444" : "#1e293b"}
                 cornerRadius={2}
-                listening={false}
+                onMouseDown={(e) => handleToggleClick(gate.id, e)}
               />
             )}
             {/* LED state indicator — fill the LED_BOX area */}
