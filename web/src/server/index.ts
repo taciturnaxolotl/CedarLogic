@@ -9,6 +9,9 @@ const db = initDb();
 const hocuspocus = setupHocuspocus(db);
 hocuspocus.listen(3001);
 
+// Start dedicated cursor relay worker on port 3002
+new Worker(new URL("./cursor/worker.ts", import.meta.url).href);
+
 // HTTP API server on port 3000
 const server = Bun.serve({
   port: 3000,
