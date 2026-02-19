@@ -3,6 +3,21 @@ import { useSimulationStore } from "../stores/simulation-store";
 import { GatePreview } from "./GatePreview";
 import type { GateDefinition } from "@shared/types";
 
+// Log-scale slider: maps a 0–1 slider position to 1–300 Hz exponentially.
+// This gives equal travel per doubling (e.g. 1→2→4→8→16→…→256→300).
+const MIN_HZ = 1;
+const MAX_HZ = 300;
+const LOG_MIN = Math.log(MIN_HZ);
+const LOG_MAX = Math.log(MAX_HZ);
+
+function sliderToHz(t: number): number {
+  return Math.round(Math.exp(LOG_MIN + t * (LOG_MAX - LOG_MIN)));
+}
+
+function hzToSlider(hz: number): number {
+  return (Math.log(hz) - LOG_MIN) / (LOG_MAX - LOG_MIN);
+}
+
 export function SimControls() {
   const { running, setRunning, stepsPerFrame, setStepsPerFrame } = useSimulationStore();
 
@@ -33,10 +48,11 @@ export function SimControls() {
         Speed
         <input
           type="range"
-          min={1}
-          max={50}
-          value={stepsPerFrame}
-          onChange={(e) => setStepsPerFrame(Number(e.target.value))}
+          min={0}
+          max={1}
+          step={0.001}
+          value={hzToSlider(stepsPerFrame)}
+          onChange={(e) => setStepsPerFrame(sliderToHz(Number(e.target.value)))}
           className="w-20 h-1 accent-blue-500 cursor-pointer"
         />
         <span className="text-gray-500 text-right tabular-nums whitespace-nowrap">{stepsPerFrame} Hz</span>
