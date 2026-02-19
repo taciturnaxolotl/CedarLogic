@@ -20,26 +20,18 @@ export function OverlayLayer() {
         />
       )}
 
-      {/* Wire drawing preview — 3-segment Manhattan route */}
-      {wireDrawing && (() => {
-        const midX = (wireDrawing.fromX + wireDrawing.currentX) / 2;
-        return (
-          <Line
-            points={[
-              wireDrawing.fromX, wireDrawing.fromY,
-              midX, wireDrawing.fromY,
-              midX, wireDrawing.currentY,
-              wireDrawing.currentX, wireDrawing.currentY,
-            ]}
-            stroke="#3b82f6"
-            strokeWidth={2}
-            lineCap="round"
-            lineJoin="round"
-            dash={[6, 3]}
-            listening={false}
-          />
-        );
-      })()}
+      {/* Wire drawing preview — straight line from source pin to cursor */}
+      {wireDrawing && (
+        <Line
+          points={[wireDrawing.fromX, wireDrawing.fromY, wireDrawing.currentX, wireDrawing.currentY]}
+          stroke="#3b82f6"
+          strokeWidth={2}
+          lineCap="round"
+          lineJoin="round"
+          dash={[6, 3]}
+          listening={false}
+        />
+      )}
     </Layer>
   );
 }
