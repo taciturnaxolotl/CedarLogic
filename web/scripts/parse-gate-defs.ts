@@ -25,6 +25,12 @@ interface LineSegment {
   y2: number;
 }
 
+interface CircleDef {
+  cx: number;
+  cy: number;
+  r: number;
+}
+
 interface GateDef {
   id: string;
   name: string;
@@ -37,6 +43,7 @@ interface GateDef {
   inputs: Pin[];
   outputs: Pin[];
   shape: LineSegment[];
+  circles: CircleDef[];
 }
 
 function parsePoint(text: string): { x: number; y: number } {
@@ -154,6 +161,7 @@ for (const lib of libraryBlocks) {
 
     // Parse shape lines (only top-level shape, not offset sub-shapes)
     const shape: LineSegment[] = [];
+    const circles: CircleDef[] = [];
     const shapeMatch = content.match(/<shape>([\s\S]*?)<\/shape>/);
     if (shapeMatch) {
       const shapeContent = shapeMatch[1];
@@ -163,6 +171,16 @@ for (const lib of libraryBlocks) {
           shape.push(parseLine(lm[1].trim()));
         } catch {
           // Skip malformed lines
+        }
+      }
+      // Parse circles (inversion bubbles etc.) — format: cx,cy,radius,segments
+      const circleMatches = shapeContent.matchAll(/<circle>([\s\S]*?)<\/circle>/g);
+      for (const cm of circleMatches) {
+        try {
+          const parts = cm[1].trim().split(",").map((s) => parseFloat(s.trim()));
+          circles.push({ cx: parts[0], cy: parts[1], r: parts[2] });
+        } catch {
+          // Skip malformed circles
         }
       }
     }
@@ -179,6 +197,7 @@ for (const lib of libraryBlocks) {
       inputs,
       outputs,
       shape,
+      circles,
     });
   }
 }

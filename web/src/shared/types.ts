@@ -64,4 +64,5 @@ export interface GateDefinition {
   inputs: Array<{ name: string; x: number; y: number }>;
   outputs: Array<{ name: string; x: number; y: number }>;
   shape: Array<{ x1: number; y1: number; x2: number; y2: number }>;
+  circles: Array<{ cx: number; cy: number; r: number }>;
 }

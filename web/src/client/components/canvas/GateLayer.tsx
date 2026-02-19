@@ -571,6 +571,17 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
                 lineJoin="round"
               />
             ))}
+            {def.circles?.map((c, i) => (
+              <Circle
+                key={`circle-${i}`}
+                x={c.cx * GRID_SIZE}
+                y={c.cy * GRID_SIZE}
+                radius={c.r * GRID_SIZE}
+                stroke={strokeColor}
+                strokeWidth={1.5}
+                listening={false}
+              />
+            ))}
             {/* Input pins */}
             {def.inputs.map((pin) => {
               const isHovered = hoveredPin?.gateId === gate.id && hoveredPin?.pinName === pin.name && hoveredPin?.pinDirection === "input";
