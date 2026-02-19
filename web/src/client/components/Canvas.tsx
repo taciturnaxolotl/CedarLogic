@@ -7,6 +7,8 @@ import { GridLayer } from "./canvas/GridLayer";
 import { GateLayer, loadedGateDefs, getGateBounds } from "./canvas/GateLayer";
 import { WireLayer } from "./canvas/WireLayer";
 import { OverlayLayer } from "./canvas/OverlayLayer";
+import { CursorLayer } from "./canvas/CursorLayer";
+import type { Awareness } from "y-protocols/awareness";
 import { SNAP_SIZE } from "@shared/constants";
 import type { GateDefinition, WireSegment } from "@shared/types";
 import type { WireModel } from "@shared/wire-types";
@@ -25,6 +27,9 @@ interface CanvasProps {
   doc: Y.Doc;
   readOnly: boolean;
   onQuickAdd?: () => void;
+  onCursorMove?: (x: number, y: number) => void;
+  onCursorLeave?: () => void;
+  awareness?: Awareness | null;
 }
 
 function snapToGrid(val: number): number {
@@ -79,7 +84,7 @@ function segmentIntersectsRect(
   return minX <= rr && maxX >= rx && minY <= rb && maxY >= ry;
 }
 
-export function Canvas({ doc, readOnly, onQuickAdd }: CanvasProps) {
+export function Canvas({ doc, readOnly, onQuickAdd, onCursorMove, onCursorLeave, awareness }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -665,10 +670,10 @@ export function Canvas({ doc, readOnly, onQuickAdd }: CanvasProps) {
       // Track mouse position for paste
       const pointer = stage.getPointerPosition();
       if (pointer) {
-        mousePos.current = {
-          x: (pointer.x - viewportX) / zoom,
-          y: (pointer.y - viewportY) / zoom,
-        };
+        const worldX = (pointer.x - viewportX) / zoom;
+        const worldY = (pointer.y - viewportY) / zoom;
+        mousePos.current = { x: worldX, y: worldY };
+        onCursorMove?.(worldX, worldY);
       }
 
       // Update pending paste preview position
@@ -805,6 +810,7 @@ export function Canvas({ doc, readOnly, onQuickAdd }: CanvasProps) {
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onContextMenu={handleContextMenu}
+      onMouseLeave={() => onCursorLeave?.()}
     >
       {size.width > 0 && size.height > 0 && (
         <Stage
@@ -824,6 +830,7 @@ export function Canvas({ doc, readOnly, onQuickAdd }: CanvasProps) {
           <WireLayer doc={doc} readOnly={readOnly} />
           <GateLayer doc={doc} readOnly={readOnly} />
           <OverlayLayer />
+          <CursorLayer awareness={awareness ?? null} />
         </Stage>
       )}
     </div>
