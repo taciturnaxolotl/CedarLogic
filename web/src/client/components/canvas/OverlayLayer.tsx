@@ -6,7 +6,7 @@ import type { GateDefinition } from "@shared/types";
 import { loadedGateDefs, getGateBounds } from "./GateLayer";
 
 export function OverlayLayer() {
-  const { selectionBox, wireDrawing, pendingPaste } = useCanvasStore();
+  const { selectionBox, wireDrawing, pendingPaste, pendingGate } = useCanvasStore();
 
   const defsMap = useMemo(
     () => new Map<string, GateDefinition>(loadedGateDefs.map((d) => [d.id, d])),
@@ -111,6 +111,31 @@ export function OverlayLayer() {
           })}
         </Group>
       )}
+
+      {/* Pending gate placement ghost */}
+      {pendingGate && (() => {
+        const def = defsMap.get(pendingGate.defId);
+        if (!def) return null;
+        return (
+          <Group opacity={0.5} listening={false} x={pendingGate.x} y={pendingGate.y}>
+            {def.shape.map((seg, i) => (
+              <Line
+                key={i}
+                points={[
+                  seg.x1 * GRID_SIZE,
+                  seg.y1 * GRID_SIZE,
+                  seg.x2 * GRID_SIZE,
+                  seg.y2 * GRID_SIZE,
+                ]}
+                stroke="#3b82f6"
+                strokeWidth={1.5}
+                lineCap="round"
+                lineJoin="round"
+              />
+            ))}
+          </Group>
+        );
+      })()}
     </Layer>
   );
 }
