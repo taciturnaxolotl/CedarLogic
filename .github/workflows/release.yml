@@ -335,6 +335,9 @@ jobs:
           mkdir -p wasm-dist
           cp wasm/build/cedarlogic.js wasm-dist/
           cp wasm/build/cedarlogic.wasm wasm-dist/
+          cp wasm/cedarlogic.d.ts wasm-dist/
+          # Stamp version into package.json
+          sed "s/\"version\": \"0.0.1\"/\"version\": \"${VERSION}\"/" wasm/package.json > wasm-dist/package.json
           cd wasm-dist
           tar -czf ../CedarLogic-${VERSION}-wasm.tar.gz .
 
@@ -350,6 +353,7 @@ jobs:
     if: github.event_name == 'release'
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -396,3 +400,16 @@ jobs:
           git add docs/appcast.xml
           git commit -m "Update appcast for ${{ env.VERSION }}" || exit 0
           git push
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Publish npm package
+        run: |
+          mkdir -p npm-publish
+          tar -xzf artifacts/wasm-bundle/CedarLogic-*-wasm.tar.gz -C npm-publish
+          cd npm-publish
+          npm publish --access public --provenance

@@ -1,0 +1,29 @@
+{
+  "name": "@cedarville/cedarlogic-engine",
+  "version": "0.0.1",
+  "description": "CedarLogic digital circuit simulation engine compiled to WebAssembly",
+  "type": "module",
+  "main": "cedarlogic.js",
+  "types": "cedarlogic.d.ts",
+  "files": [
+    "cedarlogic.js",
+    "cedarlogic.wasm",
+    "cedarlogic.d.ts"
+  ],
+  "exports": {
+    ".": {
+      "types": "./cedarlogic.d.ts",
+      "default": "./cedarlogic.js"
+    },
+    "./cedarlogic.wasm": "./cedarlogic.wasm"
+  },
+  "keywords": [
+    "circuit",
+    "simulator",
+    "logic",
+    "wasm",
+    "webassembly",
+    "digital-logic"
+  ],
+  "license": "MIT"
+}
