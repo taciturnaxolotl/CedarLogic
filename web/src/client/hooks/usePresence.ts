@@ -1,6 +1,5 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import type { HocuspocusProvider } from "@hocuspocus/provider";
-import type { Awareness } from "y-protocols/awareness";
 import {
   setupAwareness,
   generateAnonName,
@@ -17,11 +16,11 @@ export interface RemoteUser {
 export function usePresence(
   provider: HocuspocusProvider | null,
   user: { name: string; avatarUrl?: string | null } | null,
+  userId: string,
   role?: string | null,
 ) {
   const [remoteUsers, setRemoteUsers] = useState<RemoteUser[]>([]);
-  const [awareness, setAwareness] = useState<Awareness | null>(null);
-  const awarenessRef = useRef<ReturnType<typeof setupAwareness> | null>(null);
+  const [userMetaByHash, setUserMetaByHash] = useState<Map<number, { name: string; color: string }>>(new Map());
   const anonName = useMemo(() => generateAnonName(), []);
 
   const userName = user?.name ?? anonName;
@@ -30,19 +29,18 @@ export function usePresence(
   useEffect(() => {
     if (!provider) return;
 
-    const result = setupAwareness(provider, userName, avatarUrl, role);
-    awarenessRef.current = result;
-    setAwareness(result.awareness);
-
+    const result = setupAwareness(provider, userName, userId, avatarUrl, role);
     const aw = result.awareness;
     let prevUserKey = "";
 
     function syncUsers() {
       const users: RemoteUser[] = [];
+      const meta = new Map<number, { name: string; color: string }>();
       const seen = new Set<string>();
+
       aw.getStates().forEach((state, clientId) => {
         if (clientId === aw.clientID) return;
-        const u = state.user || state.cursor?.user;
+        const u = state.user;
         if (!u) return;
         if (seen.has(u.name)) return;
         seen.add(u.name);
@@ -53,12 +51,17 @@ export function usePresence(
           avatarUrl: u.avatarUrl ?? null,
           role: u.role ?? null,
         });
+        if (u.userHash != null) {
+          meta.set(u.userHash, { name: u.name, color: u.color });
+        }
       });
+
       const key = users.map((u) => `${u.name}:${u.role}`).sort().join(",");
       if (key !== prevUserKey) {
         prevUserKey = key;
         setRemoteUsers(users);
       }
+      setUserMetaByHash(meta);
     }
 
     aw.on("change", syncUsers);
@@ -66,19 +69,8 @@ export function usePresence(
 
     return () => {
       aw.off("change", syncUsers);
-      result.clearCursor();
-      awarenessRef.current = null;
-      setAwareness(null);
     };
-  }, [provider, userName, avatarUrl, role]);
+  }, [provider, userName, userId, avatarUrl, role]);
 
-  const updateCursor = (x: number, y: number, selection?: string[]) => {
-    awarenessRef.current?.updateCursor(x, y, selection);
-  };
-
-  const clearCursor = () => {
-    awarenessRef.current?.clearCursor();
-  };
-
-  return { updateCursor, clearCursor, awareness, remoteUsers };
+  return { remoteUsers, userMetaByHash };
 }

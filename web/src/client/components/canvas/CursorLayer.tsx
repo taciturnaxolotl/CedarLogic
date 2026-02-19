@@ -1,96 +1,146 @@
 import { useRef, useEffect } from "react";
 import { Layer } from "react-konva";
 import Konva from "konva";
-import type { Awareness } from "y-protocols/awareness";
+import type { CursorWS } from "../../lib/collab/cursor-ws";
+import { createSpring, setSpringTarget, tickSpring, type SpringState } from "../../lib/canvas/spring";
+
+interface CursorState {
+  group: Konva.Group;
+  spring: SpringState;
+}
 
 interface CursorLayerProps {
-  awareness: Awareness | null;
+  cursorWS: CursorWS | null;
+  userMeta: Map<number, { name: string; color: string }>;
 }
 
 /**
- * Renders remote cursors by subscribing to awareness directly and
- * updating Konva nodes imperatively — bypasses React reconciliation
- * for cursor position updates.
+ * Renders remote cursors with spring-interpolated positions.
+ * Subscribes to CursorWS binary messages and drives a rAF loop
+ * that ticks spring physics and updates Konva nodes imperatively.
  */
-export function CursorLayer({ awareness }: CursorLayerProps) {
+export function CursorLayer({ cursorWS, userMeta }: CursorLayerProps) {
   const layerRef = useRef<Konva.Layer>(null);
-  const groupsRef = useRef<Map<number, Konva.Group>>(new Map());
+  const cursorsRef = useRef<Map<number, CursorState>>(new Map());
+  const rafRef = useRef<number>(0);
+  const lastTimeRef = useRef<number>(0);
+  const animatingRef = useRef(false);
+  // Keep userMeta in a ref so the effect doesn't depend on it
+  const userMetaRef = useRef(userMeta);
+  userMetaRef.current = userMeta;
 
   useEffect(() => {
-    if (!awareness) return;
+    if (!cursorWS) return;
     const layer = layerRef.current;
     if (!layer) return;
+    const cursors = cursorsRef.current;
 
-    function sync() {
-      const existing = groupsRef.current;
-      const activeIds = new Set<number>();
+    function ensureCursor(userHash: number): CursorState {
+      let c = cursors.get(userHash);
+      if (c) return c;
 
-      awareness!.getStates().forEach((state, clientId) => {
-        if (clientId === awareness!.clientID) return;
-        if (!state.cursor) return;
-        activeIds.add(clientId);
+      const meta = userMetaRef.current.get(userHash);
+      const color = meta?.color ?? "#888";
+      const name = meta?.name ?? "?";
 
-        const { x, y, user } = state.cursor;
-        let group = existing.get(clientId);
+      const group = new Konva.Group({ x: 0, y: 0, visible: false });
 
-        if (!group) {
-          group = new Konva.Group({ x, y });
-
-          const arrow = new Konva.Line({
-            points: [0, 0, 0, 14, 4, 11, 8, 18, 11, 16, 7, 10, 12, 10],
-            fill: user.color,
-            closed: true,
-            stroke: "#000",
-            strokeWidth: 0.5,
-          });
-
-          const labelGroup = new Konva.Group({ x: 12, y: 14 });
-          const labelBg = new Konva.Rect({
-            width: user.name.length * 7 + 8,
-            height: 18,
-            fill: user.color,
-            cornerRadius: 3,
-          });
-          const labelText = new Konva.Text({
-            text: user.name,
-            fontSize: 11,
-            fill: "#fff",
-            x: 4,
-            y: 3,
-            fontFamily: "system-ui, sans-serif",
-          });
-
-          labelGroup.add(labelBg, labelText);
-          group.add(arrow, labelGroup);
-          layer!.add(group);
-          existing.set(clientId, group);
-        } else {
-          group.position({ x, y });
-        }
+      const arrow = new Konva.Line({
+        points: [0, 0, 0, 14, 4, 11, 8, 18, 11, 16, 7, 10, 12, 10],
+        fill: color,
+        closed: true,
+        stroke: "#000",
+        strokeWidth: 0.5,
       });
 
-      // Remove cursors for clients that left
-      for (const [clientId, group] of existing) {
-        if (!activeIds.has(clientId)) {
-          group.destroy();
-          existing.delete(clientId);
+      const labelGroup = new Konva.Group({ x: 12, y: 14 });
+      const labelBg = new Konva.Rect({
+        width: name.length * 7 + 8,
+        height: 18,
+        fill: color,
+        cornerRadius: 3,
+      });
+      const labelText = new Konva.Text({
+        text: name,
+        fontSize: 11,
+        fill: "#fff",
+        x: 4,
+        y: 3,
+        fontFamily: "system-ui, sans-serif",
+      });
+
+      labelGroup.add(labelBg, labelText);
+      group.add(arrow, labelGroup);
+      layer!.add(group);
+
+      const spring = createSpring(0, 0);
+      c = { group, spring };
+      cursors.set(userHash, c);
+      return c;
+    }
+
+    function startAnimation() {
+      if (animatingRef.current) return;
+      animatingRef.current = true;
+      lastTimeRef.current = performance.now();
+      rafRef.current = requestAnimationFrame(tick);
+    }
+
+    function tick(now: number) {
+      const dt = (now - lastTimeRef.current) / 1000;
+      lastTimeRef.current = now;
+
+      let anyMoving = false;
+      for (const [, c] of cursors) {
+        if (tickSpring(c.spring, dt)) {
+          anyMoving = true;
         }
+        c.group.position({ x: c.spring.x, y: c.spring.y });
       }
 
       layer!.batchDraw();
+
+      if (anyMoving) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        animatingRef.current = false;
+      }
     }
 
-    awareness.on("change", sync);
-    sync();
+    cursorWS.on({
+      onCursorMove(userHash, x, y) {
+        const c = ensureCursor(userHash);
+        // If this is the first position, snap instead of animating
+        if (!c.group.visible()) {
+          c.spring.x = x;
+          c.spring.y = y;
+          c.spring.vx = 0;
+          c.spring.vy = 0;
+          c.group.visible(true);
+        }
+        setSpringTarget(c.spring, x, y);
+        startAnimation();
+      },
+      onCursorLeave(userHash) {
+        const c = cursors.get(userHash);
+        if (c) {
+          c.group.destroy();
+          cursors.delete(userHash);
+          layer!.batchDraw();
+        }
+      },
+    });
 
     return () => {
-      awareness.off("change", sync);
-      for (const group of groupsRef.current.values()) {
-        group.destroy();
+      cancelAnimationFrame(rafRef.current);
+      animatingRef.current = false;
+      cursorWS.on({});
+      for (const c of cursors.values()) {
+        c.group.destroy();
       }
-      groupsRef.current.clear();
+      cursors.clear();
     };
-  }, [awareness]);
+  }, [cursorWS]);
 
   return <Layer ref={layerRef} listening={false} />;
 }

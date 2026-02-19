@@ -8,7 +8,7 @@ import { GateLayer, loadedGateDefs, getGateBounds } from "./canvas/GateLayer";
 import { WireLayer } from "./canvas/WireLayer";
 import { OverlayLayer } from "./canvas/OverlayLayer";
 import { CursorLayer } from "./canvas/CursorLayer";
-import type { Awareness } from "y-protocols/awareness";
+import type { CursorWS } from "../lib/collab/cursor-ws";
 import { SNAP_SIZE } from "@shared/constants";
 import type { GateDefinition, WireSegment } from "@shared/types";
 import type { WireModel } from "@shared/wire-types";
@@ -29,7 +29,8 @@ interface CanvasProps {
   onQuickAdd?: () => void;
   onCursorMove?: (x: number, y: number) => void;
   onCursorLeave?: () => void;
-  awareness?: Awareness | null;
+  cursorWS?: CursorWS | null;
+  userMetaByHash?: Map<number, { name: string; color: string }>;
 }
 
 function snapToGrid(val: number): number {
@@ -84,7 +85,9 @@ function segmentIntersectsRect(
   return minX <= rr && maxX >= rx && minY <= rb && maxY >= ry;
 }
 
-export function Canvas({ doc, readOnly, onQuickAdd, onCursorMove, onCursorLeave, awareness }: CanvasProps) {
+const EMPTY_META = new Map<number, { name: string; color: string }>();
+
+export function Canvas({ doc, readOnly, onQuickAdd, onCursorMove, onCursorLeave, cursorWS, userMetaByHash }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -830,7 +833,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onCursorMove, onCursorLeave,
           <WireLayer doc={doc} readOnly={readOnly} />
           <GateLayer doc={doc} readOnly={readOnly} />
           <OverlayLayer />
-          <CursorLayer awareness={awareness ?? null} />
+          <CursorLayer cursorWS={cursorWS ?? null} userMeta={userMetaByHash ?? EMPTY_META} />
         </Stage>
       )}
     </div>
