@@ -1,0 +1,39 @@
+{
+  "name": "@cedarville/cedarlogic-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:client": "vite",
+    "dev:server": "bun run --watch src/server/index.ts",
+    "dev": "concurrently \"bun run dev:client\" \"bun run dev:server\"",
+    "build": "vite build",
+    "parse-gates": "bun run scripts/parse-gate-defs.ts"
+  },
+  "dependencies": {
+    "@cedarville/cedarlogic-engine": "^2.4.0",
+    "@hocuspocus/provider": "^2.15.0",
+    "@hocuspocus/server": "^2.15.0",
+    "arctic": "^3.5.0",
+    "jose": "^6.0.0",
+    "konva": "^9.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-konva": "^19.0.0",
+    "y-indexeddb": "^9.0.12",
+    "y-protocols": "^1.0.6",
+    "yjs": "^13.6.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "concurrently": "^9.0.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0",
+    "vite-plugin-static-copy": "^3.2.0"
+  }
+}
