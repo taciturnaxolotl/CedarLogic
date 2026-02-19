@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.11)
 
 # Name project, and set version. If updating version, change it here, and then re-generate your Visual
 # Studio solution.
-project(CedarLogic VERSION 2.3.12)
+project(CedarLogic VERSION 2.4.0)
 
 # macOS: Enable Objective-C++ for Sparkle updater (.mm files)
 if(APPLE)
