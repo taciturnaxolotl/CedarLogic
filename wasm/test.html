@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CedarLogic WASM Test</title>
+<style>
+	body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 24px; }
+	h1 { color: #00d4ff; }
+	.test { margin: 8px 0; padding: 8px 12px; border-radius: 4px; }
+	.pass { background: #0a2e0a; border-left: 3px solid #00ff41; }
+	.fail { background: #2e0a0a; border-left: 3px solid #ff4141; }
+	.info { background: #0a1a2e; border-left: 3px solid #00d4ff; }
+	#output { white-space: pre-wrap; }
+	button { background: #00d4ff; color: #1a1a2e; border: none; padding: 8px 16px;
+		border-radius: 4px; cursor: pointer; font-family: monospace; font-weight: bold; }
+	button:hover { background: #00a8cc; }
+</style>
+</head>
+<body>
+<h1>CedarLogic WASM Engine Test</h1>
+<button onclick="runTests()">Run Tests</button>
+<div id="output"></div>
+
+<script src="cedarlogic.js"></script>
+<script>
+const out = document.getElementById('output');
+
+function log(msg, cls = 'info') {
+	const div = document.createElement('div');
+	div.className = `test ${cls}`;
+	div.textContent = msg;
+	out.appendChild(div);
+}
+
+function assert(condition, msg) {
+	if (condition) {
+		log(`PASS: ${msg}`, 'pass');
+	} else {
+		log(`FAIL: ${msg}`, 'fail');
+	}
+	return condition;
+}
+
+async function runTests() {
+	out.innerHTML = '';
+	log('Loading CedarLogic WASM module...');
+
+	const Module = await CedarLogic();
+
+	log(`Wire states: ZERO=${Module.ZERO}, ONE=${Module.ONE}, HI_Z=${Module.HI_Z}, CONFLICT=${Module.CONFLICT}, UNKNOWN=${Module.UNKNOWN}`);
+
+	// Test 1: Create a circuit
+	const circuit = new Module.Circuit();
+	assert(circuit !== null, 'Circuit created');
+
+	// Test 2: AND gate — both inputs HIGH → output HIGH
+	log('--- Test: AND gate ---');
+	{
+		const c = new Module.Circuit();
+		const andGate = c.newGateAuto('AND');
+		c.setGateParameter(andGate, 'INPUT_BITS', '2');
+
+		const wIn0 = c.newWireAuto();
+		const wIn1 = c.newWireAuto();
+		const wOut = c.newWireAuto();
+
+		// Drive inputs with DRIVER gates set to 1
+		const drv0 = c.newGateAuto('DRIVER');
+		c.setGateParameter(drv0, 'OUTPUT_BITS', '1');
+		c.setGateParameter(drv0, 'OUTPUT_NUM', '1');
+		const drv1 = c.newGateAuto('DRIVER');
+		c.setGateParameter(drv1, 'OUTPUT_BITS', '1');
+		c.setGateParameter(drv1, 'OUTPUT_NUM', '1');
+
+		c.connectGateOutput(drv0, 'OUT_0', wIn0);
+		c.connectGateOutput(drv1, 'OUT_0', wIn1);
+		c.connectGateInput(andGate, 'IN_0', wIn0);
+		c.connectGateInput(andGate, 'IN_1', wIn1);
+		c.connectGateOutput(andGate, 'OUT', wOut);
+
+		// Step a few times to let signals propagate
+		c.stepN(5);
+
+		const state = c.getWireState(wOut);
+		assert(state === Module.ONE, `AND(1,1) = ONE (got ${state})`);
+
+		// Now set one input to 0
+		c.setGateParameter(drv0, 'OUTPUT_NUM', '0');
+		c.stepN(5);
+
+		const state2 = c.getWireState(wOut);
+		assert(state2 === Module.ZERO, `AND(0,1) = ZERO (got ${state2})`);
+		c.delete();
+	}
+
+	// Test 3: OR gate
+	log('--- Test: OR gate ---');
+	{
+		const c = new Module.Circuit();
+		const orGate = c.newGateAuto('OR');
+		c.setGateParameter(orGate, 'INPUT_BITS', '2');
+
+		const wIn0 = c.newWireAuto();
+		const wIn1 = c.newWireAuto();
+		const wOut = c.newWireAuto();
+
+		const drv0 = c.newGateAuto('DRIVER');
+		c.setGateParameter(drv0, 'OUTPUT_BITS', '1');
+		c.setGateParameter(drv0, 'OUTPUT_NUM', '0');
+		const drv1 = c.newGateAuto('DRIVER');
+		c.setGateParameter(drv1, 'OUTPUT_BITS', '1');
+		c.setGateParameter(drv1, 'OUTPUT_NUM', '1');
+
+		c.connectGateOutput(drv0, 'OUT_0', wIn0);
+		c.connectGateOutput(drv1, 'OUT_0', wIn1);
+		c.connectGateInput(orGate, 'IN_0', wIn0);
+		c.connectGateInput(orGate, 'IN_1', wIn1);
+		c.connectGateOutput(orGate, 'OUT', wOut);
+
+		c.stepN(5);
+		const state = c.getWireState(wOut);
+		assert(state === Module.ONE, `OR(0,1) = ONE (got ${state})`);
+		c.delete();
+	}
+
+	// Test 4: XOR gate
+	log('--- Test: XOR gate ---');
+	{
+		const c = new Module.Circuit();
+		const xorGate = c.newGateAuto('XOR');
+		c.setGateParameter(xorGate, 'INPUT_BITS', '2');
+
+		const wIn0 = c.newWireAuto();
+		const wIn1 = c.newWireAuto();
+		const wOut = c.newWireAuto();
+
+		const drv0 = c.newGateAuto('DRIVER');
+		c.setGateParameter(drv0, 'OUTPUT_BITS', '1');
+		c.setGateParameter(drv0, 'OUTPUT_NUM', '1');
+		const drv1 = c.newGateAuto('DRIVER');
+		c.setGateParameter(drv1, 'OUTPUT_BITS', '1');
+		c.setGateParameter(drv1, 'OUTPUT_NUM', '1');
+
+		c.connectGateOutput(drv0, 'OUT_0', wIn0);
+		c.connectGateOutput(drv1, 'OUT_0', wIn1);
+		c.connectGateInput(xorGate, 'IN_0', wIn0);
+		c.connectGateInput(xorGate, 'IN_1', wIn1);
+		c.connectGateOutput(xorGate, 'OUT', wOut);
+
+		c.stepN(5);
+		const state = c.getWireState(wOut);
+		assert(state === Module.ZERO, `XOR(1,1) = ZERO (got ${state})`);
+
+		// Change one input
+		c.setGateParameter(drv0, 'OUTPUT_NUM', '0');
+		c.stepN(5);
+		const state2 = c.getWireState(wOut);
+		assert(state2 === Module.ONE, `XOR(0,1) = ONE (got ${state2})`);
+		c.delete();
+	}
+
+	// Test 5: Clock gate
+	log('--- Test: Clock gate ---');
+	{
+		const c = new Module.Circuit();
+		const clk = c.newGateAuto('CLOCK');
+		c.setGateParameter(clk, 'HALF_CYCLE', '2');
+
+		const wOut = c.newWireAuto();
+		c.connectGateOutput(clk, 'CLK', wOut);
+
+		// Step and observe toggling
+		const states = [];
+		for (let i = 0; i < 8; i++) {
+			c.step();
+			states.push(c.getWireState(wOut));
+		}
+		log(`  Clock states over 8 steps: [${states.join(', ')}]`);
+
+		// Should see toggling pattern (every 2 steps)
+		let toggleCount = 0;
+		for (let i = 1; i < states.length; i++) {
+			if (states[i] !== states[i-1]) toggleCount++;
+		}
+		assert(toggleCount > 0, `Clock toggled ${toggleCount} times in 8 steps`);
+		c.delete();
+	}
+
+	// Test 6: step() returns changed wire info
+	log('--- Test: step() return value ---');
+	{
+		const c = new Module.Circuit();
+		const clk = c.newGateAuto('CLOCK');
+		c.setGateParameter(clk, 'HALF_CYCLE', '1');
+		const wOut = c.newWireAuto();
+		c.connectGateOutput(clk, 'CLK', wOut);
+
+		const result = c.step();
+		assert(typeof result.time === 'number', `step() returns time: ${result.time}`);
+		assert(Array.isArray(result.changedWires), `step() returns changedWires array (len=${result.changedWires.length})`);
+		if (result.changedWires.length > 0) {
+			log(`  First changed wire: id=${result.changedWires[0].id}, state=${result.changedWires[0].state}`);
+		}
+		c.delete();
+	}
+
+	// Test 7: BUFFER / PASS gate
+	log('--- Test: BUFFER gate ---');
+	{
+		const c = new Module.Circuit();
+		const buf = c.newGateAuto('BUFFER');
+		c.setGateParameter(buf, 'INPUT_BITS', '1');
+
+		const wIn = c.newWireAuto();
+		const wOut = c.newWireAuto();
+
+		const drv = c.newGateAuto('DRIVER');
+		c.setGateParameter(drv, 'OUTPUT_BITS', '1');
+		c.setGateParameter(drv, 'OUTPUT_NUM', '1');
+
+		c.connectGateOutput(drv, 'OUT_0', wIn);
+		c.connectGateInput(buf, 'IN_0', wIn);
+		c.connectGateOutput(buf, 'OUT_0', wOut);
+
+		c.stepN(5);
+		const state = c.getWireState(wOut);
+		assert(state === Module.ONE, `BUFFER(1) = ONE (got ${state})`);
+		c.delete();
+	}
+
+	log('--- Tests complete ---');
+}
+</script>
+</body>
+</html>

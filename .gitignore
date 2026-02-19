@@ -9,6 +9,7 @@ res/KLS_Logic.chw
 /CMakeSettings.json
 .DS_Store
 *build/
+wasm/dist/
 .direnv
 .crush
 .envrc

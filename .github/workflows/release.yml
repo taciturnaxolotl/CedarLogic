@@ -296,8 +296,56 @@ jobs:
           name: macos-dmg
           path: build/CedarLogic-*-Darwin.dmg
 
+  build-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION="${{ env.VERSION }}"
+          VERSION="${VERSION#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+          actions-cache-folder: emsdk-cache
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: wasm-emscripten
+
+      - name: Build WASM
+        run: |
+          cd wasm
+          mkdir -p build
+          cd build
+          emcmake cmake .. -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          emmake make -j$(nproc)
+
+      - name: Package WASM
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p wasm-dist
+          cp wasm/build/cedarlogic.js wasm-dist/
+          cp wasm/build/cedarlogic.wasm wasm-dist/
+          cd wasm-dist
+          tar -czf ../CedarLogic-${VERSION}-wasm.tar.gz .
+
+      - name: Upload WASM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-bundle
+          path: CedarLogic-*-wasm.tar.gz
+
   upload-release:
-    needs: [build-windows, build-linux, build-macos]
+    needs: [build-windows, build-linux, build-macos, build-wasm]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     permissions:
@@ -326,6 +374,7 @@ jobs:
             artifacts/windows-installer/*
             artifacts/linux-archive/*
             artifacts/macos-dmg/*
+            artifacts/wasm-bundle/*
 
       - name: Update Sparkle appcast
         env:
