@@ -55,6 +55,8 @@ interface CanvasState {
   /** When non-null, a gate ghost preview is following the mouse for placement */
   pendingGate: { defId: string; logicType: string; params?: Record<string, string>; x: number; y: number } | null;
 
+  canvasSize: { width: number; height: number };
+
   hoveredPin: {
     gateId: string;
     pinName: string;
@@ -64,6 +66,7 @@ interface CanvasState {
   } | null;
 
   setViewport: (x: number, y: number, zoom: number) => void;
+  setCanvasSize: (width: number, height: number) => void;
   selectOnly: (id: string) => void;
   select: (id: string) => void;
   toggleSelection: (id: string) => void;
@@ -86,9 +89,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   clipboard: null,
   pendingPaste: null,
   pendingGate: null,
+  canvasSize: { width: 0, height: 0 },
   hoveredPin: null,
 
   setViewport: (viewportX, viewportY, zoom) => set({ viewportX, viewportY, zoom }),
+  setCanvasSize: (width, height) => set({ canvasSize: { width, height } }),
 
   selectOnly: (id) => set({ selectedIds: { [id]: true } }),
 
