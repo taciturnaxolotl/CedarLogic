@@ -14,3 +14,11 @@ wasm/dist/
 .crush
 .envrc
 result
+
+# Web app
+web/node_modules/
+web/dist/
+web/src/client/lib/canvas/gate-defs.json
+web/data/
+
+.env
