@@ -60,7 +60,7 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-950">
+    <div className="h-dvh flex flex-col bg-gray-950">
       <header className="flex items-center justify-between px-4 py-2 border-b border-gray-800 shrink-0">
         <div className="flex items-center gap-3">
           <button

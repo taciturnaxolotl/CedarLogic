@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useState } from "react";
+import { useRef, useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { Stage, Layer } from "react-konva";
 import type Konva from "konva";
 import * as Y from "yjs";
@@ -88,18 +88,29 @@ export function Canvas({ doc, readOnly, onQuickAdd }: CanvasProps) {
   const dragStart = useRef({ x: 0, y: 0 });
   const viewportStart = useRef({ x: 0, y: 0 });
 
-  useEffect(() => {
+  const setCanvasSize = useCanvasStore((s) => s.setCanvasSize);
+
+  useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    // Initialize size immediately to avoid a blank first frame
+    const rect = el.getBoundingClientRect();
+    setSize({ width: rect.width, height: rect.height });
+    setCanvasSize(rect.width, rect.height);
     const ro = new ResizeObserver(([entry]) => {
-      setSize({
-        width: entry.contentRect.width,
-        height: entry.contentRect.height,
-      });
+      const { width, height } = entry.contentRect;
+      setSize({ width, height });
+      setCanvasSize(width, height);
+      // Imperatively resize the Konva stage so it matches before React re-renders
+      const stage = stageRef.current;
+      if (stage) {
+        stage.width(width);
+        stage.height(height);
+      }
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [setCanvasSize]);
 
   const viewportX = useCanvasStore((s) => s.viewportX);
   const viewportY = useCanvasStore((s) => s.viewportY);

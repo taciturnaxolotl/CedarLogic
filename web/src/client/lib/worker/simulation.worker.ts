@@ -100,6 +100,7 @@ function fullSync(msg: Extract<MainToWorkerMessage, { type: "fullSync" }>) {
 
   // Settle and report all wire states
   stepAndReport(5);
+  lastWireState.clear();
   reportAllWireStates();
 }
 
@@ -143,12 +144,40 @@ function reportAllWireStates() {
   }
 }
 
+// Cache of last-known wire states so we can diff and only post actual changes
+const lastWireState = new Map<string, number>();
+
+/** Poll all wire states and post only those that changed since last poll. */
+function reportChangedWireStates() {
+  if (!circuit) return;
+  const changed: Array<{ id: string; state: number }> = [];
+  for (const [stringId, numId] of wireIdMap) {
+    try {
+      const state = circuit.getWireState(numId);
+      if (lastWireState.get(stringId) !== state) {
+        lastWireState.set(stringId, state);
+        changed.push({ id: stringId, state });
+      }
+    } catch {
+      // skip
+    }
+  }
+  if (changed.length > 0) {
+    post({ type: "wireStates", states: changed });
+  }
+}
+
 let runTimer: ReturnType<typeof setTimeout> | null = null;
 
 function runLoop() {
   if (!running) return;
-  stepAndReport(1);
-  reportAllWireStates();
+  try {
+    const result = circuit?.stepN(1);
+    if (result) post({ type: "time", time: result.time });
+  } catch (e: any) {
+    post({ type: "error", message: `Step error: ${e.message}` });
+  }
+  reportChangedWireStates();
   const interval = Math.max(1, Math.round(1000 / stepsPerFrame));
   runTimer = setTimeout(runLoop, interval);
 }
