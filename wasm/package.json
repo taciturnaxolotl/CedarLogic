@@ -1,6 +1,6 @@
 {
   "name": "@cedarville/cedarlogic-engine",
-  "version": "0.0.1",
+  "version": "2.3.12",
   "description": "CedarLogic digital circuit simulation engine compiled to WebAssembly",
   "type": "module",
   "main": "cedarlogic.js",
@@ -8,7 +8,8 @@
   "files": [
     "cedarlogic.js",
     "cedarlogic.wasm",
-    "cedarlogic.d.ts"
+    "cedarlogic.d.ts",
+    "README.md"
   ],
   "exports": {
     ".": {

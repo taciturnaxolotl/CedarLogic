@@ -336,6 +336,7 @@ jobs:
           cp wasm/build/cedarlogic.js wasm-dist/
           cp wasm/build/cedarlogic.wasm wasm-dist/
           cp wasm/cedarlogic.d.ts wasm-dist/
+          cp wasm/README.md wasm-dist/
           # Stamp version into package.json
           sed "s/\"version\": \"0.0.1\"/\"version\": \"${VERSION}\"/" wasm/package.json > wasm-dist/package.json
           cd wasm-dist

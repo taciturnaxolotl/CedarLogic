@@ -36,6 +36,7 @@ cp "$BUILD_DIR"/cedarlogic.js "$DIST_DIR/"
 cp "$BUILD_DIR"/cedarlogic.wasm "$DIST_DIR/"
 cp "$SCRIPT_DIR"/cedarlogic.d.ts "$DIST_DIR/"
 cp "$SCRIPT_DIR"/package.json "$DIST_DIR/"
+cp "$SCRIPT_DIR"/README.md "$DIST_DIR/"
 
 # Copy the test page if it exists
 if [ -f "$SCRIPT_DIR/test.html" ]; then
