@@ -3,6 +3,9 @@ import { useCollab } from "../hooks/useCollab";
 import { useSimulation } from "../hooks/useSimulation";
 import { Canvas } from "./Canvas";
 import { Toolbar, SimControls } from "./Toolbar";
+import { exportToCdl } from "../lib/cdl-export";
+import { importFromCdl } from "../lib/cdl-import";
+import { loadedGateDefs } from "./canvas/GateLayer";
 import type { FileRecord, PermissionLevel } from "@shared/types";
 
 interface EditorPageProps {
@@ -26,6 +29,7 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
   const isOwner = file?.permission === "owner";
   const [editingTitle, setEditingTitle] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const saveTitle = useCallback(
     (newTitle: string) => {
@@ -90,6 +94,51 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {!readOnly && (
+            <>
+              <input
+                type="file"
+                accept=".cdl,.CDL"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (!f || !doc) return;
+                  console.log("[CDL] Reading:", f.name, f.size, "bytes");
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const text = reader.result as string;
+                    console.log("[CDL] FileReader done, length:", text.length);
+                    try {
+                      importFromCdl(doc, text, loadedGateDefs);
+                      console.log("[CDL] Import completed");
+                    } catch (err) {
+                      console.error("[CDL] Import threw error:", err);
+                    }
+                  };
+                  reader.onerror = () => {
+                    console.error("[CDL] FileReader error:", reader.error);
+                  };
+                  reader.readAsText(f);
+                }}
+              />
+              <button
+                onClick={() => {
+                  console.log("[CDL] Import button clicked, ref:", !!fileInputRef.current);
+                  fileInputRef.current?.click();
+                }}
+                className="text-sm text-gray-400 hover:text-white transition-colors cursor-pointer px-2 py-1 rounded hover:bg-gray-800"
+              >
+                Import
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => doc && exportToCdl(doc, file.title)}
+            className="text-sm text-gray-400 hover:text-white transition-colors cursor-pointer px-2 py-1 rounded hover:bg-gray-800"
+          >
+            Export
+          </button>
           <span
             className={`w-2.5 h-2.5 rounded-full ${connected ? "bg-green-400" : "bg-red-400"}`}
             title={connected ? "Connected" : "Disconnected"}

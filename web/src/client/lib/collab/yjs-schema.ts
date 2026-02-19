@@ -4,7 +4,7 @@
  * Flat Y.Map-of-Y.Maps pattern:
  * - doc.getMap("gates")       — keyed by gate ID string
  * - doc.getMap("wires")       — keyed by wire ID string
- * - doc.getMap("connections")  — keyed by "g{gateId}:{pinName}"
+ * - doc.getMap("connections")  — keyed by "g{gateId}:{pinName}:{wireId}"
  * - doc.getMap("meta")        — title, simSpeed, simRunning
  *
  * Wire states are NOT stored in Yjs — they're derived locally from simulation.
@@ -90,7 +90,7 @@ export function addConnectionToDoc(
   wireId: string
 ): void {
   const connections = getConnectionsMap(doc);
-  const key = `g${gateId}:${pinName}`;
+  const key = `g${gateId}:${pinName}:${wireId}`;
   const yConn = new Y.Map<any>();
   yConn.set("gateId", gateId);
   yConn.set("pinName", pinName);
