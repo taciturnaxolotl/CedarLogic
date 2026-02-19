@@ -3,7 +3,7 @@ import type { HocuspocusProvider } from "@hocuspocus/provider";
 export interface CursorState {
   x: number;
   y: number;
-  user: { name: string; color: string };
+  user: { name: string; color: string; avatarUrl?: string | null };
   selection?: string[];
 }
 
@@ -18,16 +18,29 @@ const CURSOR_COLORS = [
   "#F7DC6F",
 ];
 
+const ANIMALS = ["Fox", "Owl", "Bear", "Wolf", "Hawk", "Lynx", "Deer", "Hare"];
+const ADJECTIVES = ["Red", "Blue", "Gold", "Gray", "Jade", "Sage", "Teal", "Plum"];
+
 let colorIndex = 0;
+
+export function generateAnonName(): string {
+  const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+  const animal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)];
+  return `${adj} ${animal}`;
+}
 
 export function setupAwareness(
   provider: HocuspocusProvider,
-  userName: string
+  userName: string,
+  avatarUrl?: string | null,
+  role?: string | null,
 ) {
   const color = CURSOR_COLORS[colorIndex++ % CURSOR_COLORS.length];
   const awareness = provider.awareness!;
 
   let lastUpdate = 0;
+
+  awareness.setLocalStateField("user", { name: userName, color, avatarUrl: avatarUrl ?? null, role: role ?? "viewer" });
 
   function updateCursor(x: number, y: number, selection?: string[]) {
     const now = Date.now();
@@ -37,9 +50,13 @@ export function setupAwareness(
     awareness.setLocalStateField("cursor", {
       x,
       y,
-      user: { name: userName, color },
+      user: { name: userName, color, avatarUrl: avatarUrl ?? null },
       selection,
     });
+  }
+
+  function clearCursor() {
+    awareness.setLocalStateField("cursor", null);
   }
 
   function getRemoteCursors(): Map<number, CursorState> {
@@ -52,5 +69,5 @@ export function setupAwareness(
     return cursors;
   }
 
-  return { updateCursor, getRemoteCursors, awareness };
+  return { updateCursor, clearCursor, getRemoteCursors, awareness };
 }

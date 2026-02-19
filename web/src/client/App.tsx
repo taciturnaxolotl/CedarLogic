@@ -22,6 +22,7 @@ export function App() {
       <EditorPage
         fileId={route.fileId}
         onBack={user ? () => navigate("/") : null}
+        user={user}
       />
     );
   }
