@@ -6,42 +6,21 @@ import {
   getGatesMap,
   getWiresMap,
   getConnectionsMap,
-  addWireToDoc,
+  addWireModelToDoc,
   addConnectionToDoc,
+  readWireModel,
+  updateWireModel,
+  syncConnectionsFromWire,
 } from "../../lib/collab/yjs-schema";
+import {
+  calcShape,
+  updateConnectionPos,
+} from "../../lib/canvas/wire-model";
 import { useCanvasStore } from "../../stores/canvas-store";
 import { useSimulationStore } from "../../stores/simulation-store";
 import { GRID_SIZE, SNAP_SIZE, WIRE_COLORS, WIRE_STATE } from "@shared/constants";
-import type { GateDefinition, WireSegment } from "@shared/types";
+import type { GateDefinition } from "@shared/types";
 import type { WireState } from "@shared/constants";
-
-/** Remove zero-length segments and merge collinear adjacent segments. */
-function cleanSegments(segments: WireSegment[]): WireSegment[] {
-  let result = segments.filter((s) => !(s.x1 === s.x2 && s.y1 === s.y2));
-
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (let i = 0; i < result.length - 1; i++) {
-      const a = result[i];
-      const b = result[i + 1];
-      if (a.y1 === a.y2 && b.y1 === b.y2 && a.y2 === b.y1) {
-        result[i] = { x1: a.x1, y1: a.y1, x2: b.x2, y2: a.y1 };
-        result.splice(i + 1, 1);
-        changed = true;
-        break;
-      }
-      if (a.x1 === a.x2 && b.x1 === b.x2 && a.x2 === b.x1) {
-        result[i] = { x1: a.x1, y1: a.y1, x2: a.x1, y2: b.y2 };
-        result.splice(i + 1, 1);
-        changed = true;
-        break;
-      }
-    }
-  }
-
-  return result;
-}
 
 // 7-segment display rendering
 // Segments: a=top, b=top-right, c=bot-right, d=bottom, e=bot-left, f=top-left, g=middle
@@ -253,106 +232,67 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
 
   const defsMap = useMemo(() => new Map(defs.map((d) => [d.id, d])), [defs]);
 
-  // Recompute wire segments connected to a gate at position (gateX, gateY)
-  // Uses elastic stretching: only the endpoint segment and its neighbor change;
-  // all interior segments (user-placed bends) are preserved.
+  // Recompute wires connected to a moved gate using updateConnectionPos
   const recomputeConnectedWires = useCallback(
     (id: string, gateX: number, gateY: number) => {
       const gatesMap = getGatesMap(doc);
       const yGate = gatesMap.get(id);
       if (!yGate) return;
 
-      const connections = getConnectionsMap(doc);
+      const connectionsMap = getConnectionsMap(doc);
       const wires = getWiresMap(doc);
 
-      connections.forEach((yConn) => {
+      // Build a getPinPos that uses the overridden position for the moved gate
+      const makePinPos = (gId: string, pName: string) => {
+        const g = gatesMap.get(gId);
+        if (!g) return { x: 0, y: 0 };
+        const def = defsMap.get(g.get("defId"));
+        if (!def) return { x: 0, y: 0 };
+        const gx = gId === id ? gateX : (g.get("x") as number);
+        const gy = gId === id ? gateY : (g.get("y") as number);
+        const allPins = [...def.inputs, ...def.outputs];
+        const pin = allPins.find((p) => p.name === pName);
+        if (!pin) return { x: gx, y: gy };
+        return { x: gx + pin.x * GRID_SIZE, y: gy + pin.y * GRID_SIZE };
+      };
+
+      const makeIsVerticalPin = (gId: string, pName: string) => {
+        const g = gatesMap.get(gId);
+        if (!g) return false;
+        const def = defsMap.get(g.get("defId"));
+        if (!def) return false;
+        const allPins = [...def.inputs, ...def.outputs];
+        const pin = allPins.find((p) => p.name === pName);
+        if (!pin) return false;
+        // A pin is vertical if its x is at the center (not on left/right edge)
+        // Use same heuristic as C++: check if pin is at top/bottom vs left/right
+        return pin.x === 0;
+      };
+
+      // Track which wires we've already updated (avoid updating same wire twice)
+      const updatedWires = new Set<string>();
+
+      connectionsMap.forEach((yConn) => {
         if (yConn.get("gateId") !== id) return;
         const wireId = yConn.get("wireId") as string;
+        if (updatedWires.has(wireId)) return;
+        updatedWires.add(wireId);
 
-        let otherGateId: string | null = null;
-        let otherPinName: string | null = null;
-        let otherPinDir: "input" | "output" | null = null;
-        connections.forEach((yConn2) => {
-          if (yConn2.get("wireId") === wireId && yConn2.get("gateId") !== id) {
-            otherGateId = yConn2.get("gateId");
-            otherPinName = yConn2.get("pinName");
-            otherPinDir = yConn2.get("pinDirection");
-          }
-        });
-        if (!otherGateId || !otherPinName || !otherPinDir) return;
-
-        const otherYGate = gatesMap.get(otherGateId);
-        if (!otherYGate) return;
-
-        const movedDef = defsMap.get(yGate.get("defId"));
-        const otherDef = defsMap.get(otherYGate.get("defId"));
-        if (!movedDef || !otherDef) return;
-
-        const movedPinPos = getPinPosition(
-          movedDef, yConn.get("pinName"), yConn.get("pinDirection"),
-          gateX, gateY,
-        );
-        const otherPinPos = getPinPosition(
-          otherDef, otherPinName, otherPinDir,
-          otherYGate.get("x"), otherYGate.get("y"),
-        );
-        if (!movedPinPos || !otherPinPos) return;
-
-        const isMovedOutput = yConn.get("pinDirection") === "output";
+        const pinName = yConn.get("pinName") as string;
         const yWire = wires.get(wireId);
         if (!yWire) return;
 
-        let segments: { x1: number; y1: number; x2: number; y2: number }[];
-        try {
-          segments = JSON.parse(yWire.get("segments") || "[]");
-        } catch {
-          segments = [];
-        }
+        const model = readWireModel(yWire);
+        if (!model) return;
 
-        // Degenerate: 1 segment — expand to 3-segment Manhattan first
-        if (segments.length === 1) {
-          const s = segments[0];
-          const midX = snapToGrid((s.x1 + s.x2) / 2);
-          segments = [
-            { x1: s.x1, y1: s.y1, x2: midX, y2: s.y1 },
-            { x1: midX, y1: s.y1, x2: midX, y2: s.y2 },
-            { x1: midX, y1: s.y2, x2: s.x2, y2: s.y2 },
-          ];
-        }
-
-        if (segments.length < 2) {
-          // Can't do elastic stretch with 0 segments
-          return;
-        }
-
-        // Determine which end of the wire belongs to the moved gate
-        // Output pin is at the start (seg[0].x1,y1), input pin at the end
-        if (isMovedOutput) {
-          // Moved gate owns the start of the wire
-          const newPos = movedPinPos;
-          segments[0].x1 = newPos.x;
-          segments[0].y1 = newPos.y;
-          // Stretch the adjacent segment to maintain connection
-          if (segments.length >= 2) {
-            // First segment is horizontal: update y of neighbor's start
-            segments[0].y2 = newPos.y;
-            segments[1].y1 = newPos.y;
-          }
-        } else {
-          // Moved gate owns the end of the wire
-          const newPos = movedPinPos;
-          const last = segments.length - 1;
-          segments[last].x2 = newPos.x;
-          segments[last].y2 = newPos.y;
-          // Stretch the adjacent segment to maintain connection
-          if (segments.length >= 2) {
-            // Last segment is horizontal: update y of neighbor's end
-            segments[last].y1 = newPos.y;
-            segments[last - 1].y2 = newPos.y;
-          }
-        }
-
-        yWire.set("segments", JSON.stringify(cleanSegments(segments)));
+        const updated = updateConnectionPos(
+          model,
+          id,
+          pinName,
+          makePinPos,
+          makeIsVerticalPin,
+        );
+        updateWireModel(doc, wireId, updated);
       });
     },
     [doc, defsMap],
@@ -520,25 +460,71 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
           [dstGateId, dstPinName, dstPinDir, dstX, dstY, srcGateId, srcPinName, srcPinDir, srcX, srcY];
       }
 
-      // Create wire with 3-segment Manhattan routing
+      // Don't create a duplicate wire between the same two pins
+      const connectionsMap = getConnectionsMap(doc);
+      let duplicate = false;
+      const srcWires = new Set<string>();
+      const dstWires = new Set<string>();
+      connectionsMap.forEach((yConn) => {
+        const gId = yConn.get("gateId") as string;
+        const pName = yConn.get("pinName") as string;
+        const wId = yConn.get("wireId") as string;
+        if (gId === srcGateId && pName === srcPinName) srcWires.add(wId);
+        if (gId === dstGateId && pName === dstPinName) dstWires.add(wId);
+      });
+      for (const wId of srcWires) {
+        if (dstWires.has(wId)) { duplicate = true; break; }
+      }
+      if (duplicate) {
+        setWireDrawing(null);
+        setHoveredPin(null);
+        return;
+      }
+
+      // Build connections and use calcShape for proper routing
       const wireId = crypto.randomUUID();
-      const midX = snapToGrid((srcX + dstX) / 2);
-      const segments = [
-        { x1: srcX, y1: srcY, x2: midX, y2: srcY },
-        { x1: midX, y1: srcY, x2: midX, y2: dstY },
-        { x1: midX, y1: dstY, x2: dstX, y2: dstY },
+      const gatesMap = getGatesMap(doc);
+
+      const makePinPos = (gId: string, pName: string) => {
+        const g = gatesMap.get(gId);
+        if (!g) return { x: 0, y: 0 };
+        const def = defsMap.get(g.get("defId"));
+        if (!def) return { x: 0, y: 0 };
+        const gx = g.get("x") as number;
+        const gy = g.get("y") as number;
+        const allPins = [...def.inputs, ...def.outputs];
+        const pin = allPins.find((p) => p.name === pName);
+        if (!pin) return { x: gx, y: gy };
+        return { x: gx + pin.x * GRID_SIZE, y: gy + pin.y * GRID_SIZE };
+      };
+
+      const makeIsVerticalPin = (gId: string, pName: string) => {
+        const g = gatesMap.get(gId);
+        if (!g) return false;
+        const def = defsMap.get(g.get("defId"));
+        if (!def) return false;
+        const allPins = [...def.inputs, ...def.outputs];
+        const pin = allPins.find((p) => p.name === pName);
+        if (!pin) return false;
+        return pin.x === 0;
+      };
+
+      const connections = [
+        { gateId: srcGateId, pinName: srcPinName, pinDirection: srcPinDir as "input" | "output" },
+        { gateId: dstGateId, pinName: dstPinName, pinDirection: dstPinDir as "input" | "output" },
       ];
 
+      const wireModel = calcShape(connections, makePinPos, makeIsVerticalPin);
+
       doc.transact(() => {
-        addWireToDoc(doc, wireId, segments);
-        addConnectionToDoc(doc, srcGateId, srcPinName, srcPinDir, wireId);
-        addConnectionToDoc(doc, dstGateId, dstPinName, dstPinDir, wireId);
+        addWireModelToDoc(doc, wireId, wireModel);
+        syncConnectionsFromWire(doc, wireId, wireModel);
       });
 
       setWireDrawing(null);
       setHoveredPin(null);
     },
-    [readOnly, setWireDrawing, setHoveredPin, doc]
+    [readOnly, setWireDrawing, setHoveredPin, doc, defsMap]
   );
 
   const handlePinMouseEnter = useCallback(

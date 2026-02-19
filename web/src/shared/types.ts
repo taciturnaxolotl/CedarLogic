@@ -52,6 +52,13 @@ export interface WireSegment {
   y2: number;
 }
 
+export type {
+  WireConnection,
+  WireSegmentNode,
+  WireModel,
+  WireRenderInfo,
+} from "./wire-types";
+
 export interface GateDefinition {
   id: string;
   name: string;
