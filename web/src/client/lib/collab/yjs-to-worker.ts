@@ -19,15 +19,6 @@ export function createYjsToWorkerBridge(
   const wires = getWiresMap(doc);
   const connections = getConnectionsMap(doc);
 
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-  function debouncedStep() {
-    if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      postToWorker({ type: "step", count: 5 });
-    }, 100);
-  }
-
   function fullSync() {
     const syncGates: FullSyncGate[] = [];
     gates.forEach((yGate, id) => {
@@ -82,10 +73,8 @@ export function createYjsToWorkerBridge(
               logicType: yGate.get("logicType"),
               params,
             });
-            debouncedStep();
           } else if (change.action === "delete") {
             postToWorker({ type: "removeGate", id: key });
-            debouncedStep();
           }
         }
       } else if (
@@ -111,7 +100,6 @@ export function createYjsToWorkerBridge(
               paramName,
               value,
             });
-            debouncedStep();
           }
         }
       }
@@ -127,7 +115,6 @@ export function createYjsToWorkerBridge(
             postToWorker({ type: "addWire", id: key });
           } else if (change.action === "delete") {
             postToWorker({ type: "removeWire", id: key });
-            debouncedStep();
           }
         }
       }
@@ -149,7 +136,6 @@ export function createYjsToWorkerBridge(
               pinDirection: yConn.get("pinDirection"),
               wireId: yConn.get("wireId"),
             });
-            debouncedStep();
           } else if (change.action === "delete") {
             // Connection removed — need to disconnect
             // We don't have the old value, so full sync is safest

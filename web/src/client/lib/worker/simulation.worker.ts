@@ -147,8 +147,10 @@ let runTimer: ReturnType<typeof setTimeout> | null = null;
 
 function runLoop() {
   if (!running) return;
-  stepAndReport(stepsPerFrame);
-  runTimer = setTimeout(runLoop, 16); // ~60Hz
+  stepAndReport(1);
+  reportAllWireStates();
+  const interval = Math.max(1, Math.round(1000 / stepsPerFrame));
+  runTimer = setTimeout(runLoop, interval);
 }
 
 self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
@@ -171,9 +173,6 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
         for (const [param, value] of Object.entries(msg.params)) {
           circuit.setGateParameter(numId, param, value);
         }
-        // Re-evaluate gate and report all wire states
-        stepAndReport(5);
-        reportAllWireStates();
       } catch (e: any) {
         post({ type: "error", message: `addGate: ${e.message}` });
       }
@@ -223,9 +222,6 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
         } else {
           circuit.connectGateOutput(gateNum, msg.pinName, wireNum);
         }
-        // Step and report all wire states to propagate changes
-        stepAndReport(5);
-        reportAllWireStates();
       } catch (e: any) {
         post({ type: "error", message: `connect: ${e.message}` });
       }
@@ -241,8 +237,6 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
         } else {
           circuit.disconnectGateOutput(gateNum, msg.pinName);
         }
-        stepAndReport(5);
-        reportAllWireStates();
       } catch (e: any) {
         post({ type: "error", message: `disconnect: ${e.message}` });
       }
@@ -254,8 +248,6 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
       if (gateNum === undefined || !circuit) break;
       try {
         circuit.setGateParameter(gateNum, msg.paramName, msg.value);
-        stepAndReport(5);
-        reportAllWireStates();
       } catch (e: any) {
         post({ type: "error", message: `setParam: ${e.message}` });
       }
@@ -263,18 +255,19 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
     }
 
     case "step":
-      stepAndReport(msg.count);
-      reportAllWireStates();
+      // Ignored — runLoop is the sole driver of simulation steps
       break;
 
     case "setRunning":
       running = msg.running;
       stepsPerFrame = msg.stepsPerFrame;
-      if (running) {
-        runLoop();
-      } else if (runTimer) {
+      // Always clear existing timer to avoid overlapping loops
+      if (runTimer) {
         clearTimeout(runTimer);
         runTimer = null;
+      }
+      if (running) {
+        runLoop();
       }
       break;
   }
