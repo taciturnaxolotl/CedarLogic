@@ -8,6 +8,7 @@ import { ShareDialog } from "./ShareDialog";
 import { exportToCdl } from "../lib/cdl-export";
 import { importFromCdl } from "../lib/cdl-import";
 import { loadedGateDefs } from "./canvas/GateLayer";
+import { getGatesMap } from "../lib/collab/yjs-schema";
 import { usePresence } from "../hooks/usePresence";
 import type { FileRecord, PermissionLevel, PublicUser } from "@shared/types";
 
@@ -155,6 +156,14 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
           )}
         </div>
         <div className="flex items-center gap-1">
+          {!currentUser && (
+            <a
+              href="/auth/google"
+              className="text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded-md transition-colors mr-1"
+            >
+              Sign in
+            </a>
+          )}
           {!readOnly && (
             <>
               <input
@@ -168,6 +177,10 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
                   const reader = new FileReader();
                   reader.onload = () => {
                     const text = reader.result as string;
+                    const hasGates = getGatesMap(doc).size > 0;
+                    if (hasGates && !window.confirm("This circuit already has gates. Importing will add to the existing circuit. Continue?")) {
+                      return;
+                    }
                     try {
                       importFromCdl(doc, text, loadedGateDefs);
                     } catch (err) {
@@ -175,6 +188,7 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
                     }
                   };
                   reader.readAsText(f);
+                  e.target.value = "";
                 }}
               />
               <button
