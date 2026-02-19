@@ -1,4 +1,4 @@
-import { Layer, Rect, Circle, Text } from "react-konva";
+import { Layer, Rect, Line } from "react-konva";
 import { useCanvasStore } from "../../stores/canvas-store";
 
 export function OverlayLayer() {
@@ -20,19 +20,26 @@ export function OverlayLayer() {
         />
       )}
 
-      {/* Wire drawing preview */}
-      {wireDrawing &&
-        wireDrawing.segments.map((seg, i) => (
-          <Rect
-            key={`wd-${i}`}
-            x={Math.min(seg.x1, seg.x2)}
-            y={Math.min(seg.y1, seg.y2)}
-            width={Math.abs(seg.x2 - seg.x1) || 2}
-            height={Math.abs(seg.y2 - seg.y1) || 2}
-            fill="#3b82f6"
-            opacity={0.5}
+      {/* Wire drawing preview — 3-segment Manhattan route */}
+      {wireDrawing && (() => {
+        const midX = (wireDrawing.fromX + wireDrawing.currentX) / 2;
+        return (
+          <Line
+            points={[
+              wireDrawing.fromX, wireDrawing.fromY,
+              midX, wireDrawing.fromY,
+              midX, wireDrawing.currentY,
+              wireDrawing.currentX, wireDrawing.currentY,
+            ]}
+            stroke="#3b82f6"
+            strokeWidth={2}
+            lineCap="round"
+            lineJoin="round"
+            dash={[6, 3]}
+            listening={false}
           />
-        ))}
+        );
+      })()}
     </Layer>
   );
 }
