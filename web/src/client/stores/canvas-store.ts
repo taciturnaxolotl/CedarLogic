@@ -22,6 +22,14 @@ interface CanvasState {
 
   wireDrawing: WireDrawingState | null;
 
+  hoveredPin: {
+    gateId: string;
+    pinName: string;
+    pinDirection: "input" | "output";
+    x: number;
+    y: number;
+  } | null;
+
   setViewport: (x: number, y: number, zoom: number) => void;
   selectOnly: (id: string) => void;
   select: (id: string) => void;
@@ -29,6 +37,7 @@ interface CanvasState {
   clearSelection: () => void;
   setSelectionBox: (box: CanvasState["selectionBox"]) => void;
   setWireDrawing: (state: WireDrawingState | null) => void;
+  setHoveredPin: (pin: CanvasState["hoveredPin"]) => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -38,6 +47,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   selectedIds: {},
   selectionBox: null,
   wireDrawing: null,
+  hoveredPin: null,
 
   setViewport: (viewportX, viewportY, zoom) => set({ viewportX, viewportY, zoom }),
 
@@ -61,4 +71,5 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setSelectionBox: (selectionBox) => set({ selectionBox }),
   setWireDrawing: (wireDrawing) => set({ wireDrawing }),
+  setHoveredPin: (hoveredPin) => set({ hoveredPin }),
 }));
