@@ -8,11 +8,13 @@ import { ShareDialog } from "./ShareDialog";
 import { exportToCdl } from "../lib/cdl-export";
 import { importFromCdl } from "../lib/cdl-import";
 import { loadedGateDefs } from "./canvas/GateLayer";
-import type { FileRecord, PermissionLevel } from "@shared/types";
+import { usePresence } from "../hooks/usePresence";
+import type { FileRecord, PermissionLevel, PublicUser } from "@shared/types";
 
 interface EditorPageProps {
   fileId: string;
   onBack: (() => void) | null;
+  user?: PublicUser | null;
 }
 
 type FileState =
@@ -20,7 +22,7 @@ type FileState =
   | { status: "denied" }
   | { status: "loaded"; file: FileRecord & { permission: PermissionLevel } };
 
-export function EditorPage({ fileId, onBack }: EditorPageProps) {
+export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProps) {
   const [fileState, setFileState] = useState<FileState>({ status: "loading" });
   const file = fileState.status === "loaded" ? fileState.file : null;
 
@@ -28,6 +30,13 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
   const { doc, provider, connected, synced } = useCollab(file ? fileId : null);
 
   useSimulation(doc);
+
+  const permission = file?.permission ?? null;
+  const { updateCursor, clearCursor, awareness, remoteUsers } = usePresence(
+    provider,
+    currentUser ? { name: currentUser.name, avatarUrl: currentUser.avatarUrl } : null,
+    permission,
+  );
 
   useEffect(() => {
     fetch(`/api/files/${fileId}`)
@@ -50,6 +59,7 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [presenceOpen, setPresenceOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -203,6 +213,98 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
               </svg>
             </button>
           )}
+          {remoteUsers.length > 0 && (
+            <>
+              <div className="w-px h-4 bg-gray-700 mx-1" />
+              <div className="relative">
+                <button
+                  onClick={() => setPresenceOpen(!presenceOpen)}
+                  className="flex items-center -space-x-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+                >
+                  {remoteUsers.slice(0, 5).map((u) => (
+                    <div
+                      key={u.clientId}
+                      className="w-6 h-6 rounded-full border-2 border-gray-900 flex items-center justify-center text-[10px] font-medium shrink-0 overflow-hidden"
+                      style={{ backgroundColor: u.avatarUrl ? undefined : u.color }}
+                    >
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <span className="text-white">{u.name[0]}</span>
+                      )}
+                    </div>
+                  ))}
+                  {remoteUsers.length > 5 && (
+                    <div className="w-6 h-6 rounded-full border-2 border-gray-900 bg-gray-700 flex items-center justify-center text-[10px] font-medium text-gray-300 shrink-0">
+                      +{remoteUsers.length - 5}
+                    </div>
+                  )}
+                </button>
+                {presenceOpen && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setPresenceOpen(false)} />
+                    <div className="absolute right-0 top-full mt-2 z-30 bg-gray-800 border border-gray-700 rounded-lg shadow-xl py-1 w-[240px]">
+                      <div className="px-3 py-1.5 text-[11px] text-gray-500 font-medium uppercase tracking-wider">
+                        Online — {remoteUsers.length + 1}
+                      </div>
+                      {/* Current user */}
+                      <div className="flex items-center gap-2.5 px-3 py-1.5">
+                        <div
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0 overflow-hidden"
+                          style={{ backgroundColor: currentUser?.avatarUrl ? undefined : "#6B7280" }}
+                        >
+                          {currentUser?.avatarUrl ? (
+                            <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          ) : (
+                            <span className="text-white">{(currentUser?.name ?? "A")[0]}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm text-white truncate">
+                            {currentUser?.name ?? "Anonymous"} <span className="text-gray-500 text-xs">(you)</span>
+                          </div>
+                        </div>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 capitalize shrink-0">
+                          {permission || "viewer"}
+                        </span>
+                      </div>
+                      {/* Separator */}
+                      <div className="border-t border-gray-700 my-1" />
+                      {/* Remote users */}
+                      <div className="max-h-[240px] overflow-y-auto">
+                        {remoteUsers.map((u) => (
+                          <div key={u.clientId} className="flex items-center gap-2.5 px-3 py-1.5">
+                            <div
+                              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0 overflow-hidden"
+                              style={{ backgroundColor: u.avatarUrl ? undefined : u.color }}
+                            >
+                              {u.avatarUrl ? (
+                                <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                              ) : (
+                                <span className="text-white">{u.name[0]}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm text-white truncate">{u.name}</div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 capitalize">
+                                {u.role || "viewer"}
+                              </span>
+                              <div
+                                className="w-2 h-2 rounded-full"
+                                style={{ backgroundColor: u.color }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
           <div className="w-px h-4 bg-gray-700 mx-1" />
           <span
             className={`w-2.5 h-2.5 rounded-full ${connected ? "bg-green-400" : "bg-red-400"}`}
@@ -215,7 +317,14 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
         {!readOnly && <Toolbar />}
         <div className="flex-1 relative">
           {doc && synced ? (
-            <Canvas doc={doc} readOnly={!!readOnly} onQuickAdd={() => setQuickAddOpen(true)} />
+            <Canvas
+              doc={doc}
+              readOnly={!!readOnly}
+              onQuickAdd={() => setQuickAddOpen(true)}
+              onCursorMove={updateCursor}
+              onCursorLeave={clearCursor}
+              awareness={awareness}
+            />
           ) : (
             <div className="flex items-center justify-center h-full text-gray-500">
               Syncing...
