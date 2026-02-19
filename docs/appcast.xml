@@ -7,75 +7,59 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 2.3.12</title>
-      <pubDate>Wed, 18 Feb 2026 23:37:12 +0000</pubDate>
-      <sparkle:version>2.3.12</sparkle:version>
-      <sparkle:shortVersionString>2.3.12</sparkle:shortVersionString>
+      <title>Version 2.4.0</title>
+      <pubDate>Thu, 19 Feb 2026 04:29:29 +0000</pubDate>
+      <sparkle:version>2.4.0</sparkle:version>
+      <sparkle:shortVersionString>2.4.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<h2>[2.3.12] - 2026-02-18</h2>
+      <description><![CDATA[<h2>[2.4.0] - 2026-02-18</h2>
 <h3>Added</h3>
 <ul>
-  <li><b>Preferences Dialog</b>: View → Settings → Preferences (Ctrl+,) opens a settings dialog</li>
-  <li>Configure wire connection visibility and radius, gridline display, and refresh rate</li>
-  <li>Refresh rate shown as FPS for clarity, stored as milliseconds internally</li>
-  <li>Settings apply immediately and persist across sessions</li>
-  <li><b>Save As Shortcut</b>: Cmd+Shift+S (macOS) / Ctrl+Shift+S for quick Save As access</li>
+  <li><b>WebAssembly Engine</b>: The simulation engine is now available as a standalone WASM module</li>
+  <li>Run digital logic simulations in the browser or Node.js — no desktop app required</li>
+  <li>~385KB total (96KB JS + 289KB WASM)</li>
+  <li>Full TypeScript type definitions with branded gate IDs for type-safe pin names</li>
+  <li>All gate types supported: AND, OR, XOR, XNOR, BUFFER, CLOCK, MUX, DECODER, JKFF, REGISTER, RAM, and more</li>
+  <li><code>step()</code> / <code>stepN()</code> API returns changed wires and simulation time</li>
+  <li>Published as [<code>@cedarville/cedarlogic-engine</code>](https://www.npmjs.com/package/@cedarville/cedarlogic-engine) on npm</li>
+  <li>See the [WebAssembly wiki page](https://github.com/taciturnaxolotl/CedarLogic/wiki/WebAssembly) for full docs</li>
+  <li><b>CI: WASM build and npm publish</b></li>
+  <li>Release workflow now builds the WASM bundle and includes it as a release artifact</li>
+  <li>Automatic npm publish with OIDC provenance on every release</li>
 </ul>
-<h3>Fixed</h3>
-<ul>
-  <li><b>Critical: Simulation freeze on conflicting inputs</b></li>
-  <li>Added max events cap to prevent infinite event loops when gates receive conflicting signals</li>
-  <li>Simulator no longer locks up requiring force quit</li>
-  <li><b>Critical: Simulation/rendering decoupling</b></li>
-  <li>Decoupled simulation thread from rendering via shared state buffer</li>
-  <li>Eliminates rendering stalls caused by simulation load and vice versa</li>
-  <li><b>Pause icon not updating on simulator panic (macOS)</b></li>
-  <li>Toolbar now correctly swaps to the play icon when the simulator enters panic/pause state</li>
-  <li>Previously only toggled the button state without updating the SF Symbol</li>
-  <li><b>Clipboard copy on macOS</b></li>
-  <li>Fixed clipboard export failing silently on macOS</li>
-</ul>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.3.11...v2.3.12</p>]]></description>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.3.12...v2.4.0</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.3.12/CedarLogic-2.3.12-Darwin.dmg"
-        sparkle:edSignature="hOXkuliiR/QwtawUKTeb9wTPFgp/3IUeobpPS3eMqs5DoN2rWxKHC3GAFkwPSjdd+sBSWEUcvMFrvB9b3FyTDA=="
-        length="8904659"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.4.0/CedarLogic-2.4.0-Darwin.dmg"
+        sparkle:edSignature="eUk2A7wBRewkFNDAuMVVvlhZ5djnminZnpOAyvmTOr7HvlXyhRLPANzinWZSk/e0ezd/w/nw2xHWJLVXkX+VCg=="
+        length="8904662"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 2.3.12</title>
-      <pubDate>Wed, 18 Feb 2026 23:37:12 +0000</pubDate>
-      <sparkle:version>2.3.12</sparkle:version>
-      <sparkle:shortVersionString>2.3.12</sparkle:shortVersionString>
-      <description><![CDATA[<h2>[2.3.12] - 2026-02-18</h2>
+      <title>Version 2.4.0</title>
+      <pubDate>Thu, 19 Feb 2026 04:29:29 +0000</pubDate>
+      <sparkle:version>2.4.0</sparkle:version>
+      <sparkle:shortVersionString>2.4.0</sparkle:shortVersionString>
+      <description><![CDATA[<h2>[2.4.0] - 2026-02-18</h2>
 <h3>Added</h3>
 <ul>
-  <li><b>Preferences Dialog</b>: View → Settings → Preferences (Ctrl+,) opens a settings dialog</li>
-  <li>Configure wire connection visibility and radius, gridline display, and refresh rate</li>
-  <li>Refresh rate shown as FPS for clarity, stored as milliseconds internally</li>
-  <li>Settings apply immediately and persist across sessions</li>
-  <li><b>Save As Shortcut</b>: Cmd+Shift+S (macOS) / Ctrl+Shift+S for quick Save As access</li>
+  <li><b>WebAssembly Engine</b>: The simulation engine is now available as a standalone WASM module</li>
+  <li>Run digital logic simulations in the browser or Node.js — no desktop app required</li>
+  <li>~385KB total (96KB JS + 289KB WASM)</li>
+  <li>Full TypeScript type definitions with branded gate IDs for type-safe pin names</li>
+  <li>All gate types supported: AND, OR, XOR, XNOR, BUFFER, CLOCK, MUX, DECODER, JKFF, REGISTER, RAM, and more</li>
+  <li><code>step()</code> / <code>stepN()</code> API returns changed wires and simulation time</li>
+  <li>Published as [<code>@cedarville/cedarlogic-engine</code>](https://www.npmjs.com/package/@cedarville/cedarlogic-engine) on npm</li>
+  <li>See the [WebAssembly wiki page](https://github.com/taciturnaxolotl/CedarLogic/wiki/WebAssembly) for full docs</li>
+  <li><b>CI: WASM build and npm publish</b></li>
+  <li>Release workflow now builds the WASM bundle and includes it as a release artifact</li>
+  <li>Automatic npm publish with OIDC provenance on every release</li>
 </ul>
-<h3>Fixed</h3>
-<ul>
-  <li><b>Critical: Simulation freeze on conflicting inputs</b></li>
-  <li>Added max events cap to prevent infinite event loops when gates receive conflicting signals</li>
-  <li>Simulator no longer locks up requiring force quit</li>
-  <li><b>Critical: Simulation/rendering decoupling</b></li>
-  <li>Decoupled simulation thread from rendering via shared state buffer</li>
-  <li>Eliminates rendering stalls caused by simulation load and vice versa</li>
-  <li><b>Pause icon not updating on simulator panic (macOS)</b></li>
-  <li>Toolbar now correctly swaps to the play icon when the simulator enters panic/pause state</li>
-  <li>Previously only toggled the button state without updating the SF Symbol</li>
-  <li><b>Clipboard copy on macOS</b></li>
-  <li>Fixed clipboard export failing silently on macOS</li>
-</ul>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.3.11...v2.3.12</p>]]></description>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.3.12...v2.4.0</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.3.12/CedarLogic-2.3.12-win32.exe"
-        length="10610574"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.4.0/CedarLogic-2.4.0-win32.exe"
+        length="10611367"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
