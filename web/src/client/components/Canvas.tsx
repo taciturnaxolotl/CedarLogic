@@ -489,6 +489,41 @@ export function Canvas({ doc, readOnly, onQuickAdd }: CanvasProps) {
         onQuickAdd?.();
       }
 
+      // Rotate gate: ghost or selected (skip gates connected to wires)
+      if (e.key === "r" && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+        e.preventDefault();
+
+        // Rotate pending ghost gate
+        const pg = useCanvasStore.getState().pendingGate;
+        if (pg) {
+          setPendingGate({ ...pg, rotation: ((pg.rotation ?? 0) + 90) % 360 });
+          return;
+        }
+
+        // Rotate selected gates that aren't connected to wires
+        const ids = Object.keys(selectedIds);
+        if (readOnly || ids.length === 0) return;
+        const gatesMap = getGatesMap(doc);
+        const connectionsMap = getConnectionsMap(doc);
+
+        // Build set of gate IDs that have wire connections
+        const connectedGateIds = new Set<string>();
+        connectionsMap.forEach((yConn) => {
+          connectedGateIds.add(yConn.get("gateId") as string);
+        });
+
+        doc.transact(() => {
+          for (const id of ids) {
+            if (connectedGateIds.has(id)) continue;
+            const yGate = gatesMap.get(id);
+            if (!yGate) continue;
+            const current = (yGate.get("rotation") as number) ?? 0;
+            yGate.set("rotation", (current + 90) % 360);
+          }
+        });
+      }
+
       if (e.key === "Escape") {
         if (useCanvasStore.getState().pendingGate) {
           setPendingGate(null);
@@ -577,7 +612,7 @@ export function Canvas({ doc, readOnly, onQuickAdd }: CanvasProps) {
           logicType: pg.logicType,
           x: pg.x,
           y: pg.y,
-          rotation: 0,
+          rotation: pg.rotation ?? 0,
           ...Object.fromEntries(
             Object.entries(pg.params || {}).map(([k, v]) => [`param:${k}`, v])
           ),

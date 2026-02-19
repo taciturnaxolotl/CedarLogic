@@ -53,7 +53,7 @@ interface CanvasState {
   pendingPaste: { data: ClipboardData; x: number; y: number } | null;
 
   /** When non-null, a gate ghost preview is following the mouse for placement */
-  pendingGate: { defId: string; logicType: string; params?: Record<string, string>; x: number; y: number } | null;
+  pendingGate: { defId: string; logicType: string; params?: Record<string, string>; x: number; y: number; rotation?: number } | null;
 
   canvasSize: { width: number; height: number };
 

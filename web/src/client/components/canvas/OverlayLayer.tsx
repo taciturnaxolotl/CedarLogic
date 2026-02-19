@@ -117,7 +117,7 @@ export function OverlayLayer() {
         const def = defsMap.get(pendingGate.defId);
         if (!def) return null;
         return (
-          <Group opacity={0.5} listening={false} x={pendingGate.x} y={pendingGate.y}>
+          <Group opacity={0.5} listening={false} x={pendingGate.x} y={pendingGate.y} rotation={pendingGate.rotation ?? 0}>
             {def.shape.map((seg, i) => (
               <Line
                 key={i}
