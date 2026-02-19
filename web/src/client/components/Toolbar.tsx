@@ -95,6 +95,16 @@ function GatePreview({ def }: { def: GateDefinition }) {
           strokeLinecap="round"
         />
       ))}
+      {def.circles?.map((c, i) => (
+        <circle
+          key={`c-${i}`}
+          cx={c.cx} cy={c.cy}
+          r={c.r}
+          stroke="#94a3b8"
+          strokeWidth={0.15}
+          fill="none"
+        />
+      ))}
       {def.inputs.map((pin) => (
         <circle
           key={`in-${pin.name}`}
