@@ -2,12 +2,13 @@ import { useRef, useCallback, useEffect, useState } from "react";
 import { Stage, Layer } from "react-konva";
 import type Konva from "konva";
 import * as Y from "yjs";
-import { useCanvasStore } from "../stores/canvas-store";
+import { useCanvasStore, type ClipboardData } from "../stores/canvas-store";
 import { GridLayer } from "./canvas/GridLayer";
-import { GateLayer } from "./canvas/GateLayer";
+import { GateLayer, loadedGateDefs, getGateBounds } from "./canvas/GateLayer";
 import { WireLayer } from "./canvas/WireLayer";
 import { OverlayLayer } from "./canvas/OverlayLayer";
 import { SNAP_SIZE } from "@shared/constants";
+import type { GateDefinition, WireSegment } from "@shared/types";
 import {
   getGatesMap,
   getWiresMap,
@@ -27,6 +28,52 @@ function snapToGrid(val: number): number {
 }
 
 type DragMode = "none" | "pan" | "select-box";
+
+/** Check if two axis-aligned rectangles intersect */
+function rectsIntersect(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number },
+): boolean {
+  return (
+    a.x < b.x + b.width &&
+    a.x + a.width > b.x &&
+    a.y < b.y + b.height &&
+    a.y + a.height > b.y
+  );
+}
+
+/** Check if a line segment intersects a rectangle */
+function segmentIntersectsRect(
+  seg: WireSegment,
+  rect: { x: number; y: number; width: number; height: number },
+): boolean {
+  const rx = rect.x;
+  const ry = rect.y;
+  const rr = rect.x + rect.width;
+  const rb = rect.y + rect.height;
+
+  // Check if either endpoint is inside the rect
+  if (seg.x1 >= rx && seg.x1 <= rr && seg.y1 >= ry && seg.y1 <= rb) return true;
+  if (seg.x2 >= rx && seg.x2 <= rr && seg.y2 >= ry && seg.y2 <= rb) return true;
+
+  // Check if the segment (treated as an axis-aligned line) crosses the rect
+  const minX = Math.min(seg.x1, seg.x2);
+  const maxX = Math.max(seg.x1, seg.x2);
+  const minY = Math.min(seg.y1, seg.y2);
+  const maxY = Math.max(seg.y1, seg.y2);
+
+  // Horizontal segment
+  if (seg.y1 === seg.y2) {
+    return seg.y1 >= ry && seg.y1 <= rb && minX <= rr && maxX >= rx;
+  }
+  // Vertical segment
+  if (seg.x1 === seg.x2) {
+    return seg.x1 >= rx && seg.x1 <= rr && minY <= rb && maxY >= ry;
+  }
+
+  // General segment — bounding box overlap as fallback
+  return minX <= rr && maxX >= rx && minY <= rb && maxY >= ry;
+}
 
 export function Canvas({ doc, readOnly }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -55,10 +102,14 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
   const zoom = useCanvasStore((s) => s.zoom);
   const setViewport = useCanvasStore((s) => s.setViewport);
   const clearSelection = useCanvasStore((s) => s.clearSelection);
+  const select = useCanvasStore((s) => s.select);
   const selectedIds = useCanvasStore((s) => s.selectedIds);
   const setSelectionBox = useCanvasStore((s) => s.setSelectionBox);
   const wireDrawing = useCanvasStore((s) => s.wireDrawing);
   const setWireDrawing = useCanvasStore((s) => s.setWireDrawing);
+  const setClipboard = useCanvasStore((s) => s.setClipboard);
+  const setPendingPaste = useCanvasStore((s) => s.setPendingPaste);
+  const mousePos = useRef({ x: 0, y: 0 });
 
   const undoManager = useRef<Y.UndoManager | null>(null);
 
@@ -71,6 +122,62 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
       undoManager.current?.destroy();
     };
   }, [doc]);
+
+  /** Commit a pending paste at the given position */
+  const commitPaste = useCallback(
+    (data: ClipboardData, pasteX: number, pasteY: number) => {
+      const gateIdMap = new Map<string, string>();
+      const wireIdMap = new Map<string, string>();
+
+      for (const g of data.gates) {
+        gateIdMap.set(g.originalId, crypto.randomUUID());
+      }
+      for (const w of data.wires) {
+        wireIdMap.set(w.originalId, crypto.randomUUID());
+      }
+
+      doc.transact(() => {
+        for (const g of data.gates) {
+          const newId = gateIdMap.get(g.originalId)!;
+          addGateToDoc(doc, newId, {
+            defId: g.defId,
+            logicType: g.logicType,
+            x: snapToGrid(pasteX + g.offsetX),
+            y: snapToGrid(pasteY + g.offsetY),
+            rotation: g.rotation,
+            ...g.params,
+          });
+        }
+
+        for (const w of data.wires) {
+          const newId = wireIdMap.get(w.originalId)!;
+          const offsetSegments = w.segments.map((s) => ({
+            x1: s.x1 + pasteX,
+            y1: s.y1 + pasteY,
+            x2: s.x2 + pasteX,
+            y2: s.y2 + pasteY,
+          }));
+          addWireToDoc(doc, newId, offsetSegments);
+        }
+
+        for (const c of data.connections) {
+          const newGateId = gateIdMap.get(c.originalGateId);
+          const newWireId = wireIdMap.get(c.originalWireId);
+          if (!newGateId || !newWireId) continue;
+          addConnectionToDoc(doc, newGateId, c.pinName, c.pinDirection, newWireId);
+        }
+      });
+
+      clearSelection();
+      for (const newId of gateIdMap.values()) {
+        select(newId);
+      }
+      for (const newId of wireIdMap.values()) {
+        select(newId);
+      }
+    },
+    [doc, clearSelection, select]
+  );
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -127,14 +234,171 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
         e.preventDefault();
         undoManager.current?.redo();
       }
-      if (e.key === "Escape") {
-        setWireDrawing(null);
+      // Copy
+      if (e.key === "c" && (e.ctrlKey || e.metaKey)) {
+        const ids = Object.keys(selectedIds);
+        if (ids.length === 0) return;
+
+        const gatesMap = getGatesMap(doc);
+        const wiresMap = getWiresMap(doc);
+        const connectionsMap = getConnectionsMap(doc);
+
+        // Collect selected gates
+        const selectedGateIds = new Set<string>();
+        const gateDataList: Array<{
+          id: string;
+          defId: string;
+          logicType: string;
+          x: number;
+          y: number;
+          rotation: number;
+          params: Record<string, string>;
+        }> = [];
+
+        for (const id of ids) {
+          const yGate = gatesMap.get(id);
+          if (!yGate) continue;
+          selectedGateIds.add(id);
+          const params: Record<string, string> = {};
+          for (const [k, v] of yGate.entries()) {
+            if (k.startsWith("param:")) params[k] = String(v);
+          }
+          gateDataList.push({
+            id,
+            defId: yGate.get("defId"),
+            logicType: yGate.get("logicType") ?? "",
+            x: yGate.get("x"),
+            y: yGate.get("y"),
+            rotation: yGate.get("rotation") ?? 0,
+            params,
+          });
+        }
+
+        if (gateDataList.length === 0) return;
+
+        // Compute centroid
+        const cx =
+          gateDataList.reduce((s, g) => s + g.x, 0) / gateDataList.length;
+        const cy =
+          gateDataList.reduce((s, g) => s + g.y, 0) / gateDataList.length;
+
+        // Find wires fully internal to selection (both endpoints connected to selected gates)
+        const wireEndpoints = new Map<
+          string,
+          Array<{ gateId: string; pinName: string; pinDirection: "input" | "output" }>
+        >();
+        connectionsMap.forEach((yConn) => {
+          const wireId = yConn.get("wireId") as string;
+          const gateId = yConn.get("gateId") as string;
+          const pinName = yConn.get("pinName") as string;
+          const pinDirection = yConn.get("pinDirection") as "input" | "output";
+          const arr = wireEndpoints.get(wireId) || [];
+          arr.push({ gateId, pinName, pinDirection });
+          wireEndpoints.set(wireId, arr);
+        });
+
+        const selectedWireIds = new Set<string>();
+        // Also include wires that are directly selected
+        for (const id of ids) {
+          if (wiresMap.has(id)) {
+            selectedWireIds.add(id);
+          }
+        }
+        // Include wires where both endpoints are connected to selected gates
+        for (const [wireId, endpoints] of wireEndpoints) {
+          if (
+            endpoints.length >= 2 &&
+            endpoints.every((ep) => selectedGateIds.has(ep.gateId))
+          ) {
+            selectedWireIds.add(wireId);
+          }
+        }
+
+        // Build clipboard gate data with offsets from centroid
+        const clipGates = gateDataList.map((g) => ({
+          defId: g.defId,
+          logicType: g.logicType,
+          offsetX: g.x - cx,
+          offsetY: g.y - cy,
+          rotation: g.rotation,
+          params: g.params,
+          originalId: g.id,
+        }));
+
+        // Build clipboard wire data with segments offset from centroid
+        const clipWires: Array<{ segments: WireSegment[]; originalId: string }> =
+          [];
+        for (const wireId of selectedWireIds) {
+          const yWire = wiresMap.get(wireId);
+          if (!yWire) continue;
+          try {
+            const segments: WireSegment[] = JSON.parse(
+              yWire.get("segments") || "[]"
+            );
+            // Store segments relative to centroid
+            const offsetSegs = segments.map((s) => ({
+              x1: s.x1 - cx,
+              y1: s.y1 - cy,
+              x2: s.x2 - cx,
+              y2: s.y2 - cy,
+            }));
+            clipWires.push({ segments: offsetSegs, originalId: wireId });
+          } catch {
+            // skip
+          }
+        }
+
+        // Build clipboard connection data (only for selected wires)
+        const clipConnections: Array<{
+          originalGateId: string;
+          pinName: string;
+          pinDirection: "input" | "output";
+          originalWireId: string;
+        }> = [];
+        connectionsMap.forEach((yConn) => {
+          const wireId = yConn.get("wireId") as string;
+          if (!selectedWireIds.has(wireId)) return;
+          const gateId = yConn.get("gateId") as string;
+          if (!selectedGateIds.has(gateId)) return;
+          clipConnections.push({
+            originalGateId: gateId,
+            pinName: yConn.get("pinName") as string,
+            pinDirection: yConn.get("pinDirection") as "input" | "output",
+            originalWireId: wireId,
+          });
+        });
+
+        setClipboard({
+          gates: clipGates,
+          wires: clipWires,
+          connections: clipConnections,
+        });
+      }
+
+      // Paste — enter pending paste mode (preview follows mouse, click to place)
+      if (e.key === "v" && (e.ctrlKey || e.metaKey)) {
+        const cb = useCanvasStore.getState().clipboard;
+        if (!cb || readOnly) return;
+        e.preventDefault();
+
+        const x = snapToGrid(mousePos.current.x);
+        const y = snapToGrid(mousePos.current.y);
+        setPendingPaste({ data: cb, x, y });
         clearSelection();
+      }
+
+      if (e.key === "Escape") {
+        if (useCanvasStore.getState().pendingPaste) {
+          setPendingPaste(null);
+        } else {
+          setWireDrawing(null);
+          clearSelection();
+        }
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [doc, readOnly, selectedIds, clearSelection, setWireDrawing]);
+  }, [doc, readOnly, selectedIds, clearSelection, select, setWireDrawing, setClipboard, setPendingPaste]);
 
   const handleWheel = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -174,6 +438,14 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
       const stage = stageRef.current;
       if (!stage) return;
 
+      // If pending paste, commit it on click
+      const pp = useCanvasStore.getState().pendingPaste;
+      if (pp && e.evt.button === 0) {
+        commitPaste(pp.data, pp.x, pp.y);
+        setPendingPaste(null);
+        return;
+      }
+
       // If we're wire-drawing and click on empty space, cancel it
       const wd = useCanvasStore.getState().wireDrawing;
       if (wd && e.target === stage) {
@@ -197,7 +469,7 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
         };
       }
     },
-    [viewportX, viewportY, zoom, clearSelection, setWireDrawing]
+    [viewportX, viewportY, zoom, clearSelection, setWireDrawing, setPendingPaste, commitPaste]
   );
 
   const handleMouseMove = useCallback(
@@ -212,6 +484,24 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
         const x = snapToGrid((pointer.x - viewportX) / zoom);
         const y = snapToGrid((pointer.y - viewportY) / zoom);
         setWireDrawing({ ...wd, currentX: x, currentY: y });
+        return;
+      }
+
+      // Track mouse position for paste
+      const pointer = stage.getPointerPosition();
+      if (pointer) {
+        mousePos.current = {
+          x: (pointer.x - viewportX) / zoom,
+          y: (pointer.y - viewportY) / zoom,
+        };
+      }
+
+      // Update pending paste preview position
+      const pp = useCanvasStore.getState().pendingPaste;
+      if (pp && pointer) {
+        const x = snapToGrid((pointer.x - viewportX) / zoom);
+        const y = snapToGrid((pointer.y - viewportY) / zoom);
+        setPendingPaste({ ...pp, x, y });
         return;
       }
 
@@ -235,15 +525,57 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
         });
       }
     },
-    [viewportX, viewportY, zoom, setViewport, setSelectionBox, setWireDrawing]
+    [viewportX, viewportY, zoom, setViewport, setSelectionBox, setWireDrawing, setPendingPaste]
   );
 
   const handleMouseUp = useCallback(() => {
     if (dragMode.current === "select-box") {
+      const box = useCanvasStore.getState().selectionBox;
+      if (box && (box.width > 5 || box.height > 5)) {
+        // Build defs map from loaded gate defs
+        const defsMap = new Map<string, GateDefinition>(
+          loadedGateDefs.map((d) => [d.id, d])
+        );
+
+        // Hit-test gates
+        const gatesMap = getGatesMap(doc);
+        gatesMap.forEach((yGate, id) => {
+          const def = defsMap.get(yGate.get("defId"));
+          if (!def) return;
+          const bounds = getGateBounds(def);
+          const gateBounds = {
+            x: yGate.get("x") + bounds.x,
+            y: yGate.get("y") + bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+          };
+          if (rectsIntersect(box, gateBounds)) {
+            select(id);
+          }
+        });
+
+        // Hit-test wires
+        const wiresMap = getWiresMap(doc);
+        wiresMap.forEach((yWire, id) => {
+          try {
+            const segments: WireSegment[] = JSON.parse(
+              yWire.get("segments") || "[]"
+            );
+            for (const seg of segments) {
+              if (segmentIntersectsRect(seg, box)) {
+                select(id);
+                break;
+              }
+            }
+          } catch {
+            // skip malformed wires
+          }
+        });
+      }
       setSelectionBox(null);
     }
     dragMode.current = "none";
-  }, [setSelectionBox]);
+  }, [doc, select, setSelectionBox]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
