@@ -8,7 +8,8 @@ let stepsPerFrame = 5;
 
 // Maps between string IDs and numeric IDs for the WASM engine
 const gateIdMap = new Map<string, number>();
-const wireIdMap = new Map<string, number>();
+const wireIdMap = new Map<string, number>(); // Yjs wireId → WASM wire number (merged wires share a number)
+const wireMergeMap = new Map<string, string>(); // merged wireId → canonical wireId (for tracking)
 let nextGateId = 1;
 let nextWireId = 1;
 
@@ -56,6 +57,7 @@ function fullSync(msg: Extract<MainToWorkerMessage, { type: "fullSync" }>) {
   circuit = new cedarModule.Circuit();
   gateIdMap.clear();
   wireIdMap.clear();
+  wireMergeMap.clear();
   nextGateId = 1;
   nextWireId = 1;
 
@@ -72,21 +74,80 @@ function fullSync(msg: Extract<MainToWorkerMessage, { type: "fullSync" }>) {
     }
   }
 
-  // Add wires
+  // Build merge groups: wires sharing the same gate pin must use the same
+  // WASM wire so the signal fans out correctly (the engine supports only one
+  // wire per pin).
+  // pinKey → list of Yjs wireIds sharing that pin
+  const pinToWires = new Map<string, string[]>();
+  for (const conn of msg.connections) {
+    const pinKey = `${conn.gateId}:${conn.pinName}:${conn.pinDirection}`;
+    let arr = pinToWires.get(pinKey);
+    if (!arr) { arr = []; pinToWires.set(pinKey, arr); }
+    if (!arr.includes(conn.wireId)) arr.push(conn.wireId);
+  }
+
+  // Union-Find to merge wire groups transitively (a wire might share pins
+  // with different wires on different gates, forming a larger equivalence set).
+  const parent = new Map<string, string>();
+  function find(a: string): string {
+    while (parent.get(a) !== a) {
+      const p = parent.get(a)!;
+      parent.set(a, parent.get(p)!); // path compression
+      a = p;
+    }
+    return a;
+  }
+  function union(a: string, b: string) {
+    const ra = find(a), rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  }
+
+  // Initialize each wire as its own parent
   for (const wire of msg.wires) {
-    const numId = getOrCreateWireId(wire.id);
-    try {
-      circuit.newWire(numId);
-    } catch (e: any) {
-      console.warn(`Failed to create wire ${wire.id}: ${e.message}`);
+    parent.set(wire.id, wire.id);
+  }
+  // Also init wires referenced in connections but maybe not in msg.wires
+  for (const conn of msg.connections) {
+    if (!parent.has(conn.wireId)) parent.set(conn.wireId, conn.wireId);
+  }
+
+  // Merge wires that share a pin
+  for (const wireIds of pinToWires.values()) {
+    for (let i = 1; i < wireIds.length; i++) {
+      union(wireIds[0], wireIds[i]);
     }
   }
 
-  // Add connections
+  // Build canonical wire ID per group and create a single WASM wire for each group
+  const groupWasmId = new Map<string, number>(); // group root → WASM wire ID
+  for (const wire of msg.wires) {
+    const root = find(wire.id);
+    if (!groupWasmId.has(root)) {
+      const numId = nextWireId++;
+      groupWasmId.set(root, numId);
+      try {
+        circuit.newWire(numId);
+      } catch (e: any) {
+        console.warn(`Failed to create wire ${wire.id}: ${e.message}`);
+      }
+    }
+    const wasmId = groupWasmId.get(root)!;
+    wireIdMap.set(wire.id, wasmId);
+    if (root !== wire.id) {
+      wireMergeMap.set(wire.id, root);
+    }
+  }
+
+  // Add connections — each pin is connected exactly once (to the merged WASM wire)
+  const connectedPins = new Set<string>();
   for (const conn of msg.connections) {
     const gateNum = gateIdMap.get(conn.gateId);
     const wireNum = wireIdMap.get(conn.wireId);
     if (gateNum === undefined || wireNum === undefined) continue;
+    // Only connect each pin once (all wires on this pin share the same WASM wire)
+    const pinKey = `${gateNum}:${conn.pinName}:${conn.pinDirection}`;
+    if (connectedPins.has(pinKey)) continue;
+    connectedPins.add(pinKey);
     try {
       if (conn.pinDirection === "input") {
         circuit.connectGateInput(gateNum, conn.pinName, wireNum);
@@ -128,7 +189,8 @@ function stepAndReport(count: number) {
   }
 }
 
-/** Report ALL wire states (not just changed). Used after fullSync to init colors. */
+/** Report ALL wire states (not just changed). Used after fullSync to init colors.
+ *  Reports state for every Yjs wireId, including merged wires that share a WASM wire. */
 function reportAllWireStates() {
   if (!circuit) return;
   const states: Array<{ id: string; state: number }> = [];
