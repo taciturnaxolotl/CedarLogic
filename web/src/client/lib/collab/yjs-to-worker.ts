@@ -121,26 +121,15 @@ export function createYjsToWorkerBridge(
     }
   });
 
-  // Observe connections
+  // Observe connections — any add or delete triggers a full sync because
+  // the worker merges wires that share a gate pin into a single WASM wire,
+  // which requires the full connection picture to compute correctly.
   connections.observeDeep((events) => {
     for (const event of events) {
       if (event.target === connections && event instanceof Y.YMapEvent) {
-        for (const [key, change] of event.changes.keys) {
-          if (change.action === "add") {
-            const yConn = connections.get(key);
-            if (!yConn) continue;
-            postToWorker({
-              type: "connect",
-              gateId: yConn.get("gateId"),
-              pinName: yConn.get("pinName"),
-              pinDirection: yConn.get("pinDirection"),
-              wireId: yConn.get("wireId"),
-            });
-          } else if (change.action === "delete") {
-            // Connection removed — need to disconnect
-            // We don't have the old value, so full sync is safest
-            fullSync();
-          }
+        if (event.changes.keys.size > 0) {
+          fullSync();
+          return;
         }
       }
     }
