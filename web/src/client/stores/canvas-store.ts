@@ -52,6 +52,9 @@ interface CanvasState {
   /** When non-null, a paste preview is being positioned by the user */
   pendingPaste: { data: ClipboardData; x: number; y: number } | null;
 
+  /** When non-null, a gate ghost preview is following the mouse for placement */
+  pendingGate: { defId: string; logicType: string; params?: Record<string, string>; x: number; y: number } | null;
+
   hoveredPin: {
     gateId: string;
     pinName: string;
@@ -69,6 +72,7 @@ interface CanvasState {
   setWireDrawing: (state: WireDrawingState | null) => void;
   setClipboard: (cb: ClipboardData | null) => void;
   setPendingPaste: (pp: CanvasState["pendingPaste"]) => void;
+  setPendingGate: (pg: CanvasState["pendingGate"]) => void;
   setHoveredPin: (pin: CanvasState["hoveredPin"]) => void;
 }
 
@@ -81,6 +85,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   wireDrawing: null,
   clipboard: null,
   pendingPaste: null,
+  pendingGate: null,
   hoveredPin: null,
 
   setViewport: (viewportX, viewportY, zoom) => set({ viewportX, viewportY, zoom }),
@@ -107,5 +112,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setWireDrawing: (wireDrawing) => set({ wireDrawing }),
   setClipboard: (clipboard) => set({ clipboard }),
   setPendingPaste: (pendingPaste) => set({ pendingPaste }),
+  setPendingGate: (pendingGate) => set({ pendingGate }),
   setHoveredPin: (hoveredPin) => set({ hoveredPin }),
 }));

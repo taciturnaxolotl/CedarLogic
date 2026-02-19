@@ -24,6 +24,7 @@ import { generateRenderInfo } from "../lib/canvas/wire-model";
 interface CanvasProps {
   doc: Y.Doc;
   readOnly: boolean;
+  onQuickAdd?: () => void;
 }
 
 function snapToGrid(val: number): number {
@@ -78,7 +79,7 @@ function segmentIntersectsRect(
   return minX <= rr && maxX >= rx && minY <= rb && maxY >= ry;
 }
 
-export function Canvas({ doc, readOnly }: CanvasProps) {
+export function Canvas({ doc, readOnly, onQuickAdd }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -112,6 +113,7 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
   const setWireDrawing = useCanvasStore((s) => s.setWireDrawing);
   const setClipboard = useCanvasStore((s) => s.setClipboard);
   const setPendingPaste = useCanvasStore((s) => s.setPendingPaste);
+  const setPendingGate = useCanvasStore((s) => s.setPendingGate);
   const mousePos = useRef({ x: 0, y: 0 });
 
   const undoManager = useRef<Y.UndoManager | null>(null);
@@ -469,8 +471,17 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
         }
       }
 
+      // Quick add gate dialog
+      if (e.key === "a" && !e.ctrlKey && !e.metaKey && !e.shiftKey && !readOnly) {
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+        e.preventDefault();
+        onQuickAdd?.();
+      }
+
       if (e.key === "Escape") {
-        if (useCanvasStore.getState().pendingPaste) {
+        if (useCanvasStore.getState().pendingGate) {
+          setPendingGate(null);
+        } else if (useCanvasStore.getState().pendingPaste) {
           setPendingPaste(null);
         } else {
           setWireDrawing(null);
@@ -480,7 +491,25 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [doc, readOnly, selectedIds, clearSelection, select, setViewport, setWireDrawing, setClipboard, setPendingPaste, size]);
+  }, [doc, readOnly, selectedIds, clearSelection, select, setViewport, setWireDrawing, setClipboard, setPendingPaste, setPendingGate, size, onQuickAdd]);
+
+  // Track mouse for pending gate placement using native DOM events
+  // (Konva stage events don't fire reliably after an HTML overlay closes)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    function handleNativeMouseMove(e: MouseEvent) {
+      const pg = useCanvasStore.getState().pendingGate;
+      if (!pg) return;
+      const rect = el!.getBoundingClientRect();
+      const { viewportX, viewportY, zoom } = useCanvasStore.getState();
+      const x = snapToGrid((e.clientX - rect.left - viewportX) / zoom);
+      const y = snapToGrid((e.clientY - rect.top - viewportY) / zoom);
+      setPendingGate({ ...pg, x, y });
+    }
+    el.addEventListener("mousemove", handleNativeMouseMove);
+    return () => el.removeEventListener("mousemove", handleNativeMouseMove);
+  }, [setPendingGate]);
 
   const handleWheel = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -528,6 +557,24 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
         return;
       }
 
+      // If pending gate placement, commit it on click
+      const pg = useCanvasStore.getState().pendingGate;
+      if (pg && e.evt.button === 0) {
+        const id = crypto.randomUUID();
+        addGateToDoc(doc, id, {
+          defId: pg.defId,
+          logicType: pg.logicType,
+          x: pg.x,
+          y: pg.y,
+          rotation: 0,
+          ...Object.fromEntries(
+            Object.entries(pg.params || {}).map(([k, v]) => [`param:${k}`, v])
+          ),
+        });
+        setPendingGate(null);
+        return;
+      }
+
       // If we're wire-drawing and click on empty space, cancel it
       const wd = useCanvasStore.getState().wireDrawing;
       if (wd && e.target === stage) {
@@ -551,7 +598,7 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
         };
       }
     },
-    [viewportX, viewportY, zoom, clearSelection, setWireDrawing, setPendingPaste, commitPaste]
+    [viewportX, viewportY, zoom, clearSelection, setWireDrawing, setPendingPaste, setPendingGate, commitPaste, doc]
   );
 
   const handleMouseMove = useCallback(
@@ -707,6 +754,7 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
   return (
     <div
       ref={containerRef}
+      data-canvas-container
       className="w-full h-full"
       onDrop={handleDrop}
       onDragOver={handleDragOver}

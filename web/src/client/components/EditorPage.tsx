@@ -3,6 +3,7 @@ import { useCollab } from "../hooks/useCollab";
 import { useSimulation } from "../hooks/useSimulation";
 import { Canvas } from "./Canvas";
 import { Toolbar, SimControls } from "./Toolbar";
+import { QuickAddDialog } from "./QuickAddDialog";
 import { exportToCdl } from "../lib/cdl-export";
 import { importFromCdl } from "../lib/cdl-import";
 import { loadedGateDefs } from "./canvas/GateLayer";
@@ -28,6 +29,7 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
   const readOnly = file ? file.permission === "viewer" : null;
   const isOwner = file?.permission === "owner";
   const [editingTitle, setEditingTitle] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -150,7 +152,7 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
         {!readOnly && <Toolbar />}
         <div className="flex-1 relative">
           {doc && synced ? (
-            <Canvas doc={doc} readOnly={!!readOnly} />
+            <Canvas doc={doc} readOnly={!!readOnly} onQuickAdd={() => setQuickAddOpen(true)} />
           ) : (
             <div className="flex items-center justify-center h-full text-gray-500">
               Syncing...
@@ -162,6 +164,10 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
           </div>
         </div>
       </div>
+
+      {quickAddOpen && (
+        <QuickAddDialog onClose={() => setQuickAddOpen(false)} />
+      )}
     </div>
   );
 }
