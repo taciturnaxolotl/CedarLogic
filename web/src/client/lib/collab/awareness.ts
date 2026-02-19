@@ -1,11 +1,5 @@
 import type { HocuspocusProvider } from "@hocuspocus/provider";
-
-export interface CursorState {
-  x: number;
-  y: number;
-  user: { name: string; color: string; avatarUrl?: string | null };
-  selection?: string[];
-}
+import { hashUserId } from "@/server/cursor/protocol";
 
 const CURSOR_COLORS = [
   "#E06C75", // rose
@@ -34,13 +28,14 @@ export function generateAnonName(): string {
 export function setupAwareness(
   provider: HocuspocusProvider,
   userName: string,
+  userId: string,
   avatarUrl?: string | null,
   role?: string | null,
 ) {
   const awareness = provider.awareness!;
+  const userHash = hashUserId(userId);
 
   let color = CURSOR_COLORS[awareness.clientID % CURSOR_COLORS.length];
-  let lastUpdate = 0;
   let colorResolved = false;
 
   function pickUniqueColor() {
@@ -54,12 +49,24 @@ export function setupAwareness(
     const unique = CURSOR_COLORS.find((c) => !takenColors.has(c));
     if (unique && unique !== color) {
       color = unique;
-      awareness.setLocalStateField("user", { name: userName, color, avatarUrl: avatarUrl ?? null, role: role ?? "viewer" });
+      awareness.setLocalStateField("user", {
+        name: userName,
+        color,
+        avatarUrl: avatarUrl ?? null,
+        role: role ?? "viewer",
+        userHash,
+      });
     }
     colorResolved = true;
   }
 
-  awareness.setLocalStateField("user", { name: userName, color, avatarUrl: avatarUrl ?? null, role: role ?? "viewer" });
+  awareness.setLocalStateField("user", {
+    name: userName,
+    color,
+    avatarUrl: avatarUrl ?? null,
+    role: role ?? "viewer",
+    userHash,
+  });
 
   // Re-pick color once we see other clients' states
   function onFirstChange() {
@@ -68,32 +75,5 @@ export function setupAwareness(
   }
   awareness.on("change", onFirstChange);
 
-  function updateCursor(x: number, y: number, selection?: string[]) {
-    const now = Date.now();
-    if (now - lastUpdate < 100) return; // Throttle to 100ms
-    lastUpdate = now;
-
-    awareness.setLocalStateField("cursor", {
-      x,
-      y,
-      user: { name: userName, color, avatarUrl: avatarUrl ?? null },
-      selection,
-    });
-  }
-
-  function clearCursor() {
-    awareness.setLocalStateField("cursor", null);
-  }
-
-  function getRemoteCursors(): Map<number, CursorState> {
-    const cursors = new Map<number, CursorState>();
-    awareness.getStates().forEach((state, clientId) => {
-      if (clientId !== awareness.clientID && state.cursor) {
-        cursors.set(clientId, state.cursor as CursorState);
-      }
-    });
-    return cursors;
-  }
-
-  return { updateCursor, clearCursor, getRemoteCursors, awareness };
+  return { awareness };
 }

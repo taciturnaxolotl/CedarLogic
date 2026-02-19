@@ -10,6 +10,9 @@ import { importFromCdl } from "../lib/cdl-import";
 import { loadedGateDefs } from "./canvas/GateLayer";
 import { getGatesMap } from "../lib/collab/yjs-schema";
 import { usePresence } from "../hooks/usePresence";
+import { CursorWS } from "../lib/collab/cursor-ws";
+import { hashUserId } from "@/server/cursor/protocol";
+import { useCanvasStore } from "../stores/canvas-store";
 import type { FileRecord, PermissionLevel, PublicUser } from "@shared/types";
 
 interface EditorPageProps {
@@ -33,11 +36,59 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
   useSimulation(doc);
 
   const permission = file?.permission ?? null;
-  const { updateCursor, clearCursor, awareness, remoteUsers } = usePresence(
+  const userId = currentUser?.id ?? "anonymous";
+  const { remoteUsers, userMetaByHash } = usePresence(
     provider,
     currentUser ? { name: currentUser.name, avatarUrl: currentUser.avatarUrl } : null,
+    userId,
     permission,
   );
+
+  // Dedicated cursor WebSocket
+  const [cursorWS, setCursorWS] = useState<CursorWS | null>(null);
+  const cursorWSRef = useRef<CursorWS | null>(null);
+  useEffect(() => {
+    if (!file) return;
+    let destroyed = false;
+
+    async function initCursorWS() {
+      let token = "";
+      try {
+        const res = await fetch("/api/auth/ws-token", { method: "POST" });
+        if (res.ok) token = (await res.json()).token;
+      } catch { /* anonymous */ }
+
+      if (destroyed) return;
+      const finalToken = token || `public:${fileId}`;
+      const userHash = hashUserId(userId);
+      const ws = new CursorWS(fileId, finalToken, userHash);
+      cursorWSRef.current = ws;
+      setCursorWS(ws);
+    }
+
+    initCursorWS();
+    return () => {
+      destroyed = true;
+      cursorWSRef.current?.destroy();
+      cursorWSRef.current = null;
+      setCursorWS(null);
+    };
+  }, [file, fileId, userId]);
+
+  // Report viewport changes to cursor server
+  const viewportX = useCanvasStore((s) => s.viewportX);
+  const viewportY = useCanvasStore((s) => s.viewportY);
+  const zoom = useCanvasStore((s) => s.zoom);
+  const canvasSize = useCanvasStore((s) => s.canvasSize);
+
+  useEffect(() => {
+    if (!cursorWSRef.current) return;
+    const minX = -viewportX / zoom;
+    const minY = -viewportY / zoom;
+    const maxX = minX + canvasSize.width / zoom;
+    const maxY = minY + canvasSize.height / zoom;
+    cursorWSRef.current.sendViewportUpdate(minX, minY, maxX, maxY);
+  }, [viewportX, viewportY, zoom, canvasSize]);
 
   useEffect(() => {
     fetch(`/api/files/${fileId}`)
@@ -335,9 +386,10 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
               doc={doc}
               readOnly={!!readOnly}
               onQuickAdd={() => setQuickAddOpen(true)}
-              onCursorMove={updateCursor}
-              onCursorLeave={clearCursor}
-              awareness={awareness}
+              onCursorMove={(x, y) => cursorWSRef.current?.sendCursorMove(x, y)}
+              onCursorLeave={() => cursorWSRef.current?.sendCursorLeave()}
+              cursorWS={cursorWS}
+              userMetaByHash={userMetaByHash}
             />
           ) : (
             <div className="flex items-center justify-center h-full text-gray-500">
