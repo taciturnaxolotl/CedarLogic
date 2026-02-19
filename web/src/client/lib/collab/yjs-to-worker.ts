@@ -67,6 +67,7 @@ export function createYjsToWorkerBridge(
   gates.observeDeep((events) => {
     for (const event of events) {
       if (event.target === gates && event instanceof Y.YMapEvent) {
+        // Top-level gate add/delete
         for (const [key, change] of event.changes.keys) {
           if (change.action === "add") {
             const yGate = gates.get(key);
@@ -84,6 +85,32 @@ export function createYjsToWorkerBridge(
             debouncedStep();
           } else if (change.action === "delete") {
             postToWorker({ type: "removeGate", id: key });
+            debouncedStep();
+          }
+        }
+      } else if (
+        event.target !== gates &&
+        event.target instanceof Y.Map &&
+        event instanceof Y.YMapEvent
+      ) {
+        // Inner gate parameter change — find the gate ID
+        const yGate = event.target as Y.Map<any>;
+        let gateId: string | null = null;
+        gates.forEach((v, k) => {
+          if (v === yGate) gateId = k;
+        });
+        if (!gateId) continue;
+
+        for (const [key, change] of event.changes.keys) {
+          if (key.startsWith("param:") && (change.action === "add" || change.action === "update")) {
+            const paramName = key.replace("param:", "");
+            const value = yGate.get(key);
+            postToWorker({
+              type: "setParam",
+              gateId,
+              paramName,
+              value,
+            });
             debouncedStep();
           }
         }

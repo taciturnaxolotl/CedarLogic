@@ -13,6 +13,8 @@ import {
   getWiresMap,
   getConnectionsMap,
   addGateToDoc,
+  addWireToDoc,
+  addConnectionToDoc,
 } from "../lib/collab/yjs-schema";
 
 interface CanvasProps {
@@ -31,7 +33,6 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
 
-  // Unified drag state (not in zustand — local to pointer interactions)
   const dragMode = useRef<DragMode>("none");
   const dragStart = useRef({ x: 0, y: 0 });
   const viewportStart = useRef({ x: 0, y: 0 });
@@ -56,6 +57,8 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
   const clearSelection = useCanvasStore((s) => s.clearSelection);
   const selectedIds = useCanvasStore((s) => s.selectedIds);
   const setSelectionBox = useCanvasStore((s) => s.setSelectionBox);
+  const wireDrawing = useCanvasStore((s) => s.wireDrawing);
+  const setWireDrawing = useCanvasStore((s) => s.setWireDrawing);
 
   const undoManager = useRef<Y.UndoManager | null>(null);
 
@@ -79,13 +82,35 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
           const gates = getGatesMap(doc);
           const wires = getWiresMap(doc);
           const connections = getConnectionsMap(doc);
+
+          // Collect wire IDs that should be removed when their gate is deleted
+          const wireIdsToRemove = new Set<string>();
+
           for (const id of ids) {
+            // If deleting a gate, find all connected wires
+            if (gates.has(id)) {
+              for (const [, conn] of connections.entries()) {
+                if (conn.get("gateId") === id) {
+                  wireIdsToRemove.add(conn.get("wireId"));
+                }
+              }
+            }
+
             gates.delete(id);
             wires.delete(id);
-            for (const [key, conn] of connections.entries()) {
-              if (conn.get("gateId") === id || conn.get("wireId") === id) {
-                connections.delete(key);
-              }
+          }
+
+          // Remove wires connected to deleted gates
+          for (const wireId of wireIdsToRemove) {
+            wires.delete(wireId);
+          }
+
+          // Remove all connections referencing deleted gates or wires
+          for (const [key, conn] of connections.entries()) {
+            const gateId = conn.get("gateId");
+            const wireId = conn.get("wireId");
+            if (ids.includes(gateId) || ids.includes(wireId) || wireIdsToRemove.has(wireId)) {
+              connections.delete(key);
             }
           }
         });
@@ -103,14 +128,14 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
         undoManager.current?.redo();
       }
       if (e.key === "Escape") {
+        setWireDrawing(null);
         clearSelection();
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [doc, readOnly, selectedIds, clearSelection]);
+  }, [doc, readOnly, selectedIds, clearSelection, setWireDrawing]);
 
-  // Zoom with scroll wheel, pan with middle mouse drag or scroll
   const handleWheel = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault();
@@ -134,7 +159,6 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
           newZoom
         );
       } else {
-        // Scroll = pan
         setViewport(
           viewportX - e.evt.deltaX,
           viewportY - e.evt.deltaY,
@@ -145,38 +169,52 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
     [viewportX, viewportY, zoom, setViewport]
   );
 
-  // Mouse down on stage (empty space):
-  //   - Left click on empty space: deselect, then drag = box select
-  //   - Middle/right click: pan
-  // Gate clicks are handled by GateLayer (which stops propagation)
   const handleMouseDown = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
       const stage = stageRef.current;
       if (!stage) return;
+
+      // If we're wire-drawing and click on empty space, cancel it
+      const wd = useCanvasStore.getState().wireDrawing;
+      if (wd && e.target === stage) {
+        setWireDrawing(null);
+        return;
+      }
+
       if (e.target !== stage) return;
 
-      const pointer = stage.getPointerPosition()!;
-
       if (e.evt.button === 1 || e.evt.button === 2) {
-        // Middle or right click = pan
         dragMode.current = "pan";
         dragStart.current = { x: e.evt.clientX, y: e.evt.clientY };
         viewportStart.current = { x: viewportX, y: viewportY };
       } else if (e.evt.button === 0) {
-        // Left click on empty space = start box select
         clearSelection();
         dragMode.current = "select-box";
+        const pointer = stage.getPointerPosition()!;
         dragStart.current = {
           x: (pointer.x - viewportX) / zoom,
           y: (pointer.y - viewportY) / zoom,
         };
       }
     },
-    [viewportX, viewportY, zoom, clearSelection]
+    [viewportX, viewportY, zoom, clearSelection, setWireDrawing]
   );
 
   const handleMouseMove = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
+      const stage = stageRef.current;
+      if (!stage) return;
+
+      // Update wire drawing preview
+      const wd = useCanvasStore.getState().wireDrawing;
+      if (wd) {
+        const pointer = stage.getPointerPosition()!;
+        const x = snapToGrid((pointer.x - viewportX) / zoom);
+        const y = snapToGrid((pointer.y - viewportY) / zoom);
+        setWireDrawing({ ...wd, currentX: x, currentY: y });
+        return;
+      }
+
       if (dragMode.current === "pan") {
         const dx = e.evt.clientX - dragStart.current.x;
         const dy = e.evt.clientY - dragStart.current.y;
@@ -186,8 +224,6 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
           zoom
         );
       } else if (dragMode.current === "select-box") {
-        const stage = stageRef.current;
-        if (!stage) return;
         const pointer = stage.getPointerPosition()!;
         const currentX = (pointer.x - viewportX) / zoom;
         const currentY = (pointer.y - viewportY) / zoom;
@@ -199,23 +235,21 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
         });
       }
     },
-    [viewportX, viewportY, zoom, setViewport, setSelectionBox]
+    [viewportX, viewportY, zoom, setViewport, setSelectionBox, setWireDrawing]
   );
 
   const handleMouseUp = useCallback(() => {
     if (dragMode.current === "select-box") {
-      // TODO: find gates within selection box and select them
       setSelectionBox(null);
     }
     dragMode.current = "none";
   }, [setSelectionBox]);
 
-  // Prevent context menu on right-click (used for panning)
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
   }, []);
 
-  // Drag-and-drop from toolbar
+  // Drag-and-drop gates from toolbar
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
@@ -277,7 +311,7 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
           onMouseUp={handleMouseUp}
         >
           <GridLayer />
-          <WireLayer doc={doc} />
+          <WireLayer doc={doc} readOnly={readOnly} />
           <GateLayer doc={doc} readOnly={readOnly} />
           <OverlayLayer />
         </Stage>

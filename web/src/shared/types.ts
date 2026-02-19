@@ -58,7 +58,9 @@ export interface GateDefinition {
   caption: string;
   library: string;
   logicType: string;
+  guiType: string;
   params: Record<string, string>;
+  guiParams: Record<string, string>;
   inputs: Array<{ name: string; x: number; y: number }>;
   outputs: Array<{ name: string; x: number; y: number }>;
   shape: Array<{ x1: number; y1: number; x2: number; y2: number }>;

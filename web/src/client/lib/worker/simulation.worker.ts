@@ -98,8 +98,9 @@ function fullSync(msg: Extract<MainToWorkerMessage, { type: "fullSync" }>) {
     }
   }
 
-  // Settle
+  // Settle and report all wire states
   stepAndReport(5);
+  reportAllWireStates();
 }
 
 function stepAndReport(count: number) {
@@ -123,6 +124,22 @@ function stepAndReport(count: number) {
     post({ type: "time", time: result.time });
   } catch (e: any) {
     post({ type: "error", message: `Step error: ${e.message}` });
+  }
+}
+
+/** Report ALL wire states (not just changed). Used after fullSync to init colors. */
+function reportAllWireStates() {
+  if (!circuit) return;
+  const states: Array<{ id: string; state: number }> = [];
+  for (const [stringId, numId] of wireIdMap) {
+    try {
+      states.push({ id: stringId, state: circuit.getWireState(numId) });
+    } catch {
+      // skip
+    }
+  }
+  if (states.length > 0) {
+    post({ type: "wireStates", states });
   }
 }
 
@@ -154,6 +171,9 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
         for (const [param, value] of Object.entries(msg.params)) {
           circuit.setGateParameter(numId, param, value);
         }
+        // Re-evaluate gate and report all wire states
+        stepAndReport(5);
+        reportAllWireStates();
       } catch (e: any) {
         post({ type: "error", message: `addGate: ${e.message}` });
       }
@@ -203,6 +223,9 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
         } else {
           circuit.connectGateOutput(gateNum, msg.pinName, wireNum);
         }
+        // Step and report all wire states to propagate changes
+        stepAndReport(5);
+        reportAllWireStates();
       } catch (e: any) {
         post({ type: "error", message: `connect: ${e.message}` });
       }
@@ -218,6 +241,8 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
         } else {
           circuit.disconnectGateOutput(gateNum, msg.pinName);
         }
+        stepAndReport(5);
+        reportAllWireStates();
       } catch (e: any) {
         post({ type: "error", message: `disconnect: ${e.message}` });
       }
@@ -229,7 +254,8 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
       if (gateNum === undefined || !circuit) break;
       try {
         circuit.setGateParameter(gateNum, msg.paramName, msg.value);
-        circuit.stepOnlyGates();
+        stepAndReport(5);
+        reportAllWireStates();
       } catch (e: any) {
         post({ type: "error", message: `setParam: ${e.message}` });
       }
@@ -238,6 +264,7 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
 
     case "step":
       stepAndReport(msg.count);
+      reportAllWireStates();
       break;
 
     case "setRunning":

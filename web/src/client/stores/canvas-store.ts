@@ -2,8 +2,12 @@ import { create } from "zustand";
 
 export interface WireDrawingState {
   fromGateId: string;
-  fromPin: string;
-  segments: Array<{ x1: number; y1: number; x2: number; y2: number }>;
+  fromPinName: string;
+  fromPinDirection: "input" | "output";
+  /** Absolute position of the source pin */
+  fromX: number;
+  fromY: number;
+  /** Current mouse position (snapped) */
   currentX: number;
   currentY: number;
 }
@@ -13,18 +17,16 @@ interface CanvasState {
   viewportY: number;
   zoom: number;
 
-  // Selection as a plain object so Zustand's shallow compare detects changes
   selectedIds: Record<string, true>;
   selectionBox: { x: number; y: number; width: number; height: number } | null;
 
   wireDrawing: WireDrawingState | null;
 
   setViewport: (x: number, y: number, zoom: number) => void;
-  select: (id: string) => void;
   selectOnly: (id: string) => void;
+  select: (id: string) => void;
   toggleSelection: (id: string) => void;
   clearSelection: () => void;
-  isSelected: (id: string) => boolean;
   setSelectionBox: (box: CanvasState["selectionBox"]) => void;
   setWireDrawing: (state: WireDrawingState | null) => void;
 }
@@ -56,8 +58,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
 
   clearSelection: () => set({ selectedIds: {} }),
-
-  isSelected: (id) => !!get().selectedIds[id],
 
   setSelectionBox: (selectionBox) => set({ selectionBox }),
   setWireDrawing: (wireDrawing) => set({ wireDrawing }),

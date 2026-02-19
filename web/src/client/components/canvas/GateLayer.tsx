@@ -1,11 +1,19 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Layer, Group, Line, Circle, Rect } from "react-konva";
 import * as Y from "yjs";
 import type Konva from "konva";
-import { getGatesMap } from "../../lib/collab/yjs-schema";
+import {
+  getGatesMap,
+  getWiresMap,
+  getConnectionsMap,
+  addWireToDoc,
+  addConnectionToDoc,
+} from "../../lib/collab/yjs-schema";
 import { useCanvasStore } from "../../stores/canvas-store";
-import { GRID_SIZE, SNAP_SIZE } from "@shared/constants";
+import { useSimulationStore } from "../../stores/simulation-store";
+import { GRID_SIZE, SNAP_SIZE, WIRE_COLORS, WIRE_STATE } from "@shared/constants";
 import type { GateDefinition } from "@shared/types";
+import type { WireState } from "@shared/constants";
 
 let gateDefs: GateDefinition[] = [];
 
@@ -20,6 +28,8 @@ async function loadGateDefs(): Promise<GateDefinition[]> {
   return gateDefs;
 }
 
+export { gateDefs as loadedGateDefs };
+
 interface GateLayerProps {
   doc: Y.Doc;
   readOnly: boolean;
@@ -31,6 +41,7 @@ interface GateRenderData {
   x: number;
   y: number;
   rotation: number;
+  params: Record<string, string>;
 }
 
 function snapToGrid(val: number): number {
@@ -59,12 +70,31 @@ function getGateBounds(def: GateDefinition) {
   };
 }
 
+const PIN_HIT_RADIUS = 8;
+
+function getPinPosition(
+  gateDef: GateDefinition,
+  pinName: string,
+  pinDirection: "input" | "output",
+  gateX: number,
+  gateY: number,
+): { x: number; y: number } | null {
+  const pins = pinDirection === "input" ? gateDef.inputs : gateDef.outputs;
+  const pin = pins.find((p) => p.name === pinName);
+  if (!pin) return null;
+  return { x: gateX + pin.x * GRID_SIZE, y: gateY + pin.y * GRID_SIZE };
+}
+
 export function GateLayer({ doc, readOnly }: GateLayerProps) {
   const [gates, setGates] = useState<Map<string, GateRenderData>>(new Map());
   const [defs, setDefs] = useState<GateDefinition[]>([]);
+  // Map from gateId to array of connected wireIds
+  const [gateWireMap, setGateWireMap] = useState<Map<string, string[]>>(new Map());
   const selectedIds = useCanvasStore((s) => s.selectedIds);
   const selectOnly = useCanvasStore((s) => s.selectOnly);
   const toggleSelection = useCanvasStore((s) => s.toggleSelection);
+  const setWireDrawing = useCanvasStore((s) => s.setWireDrawing);
+  const wireStates = useSimulationStore((s) => s.wireStates);
 
   useEffect(() => {
     loadGateDefs().then(setDefs);
@@ -76,12 +106,17 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
     function sync() {
       const next = new Map<string, GateRenderData>();
       gatesMap.forEach((yGate, id) => {
+        const params: Record<string, string> = {};
+        for (const [k, v] of yGate.entries()) {
+          if (k.startsWith("param:")) params[k.replace("param:", "")] = String(v);
+        }
         next.set(id, {
           id,
           defId: yGate.get("defId"),
           x: yGate.get("x"),
           y: yGate.get("y"),
           rotation: yGate.get("rotation") ?? 0,
+          params,
         });
       });
       setGates(next);
@@ -92,18 +127,132 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
     return () => gatesMap.unobserveDeep(sync);
   }, [doc]);
 
+  // Track connections: which wires are connected to each gate
+  useEffect(() => {
+    const connectionsMap = getConnectionsMap(doc);
+
+    function syncConns() {
+      const next = new Map<string, string[]>();
+      connectionsMap.forEach((yConn) => {
+        const gateId = yConn.get("gateId") as string;
+        const wireId = yConn.get("wireId") as string;
+        const arr = next.get(gateId) || [];
+        arr.push(wireId);
+        next.set(gateId, arr);
+      });
+      setGateWireMap(next);
+    }
+
+    syncConns();
+    connectionsMap.observeDeep(syncConns);
+    return () => connectionsMap.unobserveDeep(syncConns);
+  }, [doc]);
+
+  const defsMap = useMemo(() => new Map(defs.map((d) => [d.id, d])), [defs]);
+
+  // Recompute wire segments connected to a gate at position (gateX, gateY)
+  const recomputeConnectedWires = useCallback(
+    (id: string, gateX: number, gateY: number) => {
+      const gatesMap = getGatesMap(doc);
+      const yGate = gatesMap.get(id);
+      if (!yGate) return;
+
+      const connections = getConnectionsMap(doc);
+      const wires = getWiresMap(doc);
+
+      connections.forEach((yConn) => {
+        if (yConn.get("gateId") !== id) return;
+        const wireId = yConn.get("wireId") as string;
+
+        let otherGateId: string | null = null;
+        let otherPinName: string | null = null;
+        let otherPinDir: "input" | "output" | null = null;
+        connections.forEach((yConn2) => {
+          if (yConn2.get("wireId") === wireId && yConn2.get("gateId") !== id) {
+            otherGateId = yConn2.get("gateId");
+            otherPinName = yConn2.get("pinName");
+            otherPinDir = yConn2.get("pinDirection");
+          }
+        });
+        if (!otherGateId || !otherPinName || !otherPinDir) return;
+
+        const otherYGate = gatesMap.get(otherGateId);
+        if (!otherYGate) return;
+
+        const movedDef = defsMap.get(yGate.get("defId"));
+        const otherDef = defsMap.get(otherYGate.get("defId"));
+        if (!movedDef || !otherDef) return;
+
+        const movedPinPos = getPinPosition(
+          movedDef, yConn.get("pinName"), yConn.get("pinDirection"),
+          gateX, gateY,
+        );
+        const otherPinPos = getPinPosition(
+          otherDef, otherPinName, otherPinDir,
+          otherYGate.get("x"), otherYGate.get("y"),
+        );
+        if (!movedPinPos || !otherPinPos) return;
+
+        const isMovedOutput = yConn.get("pinDirection") === "output";
+        const src = isMovedOutput ? movedPinPos : otherPinPos;
+        const dst = isMovedOutput ? otherPinPos : movedPinPos;
+
+        const yWire = wires.get(wireId);
+        if (!yWire) return;
+        let midX: number;
+        try {
+          const oldSegs = JSON.parse(yWire.get("segments") || "[]");
+          if (oldSegs.length >= 2) {
+            midX = snapToGrid(oldSegs[0].x2);
+          } else {
+            midX = snapToGrid((src.x + dst.x) / 2);
+          }
+        } catch {
+          midX = snapToGrid((src.x + dst.x) / 2);
+        }
+
+        const segments = [
+          { x1: src.x, y1: src.y, x2: midX, y2: src.y },
+          { x1: midX, y1: src.y, x2: midX, y2: dst.y },
+          { x1: midX, y1: dst.y, x2: dst.x, y2: dst.y },
+        ];
+        yWire.set("segments", JSON.stringify(segments));
+      });
+    },
+    [doc, defsMap],
+  );
+
+  const handleDragMove = useCallback(
+    (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
+      if (readOnly) return;
+      const x = e.target.x();
+      const y = e.target.y();
+      recomputeConnectedWires(id, x, y);
+    },
+    [readOnly, recomputeConnectedWires],
+  );
+
   const handleDragEnd = useCallback(
     (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
       if (readOnly) return;
       const gatesMap = getGatesMap(doc);
       const yGate = gatesMap.get(id);
       if (!yGate) return;
+
+      const newX = snapToGrid(e.target.x());
+      const newY = snapToGrid(e.target.y());
+
+      // Snap the Konva node position
+      e.target.x(newX);
+      e.target.y(newY);
+
       doc.transact(() => {
-        yGate.set("x", snapToGrid(e.target.x()));
-        yGate.set("y", snapToGrid(e.target.y()));
+        yGate.set("x", newX);
+        yGate.set("y", newY);
+        recomputeConnectedWires(id, newX, newY);
       });
     },
-    [doc, readOnly]
+    [doc, readOnly, recomputeConnectedWires],
   );
 
   const handleMouseDown = useCallback(
@@ -116,11 +265,115 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
       } else {
         selectOnly(id);
       }
+
+      // Handle interactive gate clicks (TOGGLE, PULSE, KEYPAD)
+      if (readOnly) return;
+      const gatesMap = getGatesMap(doc);
+      const yGate = gatesMap.get(id);
+      if (!yGate) return;
+
+      const defId = yGate.get("defId") as string;
+      const def = defsMap.get(defId);
+      if (!def) return;
+
+      if (def.guiType === "TOGGLE") {
+        const current = yGate.get("param:OUTPUT_NUM") ?? "0";
+        const next = current === "1" ? "0" : "1";
+        yGate.set("param:OUTPUT_NUM", next);
+      } else if (def.guiType === "PULSE") {
+        yGate.set("param:OUTPUT_NUM", "1");
+        setTimeout(() => {
+          const stillExists = gatesMap.get(id);
+          if (stillExists) stillExists.set("param:OUTPUT_NUM", "0");
+        }, 100);
+      }
     },
-    [selectOnly, toggleSelection]
+    [selectOnly, toggleSelection, readOnly, doc, defsMap]
   );
 
-  const defsMap = new Map(defs.map((d) => [d.id, d]));
+  const handlePinMouseDown = useCallback(
+    (
+      gateId: string,
+      gateX: number,
+      gateY: number,
+      pinName: string,
+      pinDirection: "input" | "output",
+      pinX: number,
+      pinY: number,
+      e: Konva.KonvaEventObject<MouseEvent>
+    ) => {
+      if (readOnly) return;
+      e.cancelBubble = true;
+      if (e.evt.button !== 0) return;
+
+      const absX = gateX + pinX * GRID_SIZE;
+      const absY = gateY + pinY * GRID_SIZE;
+
+      const wd = useCanvasStore.getState().wireDrawing;
+      if (wd) {
+        // Complete the wire — connect source pin to this destination pin
+        // Ensure we connect output→input (swap if needed)
+        let srcGateId = wd.fromGateId;
+        let srcPinName = wd.fromPinName;
+        let srcPinDir = wd.fromPinDirection;
+        let srcX = wd.fromX;
+        let srcY = wd.fromY;
+        let dstGateId = gateId;
+        let dstPinName = pinName;
+        let dstPinDir = pinDirection;
+        let dstX = absX;
+        let dstY = absY;
+
+        // Don't connect a pin to itself
+        if (srcGateId === dstGateId && srcPinName === dstPinName) {
+          setWireDrawing(null);
+          return;
+        }
+
+        // Don't connect two pins of the same direction
+        if (srcPinDir === dstPinDir) {
+          setWireDrawing(null);
+          return;
+        }
+
+        // Normalize so src is output, dst is input
+        if (srcPinDir === "input") {
+          [srcGateId, srcPinName, srcPinDir, srcX, srcY, dstGateId, dstPinName, dstPinDir, dstX, dstY] =
+            [dstGateId, dstPinName, dstPinDir, dstX, dstY, srcGateId, srcPinName, srcPinDir, srcX, srcY];
+        }
+
+        // Create wire with 3-segment Manhattan routing
+        const wireId = crypto.randomUUID();
+        const midX = snapToGrid((srcX + dstX) / 2);
+        const segments = [
+          { x1: srcX, y1: srcY, x2: midX, y2: srcY },
+          { x1: midX, y1: srcY, x2: midX, y2: dstY },
+          { x1: midX, y1: dstY, x2: dstX, y2: dstY },
+        ];
+
+        doc.transact(() => {
+          addWireToDoc(doc, wireId, segments);
+          addConnectionToDoc(doc, srcGateId, srcPinName, srcPinDir, wireId);
+          addConnectionToDoc(doc, dstGateId, dstPinName, dstPinDir, wireId);
+        });
+
+        setWireDrawing(null);
+        return;
+      }
+
+      // Start a new wire drawing
+      setWireDrawing({
+        fromGateId: gateId,
+        fromPinName: pinName,
+        fromPinDirection: pinDirection,
+        fromX: absX,
+        fromY: absY,
+        currentX: absX,
+        currentY: absY,
+      });
+    },
+    [readOnly, setWireDrawing, doc]
+  );
 
   return (
     <Layer>
@@ -131,24 +384,72 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
         const strokeColor = selected ? "#3b82f6" : "#e2e8f0";
         const bounds = getGateBounds(def);
 
+        const isToggle = def.guiType === "TOGGLE";
+        const toggleOn = isToggle && gate.params.OUTPUT_NUM === "1";
+        const isLed = def.guiType === "LED";
+
+        // Get wire state for LED/NODE visualization
+        let gateWireState: WireState = WIRE_STATE.UNKNOWN;
+        const connectedWires = gateWireMap.get(gate.id);
+        if (connectedWires) {
+          for (const wid of connectedWires) {
+            const ws = wireStates.get(wid);
+            if (ws !== undefined) {
+              gateWireState = ws;
+              break;
+            }
+          }
+        }
+        const ledColor = WIRE_COLORS[gateWireState];
+
         return (
           <Group
             key={gate.id}
             x={gate.x}
             y={gate.y}
             rotation={gate.rotation}
-            draggable={!readOnly}
+            draggable={!readOnly && !useCanvasStore.getState().wireDrawing}
+            onDragMove={(e) => handleDragMove(gate.id, e)}
             onDragEnd={(e) => handleDragEnd(gate.id, e)}
             onMouseDown={(e) => handleMouseDown(gate.id, e)}
           >
-            {/* Invisible hit area so clicking inside the gate shape works */}
+            {/* Invisible hit area */}
             <Rect
               x={bounds.x}
               y={bounds.y}
               width={bounds.width}
               height={bounds.height}
-              fill="transparent"
+              fill="rgba(0,0,0,0.01)"
             />
+            {/* Toggle state indicator */}
+            {isToggle && (
+              <Rect
+                x={-0.6 * GRID_SIZE}
+                y={-0.6 * GRID_SIZE}
+                width={1.2 * GRID_SIZE}
+                height={1.2 * GRID_SIZE}
+                fill={toggleOn ? "#ef4444" : "#1e293b"}
+                cornerRadius={2}
+                listening={false}
+              />
+            )}
+            {/* LED state indicator — fill the LED_BOX area */}
+            {isLed && (() => {
+              const boxStr = def.guiParams?.LED_BOX;
+              if (!boxStr) return null;
+              const [bx1, by1, bx2, by2] = boxStr.split(",").map(Number);
+              return (
+                <Rect
+                  x={bx1 * GRID_SIZE}
+                  y={by1 * GRID_SIZE}
+                  width={(bx2 - bx1) * GRID_SIZE}
+                  height={(by2 - by1) * GRID_SIZE}
+                  fill={ledColor}
+                  opacity={0.85}
+                  listening={false}
+                />
+              );
+            })()}
             {def.shape.map((seg, i) => (
               <Line
                 key={i}
@@ -169,9 +470,29 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
                 key={`in-${pin.name}`}
                 x={pin.x * GRID_SIZE}
                 y={pin.y * GRID_SIZE}
+                radius={PIN_HIT_RADIUS}
+                fill="rgba(0,0,0,0.01)"
+                onMouseDown={(e) =>
+                  handlePinMouseDown(gate.id, gate.x, gate.y, pin.name, "input", pin.x, pin.y, e)
+                }
+                onMouseEnter={(e) => {
+                  const container = e.target.getStage()?.container();
+                  if (container) container.style.cursor = "crosshair";
+                }}
+                onMouseLeave={(e) => {
+                  const container = e.target.getStage()?.container();
+                  if (container) container.style.cursor = "";
+                }}
+              />
+            ))}
+            {def.inputs.map((pin) => (
+              <Circle
+                key={`in-vis-${pin.name}`}
+                x={pin.x * GRID_SIZE}
+                y={pin.y * GRID_SIZE}
                 radius={3}
                 fill="#60a5fa"
-                name={`pin-input-${pin.name}`}
+                listening={false}
               />
             ))}
             {def.outputs.map((pin) => (
@@ -179,9 +500,29 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
                 key={`out-${pin.name}`}
                 x={pin.x * GRID_SIZE}
                 y={pin.y * GRID_SIZE}
+                radius={PIN_HIT_RADIUS}
+                fill="rgba(0,0,0,0.01)"
+                onMouseDown={(e) =>
+                  handlePinMouseDown(gate.id, gate.x, gate.y, pin.name, "output", pin.x, pin.y, e)
+                }
+                onMouseEnter={(e) => {
+                  const container = e.target.getStage()?.container();
+                  if (container) container.style.cursor = "crosshair";
+                }}
+                onMouseLeave={(e) => {
+                  const container = e.target.getStage()?.container();
+                  if (container) container.style.cursor = "";
+                }}
+              />
+            ))}
+            {def.outputs.map((pin) => (
+              <Circle
+                key={`out-vis-${pin.name}`}
+                x={pin.x * GRID_SIZE}
+                y={pin.y * GRID_SIZE}
                 radius={3}
                 fill="#60a5fa"
-                name={`pin-output-${pin.name}`}
+                listening={false}
               />
             ))}
           </Group>

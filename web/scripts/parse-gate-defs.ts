@@ -31,7 +31,9 @@ interface GateDef {
   caption: string;
   library: string;
   logicType: string;
+  guiType: string;
   params: Record<string, string>;
+  guiParams: Record<string, string>;
   inputs: Pin[];
   outputs: Pin[];
   shape: LineSegment[];
@@ -95,12 +97,14 @@ for (const lib of libraryBlocks) {
     const nameMatch = content.match(/<name>([\s\S]*?)<\/name>/);
     const captionMatch = content.match(/<caption>([\s\S]*?)<\/caption>/);
     const logicTypeMatch = content.match(/<logic_type>([\s\S]*?)<\/logic_type>/);
+    const guiTypeMatch = content.match(/<gui_type>([\s\S]*?)<\/gui_type>/);
 
     if (!nameMatch) continue;
 
     const gateId = nameMatch[1].trim();
     const caption = captionMatch ? captionMatch[1].trim() : gateId;
     const logicType = logicTypeMatch ? logicTypeMatch[1].trim() : "";
+    const guiType = guiTypeMatch ? guiTypeMatch[1].trim() : "";
 
     // Parse params
     const params: Record<string, string> = {};
@@ -110,6 +114,17 @@ for (const lib of libraryBlocks) {
       const spaceIdx = paramText.indexOf(" ");
       if (spaceIdx > 0) {
         params[paramText.substring(0, spaceIdx)] = paramText.substring(spaceIdx + 1).trim();
+      }
+    }
+
+    // Parse GUI params
+    const guiParams: Record<string, string> = {};
+    const guiParamMatches = content.matchAll(/<gui_param>([\s\S]*?)<\/gui_param>/g);
+    for (const gm of guiParamMatches) {
+      const paramText = gm[1].trim();
+      const spaceIdx = paramText.indexOf(" ");
+      if (spaceIdx > 0) {
+        guiParams[paramText.substring(0, spaceIdx)] = paramText.substring(spaceIdx + 1).trim();
       }
     }
 
@@ -158,7 +173,9 @@ for (const lib of libraryBlocks) {
       caption,
       library: libraryName.trim(),
       logicType,
+      guiType,
       params,
+      guiParams,
       inputs,
       outputs,
       shape,
