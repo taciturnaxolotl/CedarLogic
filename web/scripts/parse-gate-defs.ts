@@ -159,13 +159,47 @@ for (const lib of libraryBlocks) {
       }
     }
 
-    // Parse shape lines (only top-level shape, not offset sub-shapes)
+    // Parse shape lines, handling <offset> blocks that translate child lines
     const shape: LineSegment[] = [];
     const circles: CircleDef[] = [];
     const shapeMatch = content.match(/<shape>([\s\S]*?)<\/shape>/);
     if (shapeMatch) {
       const shapeContent = shapeMatch[1];
-      const lineMatches = shapeContent.matchAll(/<line>([\s\S]*?)<\/line>/g);
+
+      // First, extract offset blocks and replace them with a placeholder so
+      // top-level lines don't include offset children
+      let topLevelContent = shapeContent;
+      const offsetMatches = shapeContent.matchAll(/<offset>([\s\S]*?)<\/offset>/g);
+      for (const om of offsetMatches) {
+        // Parse the offset point
+        const offsetPointMatch = om[1].match(/<point>([\s\S]*?)<\/point>/);
+        const offsetPt = offsetPointMatch
+          ? parsePoint(offsetPointMatch[1].trim())
+          : { x: 0, y: 0 };
+
+        // Parse lines inside this offset block
+        const offsetLineMatches = om[1].matchAll(/<line>([\s\S]*?)<\/line>/g);
+        for (const lm of offsetLineMatches) {
+          try {
+            const seg = parseLine(lm[1].trim());
+            const round = (n: number) => Math.round(n * 1000) / 1000;
+            shape.push({
+              x1: round(seg.x1 + offsetPt.x),
+              y1: round(seg.y1 + offsetPt.y),
+              x2: round(seg.x2 + offsetPt.x),
+              y2: round(seg.y2 + offsetPt.y),
+            });
+          } catch {
+            // Skip malformed lines
+          }
+        }
+
+        // Remove offset block from top-level content
+        topLevelContent = topLevelContent.replace(om[0], "");
+      }
+
+      // Parse top-level lines (not inside offset blocks)
+      const lineMatches = topLevelContent.matchAll(/<line>([\s\S]*?)<\/line>/g);
       for (const lm of lineMatches) {
         try {
           shape.push(parseLine(lm[1].trim()));
@@ -174,7 +208,7 @@ for (const lib of libraryBlocks) {
         }
       }
       // Parse circles (inversion bubbles etc.) — format: cx,cy,radius,segments
-      const circleMatches = shapeContent.matchAll(/<circle>([\s\S]*?)<\/circle>/g);
+      const circleMatches = topLevelContent.matchAll(/<circle>([\s\S]*?)<\/circle>/g);
       for (const cm of circleMatches) {
         try {
           const parts = cm[1].trim().split(",").map((s) => parseFloat(s.trim()));
@@ -185,6 +219,7 @@ for (const lib of libraryBlocks) {
       }
     }
 
+    // Flip Y axis: XML uses Y-up (math), canvas uses Y-down (screen)
     allGates.push({
       id: gateId,
       name: gateId,
@@ -194,10 +229,10 @@ for (const lib of libraryBlocks) {
       guiType,
       params,
       guiParams,
-      inputs,
-      outputs,
-      shape,
-      circles,
+      inputs: inputs.map((p) => ({ ...p, y: -p.y })),
+      outputs: outputs.map((p) => ({ ...p, y: -p.y })),
+      shape: shape.map((s) => ({ x1: s.x1, y1: -s.y1, x2: s.x2, y2: -s.y2 })),
+      circles: circles.map((c) => ({ ...c, cy: -c.cy })),
     });
   }
 }

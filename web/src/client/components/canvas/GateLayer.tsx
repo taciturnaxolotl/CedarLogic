@@ -43,6 +43,73 @@ function cleanSegments(segments: WireSegment[]): WireSegment[] {
   return result;
 }
 
+// 7-segment display rendering
+// Segments: a=top, b=top-right, c=bot-right, d=bottom, e=bot-left, f=top-left, g=middle
+//   _a_
+//  |   |
+//  f   b
+//  |_g_|
+//  |   |
+//  e   c
+//  |_d_|
+const SEVEN_SEG_MAP: Record<string, number[]> = {
+  "0": [1,1,1,1,1,1,0], "1": [0,1,1,0,0,0,0], "2": [1,1,0,1,1,0,1], "3": [1,1,1,1,0,0,1],
+  "4": [0,1,1,0,0,1,1], "5": [1,0,1,1,0,1,1], "6": [1,0,1,1,1,1,1], "7": [1,1,1,0,0,0,0],
+  "8": [1,1,1,1,1,1,1], "9": [1,1,1,1,0,1,1], "A": [1,1,1,0,1,1,1], "B": [0,0,1,1,1,1,1],
+  "C": [1,0,0,1,1,1,0], "D": [0,1,1,1,1,0,1], "E": [1,0,0,1,1,1,1], "F": [1,0,0,0,1,1,1],
+};
+
+function renderSevenSegDigits(
+  hexStr: string, boxX: number, boxY: number, boxW: number, boxH: number,
+): React.ReactNode[] {
+  const numDigits = hexStr.length;
+  const pad = boxW * 0.15;
+  const gap = 2;
+  const totalGap = gap * (numDigits - 1);
+  const digitW = (boxW - pad * 2 - totalGap) / numDigits;
+  const digitH = boxH - pad * 2;
+  const onColor = "#ff2222";
+  const offColor = "#1a0000";
+  const sw = Math.max(1.5, Math.min(digitW * 0.15, digitH * 0.08));
+
+  const elements: React.ReactNode[] = [];
+  for (let d = 0; d < numDigits; d++) {
+    const ch = hexStr[d];
+    const segs = SEVEN_SEG_MAP[ch] ?? [0,0,0,0,0,0,0];
+    const dx = boxX + pad + d * (digitW + gap);
+    const dy = boxY + pad;
+    const m = sw; // margin from edge
+    const hw = digitW; // full digit width
+    const hh = digitH / 2; // half digit height
+
+    // Segment coordinates as [x1, y1, x2, y2]
+    const segLines: [number, number, number, number][] = [
+      [dx + m, dy,         dx + hw - m, dy],          // a: top
+      [dx + hw, dy + m,    dx + hw, dy + hh - m],     // b: top-right
+      [dx + hw, dy + hh + m, dx + hw, dy + hh*2 - m], // c: bot-right
+      [dx + m, dy + hh*2,  dx + hw - m, dy + hh*2],   // d: bottom
+      [dx, dy + hh + m,    dx, dy + hh*2 - m],        // e: bot-left
+      [dx, dy + m,         dx, dy + hh - m],          // f: top-left
+      [dx + m, dy + hh,    dx + hw - m, dy + hh],     // g: middle
+    ];
+
+    for (let s = 0; s < 7; s++) {
+      const [x1, y1, x2, y2] = segLines[s];
+      elements.push(
+        <Line
+          key={`seg-${d}-${s}`}
+          points={[x1, y1, x2, y2]}
+          stroke={segs[s] ? onColor : offColor}
+          strokeWidth={sw}
+          lineCap="round"
+          listening={false}
+        />
+      );
+    }
+  }
+  return elements;
+}
+
 let gateDefs: GateDefinition[] = [];
 
 async function loadGateDefs(): Promise<GateDefinition[]> {
@@ -118,6 +185,8 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
   const [defs, setDefs] = useState<GateDefinition[]>([]);
   // Map from gateId to array of connected wireIds
   const [gateWireMap, setGateWireMap] = useState<Map<string, string[]>>(new Map());
+  // Map from "gateId:pinName" to wireId (for computing register values)
+  const [pinWireMap, setPinWireMap] = useState<Map<string, string>>(new Map());
   const selectedIds = useCanvasStore((s) => s.selectedIds);
   const selectOnly = useCanvasStore((s) => s.selectOnly);
   const toggleSelection = useCanvasStore((s) => s.toggleSelection);
@@ -163,14 +232,18 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
 
     function syncConns() {
       const next = new Map<string, string[]>();
+      const nextPinWire = new Map<string, string>();
       connectionsMap.forEach((yConn) => {
         const gateId = yConn.get("gateId") as string;
         const wireId = yConn.get("wireId") as string;
+        const pinName = yConn.get("pinName") as string;
         const arr = next.get(gateId) || [];
         arr.push(wireId);
         next.set(gateId, arr);
+        nextPinWire.set(`${gateId}:${pinName}`, wireId);
       });
       setGateWireMap(next);
+      setPinWireMap(nextPinWire);
     }
 
     syncConns();
@@ -543,7 +616,10 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
             {isLed && (() => {
               const boxStr = def.guiParams?.LED_BOX;
               if (!boxStr) return null;
-              const [bx1, by1, bx2, by2] = boxStr.split(",").map(Number);
+              const [bx1, rawY1, bx2, rawY2] = boxStr.split(",").map(Number);
+              // Flip Y (guiParams are in Y-up space) and ensure min/max order
+              const by1 = Math.min(-rawY1, -rawY2);
+              const by2 = Math.max(-rawY1, -rawY2);
               return (
                 <Rect
                   x={bx1 * GRID_SIZE}
@@ -554,6 +630,50 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
                   opacity={0.85}
                   listening={false}
                 />
+              );
+            })()}
+            {/* REGISTER display — 7-segment style */}
+            {def.guiType === "REGISTER" && (() => {
+              const boxStr = def.guiParams?.VALUE_BOX;
+              if (!boxStr) return null;
+              const [bx1, rawY1, bx2, rawY2] = boxStr.split(",").map(Number);
+              const by1 = Math.min(-rawY1, -rawY2);
+              const by2 = Math.max(-rawY1, -rawY2);
+
+              // Compute value from input wire states
+              let value = 0;
+              const numBits = parseInt(def.params?.INPUT_BITS ?? "0", 10);
+              for (let i = 0; i < numBits; i++) {
+                const wireId = pinWireMap.get(`${gate.id}:IN_${i}`);
+                if (wireId) {
+                  const ws = wireStates.get(wireId);
+                  if (ws === WIRE_STATE.ONE) {
+                    value |= (1 << i);
+                  }
+                }
+              }
+
+              // Convert to hex string, determine how many digits to show
+              const hexDigits = Math.max(1, Math.ceil(numBits / 4));
+              const hexStr = value.toString(16).toUpperCase().padStart(hexDigits, "0");
+
+              const boxW = (bx2 - bx1) * GRID_SIZE;
+              const boxH = (by2 - by1) * GRID_SIZE;
+              const boxX = bx1 * GRID_SIZE;
+              const boxY = by1 * GRID_SIZE;
+
+              return (
+                <>
+                  <Rect
+                    x={boxX}
+                    y={boxY}
+                    width={boxW}
+                    height={boxH}
+                    fill="#0a0a0a"
+                    listening={false}
+                  />
+                  {renderSevenSegDigits(hexStr, boxX, boxY, boxW, boxH)}
+                </>
               );
             })()}
             {def.shape.map((seg, i) => (
