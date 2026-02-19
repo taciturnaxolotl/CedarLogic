@@ -1,4 +1,27 @@
 import { create } from "zustand";
+import type { WireSegment } from "@shared/types";
+
+export interface ClipboardData {
+  gates: Array<{
+    defId: string;
+    logicType: string;
+    offsetX: number;
+    offsetY: number;
+    rotation: number;
+    params: Record<string, string>;
+    originalId: string;
+  }>;
+  wires: Array<{
+    segments: WireSegment[];
+    originalId: string;
+  }>;
+  connections: Array<{
+    originalGateId: string;
+    pinName: string;
+    pinDirection: "input" | "output";
+    originalWireId: string;
+  }>;
+}
 
 export interface WireDrawingState {
   fromGateId: string;
@@ -22,6 +45,11 @@ interface CanvasState {
 
   wireDrawing: WireDrawingState | null;
 
+  clipboard: ClipboardData | null;
+
+  /** When non-null, a paste preview is being positioned by the user */
+  pendingPaste: { data: ClipboardData; x: number; y: number } | null;
+
   hoveredPin: {
     gateId: string;
     pinName: string;
@@ -37,6 +65,8 @@ interface CanvasState {
   clearSelection: () => void;
   setSelectionBox: (box: CanvasState["selectionBox"]) => void;
   setWireDrawing: (state: WireDrawingState | null) => void;
+  setClipboard: (cb: ClipboardData | null) => void;
+  setPendingPaste: (pp: CanvasState["pendingPaste"]) => void;
   setHoveredPin: (pin: CanvasState["hoveredPin"]) => void;
 }
 
@@ -47,6 +77,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   selectedIds: {},
   selectionBox: null,
   wireDrawing: null,
+  clipboard: null,
+  pendingPaste: null,
   hoveredPin: null,
 
   setViewport: (viewportX, viewportY, zoom) => set({ viewportX, viewportY, zoom }),
@@ -71,5 +103,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setSelectionBox: (selectionBox) => set({ selectionBox }),
   setWireDrawing: (wireDrawing) => set({ wireDrawing }),
+  setClipboard: (clipboard) => set({ clipboard }),
+  setPendingPaste: (pendingPaste) => set({ pendingPaste }),
   setHoveredPin: (hoveredPin) => set({ hoveredPin }),
 }));

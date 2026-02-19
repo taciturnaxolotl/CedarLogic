@@ -1,8 +1,19 @@
-import { Layer, Rect, Line } from "react-konva";
+import { useEffect, useState, useMemo } from "react";
+import { Layer, Rect, Line, Group } from "react-konva";
 import { useCanvasStore } from "../../stores/canvas-store";
+import { GRID_SIZE } from "@shared/constants";
+import type { GateDefinition } from "@shared/types";
+import { loadedGateDefs, getGateBounds } from "./GateLayer";
 
 export function OverlayLayer() {
-  const { selectionBox, wireDrawing } = useCanvasStore();
+  const { selectionBox, wireDrawing, pendingPaste } = useCanvasStore();
+
+  const defsMap = useMemo(
+    () => new Map<string, GateDefinition>(loadedGateDefs.map((d) => [d.id, d])),
+    // loadedGateDefs is a module-level array that gets populated once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [loadedGateDefs.length]
+  );
 
   return (
     <Layer>
@@ -31,6 +42,56 @@ export function OverlayLayer() {
           dash={[6, 3]}
           listening={false}
         />
+      )}
+
+      {/* Pending paste preview — ghost of gates and wires following the cursor */}
+      {pendingPaste && (
+        <Group opacity={0.5} listening={false}>
+          {/* Ghost gates */}
+          {pendingPaste.data.gates.map((gate) => {
+            const def = defsMap.get(gate.defId);
+            if (!def) return null;
+            const gx = pendingPaste.x + gate.offsetX;
+            const gy = pendingPaste.y + gate.offsetY;
+            return (
+              <Group key={gate.originalId} x={gx} y={gy} rotation={gate.rotation}>
+                {def.shape.map((seg, i) => (
+                  <Line
+                    key={i}
+                    points={[
+                      seg.x1 * GRID_SIZE,
+                      seg.y1 * GRID_SIZE,
+                      seg.x2 * GRID_SIZE,
+                      seg.y2 * GRID_SIZE,
+                    ]}
+                    stroke="#3b82f6"
+                    strokeWidth={1.5}
+                    lineCap="round"
+                    lineJoin="round"
+                  />
+                ))}
+              </Group>
+            );
+          })}
+          {/* Ghost wires */}
+          {pendingPaste.data.wires.map((wire) =>
+            wire.segments.map((seg, i) => (
+              <Line
+                key={`${wire.originalId}-${i}`}
+                points={[
+                  seg.x1 + pendingPaste.x,
+                  seg.y1 + pendingPaste.y,
+                  seg.x2 + pendingPaste.x,
+                  seg.y2 + pendingPaste.y,
+                ]}
+                stroke="#3b82f6"
+                strokeWidth={2}
+                lineCap="round"
+                lineJoin="round"
+              />
+            ))
+          )}
+        </Group>
       )}
     </Layer>
   );
