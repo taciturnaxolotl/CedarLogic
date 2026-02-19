@@ -387,6 +387,69 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
         clearSelection();
       }
 
+      // Spacebar: fit all nodes on screen
+      if (e.key === " " && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        // Don't trigger if typing in an input
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+        e.preventDefault();
+
+        const gatesMap = getGatesMap(doc);
+        const wiresMap = getWiresMap(doc);
+        const defsMap = new Map<string, GateDefinition>(
+          loadedGateDefs.map((d) => [d.id, d])
+        );
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        let hasContent = false;
+
+        // Include gate bounds
+        gatesMap.forEach((yGate) => {
+          const def = defsMap.get(yGate.get("defId"));
+          if (!def) return;
+          const bounds = getGateBounds(def);
+          const gx = yGate.get("x") as number;
+          const gy = yGate.get("y") as number;
+          minX = Math.min(minX, gx + bounds.x);
+          minY = Math.min(minY, gy + bounds.y);
+          maxX = Math.max(maxX, gx + bounds.x + bounds.width);
+          maxY = Math.max(maxY, gy + bounds.y + bounds.height);
+          hasContent = true;
+        });
+
+        // Include wire segment endpoints
+        wiresMap.forEach((yWire) => {
+          try {
+            const segments: WireSegment[] = JSON.parse(yWire.get("segments") || "[]");
+            for (const seg of segments) {
+              minX = Math.min(minX, seg.x1, seg.x2);
+              minY = Math.min(minY, seg.y1, seg.y2);
+              maxX = Math.max(maxX, seg.x1, seg.x2);
+              maxY = Math.max(maxY, seg.y1, seg.y2);
+              hasContent = true;
+            }
+          } catch { /* skip */ }
+        });
+
+        if (hasContent) {
+          const padding = 60;
+          const contentW = maxX - minX;
+          const contentH = maxY - minY;
+          const newZoom = Math.min(
+            (size.width - padding * 2) / Math.max(contentW, 1),
+            (size.height - padding * 2) / Math.max(contentH, 1),
+            2 // don't zoom in too much
+          );
+          const clampedZoom = Math.max(0.1, newZoom);
+          const centerX = (minX + maxX) / 2;
+          const centerY = (minY + maxY) / 2;
+          setViewport(
+            size.width / 2 - centerX * clampedZoom,
+            size.height / 2 - centerY * clampedZoom,
+            clampedZoom
+          );
+        }
+      }
+
       if (e.key === "Escape") {
         if (useCanvasStore.getState().pendingPaste) {
           setPendingPaste(null);
@@ -398,7 +461,7 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [doc, readOnly, selectedIds, clearSelection, select, setWireDrawing, setClipboard, setPendingPaste]);
+  }, [doc, readOnly, selectedIds, clearSelection, select, setViewport, setWireDrawing, setClipboard, setPendingPaste, size]);
 
   const handleWheel = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -529,6 +592,12 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
   );
 
   const handleMouseUp = useCallback(() => {
+    // Cancel wire drawing if mouseUp lands on empty space (not on a pin)
+    const wd = useCanvasStore.getState().wireDrawing;
+    if (wd) {
+      setWireDrawing(null);
+    }
+
     if (dragMode.current === "select-box") {
       const box = useCanvasStore.getState().selectionBox;
       if (box && (box.width > 5 || box.height > 5)) {
@@ -575,7 +644,7 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
       setSelectionBox(null);
     }
     dragMode.current = "none";
-  }, [doc, select, setSelectionBox]);
+  }, [doc, select, setSelectionBox, setWireDrawing]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
