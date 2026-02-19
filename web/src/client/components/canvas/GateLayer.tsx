@@ -143,7 +143,7 @@ function snapToGrid(val: number): number {
   return Math.round(val / SNAP_SIZE) * SNAP_SIZE;
 }
 
-function getGateBounds(def: GateDefinition) {
+export function getGateBounds(def: GateDefinition) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const seg of def.shape) {
     minX = Math.min(minX, seg.x1, seg.x2);
