@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { WireSegment } from "@shared/types";
+import type { WireModel } from "@shared/wire-types";
 
 export interface ClipboardData {
   gates: Array<{
@@ -12,7 +13,8 @@ export interface ClipboardData {
     originalId: string;
   }>;
   wires: Array<{
-    segments: WireSegment[];
+    segments?: WireSegment[];
+    model?: WireModel;
     originalId: string;
   }>;
   connections: Array<{

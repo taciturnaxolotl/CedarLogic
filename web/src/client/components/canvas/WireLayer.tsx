@@ -1,12 +1,27 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
-import { Layer, Line, Rect } from "react-konva";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { Layer, Line, Rect, Circle } from "react-konva";
 import * as Y from "yjs";
 import type Konva from "konva";
-import { getWiresMap } from "../../lib/collab/yjs-schema";
+import {
+  getWiresMap,
+  getGatesMap,
+  getConnectionsMap,
+  readWireModel,
+  updateWireModel,
+} from "../../lib/collab/yjs-schema";
+import {
+  startSegDrag,
+  updateSegDrag,
+  endSegDrag,
+  generateRenderInfo,
+  cloneModel,
+} from "../../lib/canvas/wire-model";
+import type { DragState } from "../../lib/canvas/wire-model";
 import { useSimulationStore } from "../../stores/simulation-store";
 import { useCanvasStore } from "../../stores/canvas-store";
-import { WIRE_COLORS, WIRE_STATE, SNAP_SIZE } from "@shared/constants";
-import type { WireSegment } from "@shared/types";
+import { WIRE_COLORS, WIRE_STATE, SNAP_SIZE, GRID_SIZE } from "@shared/constants";
+import type { WireModel, WireRenderInfo } from "@shared/wire-types";
+import type { GateDefinition } from "@shared/types";
 
 interface WireLayerProps {
   doc: Y.Doc;
@@ -15,57 +30,72 @@ interface WireLayerProps {
 
 interface WireRenderData {
   id: string;
-  segments: WireSegment[];
+  model: WireModel;
+  renderInfo: WireRenderInfo;
 }
 
 function snapToGrid(val: number): number {
   return Math.round(val / SNAP_SIZE) * SNAP_SIZE;
 }
 
-function isHorizontal(seg: WireSegment): boolean {
-  return seg.y1 === seg.y2;
-}
+/** Build a getPinPos function from current Yjs gate data + gate definitions. */
+function makePinPosFn(
+  doc: Y.Doc,
+  gateDefs: GateDefinition[],
+) {
+  const defsMap = new Map(gateDefs.map((d) => [d.id, d]));
+  const gatesMap = getGatesMap(doc);
 
-/** Remove zero-length segments and merge collinear adjacent segments. */
-function cleanSegments(segments: WireSegment[]): WireSegment[] {
-  // Remove zero-length segments (point → point)
-  let result = segments.filter((s) => !(s.x1 === s.x2 && s.y1 === s.y2));
-
-  // Merge collinear adjacent segments
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (let i = 0; i < result.length - 1; i++) {
-      const a = result[i];
-      const b = result[i + 1];
-      // Both horizontal at same Y
-      if (a.y1 === a.y2 && b.y1 === b.y2 && a.y2 === b.y1) {
-        result[i] = { x1: a.x1, y1: a.y1, x2: b.x2, y2: a.y1 };
-        result.splice(i + 1, 1);
-        changed = true;
-        break;
-      }
-      // Both vertical at same X
-      if (a.x1 === a.x2 && b.x1 === b.x2 && a.x2 === b.x1) {
-        result[i] = { x1: a.x1, y1: a.y1, x2: a.x1, y2: b.y2 };
-        result.splice(i + 1, 1);
-        changed = true;
-        break;
-      }
-    }
-  }
-
-  return result;
+  return (gateId: string, pinName: string) => {
+    const yGate = gatesMap.get(gateId);
+    if (!yGate) return { x: 0, y: 0 };
+    const def = defsMap.get(yGate.get("defId"));
+    if (!def) return { x: 0, y: 0 };
+    const gx = yGate.get("x") as number;
+    const gy = yGate.get("y") as number;
+    const allPins = [...def.inputs, ...def.outputs];
+    const pin = allPins.find((p) => p.name === pinName);
+    if (!pin) return { x: gx, y: gy };
+    return { x: gx + pin.x * GRID_SIZE, y: gy + pin.y * GRID_SIZE };
+  };
 }
 
 export function WireLayer({ doc, readOnly }: WireLayerProps) {
   const [wires, setWires] = useState<Map<string, WireRenderData>>(new Map());
+  const [gateDefs, setGateDefs] = useState<GateDefinition[]>([]);
   const wireStates = useSimulationStore((s) => s.wireStates);
   const selectedIds = useCanvasStore((s) => s.selectedIds);
   const selectOnly = useCanvasStore((s) => s.selectOnly);
 
-  // Snapshot of segments at drag start — prevents cascading bridge insertions
-  const dragOriginalRef = useRef<Map<string, WireSegment[]>>(new Map());
+  // Local drag preview — rendered directly from React state, bypasses Yjs round-trip
+  const [dragPreview, setDragPreview] = useState<{
+    wireId: string;
+    model: WireModel;
+    renderInfo: WireRenderInfo;
+  } | null>(null);
+
+  // Mutable drag tracking (not for rendering — just for computing deltas)
+  const dragRef = useRef<{
+    wireId: string;
+    segId: number;
+    dragState: DragState;
+    lastWorldPos: number;
+    startClientX: number;
+    startClientY: number;
+    startWorldPos: number;
+    isVertical: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    import("../../lib/canvas/gate-defs.json").then((mod) => {
+      setGateDefs(mod.default as unknown as GateDefinition[]);
+    }).catch(() => {});
+  }, []);
+
+  const getPinPos = useMemo(
+    () => makePinPosFn(doc, gateDefs),
+    [doc, gateDefs],
+  );
 
   useEffect(() => {
     const wiresMap = getWiresMap(doc);
@@ -73,12 +103,10 @@ export function WireLayer({ doc, readOnly }: WireLayerProps) {
     function sync() {
       const next = new Map<string, WireRenderData>();
       wiresMap.forEach((yWire, id) => {
-        try {
-          const segments = JSON.parse(yWire.get("segments") || "[]");
-          next.set(id, { id, segments });
-        } catch {
-          // Skip malformed wires
-        }
+        const model = readWireModel(yWire);
+        if (!model) return;
+        const renderInfo = generateRenderInfo(model, getPinPos);
+        next.set(id, { id, model, renderInfo });
       });
       setWires(next);
     }
@@ -86,108 +114,109 @@ export function WireLayer({ doc, readOnly }: WireLayerProps) {
     sync();
     wiresMap.observeDeep(sync);
     return () => wiresMap.unobserveDeep(sync);
-  }, [doc]);
+  }, [doc, getPinPos]);
 
-  const handleSegmentDragStart = useCallback(
-    (wireId: string) => {
-      if (readOnly) return;
-      const wiresMap = getWiresMap(doc);
-      const yWire = wiresMap.get(wireId);
-      if (!yWire) return;
-      try {
-        const segments: WireSegment[] = JSON.parse(yWire.get("segments") || "[]");
-        dragOriginalRef.current.set(wireId, segments);
-      } catch {
-        // ignore
-      }
+  // We use refs for the handlers so that addEventListener always gets the latest version
+  const getPinPosRef = useRef(getPinPos);
+  getPinPosRef.current = getPinPos;
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+
+      const { zoom } = useCanvasStore.getState();
+      const clientDelta = drag.isVertical
+        ? e.clientX - drag.startClientX
+        : e.clientY - drag.startClientY;
+      const newPos = snapToGrid(drag.startWorldPos + clientDelta / zoom);
+
+      const delta = newPos - drag.lastWorldPos;
+      if (delta === 0) return;
+
+      const pinPos = getPinPosRef.current;
+      const updated = updateSegDrag(drag.dragState, delta, pinPos);
+      drag.dragState = updated;
+      drag.lastWorldPos = newPos;
+
+      // Update local preview state (synchronous React render — no Yjs round-trip)
+      const renderInfo = generateRenderInfo(updated.wire, pinPos);
+      setDragPreview({ wireId: drag.wireId, model: updated.wire, renderInfo });
     },
-    [doc, readOnly],
+    [], // no deps — reads everything from refs and getState()
   );
 
-  const handleSegmentDrag = useCallback(
-    (wireId: string, segIndex: number, e: Konva.KonvaEventObject<DragEvent>) => {
-      if (readOnly) return;
-      const wiresMap = getWiresMap(doc);
-      const yWire = wiresMap.get(wireId);
-      if (!yWire) return;
+  const handleMouseUp = useCallback(
+    () => {
+      const drag = dragRef.current;
+      if (!drag) return;
 
-      const original = dragOriginalRef.current.get(wireId);
-      if (!original) return;
-      if (segIndex < 0 || segIndex >= original.length) return;
+      const pinPos = getPinPosRef.current;
+      const final = endSegDrag(drag.dragState, pinPos);
+      updateWireModel(doc, drag.wireId, final);
 
-      // Always compute from the original snapshot (deep clone)
-      const segments: WireSegment[] = original.map((s) => ({ ...s }));
-      const seg = segments[segIndex];
-      const horiz = isHorizontal(seg);
-      const isFirst = segIndex === 0;
-      const isLast = segIndex === original.length - 1;
+      dragRef.current = null;
+      setDragPreview(null);
 
-      if (isFirst) {
-        // First segment — pin is at (seg.x1, seg.y1), insert bridge to keep pin connected
-        const pinX = seg.x1, pinY = seg.y1;
-        if (horiz) {
-          const newY = snapToGrid(e.target.y());
-          const bridge: WireSegment = { x1: pinX, y1: pinY, x2: pinX, y2: newY };
-          seg.y1 = newY;
-          seg.y2 = newY;
-          if (segments.length > 1) segments[1].y1 = newY;
-          segments.splice(0, 0, bridge);
-        } else {
-          const newX = snapToGrid(e.target.x());
-          const bridge: WireSegment = { x1: pinX, y1: pinY, x2: newX, y2: pinY };
-          seg.x1 = newX;
-          seg.x2 = newX;
-          if (segments.length > 1) segments[1].x1 = newX;
-          segments.splice(0, 0, bridge);
-        }
-      } else if (isLast) {
-        // Last segment — pin is at (seg.x2, seg.y2), insert bridge to keep pin connected
-        const pinX = seg.x2, pinY = seg.y2;
-        if (horiz) {
-          const newY = snapToGrid(e.target.y());
-          const bridge: WireSegment = { x1: pinX, y1: newY, x2: pinX, y2: pinY };
-          seg.y1 = newY;
-          seg.y2 = newY;
-          if (segments.length > 1) segments[segments.length - 2].y2 = newY;
-          segments.push(bridge);
-        } else {
-          const newX = snapToGrid(e.target.x());
-          const bridge: WireSegment = { x1: newX, y1: pinY, x2: pinX, y2: pinY };
-          seg.x1 = newX;
-          seg.x2 = newX;
-          if (segments.length > 1) segments[segments.length - 2].x2 = newX;
-          segments.push(bridge);
-        }
-      } else {
-        // Interior segment — elastic stretch neighbors
-        if (horiz) {
-          const newY = snapToGrid(e.target.y());
-          seg.y1 = newY;
-          seg.y2 = newY;
-          segments[segIndex - 1].y2 = newY;
-          segments[segIndex + 1].y1 = newY;
-        } else {
-          const newX = snapToGrid(e.target.x());
-          seg.x1 = newX;
-          seg.x2 = newX;
-          segments[segIndex - 1].x2 = newX;
-          segments[segIndex + 1].x1 = newX;
-        }
-      }
-
-      // Clean up: remove zero-length segments, merge collinear neighbors
-      yWire.set("segments", JSON.stringify(cleanSegments(segments)));
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
     },
-    [doc, readOnly],
+    [doc, handleMouseMove],
   );
 
-  const handleSegmentDragEnd = useCallback(
-    (wireId: string, segIndex: number, e: Konva.KonvaEventObject<DragEvent>) => {
-      handleSegmentDrag(wireId, segIndex, e);
-      dragOriginalRef.current.delete(wireId);
+  const handleSegmentMouseDown = useCallback(
+    (wireId: string, segId: number, e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (readOnly || e.evt.button !== 0) return;
+      e.cancelBubble = true;
+
+      selectOnly(wireId);
+
+      const wire = wires.get(wireId);
+      if (!wire) return;
+      const pinPos = getPinPosRef.current;
+      const ds = startSegDrag(wire.model, segId, pinPos);
+      if (ds.dragSegId === -1) return;
+
+      const seg = ds.wire.segMap[ds.dragSegId];
+      if (!seg) return;
+
+      const initPos = seg.vertical ? seg.begin.x : seg.begin.y;
+
+      console.log("[WireLayer drag] start", {
+        wireId,
+        segId,
+        isVertical: seg.vertical,
+        initPos,
+        segBegin: seg.begin,
+        segEnd: seg.end,
+        clientX: e.evt.clientX,
+        clientY: e.evt.clientY,
+      });
+
+      dragRef.current = {
+        wireId,
+        segId,
+        dragState: ds,
+        lastWorldPos: initPos,
+        startClientX: e.evt.clientX,
+        startClientY: e.evt.clientY,
+        startWorldPos: initPos,
+        isVertical: seg.vertical,
+      };
+
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
     },
-    [handleSegmentDrag],
+    [readOnly, wires, selectOnly, handleMouseMove, handleMouseUp],
   );
+
+  // Cleanup listeners on unmount
+  useEffect(() => {
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
 
   const handleWireClick = useCallback(
     (wireId: string, e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -206,53 +235,57 @@ export function WireLayer({ doc, readOnly }: WireLayerProps) {
         const selected = !!selectedIds[wire.id];
         const strokeColor = selected ? "#3b82f6" : color;
 
-        // Render wire segments as a single polyline
-        const points: number[] = [];
-        if (wire.segments.length > 0) {
-          points.push(wire.segments[0].x1, wire.segments[0].y1);
-          for (const seg of wire.segments) {
-            points.push(seg.x2, seg.y2);
-          }
-        }
+        // Use drag preview if this wire is being dragged, otherwise use Yjs data
+        const preview = dragPreview?.wireId === wire.id ? dragPreview : null;
+        const model = preview?.model ?? wire.model;
+        const { lineSegments, intersectPoints } = preview?.renderInfo ?? wire.renderInfo;
 
         return (
           <React.Fragment key={wire.id}>
-            {/* Visible wire */}
-            <Line
-              points={points}
-              stroke={strokeColor}
-              strokeWidth={2}
-              lineCap="round"
-              lineJoin="round"
-              hitStrokeWidth={10}
-              onMouseDown={(e) => handleWireClick(wire.id, e)}
-            />
-            {/* Draggable handles for every segment */}
-            {!readOnly && wire.segments.map((seg, i) => {
-              const horiz = isHorizontal(seg);
+            {/* Render each segment as an independent line */}
+            {lineSegments.map((seg, i) => (
+              <Line
+                key={`line-${i}`}
+                points={[seg.x1, seg.y1, seg.x2, seg.y2]}
+                stroke={strokeColor}
+                strokeWidth={2}
+                lineCap="round"
+                lineJoin="round"
+                hitStrokeWidth={10}
+                onMouseDown={(e) => handleWireClick(wire.id, e)}
+              />
+            ))}
+
+            {/* T-junction dots */}
+            {intersectPoints.map((pt, i) => (
+              <Circle
+                key={`isect-${i}`}
+                x={pt.x}
+                y={pt.y}
+                radius={3}
+                fill={strokeColor}
+                listening={false}
+              />
+            ))}
+
+            {/* Drag handles keyed by segment ID */}
+            {!readOnly && Object.values(model.segMap).map((seg) => {
+              const horiz = !seg.vertical;
 
               if (horiz) {
-                const minX = Math.min(seg.x1, seg.x2);
-                const segWidth = Math.abs(seg.x2 - seg.x1);
+                const minX = Math.min(seg.begin.x, seg.end.x);
+                const segWidth = Math.abs(seg.end.x - seg.begin.x);
                 return (
                   <Rect
-                    key={`drag-${i}`}
+                    key={`drag-${seg.id}`}
                     x={minX}
-                    y={seg.y1}
+                    y={seg.begin.y}
                     width={segWidth}
                     height={0}
                     stroke="transparent"
                     strokeWidth={12}
                     hitStrokeWidth={12}
-                    draggable
-                    dragBoundFunc={(pos) => ({
-                      x: minX,
-                      y: pos.y,
-                    })}
-                    onMouseDown={(e) => handleWireClick(wire.id, e)}
-                    onDragStart={() => handleSegmentDragStart(wire.id)}
-                    onDragMove={(e) => handleSegmentDrag(wire.id, i, e)}
-                    onDragEnd={(e) => handleSegmentDragEnd(wire.id, i, e)}
+                    onMouseDown={(e) => handleSegmentMouseDown(wire.id, seg.id, e)}
                     onMouseEnter={(e) => {
                       const container = e.target.getStage()?.container();
                       if (container) container.style.cursor = "row-resize";
@@ -264,27 +297,19 @@ export function WireLayer({ doc, readOnly }: WireLayerProps) {
                   />
                 );
               } else {
-                const minY = Math.min(seg.y1, seg.y2);
-                const segHeight = Math.abs(seg.y2 - seg.y1);
+                const minY = Math.min(seg.begin.y, seg.end.y);
+                const segHeight = Math.abs(seg.end.y - seg.begin.y);
                 return (
                   <Rect
-                    key={`drag-${i}`}
-                    x={seg.x1}
+                    key={`drag-${seg.id}`}
+                    x={seg.begin.x}
                     y={minY}
                     width={0}
                     height={segHeight}
                     stroke="transparent"
                     strokeWidth={12}
                     hitStrokeWidth={12}
-                    draggable
-                    dragBoundFunc={(pos) => ({
-                      x: pos.x,
-                      y: minY,
-                    })}
-                    onMouseDown={(e) => handleWireClick(wire.id, e)}
-                    onDragStart={() => handleSegmentDragStart(wire.id)}
-                    onDragMove={(e) => handleSegmentDrag(wire.id, i, e)}
-                    onDragEnd={(e) => handleSegmentDragEnd(wire.id, i, e)}
+                    onMouseDown={(e) => handleSegmentMouseDown(wire.id, seg.id, e)}
                     onMouseEnter={(e) => {
                       const container = e.target.getStage()?.container();
                       if (container) container.style.cursor = "col-resize";

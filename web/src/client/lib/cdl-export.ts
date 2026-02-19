@@ -9,8 +9,10 @@ import {
   getGatesMap,
   getWiresMap,
   getConnectionsMap,
+  readWireModel,
 } from "./collab/yjs-schema";
 import { GRID_SIZE } from "@shared/constants";
+import type { WireModel } from "@shared/wire-types";
 
 function escapeXml(s: string): string {
   return s
@@ -43,11 +45,6 @@ export function exportToCdl(doc: Y.Doc, title: string): void {
   });
   console.log("[CDL export] Gates:", gateIdMap.size, "Wires:", wireIdMap.size, "Connections:", connectionsMap.size);
 
-  // Build connection index: wireUuid → [{gateUuid, pinName, pinDirection}]
-  const wireConnections = new Map<
-    string,
-    Array<{ gateUuid: string; pinName: string; pinDirection: string }>
-  >();
   // Build gate connection index: gateUuid → [{pinName, pinDirection, wireUuid}]
   const gateConnections = new Map<
     string,
@@ -60,13 +57,6 @@ export function exportToCdl(doc: Y.Doc, title: string): void {
     const pinDirection = yConn.get("pinDirection") as string;
     const wireUuid = yConn.get("wireId") as string;
 
-    let wArr = wireConnections.get(wireUuid);
-    if (!wArr) {
-      wArr = [];
-      wireConnections.set(wireUuid, wArr);
-    }
-    wArr.push({ gateUuid, pinName, pinDirection });
-
     let gArr = gateConnections.get(gateUuid);
     if (!gArr) {
       gArr = [];
@@ -75,11 +65,16 @@ export function exportToCdl(doc: Y.Doc, title: string): void {
     gArr.push({ pinName, pinDirection, wireUuid });
   });
 
+  // Build gate UUID→intId lookup for writing connections on segments
+  const gateUuidToIntId = new Map<string, number>();
+  gatesMap.forEach((_yGate, uuid) => {
+    gateUuidToIntId.set(uuid, gateIdMap.get(uuid)!);
+  });
+
   // Build output matching the exact CDL format the desktop parser expects.
-  // The desktop uses a custom streaming XMLParser — formatting matters.
   let out = "";
 
-  // Sentinel circuit (for older CedarLogic versions that don't have <version>)
+  // Sentinel circuit
   out += `\n<circuit>\n`;
   out += `<CurrentPage>0</CurrentPage>\n`;
   out += `<page 0>\n`;
@@ -94,7 +89,7 @@ export function exportToCdl(doc: Y.Doc, title: string): void {
   out += `</circuit>\n`;
   out += `<throw_away></throw_away>\n`;
 
-  // Version tag + real circuit (note: tab before version matches desktop format)
+  // Version tag + real circuit
   out += `\t<version>2.0 | web</version>`;
   out += `<circuit>\n`;
   out += `<CurrentPage>0</CurrentPage>\n`;
@@ -114,8 +109,6 @@ export function exportToCdl(doc: Y.Doc, title: string): void {
     out += `<type>${escapeXml(defId)}</type>\n`;
     out += `<position>${cx},${cy}</position>\n`;
 
-    // Connections (input/output pins) — must match desktop format exactly:
-    // <output>\n<ID>pinName</ID>wireId </output>\n
     const conns = gateConnections.get(uuid) || [];
     for (const conn of conns) {
       const tag = conn.pinDirection === "input" ? "input" : "output";
@@ -124,10 +117,8 @@ export function exportToCdl(doc: Y.Doc, title: string): void {
       out += `<ID>${escapeXml(conn.pinName)}</ID>${wireIntId} </${tag}>\n`;
     }
 
-    // GUI param: angle
     out += `<gparam>angle ${rotation.toFixed(1)}</gparam>\n`;
 
-    // Logic params
     for (const [k, v] of yGate.entries()) {
       if (k.startsWith("param:")) {
         const paramName = k.slice(6);
@@ -138,50 +129,48 @@ export function exportToCdl(doc: Y.Doc, title: string): void {
     out += `</gate>\n`;
   });
 
-  // Wires
+  // Wires — write from WireModel segment tree
   wiresMap.forEach((yWire, uuid) => {
     const intId = wireIdMap.get(uuid)!;
-    let segments: Array<{ x1: number; y1: number; x2: number; y2: number }>;
-    try {
-      segments = JSON.parse(yWire.get("segments") || "[]");
-    } catch {
-      segments = [];
-    }
+    const model = readWireModel(yWire);
 
     out += `<wire>\n`;
     out += `<ID>${intId} </ID>\n`;
     out += `<shape>\n`;
 
-    const conns = wireConnections.get(uuid) || [];
+    if (model) {
+      for (const seg of Object.values(model.segMap)) {
+        const segTag = seg.vertical ? "vsegment" : "hsegment";
+        const [x1, y1] = toCdl(seg.begin.x, seg.begin.y);
+        const [x2, y2] = toCdl(seg.end.x, seg.end.y);
 
-    for (let i = 0; i < segments.length; i++) {
-      const seg = segments[i];
-      const [x1, y1] = toCdl(seg.x1, seg.y1);
-      const [x2, y2] = toCdl(seg.x2, seg.y2);
-      const isVertical = seg.x1 === seg.x2;
-      const segTag = isVertical ? "vsegment" : "hsegment";
+        out += `<${segTag}>\n`;
+        out += `<ID>${seg.id}</ID>\n`;
+        out += `<points>${x1},${y1},${x2},${y2}</points>\n`;
 
-      out += `<${segTag}>\n`;
-      out += `<ID>${i}</ID>\n`;
-      out += `<points>${x1},${y1},${x2},${y2}</points>\n`;
+        // Write per-segment connections
+        for (const conn of seg.connections) {
+          const gateIntId = gateUuidToIntId.get(conn.gateId) ?? 0;
+          out += `<connection>\n`;
+          out += `<GID>${gateIntId}</GID>\n`;
+          out += `<name>${escapeXml(conn.pinName)}</name>\n`;
+          out += `</connection>\n`;
+        }
 
-      // Attach connections to the first/last segment
-      if (i === 0 || i === segments.length - 1) {
-        for (const conn of conns) {
-          if (
-            (conn.pinDirection === "output" && i === 0) ||
-            (conn.pinDirection === "input" && i === segments.length - 1)
-          ) {
-            const gateIntId = gateIdMap.get(conn.gateUuid) ?? 0;
-            out += `<connection>\n`;
-            out += `<GID>${gateIntId}</GID>\n`;
-            out += `<name>${escapeXml(conn.pinName)}</name>\n`;
-            out += `</connection>\n`;
+        // Write intersections
+        for (const [posStr, ids] of Object.entries(seg.intersects)) {
+          const webPos = Number(posStr);
+          // Convert web position back to CDL position
+          const cdlPos = seg.vertical
+            ? -webPos / GRID_SIZE  // Y: negate and divide
+            : webPos / GRID_SIZE;   // X: just divide
+          for (const otherId of ids) {
+            out += `<intersection>${cdlPos} ${otherId}</intersection>\n`;
           }
         }
-      }
 
-      out += `</${segTag}>\n`;
+        out += `</${segTag}>\n`;
+      }
     }
 
     out += `</shape>\n`;

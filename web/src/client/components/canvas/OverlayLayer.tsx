@@ -74,8 +74,26 @@ export function OverlayLayer() {
             );
           })}
           {/* Ghost wires */}
-          {pendingPaste.data.wires.map((wire) =>
-            wire.segments.map((seg, i) => (
+          {pendingPaste.data.wires.map((wire) => {
+            // Render from WireModel or legacy segments
+            if (wire.model) {
+              return Object.values(wire.model.segMap).map((seg) => (
+                <Line
+                  key={`${wire.originalId}-${seg.id}`}
+                  points={[
+                    seg.begin.x + pendingPaste.x,
+                    seg.begin.y + pendingPaste.y,
+                    seg.end.x + pendingPaste.x,
+                    seg.end.y + pendingPaste.y,
+                  ]}
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  lineCap="round"
+                  lineJoin="round"
+                />
+              ));
+            }
+            return (wire.segments ?? []).map((seg, i) => (
               <Line
                 key={`${wire.originalId}-${i}`}
                 points={[
@@ -89,8 +107,8 @@ export function OverlayLayer() {
                 lineCap="round"
                 lineJoin="round"
               />
-            ))
-          )}
+            ));
+          })}
         </Group>
       )}
     </Layer>

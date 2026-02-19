@@ -9,14 +9,17 @@ import { WireLayer } from "./canvas/WireLayer";
 import { OverlayLayer } from "./canvas/OverlayLayer";
 import { SNAP_SIZE } from "@shared/constants";
 import type { GateDefinition, WireSegment } from "@shared/types";
+import type { WireModel } from "@shared/wire-types";
 import {
   getGatesMap,
   getWiresMap,
   getConnectionsMap,
   addGateToDoc,
-  addWireToDoc,
+  addWireModelToDoc,
   addConnectionToDoc,
+  readWireModel,
 } from "../lib/collab/yjs-schema";
+import { generateRenderInfo } from "../lib/canvas/wire-model";
 
 interface CanvasProps {
   doc: Y.Doc;
@@ -151,13 +154,33 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
 
         for (const w of data.wires) {
           const newId = wireIdMap.get(w.originalId)!;
-          const offsetSegments = w.segments.map((s) => ({
-            x1: s.x1 + pasteX,
-            y1: s.y1 + pasteY,
-            x2: s.x2 + pasteX,
-            y2: s.y2 + pasteY,
-          }));
-          addWireToDoc(doc, newId, offsetSegments);
+          if (w.model) {
+            // New format: offset all segment positions in the WireModel
+            const model: WireModel = JSON.parse(JSON.stringify(w.model));
+            for (const seg of Object.values(model.segMap)) {
+              seg.begin.x += pasteX;
+              seg.begin.y += pasteY;
+              seg.end.x += pasteX;
+              seg.end.y += pasteY;
+            }
+            addWireModelToDoc(doc, newId, model);
+          } else if (w.segments) {
+            // Legacy format
+            const model: WireModel = { segMap: {}, headSegment: 0, nextSegId: 0 };
+            for (let i = 0; i < w.segments.length; i++) {
+              const s = w.segments[i];
+              model.segMap[i] = {
+                id: i,
+                vertical: s.x1 === s.x2,
+                begin: { x: Math.min(s.x1, s.x2) + pasteX, y: Math.min(s.y1, s.y2) + pasteY },
+                end: { x: Math.max(s.x1, s.x2) + pasteX, y: Math.max(s.y1, s.y2) + pasteY },
+                connections: [],
+                intersects: {},
+              };
+            }
+            model.nextSegId = w.segments.length;
+            addWireModelToDoc(doc, newId, model);
+          }
         }
 
         for (const c of data.connections) {
@@ -325,26 +348,23 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
           originalId: g.id,
         }));
 
-        // Build clipboard wire data with segments offset from centroid
-        const clipWires: Array<{ segments: WireSegment[]; originalId: string }> =
+        // Build clipboard wire data with model offset from centroid
+        const clipWires: Array<{ segments?: WireSegment[]; model?: WireModel; originalId: string }> =
           [];
         for (const wireId of selectedWireIds) {
           const yWire = wiresMap.get(wireId);
           if (!yWire) continue;
-          try {
-            const segments: WireSegment[] = JSON.parse(
-              yWire.get("segments") || "[]"
-            );
-            // Store segments relative to centroid
-            const offsetSegs = segments.map((s) => ({
-              x1: s.x1 - cx,
-              y1: s.y1 - cy,
-              x2: s.x2 - cx,
-              y2: s.y2 - cy,
-            }));
-            clipWires.push({ segments: offsetSegs, originalId: wireId });
-          } catch {
-            // skip
+          const model = readWireModel(yWire);
+          if (model) {
+            // Offset the model relative to centroid
+            const offsetModel: WireModel = JSON.parse(JSON.stringify(model));
+            for (const seg of Object.values(offsetModel.segMap)) {
+              seg.begin.x -= cx;
+              seg.begin.y -= cy;
+              seg.end.x -= cx;
+              seg.end.y -= cy;
+            }
+            clipWires.push({ model: offsetModel, originalId: wireId });
           }
         }
 
@@ -416,18 +436,17 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
           hasContent = true;
         });
 
-        // Include wire segment endpoints
+        // Include wire segment endpoints from WireModel
         wiresMap.forEach((yWire) => {
-          try {
-            const segments: WireSegment[] = JSON.parse(yWire.get("segments") || "[]");
-            for (const seg of segments) {
-              minX = Math.min(minX, seg.x1, seg.x2);
-              minY = Math.min(minY, seg.y1, seg.y2);
-              maxX = Math.max(maxX, seg.x1, seg.x2);
-              maxY = Math.max(maxY, seg.y1, seg.y2);
-              hasContent = true;
-            }
-          } catch { /* skip */ }
+          const model = readWireModel(yWire);
+          if (!model) return;
+          for (const seg of Object.values(model.segMap)) {
+            minX = Math.min(minX, seg.begin.x, seg.end.x);
+            minY = Math.min(minY, seg.begin.y, seg.end.y);
+            maxX = Math.max(maxX, seg.begin.x, seg.end.x);
+            maxY = Math.max(maxY, seg.begin.y, seg.end.y);
+            hasContent = true;
+          }
         });
 
         if (hasContent) {
@@ -623,21 +642,17 @@ export function Canvas({ doc, readOnly }: CanvasProps) {
           }
         });
 
-        // Hit-test wires
+        // Hit-test wires using WireModel render info
         const wiresMap = getWiresMap(doc);
         wiresMap.forEach((yWire, id) => {
-          try {
-            const segments: WireSegment[] = JSON.parse(
-              yWire.get("segments") || "[]"
-            );
-            for (const seg of segments) {
-              if (segmentIntersectsRect(seg, box)) {
-                select(id);
-                break;
-              }
+          const model = readWireModel(yWire);
+          if (!model) return;
+          const ri = generateRenderInfo(model);
+          for (const seg of ri.lineSegments) {
+            if (segmentIntersectsRect(seg, box)) {
+              select(id);
+              break;
             }
-          } catch {
-            // skip malformed wires
           }
         });
       }
