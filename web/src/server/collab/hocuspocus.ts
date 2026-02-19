@@ -9,12 +9,29 @@ let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 export function setupHocuspocus(db: Database) {
   const server = Server.configure({
     async onAuthenticate({ token, documentName }: any) {
+      const fileId = documentName;
+
+      // Handle anonymous/public access via "public:<fileId>" token
+      if (token?.startsWith("public:")) {
+        const permission = resolvePermission(db, fileId, null, null);
+        if (!permission) throw new Error("Access denied");
+
+        return {
+          user: {
+            id: "anonymous",
+            email: "anonymous",
+            name: "Anonymous",
+          },
+          readOnly: permission === "viewer",
+        };
+      }
+
+      // Authenticated user flow
       if (!token) throw new Error("No token provided");
 
       const payload = await verifyToken(token);
       if (!payload?.sub || !payload.email) throw new Error("Invalid token");
 
-      const fileId = documentName;
       const permission = resolvePermission(
         db,
         fileId,
