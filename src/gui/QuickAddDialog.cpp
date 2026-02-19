@@ -104,9 +104,9 @@ wxBitmap QuickAddDialog::renderGatePreview(const string& gateName, int width, in
 
 	for (auto& line : gateDef.shape) {
 		int x1 = (int)(offsetX + (line.x1 - minX) * scale);
-		int y1 = (int)(offsetY + (line.y1 - minY) * scale);
+		int y1 = (int)(offsetY + (maxY - line.y1) * scale);
 		int x2 = (int)(offsetX + (line.x2 - minX) * scale);
-		int y2 = (int)(offsetY + (line.y2 - minY) * scale);
+		int y2 = (int)(offsetY + (maxY - line.y2) * scale);
 		dc.DrawLine(x1, y1, x2, y2);
 	}
 
