@@ -4,6 +4,7 @@ import { useSimulation } from "../hooks/useSimulation";
 import { Canvas } from "./Canvas";
 import { Toolbar, SimControls } from "./Toolbar";
 import { QuickAddDialog } from "./QuickAddDialog";
+import { ShareDialog } from "./ShareDialog";
 import { exportToCdl } from "../lib/cdl-export";
 import { importFromCdl } from "../lib/cdl-import";
 import { loadedGateDefs } from "./canvas/GateLayer";
@@ -11,25 +12,44 @@ import type { FileRecord, PermissionLevel } from "@shared/types";
 
 interface EditorPageProps {
   fileId: string;
-  onBack: () => void;
+  onBack: (() => void) | null;
 }
 
+type FileState =
+  | { status: "loading" }
+  | { status: "denied" }
+  | { status: "loaded"; file: FileRecord & { permission: PermissionLevel } };
+
 export function EditorPage({ fileId, onBack }: EditorPageProps) {
-  const { doc, provider, connected, synced } = useCollab(fileId);
-  const [file, setFile] = useState<(FileRecord & { permission: PermissionLevel }) | null>(null);
+  const [fileState, setFileState] = useState<FileState>({ status: "loading" });
+  const file = fileState.status === "loaded" ? fileState.file : null;
+
+  // Only connect collab once we know we have access
+  const { doc, provider, connected, synced } = useCollab(file ? fileId : null);
 
   useSimulation(doc);
 
   useEffect(() => {
     fetch(`/api/files/${fileId}`)
-      .then((r) => r.json())
-      .then(setFile);
+      .then((r) => {
+        if (r.status === 401 || r.status === 403) {
+          setFileState({ status: "denied" });
+          return;
+        }
+        if (!r.ok) throw new Error("Failed to load file");
+        return r.json();
+      })
+      .then((data) => {
+        if (data) setFileState({ status: "loaded", file: data });
+      })
+      .catch(() => setFileState({ status: "denied" }));
   }, [fileId]);
 
   const readOnly = file ? file.permission === "viewer" : null;
   const isOwner = file?.permission === "owner";
   const [editingTitle, setEditingTitle] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,7 +60,7 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
         setEditingTitle(false);
         return;
       }
-      setFile({ ...file, title: trimmed });
+      setFileState({ status: "loaded", file: { ...file, title: trimmed } });
       setEditingTitle(false);
       fetch(`/api/files/${fileId}`, {
         method: "PATCH",
@@ -51,7 +71,7 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
     [file, fileId],
   );
 
-  if (!file) {
+  if (fileState.status === "loading") {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-950 text-gray-500">
         Loading...
@@ -59,20 +79,49 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
     );
   }
 
+  if (fileState.status === "denied") {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-gray-950 gap-4">
+        <p className="text-gray-400">You don't have access to this circuit, or it doesn't exist.</p>
+        <div className="flex gap-3">
+          <a
+            href="/auth/google"
+            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-500 transition-colors"
+          >
+            Sign in
+          </a>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="px-4 py-2 bg-gray-700 text-gray-300 text-sm rounded-lg hover:bg-gray-600 transition-colors cursor-pointer"
+            >
+              Go back
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // After the guards above, file is guaranteed non-null
+  const { file: loadedFile } = fileState;
+
   return (
     <div className="h-dvh flex flex-col bg-gray-950">
       <header className="flex items-center justify-between px-4 py-2 border-b border-gray-800 shrink-0">
         <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="text-gray-400 hover:text-white transition-colors cursor-pointer"
-          >
-            &larr; Back
-          </button>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+            >
+              &larr; Back
+            </button>
+          )}
           {editingTitle ? (
             <input
               ref={titleInputRef}
-              defaultValue={file.title}
+              defaultValue={loadedFile.title}
               className="text-white font-medium bg-gray-800 border border-gray-600 rounded px-2 py-0.5 outline-none focus:border-blue-500"
               autoFocus
               onBlur={(e) => saveTitle(e.target.value)}
@@ -86,7 +135,7 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
               className={`text-white font-medium ${isOwner ? "cursor-pointer hover:text-blue-400 transition-colors" : ""}`}
               onClick={() => isOwner && setEditingTitle(true)}
             >
-              {file.title}
+              {loadedFile.title}
             </span>
           )}
           {readOnly && (
@@ -95,7 +144,7 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {!readOnly && (
             <>
               <input
@@ -106,41 +155,55 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (!f || !doc) return;
-                  console.log("[CDL] Reading:", f.name, f.size, "bytes");
                   const reader = new FileReader();
                   reader.onload = () => {
                     const text = reader.result as string;
-                    console.log("[CDL] FileReader done, length:", text.length);
                     try {
                       importFromCdl(doc, text, loadedGateDefs);
-                      console.log("[CDL] Import completed");
                     } catch (err) {
-                      console.error("[CDL] Import threw error:", err);
+                      console.error("[CDL] Import error:", err);
                     }
-                  };
-                  reader.onerror = () => {
-                    console.error("[CDL] FileReader error:", reader.error);
                   };
                   reader.readAsText(f);
                 }}
               />
               <button
-                onClick={() => {
-                  console.log("[CDL] Import button clicked, ref:", !!fileInputRef.current);
-                  fileInputRef.current?.click();
-                }}
-                className="text-sm text-gray-400 hover:text-white transition-colors cursor-pointer px-2 py-1 rounded hover:bg-gray-800"
+                onClick={() => fileInputRef.current?.click()}
+                className="text-gray-400 hover:text-white transition-colors cursor-pointer p-1.5 rounded hover:bg-gray-800"
+                title="Import .cdl file"
               >
-                Import
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8 10V2m0 0L5 5m3-3 3 3" />
+                  <path d="M2 10v2.5A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5V10" />
+                </svg>
               </button>
             </>
           )}
           <button
-            onClick={() => doc && exportToCdl(doc, file.title)}
-            className="text-sm text-gray-400 hover:text-white transition-colors cursor-pointer px-2 py-1 rounded hover:bg-gray-800"
+            onClick={() => doc && exportToCdl(doc, loadedFile.title)}
+            className="text-gray-400 hover:text-white transition-colors cursor-pointer p-1.5 rounded hover:bg-gray-800"
+            title="Export .cdl file"
           >
-            Export
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 2v8m0 0 3-3M8 10 5 7" />
+              <path d="M2 10v2.5A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5V10" />
+            </svg>
           </button>
+          {isOwner && (
+            <button
+              onClick={() => setShareOpen(true)}
+              className="text-gray-400 hover:text-white transition-colors cursor-pointer p-1.5 rounded hover:bg-gray-800"
+              title="Share"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="3.5" r="2" />
+                <circle cx="12" cy="12.5" r="2" />
+                <circle cx="4" cy="8" r="2" />
+                <path d="m5.8 7 4.4-2.5M5.8 9l4.4 2.5" />
+              </svg>
+            </button>
+          )}
+          <div className="w-px h-4 bg-gray-700 mx-1" />
           <span
             className={`w-2.5 h-2.5 rounded-full ${connected ? "bg-green-400" : "bg-red-400"}`}
             title={connected ? "Connected" : "Disconnected"}
@@ -167,6 +230,9 @@ export function EditorPage({ fileId, onBack }: EditorPageProps) {
 
       {quickAddOpen && (
         <QuickAddDialog onClose={() => setQuickAddOpen(false)} />
+      )}
+      {shareOpen && (
+        <ShareDialog fileId={fileId} onClose={() => setShareOpen(false)} />
       )}
     </div>
   );

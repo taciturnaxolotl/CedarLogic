@@ -16,17 +16,19 @@ export function App() {
     );
   }
 
-  if (!user) {
-    return <LoginPage />;
-  }
-
+  // Allow unauthenticated access to editor pages (for link-shared files)
   if (route.page === "editor") {
     return (
       <EditorPage
         fileId={route.fileId}
-        onBack={() => navigate("/")}
+        onBack={user ? () => navigate("/") : null}
       />
     );
+  }
+
+  // All other pages require auth
+  if (!user) {
+    return <LoginPage />;
   }
 
   return (
