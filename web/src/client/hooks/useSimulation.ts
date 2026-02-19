@@ -26,6 +26,9 @@ export function useSimulation(doc: Y.Doc | null) {
         case "ready":
           // Do full sync once worker is ready
           bridgeRef.current?.fullSync();
+          // Send current running state now that WASM is loaded
+          const { running: r, stepsPerFrame: s } = useSimulationStore.getState();
+          worker.postMessage({ type: "setRunning", running: r, stepsPerFrame: s });
           break;
         case "wireStates":
           updateWireStates(msg.states.map((s) => ({ id: s.id, state: s.state as any })));

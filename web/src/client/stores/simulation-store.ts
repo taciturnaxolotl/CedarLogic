@@ -16,7 +16,7 @@ interface SimulationState {
 export const useSimulationStore = create<SimulationState>((set) => ({
   wireStates: new Map(),
   simTime: 0,
-  running: false,
+  running: true,
   stepsPerFrame: 5,
 
   updateWireStates: (updates) =>
