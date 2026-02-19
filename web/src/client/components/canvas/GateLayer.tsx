@@ -454,62 +454,7 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
       const absX = gateX + pinX * GRID_SIZE;
       const absY = gateY + pinY * GRID_SIZE;
 
-      const wd = useCanvasStore.getState().wireDrawing;
-      if (wd) {
-        // Complete the wire — connect source pin to this destination pin
-        // Ensure we connect output→input (swap if needed)
-        let srcGateId = wd.fromGateId;
-        let srcPinName = wd.fromPinName;
-        let srcPinDir = wd.fromPinDirection;
-        let srcX = wd.fromX;
-        let srcY = wd.fromY;
-        let dstGateId = gateId;
-        let dstPinName = pinName;
-        let dstPinDir = pinDirection;
-        let dstX = absX;
-        let dstY = absY;
-
-        // Don't connect a pin to itself
-        if (srcGateId === dstGateId && srcPinName === dstPinName) {
-          setWireDrawing(null);
-          setHoveredPin(null);
-          return;
-        }
-
-        // Don't connect two pins of the same direction
-        if (srcPinDir === dstPinDir) {
-          setWireDrawing(null);
-          setHoveredPin(null);
-          return;
-        }
-
-        // Normalize so src is output, dst is input
-        if (srcPinDir === "input") {
-          [srcGateId, srcPinName, srcPinDir, srcX, srcY, dstGateId, dstPinName, dstPinDir, dstX, dstY] =
-            [dstGateId, dstPinName, dstPinDir, dstX, dstY, srcGateId, srcPinName, srcPinDir, srcX, srcY];
-        }
-
-        // Create wire with 3-segment Manhattan routing
-        const wireId = crypto.randomUUID();
-        const midX = snapToGrid((srcX + dstX) / 2);
-        const segments = [
-          { x1: srcX, y1: srcY, x2: midX, y2: srcY },
-          { x1: midX, y1: srcY, x2: midX, y2: dstY },
-          { x1: midX, y1: dstY, x2: dstX, y2: dstY },
-        ];
-
-        doc.transact(() => {
-          addWireToDoc(doc, wireId, segments);
-          addConnectionToDoc(doc, srcGateId, srcPinName, srcPinDir, wireId);
-          addConnectionToDoc(doc, dstGateId, dstPinName, dstPinDir, wireId);
-        });
-
-        setWireDrawing(null);
-        setHoveredPin(null);
-        return;
-      }
-
-      // Start a new wire drawing
+      // Always start a new wire drawing (completion happens on mouseUp)
       setWireDrawing({
         fromGateId: gateId,
         fromPinName: pinName,
@@ -519,6 +464,79 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
         currentX: absX,
         currentY: absY,
       });
+    },
+    [readOnly, setWireDrawing]
+  );
+
+  const handlePinMouseUp = useCallback(
+    (
+      gateId: string,
+      gateX: number,
+      gateY: number,
+      pinName: string,
+      pinDirection: "input" | "output",
+      pinX: number,
+      pinY: number,
+      e: Konva.KonvaEventObject<MouseEvent>
+    ) => {
+      if (readOnly) return;
+      e.cancelBubble = true;
+
+      const absX = gateX + pinX * GRID_SIZE;
+      const absY = gateY + pinY * GRID_SIZE;
+
+      const wd = useCanvasStore.getState().wireDrawing;
+      if (!wd) return;
+
+      // Complete the wire — connect source pin to this destination pin
+      let srcGateId = wd.fromGateId;
+      let srcPinName = wd.fromPinName;
+      let srcPinDir = wd.fromPinDirection;
+      let srcX = wd.fromX;
+      let srcY = wd.fromY;
+      let dstGateId = gateId;
+      let dstPinName = pinName;
+      let dstPinDir = pinDirection;
+      let dstX = absX;
+      let dstY = absY;
+
+      // Don't connect a pin to itself
+      if (srcGateId === dstGateId && srcPinName === dstPinName) {
+        setWireDrawing(null);
+        setHoveredPin(null);
+        return;
+      }
+
+      // Don't connect two pins of the same direction
+      if (srcPinDir === dstPinDir) {
+        setWireDrawing(null);
+        setHoveredPin(null);
+        return;
+      }
+
+      // Normalize so src is output, dst is input
+      if (srcPinDir === "input") {
+        [srcGateId, srcPinName, srcPinDir, srcX, srcY, dstGateId, dstPinName, dstPinDir, dstX, dstY] =
+          [dstGateId, dstPinName, dstPinDir, dstX, dstY, srcGateId, srcPinName, srcPinDir, srcX, srcY];
+      }
+
+      // Create wire with 3-segment Manhattan routing
+      const wireId = crypto.randomUUID();
+      const midX = snapToGrid((srcX + dstX) / 2);
+      const segments = [
+        { x1: srcX, y1: srcY, x2: midX, y2: srcY },
+        { x1: midX, y1: srcY, x2: midX, y2: dstY },
+        { x1: midX, y1: dstY, x2: dstX, y2: dstY },
+      ];
+
+      doc.transact(() => {
+        addWireToDoc(doc, wireId, segments);
+        addConnectionToDoc(doc, srcGateId, srcPinName, srcPinDir, wireId);
+        addConnectionToDoc(doc, dstGateId, dstPinName, dstPinDir, wireId);
+      });
+
+      setWireDrawing(null);
+      setHoveredPin(null);
     },
     [readOnly, setWireDrawing, setHoveredPin, doc]
   );
@@ -741,6 +759,9 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
                     onMouseDown={(e) =>
                       handlePinMouseDown(gate.id, gate.x, gate.y, pin.name, "input", pin.x, pin.y, e)
                     }
+                    onMouseUp={(e) =>
+                      handlePinMouseUp(gate.id, gate.x, gate.y, pin.name, "input", pin.x, pin.y, e)
+                    }
                     onMouseEnter={(e) =>
                       handlePinMouseEnter(gate.id, gate.x, gate.y, pin.name, "input", pin.x, pin.y, e)
                     }
@@ -778,6 +799,9 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
                     fill="rgba(0,0,0,0.01)"
                     onMouseDown={(e) =>
                       handlePinMouseDown(gate.id, gate.x, gate.y, pin.name, "output", pin.x, pin.y, e)
+                    }
+                    onMouseUp={(e) =>
+                      handlePinMouseUp(gate.id, gate.x, gate.y, pin.name, "output", pin.x, pin.y, e)
                     }
                     onMouseEnter={(e) =>
                       handlePinMouseEnter(gate.id, gate.x, gate.y, pin.name, "output", pin.x, pin.y, e)
