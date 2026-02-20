@@ -182,7 +182,7 @@ const WireShape = React.memo(function WireShape({
 // WireLayer — no longer subscribes to wireStates
 // ---------------------------------------------------------------------------
 
-export function WireLayer({ doc, readOnly }: WireLayerProps) {
+export const WireLayer = React.memo(function WireLayer({ doc, readOnly }: WireLayerProps) {
   const [wires, setWires] = useState<Map<string, WireRenderData>>(new Map());
   const [gateDefs, setGateDefs] = useState<GateDefinition[]>([]);
   const selectOnly = useCanvasStore((s) => s.selectOnly);
@@ -361,4 +361,4 @@ export function WireLayer({ doc, readOnly }: WireLayerProps) {
       ))}
     </Layer>
   );
-}
+});

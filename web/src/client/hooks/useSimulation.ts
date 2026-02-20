@@ -8,7 +8,6 @@ export function useSimulation(doc: Y.Doc | null) {
   const workerRef = useRef<Worker | null>(null);
   const bridgeRef = useRef<ReturnType<typeof createYjsToWorkerBridge> | null>(null);
   const genRef = useRef(0);
-  const mountedRef = useRef(false);
 
   const running = useSimulationStore((s) => s.running);
   const stepsPerFrame = useSimulationStore((s) => s.stepsPerFrame);
@@ -21,7 +20,6 @@ export function useSimulation(doc: Y.Doc | null) {
       { type: "module" }
     );
     workerRef.current = worker;
-    mountedRef.current = false;
 
     worker.onmessage = (e: MessageEvent<WorkerToMainMessage>) => {
       const msg = e.data;
@@ -58,12 +56,9 @@ export function useSimulation(doc: Y.Doc | null) {
   }, [doc]);
 
   useEffect(() => {
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      return;
-    }
+    if (!workerRef.current) return;
     genRef.current++;
-    workerRef.current?.postMessage({
+    workerRef.current.postMessage({
       type: "setRunning",
       running,
       stepsPerFrame,
