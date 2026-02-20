@@ -220,7 +220,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onCursorMove, onCursorLeave,
 
   /** Commit a pending paste at the given position */
   const commitPaste = useCallback(
-    (data: ClipboardData, pasteX: number, pasteY: number) => {
+    (data: ClipboardData, pasteX: number, pasteY: number, shiftKey?: boolean) => {
       const gateIdMap = new Map<string, string>();
       const wireIdMap = new Map<string, string>();
 
@@ -290,8 +290,28 @@ export function Canvas({ doc, readOnly, onQuickAdd, onCursorMove, onCursorLeave,
       for (const newId of wireIdMap.values()) {
         select(newId);
       }
+
+      // Auto-increment JUNCTION_ID for single TO/FROM gate pastes (matches desktop behavior).
+      // If pasting a single gate whose logicType is TO or FROM and its JUNCTION_ID ends with
+      // digits, increment those digits and update the clipboard so the next paste continues.
+      if (!shiftKey && data.gates.length === 1 && data.wires.length === 0) {
+        const g = data.gates[0];
+        if (g.logicType === "TO" || g.logicType === "FROM") {
+          const jid = g.params["param:JUNCTION_ID"] ?? "";
+          const match = jid.match(/^(.*?)(\d+)$/);
+          if (match) {
+            const prefix = match[1];
+            const next = String(parseInt(match[2], 10) + 1);
+            const newParams = { ...g.params, "param:JUNCTION_ID": prefix + next };
+            setClipboard({
+              ...data,
+              gates: [{ ...g, params: newParams }],
+            });
+          }
+        }
+      }
     },
-    [doc, clearSelection, select]
+    [doc, clearSelection, select, setClipboard]
   );
 
   // Keyboard shortcuts
@@ -495,7 +515,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onCursorMove, onCursorLeave,
 
         const x = snapToGrid(mousePos.current.x);
         const y = snapToGrid(mousePos.current.y);
-        setPendingPaste({ data: cb, x, y });
+        setPendingPaste({ data: cb, x, y, shiftKey: e.shiftKey });
         clearSelection();
       }
 
@@ -623,7 +643,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onCursorMove, onCursorLeave,
       // If pending paste, commit it on click
       const pp = useCanvasStore.getState().pendingPaste;
       if (pp && e.evt.button === 0) {
-        commitPaste(pp.data, pp.x, pp.y);
+        commitPaste(pp.data, pp.x, pp.y, pp.shiftKey);
         setPendingPaste(null);
         return;
       }
