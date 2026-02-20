@@ -18,9 +18,11 @@ import {
 } from "../../lib/canvas/wire-model";
 import { useCanvasStore } from "../../stores/canvas-store";
 import { useSimulationStore } from "../../stores/simulation-store";
-import { GRID_SIZE, SNAP_SIZE, WIRE_COLORS, WIRE_STATE } from "@shared/constants";
+import { GRID_SIZE, SNAP_SIZE, WIRE_STATE } from "@shared/constants";
 import type { GateDefinition } from "@shared/types";
 import type { WireState } from "@shared/constants";
+import { useCanvasColors } from "../../hooks/useCanvasColors";
+import type { CanvasColors } from "@shared/theme-colors";
 
 // 7-segment display rendering
 // Segments: a=top, b=top-right, c=bot-right, d=bottom, e=bot-left, f=top-left, g=middle
@@ -40,6 +42,7 @@ const SEVEN_SEG_MAP: Record<string, number[]> = {
 
 function renderSevenSegDigits(
   hexStr: string, boxX: number, boxY: number, boxW: number, boxH: number,
+  onColor: string, offColor: string,
 ): React.ReactNode[] {
   const numDigits = hexStr.length;
   const pad = boxW * 0.15;
@@ -47,8 +50,6 @@ function renderSevenSegDigits(
   const totalGap = gap * (numDigits - 1);
   const digitW = (boxW - pad * 2 - totalGap) / numDigits;
   const digitH = boxH - pad * 2;
-  const onColor = "#ff2222";
-  const offColor = "#1a0000";
   const sw = Math.max(1.5, Math.min(digitW * 0.15, digitH * 0.08));
 
   const elements: React.ReactNode[] = [];
@@ -177,6 +178,7 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
   const hoveredPin = useCanvasStore((s) => s.hoveredPin);
   const setHoveredPin = useCanvasStore((s) => s.setHoveredPin);
   const wireStates = useSimulationStore((s) => s.wireStates);
+  const colors = useCanvasColors();
 
   useEffect(() => {
     loadGateDefs().then(setDefs);
@@ -581,7 +583,7 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
         const def = defsMap.get(gate.defId);
         if (!def) return null;
         const selected = !!selectedIds[gate.id];
-        const strokeColor = selected ? "#3b82f6" : "#e2e8f0";
+        const strokeColor = selected ? colors.gateSelected : colors.gateStroke;
         const bounds = getGateBounds(def);
 
         const isToggle = def.guiType === "TOGGLE";
@@ -600,7 +602,7 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
             }
           }
         }
-        const ledColor = WIRE_COLORS[gateWireState];
+        const ledColor = colors.wire[gateWireState];
 
         return (
           <Group
@@ -629,7 +631,7 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
                 y={-0.6 * GRID_SIZE}
                 width={1.2 * GRID_SIZE}
                 height={1.2 * GRID_SIZE}
-                fill={toggleOn ? "#ef4444" : "#1e293b"}
+                fill={toggleOn ? colors.toggleOn : colors.toggleOff}
                 cornerRadius={2}
                 onMouseDown={(e) => handleToggleClick(gate.id, e)}
               />
@@ -691,10 +693,10 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
                     y={boxY}
                     width={boxW}
                     height={boxH}
-                    fill="#0a0a0a"
+                    fill={colors.sevenSegBg}
                     listening={false}
                   />
-                  {renderSevenSegDigits(hexStr, boxX, boxY, boxW, boxH)}
+                  {renderSevenSegDigits(hexStr, boxX, boxY, boxW, boxH, colors.sevenSegOn, colors.sevenSegOff)}
                 </>
               );
             })()}
@@ -733,7 +735,7 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
                 <Text
                   text={labelText}
                   fontSize={fontSize}
-                  fill={selected ? "#3b82f6" : "#e2e8f0"}
+                  fill={selected ? colors.gateSelected : colors.labelText}
                   fontFamily="monospace"
                   listening={false}
                   offsetY={fontSize / 2}
@@ -748,7 +750,7 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
                 <Text
                   text={labelText}
                   fontSize={fontSize}
-                  fill={selected ? "#3b82f6" : "#e2e8f0"}
+                  fill={selected ? colors.gateSelected : colors.labelText}
                   fontFamily="monospace"
                   listening={false}
                   x={0}
@@ -766,7 +768,7 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
                 <Text
                   text={labelText}
                   fontSize={fontSize}
-                  fill={selected ? "#3b82f6" : "#e2e8f0"}
+                  fill={selected ? colors.gateSelected : colors.labelText}
                   fontFamily="monospace"
                   listening={false}
                   x={0.4 * GRID_SIZE}
@@ -785,7 +787,7 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
                       y={pin.y * GRID_SIZE - 5}
                       width={10}
                       height={10}
-                      fill="#ef4444"
+                      fill={colors.pinHover}
                       listening={false}
                     />
                   )}
@@ -793,7 +795,7 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
                     x={pin.x * GRID_SIZE}
                     y={pin.y * GRID_SIZE}
                     radius={3}
-                    fill="#60a5fa"
+                    fill={colors.pinDot}
                     listening={false}
                   />
                   <Circle
@@ -826,7 +828,7 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
                       y={pin.y * GRID_SIZE - 5}
                       width={10}
                       height={10}
-                      fill="#ef4444"
+                      fill={colors.pinHover}
                       listening={false}
                     />
                   )}
@@ -834,7 +836,7 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
                     x={pin.x * GRID_SIZE}
                     y={pin.y * GRID_SIZE}
                     radius={3}
-                    fill="#60a5fa"
+                    fill={colors.pinDot}
                     listening={false}
                   />
                   <Circle

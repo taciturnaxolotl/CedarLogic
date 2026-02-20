@@ -36,8 +36,8 @@ export function FilesToolbar({
             onClick={() => onFilterTab(tab.key)}
             className={`px-3 py-1.5 text-sm rounded-full cursor-pointer transition-colors ${
               filterTab === tab.key
-                ? "bg-gray-700 text-white"
-                : "text-gray-400 hover:text-white hover:bg-gray-800"
+                ? "bg-gray-300 dark:bg-gray-700 text-gray-900 dark:text-white"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-800"
             }`}
           >
             {tab.label}
@@ -51,7 +51,7 @@ export function FilesToolbar({
       {/* Search */}
       <div className="relative">
         <svg
-          className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -68,7 +68,7 @@ export function FilesToolbar({
           placeholder="Search circuits..."
           value={searchQuery}
           onChange={(e) => onSearchQuery(e.target.value)}
-          className="pl-8 pr-3 py-1.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 w-48"
+          className="pl-8 pr-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 w-48"
         />
       </div>
 
@@ -76,7 +76,7 @@ export function FilesToolbar({
       <select
         value={sortBy}
         onChange={(e) => onSortBy(e.target.value as SortBy)}
-        className="px-3 py-1.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-gray-500 cursor-pointer"
+        className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 cursor-pointer"
       >
         <option value="date">Date modified</option>
         <option value="name">Name</option>

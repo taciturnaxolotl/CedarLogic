@@ -26,7 +26,7 @@ export function CircuitCard({ file, thumbnail, onClick, onDelete }: CircuitCardP
   return (
     <div
       onClick={onClick}
-      className="group relative bg-gray-900 rounded-xl border border-gray-800 hover:border-gray-600 cursor-pointer transition-colors overflow-hidden flex flex-col"
+      className="group relative bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-gray-400 dark:hover:border-gray-600 cursor-pointer transition-colors overflow-hidden flex flex-col"
     >
       {file.permission === "owner" && (
         <button
@@ -34,7 +34,7 @@ export function CircuitCard({ file, thumbnail, onClick, onDelete }: CircuitCardP
             e.stopPropagation();
             onDelete(e);
           }}
-          className="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-gray-900/80 text-gray-400 hover:text-red-400 hover:bg-gray-900 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+          className="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-gray-100/80 dark:bg-gray-900/80 text-gray-500 dark:text-gray-400 hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-900 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -44,7 +44,7 @@ export function CircuitCard({ file, thumbnail, onClick, onDelete }: CircuitCardP
       <CircuitThumbnail data={thumbnail} />
       <div className="p-3 flex flex-col gap-1">
         <div className="font-medium text-sm truncate">{file.title}</div>
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-gray-400 dark:text-gray-500">
           {file.permission === "owner" ? "Owned by you" : `Shared by ${file.ownerName}`}
           {" · "}
           {relativeDate(file.updatedAt)}
