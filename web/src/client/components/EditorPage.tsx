@@ -1,11 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useCollab } from "../hooks/useCollab";
 import { useSimulation } from "../hooks/useSimulation";
+import { useThemeStore } from "../stores/theme-store";
 import { Canvas } from "./Canvas";
 import { Toolbar, SimControls } from "./Toolbar";
 import { QuickAddDialog } from "./QuickAddDialog";
 import { ShareDialog } from "./ShareDialog";
 import { GatePropertiesDialog } from "./GatePropertiesDialog";
+import { RamEditorDialog } from "./RamEditorDialog";
 import { exportToCdl } from "../lib/cdl-export";
 import { importFromCdl } from "../lib/cdl-import";
 import { loadedGateDefs } from "./canvas/GateLayer";
@@ -30,6 +32,7 @@ type FileState =
 export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProps) {
   const [fileState, setFileState] = useState<FileState>({ status: "loading" });
   const file = fileState.status === "loaded" ? fileState.file : null;
+  const { theme, toggle: toggleTheme } = useThemeStore();
 
   // Only connect collab once we know we have access
   const { doc, provider, connected, synced } = useCollab(file ? fileId : null);
@@ -113,6 +116,7 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [editingGateId, setEditingGateId] = useState<string | null>(null);
+  const [ramEditorGateId, setRamEditorGateId] = useState<string | null>(null);
   const [presenceOpen, setPresenceOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -137,7 +141,7 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
 
   if (fileState.status === "loading") {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-950 text-gray-500">
+      <div className="h-screen flex items-center justify-center bg-white dark:bg-gray-950 text-gray-400 dark:text-gray-500">
         Loading...
       </div>
     );
@@ -145,8 +149,8 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
 
   if (fileState.status === "denied") {
     return (
-      <div className="h-screen flex flex-col items-center justify-center bg-gray-950 gap-4">
-        <p className="text-gray-400">You don't have access to this circuit, or it doesn't exist.</p>
+      <div className="h-screen flex flex-col items-center justify-center bg-white dark:bg-gray-950 gap-4">
+        <p className="text-gray-500 dark:text-gray-400">You don't have access to this circuit, or it doesn't exist.</p>
         <div className="flex gap-3">
           <a
             href="/auth/google"
@@ -157,7 +161,7 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
           {onBack && (
             <button
               onClick={onBack}
-              className="px-4 py-2 bg-gray-700 text-gray-300 text-sm rounded-lg hover:bg-gray-600 transition-colors cursor-pointer"
+              className="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors cursor-pointer"
             >
               Go back
             </button>
@@ -171,13 +175,13 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
   const { file: loadedFile } = fileState;
 
   return (
-    <div className="h-dvh flex flex-col bg-gray-950">
-      <header className="flex items-center justify-between px-4 py-2 border-b border-gray-800 shrink-0">
+    <div className="h-dvh flex flex-col bg-white dark:bg-gray-950">
+      <header className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-800 shrink-0">
         <div className="flex items-center gap-3">
           {onBack && (
             <button
               onClick={onBack}
-              className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+              className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               &larr; Back
             </button>
@@ -186,7 +190,7 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
             <input
               ref={titleInputRef}
               defaultValue={loadedFile.title}
-              className="text-white font-medium bg-gray-800 border border-gray-600 rounded px-2 py-0.5 outline-none focus:border-blue-500"
+              className="text-gray-900 dark:text-white font-medium bg-gray-200 dark:bg-gray-800 border border-gray-400 dark:border-gray-600 rounded px-2 py-0.5 outline-none focus:border-blue-500"
               autoFocus
               onBlur={(e) => saveTitle(e.target.value)}
               onKeyDown={(e) => {
@@ -196,14 +200,14 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
             />
           ) : (
             <span
-              className={`text-white font-medium ${isOwner ? "cursor-pointer hover:text-blue-400 transition-colors" : ""}`}
+              className={`text-gray-900 dark:text-white font-medium ${isOwner ? "cursor-pointer hover:text-blue-400 transition-colors" : ""}`}
               onClick={() => isOwner && setEditingTitle(true)}
             >
               {loadedFile.title}
             </span>
           )}
           {readOnly && (
-            <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded">
+            <span className="text-xs bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded">
               View only
             </span>
           )}
@@ -212,7 +216,7 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
           {!currentUser && (
             <a
               href="/auth/google"
-              className="text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded-md transition-colors mr-1"
+              className="text-sm text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 px-3 py-1 rounded-md transition-colors mr-1"
             >
               Sign in
             </a>
@@ -246,7 +250,7 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="text-gray-400 hover:text-white transition-colors cursor-pointer p-1.5 rounded hover:bg-gray-800"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800"
                 title="Import .cdl file"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -258,7 +262,7 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
           )}
           <button
             onClick={() => doc && exportToCdl(doc, loadedFile.title)}
-            className="text-gray-400 hover:text-white transition-colors cursor-pointer p-1.5 rounded hover:bg-gray-800"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800"
             title="Export .cdl file"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -269,7 +273,7 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
           {isOwner && (
             <button
               onClick={() => setShareOpen(true)}
-              className="text-gray-400 hover:text-white transition-colors cursor-pointer p-1.5 rounded hover:bg-gray-800"
+              className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800"
               title="Share"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -282,7 +286,7 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
           )}
           {remoteUsers.length > 0 && (
             <>
-              <div className="w-px h-4 bg-gray-700 mx-1" />
+              <div className="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-1" />
               <div className="relative">
                 <button
                   onClick={() => setPresenceOpen(!presenceOpen)}
@@ -291,18 +295,18 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
                   {remoteUsers.slice(0, 5).map((u) => (
                     <div
                       key={u.clientId}
-                      className="w-6 h-6 rounded-full border-2 border-gray-900 flex items-center justify-center text-[10px] font-medium shrink-0 overflow-hidden"
+                      className="w-6 h-6 rounded-full border-2 border-white dark:border-gray-900 flex items-center justify-center text-[10px] font-medium shrink-0 overflow-hidden"
                       style={{ backgroundColor: u.avatarUrl ? undefined : u.color }}
                     >
                       {u.avatarUrl ? (
                         <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
-                        <span className="text-white">{u.name[0]}</span>
+                        <span className="text-gray-900 dark:text-white">{u.name[0]}</span>
                       )}
                     </div>
                   ))}
                   {remoteUsers.length > 5 && (
-                    <div className="w-6 h-6 rounded-full border-2 border-gray-900 bg-gray-700 flex items-center justify-center text-[10px] font-medium text-gray-300 shrink-0">
+                    <div className="w-6 h-6 rounded-full border-2 border-white dark:border-gray-900 bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-[10px] font-medium text-gray-600 dark:text-gray-300 shrink-0">
                       +{remoteUsers.length - 5}
                     </div>
                   )}
@@ -310,8 +314,8 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
                 {presenceOpen && (
                   <>
                     <div className="fixed inset-0 z-20" onClick={() => setPresenceOpen(false)} />
-                    <div className="absolute right-0 top-full mt-2 z-30 bg-gray-800 border border-gray-700 rounded-lg shadow-xl py-1 w-[240px]">
-                      <div className="px-3 py-1.5 text-[11px] text-gray-500 font-medium uppercase tracking-wider">
+                    <div className="absolute right-0 top-full mt-2 z-30 bg-gray-200 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl py-1 w-[240px]">
+                      <div className="px-3 py-1.5 text-[11px] text-gray-400 dark:text-gray-500 font-medium uppercase tracking-wider">
                         Online — {remoteUsers.length + 1}
                       </div>
                       {/* Current user */}
@@ -323,20 +327,20 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
                           {currentUser?.avatarUrl ? (
                             <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           ) : (
-                            <span className="text-white">{(currentUser?.name ?? "A")[0]}</span>
+                            <span className="text-gray-900 dark:text-white">{(currentUser?.name ?? "A")[0]}</span>
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm text-white truncate">
-                            {currentUser?.name ?? "Anonymous"} <span className="text-gray-500 text-xs">(you)</span>
+                          <div className="text-sm text-gray-900 dark:text-white truncate">
+                            {currentUser?.name ?? "Anonymous"} <span className="text-gray-400 dark:text-gray-500 text-xs">(you)</span>
                           </div>
                         </div>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 capitalize shrink-0">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-300 capitalize shrink-0">
                           {permission || "viewer"}
                         </span>
                       </div>
                       {/* Separator */}
-                      <div className="border-t border-gray-700 my-1" />
+                      <div className="border-t border-gray-300 dark:border-gray-700 my-1" />
                       {/* Remote users */}
                       <div className="max-h-[240px] overflow-y-auto">
                         {remoteUsers.map((u) => (
@@ -348,14 +352,14 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
                               {u.avatarUrl ? (
                                 <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                               ) : (
-                                <span className="text-white">{u.name[0]}</span>
+                                <span className="text-gray-900 dark:text-white">{u.name[0]}</span>
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="text-sm text-white truncate">{u.name}</div>
+                              <div className="text-sm text-gray-900 dark:text-white truncate">{u.name}</div>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 capitalize">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-300 capitalize">
                                 {u.role || "viewer"}
                               </span>
                               <div
@@ -372,7 +376,18 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
               </div>
             </>
           )}
-          <div className="w-px h-4 bg-gray-700 mx-1" />
+          <div className="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-1" />
+          <button
+            onClick={toggleTheme}
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800"
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {theme === "dark" ? (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="8" cy="8" r="3" /><path d="M8 1.5v1M8 13.5v1M1.5 8h1M13.5 8h1M3.4 3.4l.7.7M11.9 11.9l.7.7M3.4 12.6l.7-.7M11.9 4.1l.7-.7" /></svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 8.5a5.5 5.5 0 0 1-7-7 5.5 5.5 0 1 0 7 7z" /></svg>
+            )}
+          </button>
           <span
             className={`w-2.5 h-2.5 rounded-full ${connected ? "bg-green-400" : "bg-red-400"}`}
             title={connected ? "Connected" : "Disconnected"}
@@ -390,12 +405,13 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
               onQuickAdd={() => setQuickAddOpen(true)}
               onGateDblClick={(gateId) => {
                 if (readOnly) return;
-                const def = loadedGateDefs.find((d) => {
-                  const gatesMap = getGatesMap(doc);
-                  const yGate = gatesMap.get(gateId);
-                  return yGate && d.id === yGate.get("defId");
-                });
-                if (def?.paramDlg?.some((e) => e.type !== "FILE_IN" && e.type !== "FILE_OUT")) {
+                const yGate = getGatesMap(doc).get(gateId);
+                if (!yGate) return;
+                const def = loadedGateDefs.find((d) => d.id === yGate.get("defId"));
+                if (!def) return;
+                if (def.logicType === "RAM") {
+                  setRamEditorGateId(gateId);
+                } else if (def.paramDlg?.some((e) => e.type !== "FILE_IN" && e.type !== "FILE_OUT")) {
                   setEditingGateId(gateId);
                 }
               }}
@@ -405,7 +421,7 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
               userMetaByHash={userMetaByHash}
             />
           ) : (
-            <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
               Syncing...
             </div>
           )}
@@ -424,6 +440,9 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
       )}
       {editingGateId && doc && (
         <GatePropertiesDialog gateId={editingGateId} doc={doc} onClose={() => setEditingGateId(null)} />
+      )}
+      {ramEditorGateId && doc && (
+        <RamEditorDialog gateId={ramEditorGateId} doc={doc} onClose={() => setRamEditorGateId(null)} />
       )}
     </div>
   );

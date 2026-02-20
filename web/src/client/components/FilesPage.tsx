@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { useThemeStore } from "../stores/theme-store";
 import { FilesToolbar, type FilterTab, type SortBy } from "./FilesToolbar";
 import { CircuitCardGrid } from "./CircuitCardGrid";
 import type { FileWithPermission, ThumbnailData } from "@shared/types";
@@ -10,6 +11,7 @@ interface FilesPageProps {
 
 export function FilesPage({ onOpenFile }: FilesPageProps) {
   const { user, logout } = useAuth();
+  const { theme, toggle: toggleTheme } = useThemeStore();
   const [files, setFiles] = useState<FileWithPermission[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<string, ThumbnailData>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -94,14 +96,25 @@ export function FilesPage({ onOpenFile }: FilesPageProps) {
         : "No circuits yet. Create one to get started.";
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+    <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-white">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800">
         <h1 className="text-xl font-bold">CedarLogic Web</h1>
         <div className="flex items-center gap-4">
-          <span className="text-gray-400 text-sm">{user?.email}</span>
+          <button
+            onClick={toggleTheme}
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800"
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {theme === "dark" ? (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="8" cy="8" r="3" /><path d="M8 1.5v1M8 13.5v1M1.5 8h1M13.5 8h1M3.4 3.4l.7.7M11.9 11.9l.7.7M3.4 12.6l.7-.7M11.9 4.1l.7-.7" /></svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 8.5a5.5 5.5 0 0 1-7-7 5.5 5.5 0 1 0 7 7z" /></svg>
+            )}
+          </button>
+          <span className="text-gray-500 dark:text-gray-400 text-sm">{user?.email}</span>
           <button
             onClick={logout}
-            className="text-sm text-gray-400 hover:text-white transition-colors cursor-pointer"
+            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
           >
             Sign out
           </button>

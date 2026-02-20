@@ -1,14 +1,14 @@
 import { Layer, Line } from "react-konva";
 import { GRID_SIZE } from "@shared/constants";
 import { useCanvasStore } from "../../stores/canvas-store";
-
-const GRID_COLOR = "#1e293b";
+import { useCanvasColors } from "../../hooks/useCanvasColors";
 
 export function GridLayer() {
   const viewportX = useCanvasStore((s) => s.viewportX);
   const viewportY = useCanvasStore((s) => s.viewportY);
   const zoom = useCanvasStore((s) => s.zoom);
   const canvasSize = useCanvasStore((s) => s.canvasSize);
+  const colors = useCanvasColors();
 
   // Compute the visible world-space region
   const left = -viewportX / zoom;
@@ -29,7 +29,7 @@ export function GridLayer() {
       <Line
         key={`h-${y}`}
         points={[startX, y, endX, y]}
-        stroke={GRID_COLOR}
+        stroke={colors.grid}
         strokeWidth={0.5}
       />
     );
@@ -39,7 +39,7 @@ export function GridLayer() {
       <Line
         key={`v-${x}`}
         points={[x, startY, x, endY]}
-        stroke={GRID_COLOR}
+        stroke={colors.grid}
         strokeWidth={0.5}
       />
     );

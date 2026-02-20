@@ -103,9 +103,9 @@ export function GatePropertiesDialog({ gateId, doc, onClose }: GatePropertiesDia
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-gray-900 rounded-xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-semibold text-white mb-4">{def.caption} Properties</h3>
+    <div className="fixed inset-0 bg-black/30 dark:bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{def.caption} Properties</h3>
         <form onSubmit={handleSubmit} className="space-y-3">
           {entries.map((entry, i) => {
             const key = getParamKey(entry);
@@ -114,12 +114,12 @@ export function GatePropertiesDialog({ gateId, doc, onClose }: GatePropertiesDia
 
             if (entry.type === "BOOL") {
               return (
-                <label key={key} className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                <label key={key} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={val === "true"}
                     onChange={(e) => setValues({ ...values, [key]: e.target.checked ? "true" : "false" })}
-                    className="rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500"
+                    className="rounded border-gray-400 dark:border-gray-600 bg-gray-200 dark:bg-gray-800 text-blue-500 focus:ring-blue-500"
                   />
                   {entry.label}
                 </label>
@@ -128,7 +128,7 @@ export function GatePropertiesDialog({ gateId, doc, onClose }: GatePropertiesDia
 
             return (
               <div key={key}>
-                <label className="block text-sm text-gray-400 mb-1">{entry.label}</label>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">{entry.label}</label>
                 <input
                   ref={i === 0 ? firstInputRef : undefined}
                   type={entry.type === "STRING" ? "text" : "number"}
@@ -137,7 +137,7 @@ export function GatePropertiesDialog({ gateId, doc, onClose }: GatePropertiesDia
                   step={entry.type === "FLOAT" ? 0.05 : 1}
                   min={range ? range[0] : undefined}
                   max={range ? range[1] : undefined}
-                  className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-white text-sm outline-none focus:border-blue-500"
+                  className="w-full bg-gray-200 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-3 py-1.5 text-gray-900 dark:text-white text-sm outline-none focus:border-blue-500"
                 />
               </div>
             );
@@ -146,7 +146,7 @@ export function GatePropertiesDialog({ gateId, doc, onClose }: GatePropertiesDia
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-sm text-gray-400 hover:text-white transition-colors cursor-pointer"
+              className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               Cancel
             </button>

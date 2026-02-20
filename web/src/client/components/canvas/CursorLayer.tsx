@@ -3,6 +3,7 @@ import { Layer } from "react-konva";
 import Konva from "konva";
 import type { CursorWS } from "../../lib/collab/cursor-ws";
 import { createSpring, setSpringTarget, tickSpring, type SpringState } from "../../lib/canvas/spring";
+import { useCanvasColors } from "../../hooks/useCanvasColors";
 
 interface CursorState {
   group: Konva.Group;
@@ -28,6 +29,9 @@ export function CursorLayer({ cursorWS, userMeta }: CursorLayerProps) {
   // Keep userMeta in a ref so the effect doesn't depend on it
   const userMetaRef = useRef(userMeta);
   userMetaRef.current = userMeta;
+  const colors = useCanvasColors();
+  const colorsRef = useRef(colors);
+  colorsRef.current = colors;
 
   useEffect(() => {
     if (!cursorWS) return;
@@ -40,7 +44,7 @@ export function CursorLayer({ cursorWS, userMeta }: CursorLayerProps) {
       if (c) return c;
 
       const meta = userMetaRef.current.get(userHash);
-      const color = meta?.color ?? "#888";
+      const color = meta?.color ?? colorsRef.current.cursorFallback;
       const name = meta?.name ?? "?";
 
       const group = new Konva.Group({ x: 0, y: 0, visible: false });
@@ -49,7 +53,7 @@ export function CursorLayer({ cursorWS, userMeta }: CursorLayerProps) {
         points: [0, 0, 3.6, 13.5, 6.9, 9.7, 13.3, 7.2],
         fill: color,
         closed: true,
-        stroke: "#000",
+        stroke: colorsRef.current.cursorOutline,
         strokeWidth: 0.5,
       });
 
@@ -57,7 +61,7 @@ export function CursorLayer({ cursorWS, userMeta }: CursorLayerProps) {
       const labelText = new Konva.Text({
         text: name,
         fontSize: 11,
-        fill: "#fff",
+        fill: colorsRef.current.cursorLabelText,
         x: 4,
         y: 2,
         fontFamily: "system-ui, sans-serif",

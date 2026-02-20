@@ -10,7 +10,7 @@ export function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-950 text-gray-400">
+      <div className="flex items-center justify-center h-screen bg-white dark:bg-gray-950 text-gray-500 dark:text-gray-400">
         Loading...
       </div>
     );
