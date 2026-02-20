@@ -17,7 +17,7 @@ import {
   cloneModel,
 } from "../../lib/canvas/wire-model";
 import type { DragState } from "../../lib/canvas/wire-model";
-import { useSimulationStore } from "../../stores/simulation-store";
+import { useWireState } from "../../stores/simulation-store";
 import { useCanvasStore } from "../../stores/canvas-store";
 import { WIRE_STATE, SNAP_SIZE, GRID_SIZE } from "@shared/constants";
 import { useCanvasColors } from "../../hooks/useCanvasColors";
@@ -61,13 +61,131 @@ function makePinPosFn(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Memoized per-wire component — subscribes only to its own wire state
+// ---------------------------------------------------------------------------
+
+interface WireShapeProps {
+  wire: WireRenderData;
+  dragPreview: { wireId: string; model: WireModel; renderInfo: WireRenderInfo } | null;
+  readOnly: boolean;
+  onSegmentMouseDown: (wireId: string, segId: number, e: Konva.KonvaEventObject<MouseEvent>) => void;
+  onWireClick: (wireId: string, e: Konva.KonvaEventObject<MouseEvent>) => void;
+}
+
+const WireShape = React.memo(function WireShape({
+  wire,
+  dragPreview,
+  readOnly,
+  onSegmentMouseDown,
+  onWireClick,
+}: WireShapeProps) {
+  const state = useWireState(wire.id);
+  const colors = useCanvasColors();
+  const selected = useCanvasStore((s) => !!s.selectedIds[wire.id]);
+
+  const color = colors.wire[state];
+  const strokeColor = selected ? colors.wireSelected : color;
+
+  // Use drag preview if this wire is being dragged, otherwise use Yjs data
+  const preview = dragPreview?.wireId === wire.id ? dragPreview : null;
+  const model = preview?.model ?? wire.model;
+  const { lineSegments, intersectPoints } = preview?.renderInfo ?? wire.renderInfo;
+
+  return (
+    <React.Fragment>
+      {/* Render each segment as an independent line */}
+      {lineSegments.map((seg, i) => (
+        <Line
+          key={`line-${i}`}
+          points={[seg.x1, seg.y1, seg.x2, seg.y2]}
+          stroke={strokeColor}
+          strokeWidth={2}
+          lineCap="round"
+          lineJoin="round"
+          hitStrokeWidth={10}
+          onMouseDown={(e) => onWireClick(wire.id, e)}
+        />
+      ))}
+
+      {/* T-junction dots */}
+      {intersectPoints.map((pt, i) => (
+        <Circle
+          key={`isect-${i}`}
+          x={pt.x}
+          y={pt.y}
+          radius={3}
+          fill={strokeColor}
+          listening={false}
+        />
+      ))}
+
+      {/* Drag handles keyed by segment ID */}
+      {!readOnly && Object.values(model.segMap).map((seg) => {
+        const horiz = !seg.vertical;
+
+        if (horiz) {
+          const minX = Math.min(seg.begin.x, seg.end.x);
+          const segWidth = Math.abs(seg.end.x - seg.begin.x);
+          return (
+            <Rect
+              key={`drag-${seg.id}`}
+              x={minX}
+              y={seg.begin.y}
+              width={segWidth}
+              height={0}
+              stroke="transparent"
+              strokeWidth={12}
+              hitStrokeWidth={12}
+              onMouseDown={(e) => onSegmentMouseDown(wire.id, seg.id, e)}
+              onMouseEnter={(e) => {
+                const container = e.target.getStage()?.container();
+                if (container) container.style.cursor = "row-resize";
+              }}
+              onMouseLeave={(e) => {
+                const container = e.target.getStage()?.container();
+                if (container) container.style.cursor = "";
+              }}
+            />
+          );
+        } else {
+          const minY = Math.min(seg.begin.y, seg.end.y);
+          const segHeight = Math.abs(seg.end.y - seg.begin.y);
+          return (
+            <Rect
+              key={`drag-${seg.id}`}
+              x={seg.begin.x}
+              y={minY}
+              width={0}
+              height={segHeight}
+              stroke="transparent"
+              strokeWidth={12}
+              hitStrokeWidth={12}
+              onMouseDown={(e) => onSegmentMouseDown(wire.id, seg.id, e)}
+              onMouseEnter={(e) => {
+                const container = e.target.getStage()?.container();
+                if (container) container.style.cursor = "col-resize";
+              }}
+              onMouseLeave={(e) => {
+                const container = e.target.getStage()?.container();
+                if (container) container.style.cursor = "";
+              }}
+            />
+          );
+        }
+      })}
+    </React.Fragment>
+  );
+});
+
+// ---------------------------------------------------------------------------
+// WireLayer — no longer subscribes to wireStates
+// ---------------------------------------------------------------------------
+
 export function WireLayer({ doc, readOnly }: WireLayerProps) {
   const [wires, setWires] = useState<Map<string, WireRenderData>>(new Map());
   const [gateDefs, setGateDefs] = useState<GateDefinition[]>([]);
-  const wireStates = useSimulationStore((s) => s.wireStates);
-  const selectedIds = useCanvasStore((s) => s.selectedIds);
   const selectOnly = useCanvasStore((s) => s.selectOnly);
-  const colors = useCanvasColors();
 
   // Local drag preview — rendered directly from React state, bypasses Yjs round-trip
   const [dragPreview, setDragPreview] = useState<{
@@ -231,102 +349,16 @@ export function WireLayer({ doc, readOnly }: WireLayerProps) {
 
   return (
     <Layer>
-      {Array.from(wires.values()).map((wire) => {
-        const state = wireStates.get(wire.id) ?? WIRE_STATE.UNKNOWN;
-        const color = colors.wire[state];
-        const selected = !!selectedIds[wire.id];
-        const strokeColor = selected ? colors.wireSelected : color;
-
-        // Use drag preview if this wire is being dragged, otherwise use Yjs data
-        const preview = dragPreview?.wireId === wire.id ? dragPreview : null;
-        const model = preview?.model ?? wire.model;
-        const { lineSegments, intersectPoints } = preview?.renderInfo ?? wire.renderInfo;
-
-        return (
-          <React.Fragment key={wire.id}>
-            {/* Render each segment as an independent line */}
-            {lineSegments.map((seg, i) => (
-              <Line
-                key={`line-${i}`}
-                points={[seg.x1, seg.y1, seg.x2, seg.y2]}
-                stroke={strokeColor}
-                strokeWidth={2}
-                lineCap="round"
-                lineJoin="round"
-                hitStrokeWidth={10}
-                onMouseDown={(e) => handleWireClick(wire.id, e)}
-              />
-            ))}
-
-            {/* T-junction dots */}
-            {intersectPoints.map((pt, i) => (
-              <Circle
-                key={`isect-${i}`}
-                x={pt.x}
-                y={pt.y}
-                radius={3}
-                fill={strokeColor}
-                listening={false}
-              />
-            ))}
-
-            {/* Drag handles keyed by segment ID */}
-            {!readOnly && Object.values(model.segMap).map((seg) => {
-              const horiz = !seg.vertical;
-
-              if (horiz) {
-                const minX = Math.min(seg.begin.x, seg.end.x);
-                const segWidth = Math.abs(seg.end.x - seg.begin.x);
-                return (
-                  <Rect
-                    key={`drag-${seg.id}`}
-                    x={minX}
-                    y={seg.begin.y}
-                    width={segWidth}
-                    height={0}
-                    stroke="transparent"
-                    strokeWidth={12}
-                    hitStrokeWidth={12}
-                    onMouseDown={(e) => handleSegmentMouseDown(wire.id, seg.id, e)}
-                    onMouseEnter={(e) => {
-                      const container = e.target.getStage()?.container();
-                      if (container) container.style.cursor = "row-resize";
-                    }}
-                    onMouseLeave={(e) => {
-                      const container = e.target.getStage()?.container();
-                      if (container) container.style.cursor = "";
-                    }}
-                  />
-                );
-              } else {
-                const minY = Math.min(seg.begin.y, seg.end.y);
-                const segHeight = Math.abs(seg.end.y - seg.begin.y);
-                return (
-                  <Rect
-                    key={`drag-${seg.id}`}
-                    x={seg.begin.x}
-                    y={minY}
-                    width={0}
-                    height={segHeight}
-                    stroke="transparent"
-                    strokeWidth={12}
-                    hitStrokeWidth={12}
-                    onMouseDown={(e) => handleSegmentMouseDown(wire.id, seg.id, e)}
-                    onMouseEnter={(e) => {
-                      const container = e.target.getStage()?.container();
-                      if (container) container.style.cursor = "col-resize";
-                    }}
-                    onMouseLeave={(e) => {
-                      const container = e.target.getStage()?.container();
-                      if (container) container.style.cursor = "";
-                    }}
-                  />
-                );
-              }
-            })}
-          </React.Fragment>
-        );
-      })}
+      {Array.from(wires.values()).map((wire) => (
+        <WireShape
+          key={wire.id}
+          wire={wire}
+          dragPreview={dragPreview?.wireId === wire.id ? dragPreview : null}
+          readOnly={readOnly}
+          onSegmentMouseDown={handleSegmentMouseDown}
+          onWireClick={handleWireClick}
+        />
+      ))}
     </Layer>
   );
 }

@@ -17,7 +17,7 @@ import {
   updateConnectionPos,
 } from "../../lib/canvas/wire-model";
 import { useCanvasStore } from "../../stores/canvas-store";
-import { useSimulationStore } from "../../stores/simulation-store";
+import { useWireState, useWireStates } from "../../stores/simulation-store";
 import { GRID_SIZE, SNAP_SIZE, WIRE_STATE } from "@shared/constants";
 import type { GateDefinition } from "@shared/types";
 import type { WireState } from "@shared/constants";
@@ -164,21 +164,377 @@ function rotatePin(lx: number, ly: number, gateX: number, gateY: number, degrees
   };
 }
 
+// ---------------------------------------------------------------------------
+// LED wire-state wrapper — subscribes to a single wire
+// ---------------------------------------------------------------------------
+
+function LedIndicator({ wireId, def }: { wireId: string | undefined; def: GateDefinition }) {
+  const state = useWireState(wireId ?? "");
+  const colors = useCanvasColors();
+  const ledColor = colors.wire[wireId ? state : WIRE_STATE.UNKNOWN];
+
+  const boxStr = def.guiParams?.LED_BOX;
+  if (!boxStr) return null;
+  const [bx1, rawY1, bx2, rawY2] = boxStr.split(",").map(Number);
+  const by1 = Math.min(-rawY1, -rawY2);
+  const by2 = Math.max(-rawY1, -rawY2);
+  return (
+    <Rect
+      x={bx1 * GRID_SIZE}
+      y={by1 * GRID_SIZE}
+      width={(bx2 - bx1) * GRID_SIZE}
+      height={(by2 - by1) * GRID_SIZE}
+      fill={ledColor}
+      opacity={0.85}
+      listening={false}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// REGISTER wire-state wrapper — subscribes to multiple wires
+// ---------------------------------------------------------------------------
+
+function RegisterDisplay({
+  gate,
+  def,
+  pinWireMap,
+}: {
+  gate: GateRenderData;
+  def: GateDefinition;
+  pinWireMap: Map<string, string>;
+}) {
+  const colors = useCanvasColors();
+  const boxStr = def.guiParams?.VALUE_BOX;
+  if (!boxStr) return null;
+
+  const numBits = parseInt(def.params?.INPUT_BITS ?? "0", 10);
+
+  // Collect wireIds for all input bits
+  const wireIds = useMemo(() => {
+    const ids: string[] = [];
+    for (let i = 0; i < numBits; i++) {
+      const wid = pinWireMap.get(`${gate.id}:IN_${i}`);
+      if (wid) ids.push(wid);
+    }
+    return ids;
+  }, [gate.id, numBits, pinWireMap]);
+
+  const getState = useWireStates(wireIds);
+
+  const [bx1, rawY1, bx2, rawY2] = boxStr.split(",").map(Number);
+  const by1 = Math.min(-rawY1, -rawY2);
+  const by2 = Math.max(-rawY1, -rawY2);
+
+  // Compute value from input wire states
+  let value = 0;
+  for (let i = 0; i < numBits; i++) {
+    const wireId = pinWireMap.get(`${gate.id}:IN_${i}`);
+    if (wireId) {
+      const ws = getState(wireId);
+      if (ws === WIRE_STATE.ONE) {
+        value |= (1 << i);
+      }
+    }
+  }
+
+  const hexDigits = Math.max(1, Math.ceil(numBits / 4));
+  const hexStr = value.toString(16).toUpperCase().padStart(hexDigits, "0");
+
+  const boxW = (bx2 - bx1) * GRID_SIZE;
+  const boxH = (by2 - by1) * GRID_SIZE;
+  const boxX = bx1 * GRID_SIZE;
+  const boxY = by1 * GRID_SIZE;
+
+  return (
+    <>
+      <Rect
+        x={boxX}
+        y={boxY}
+        width={boxW}
+        height={boxH}
+        fill={colors.sevenSegBg}
+        listening={false}
+      />
+      {renderSevenSegDigits(hexStr, boxX, boxY, boxW, boxH, colors.sevenSegOn, colors.sevenSegOff)}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Memoized per-gate component
+// ---------------------------------------------------------------------------
+
+interface GateShapeProps {
+  gate: GateRenderData;
+  def: GateDefinition;
+  readOnly: boolean;
+  connectedWireId: string | undefined; // first connected wireId for LED/NODE
+  pinWireMap: Map<string, string>;
+  onDragMove: (id: string, e: Konva.KonvaEventObject<DragEvent>) => void;
+  onDragEnd: (id: string, e: Konva.KonvaEventObject<DragEvent>) => void;
+  onMouseDown: (id: string, e: Konva.KonvaEventObject<MouseEvent>) => void;
+  onToggleClick: (id: string, e: Konva.KonvaEventObject<MouseEvent>) => void;
+  onDblClick?: (gateId: string) => void;
+  onPinMouseDown: (
+    gateId: string, gateX: number, gateY: number, gateRotation: number,
+    pinName: string, pinDirection: "input" | "output", pinX: number, pinY: number,
+    e: Konva.KonvaEventObject<MouseEvent>
+  ) => void;
+  onPinMouseUp: (
+    gateId: string, gateX: number, gateY: number, gateRotation: number,
+    pinName: string, pinDirection: "input" | "output", pinX: number, pinY: number,
+    e: Konva.KonvaEventObject<MouseEvent>
+  ) => void;
+  onPinMouseEnter: (
+    gateId: string, gateX: number, gateY: number, gateRotation: number,
+    pinName: string, pinDirection: "input" | "output", pinX: number, pinY: number,
+    e: Konva.KonvaEventObject<MouseEvent>
+  ) => void;
+  onPinMouseLeave: (e: Konva.KonvaEventObject<MouseEvent>) => void;
+}
+
+const GateShape = React.memo(function GateShape({
+  gate,
+  def,
+  readOnly,
+  connectedWireId,
+  pinWireMap,
+  onDragMove,
+  onDragEnd,
+  onMouseDown,
+  onToggleClick,
+  onDblClick,
+  onPinMouseDown,
+  onPinMouseUp,
+  onPinMouseEnter,
+  onPinMouseLeave,
+}: GateShapeProps) {
+  const selected = useCanvasStore((s) => !!s.selectedIds[gate.id]);
+  const hoveredPin = useCanvasStore((s) => s.hoveredPin);
+  const colors = useCanvasColors();
+
+  const strokeColor = selected ? colors.gateSelected : colors.gateStroke;
+  const bounds = getGateBounds(def);
+
+  const isToggle = def.guiType === "TOGGLE";
+  const toggleOn = isToggle && gate.params.OUTPUT_NUM === "1";
+  const isLed = def.guiType === "LED";
+
+  return (
+    <Group
+      x={gate.x}
+      y={gate.y}
+      rotation={gate.rotation}
+      draggable={!readOnly && !useCanvasStore.getState().wireDrawing}
+      onDragMove={(e) => onDragMove(gate.id, e)}
+      onDragEnd={(e) => onDragEnd(gate.id, e)}
+      onMouseDown={(e) => onMouseDown(gate.id, e)}
+      onDblClick={() => onDblClick?.(gate.id)}
+    >
+      {/* Invisible hit area */}
+      <Rect
+        x={bounds.x}
+        y={bounds.y}
+        width={bounds.width}
+        height={bounds.height}
+        fill="rgba(0,0,0,0.01)"
+      />
+      {/* Toggle state indicator */}
+      {isToggle && (
+        <Rect
+          x={-0.6 * GRID_SIZE}
+          y={-0.6 * GRID_SIZE}
+          width={1.2 * GRID_SIZE}
+          height={1.2 * GRID_SIZE}
+          fill={toggleOn ? colors.toggleOn : colors.toggleOff}
+          cornerRadius={2}
+          onMouseDown={(e) => onToggleClick(gate.id, e)}
+        />
+      )}
+      {/* LED state indicator */}
+      {isLed && <LedIndicator wireId={connectedWireId} def={def} />}
+      {/* REGISTER display */}
+      {def.guiType === "REGISTER" && (
+        <RegisterDisplay gate={gate} def={def} pinWireMap={pinWireMap} />
+      )}
+      {def.shape.map((seg, i) => (
+        <Line
+          key={i}
+          points={[
+            seg.x1 * GRID_SIZE,
+            seg.y1 * GRID_SIZE,
+            seg.x2 * GRID_SIZE,
+            seg.y2 * GRID_SIZE,
+          ]}
+          stroke={strokeColor}
+          strokeWidth={1.5}
+          lineCap="round"
+          lineJoin="round"
+        />
+      ))}
+      {def.circles?.map((c, i) => (
+        <Circle
+          key={`circle-${i}`}
+          x={c.cx * GRID_SIZE}
+          y={c.cy * GRID_SIZE}
+          radius={c.r * GRID_SIZE}
+          stroke={strokeColor}
+          strokeWidth={1.5}
+          listening={false}
+        />
+      ))}
+      {/* LABEL text */}
+      {def.guiType === "LABEL" && (() => {
+        const labelText = gate.params.LABEL_TEXT ?? "Text";
+        const textHeight = parseFloat(gate.params.TEXT_HEIGHT ?? "2.0");
+        const fontSize = textHeight * GRID_SIZE;
+        return (
+          <Text
+            text={labelText}
+            fontSize={fontSize}
+            fill={selected ? colors.gateSelected : colors.labelText}
+            fontFamily="monospace"
+            listening={false}
+            offsetY={fontSize / 2}
+          />
+        );
+      })()}
+      {/* FROM text */}
+      {def.guiType === "FROM" && (() => {
+        const labelText = gate.params.JUNCTION_ID ?? "";
+        const fontSize = 1.5 * GRID_SIZE;
+        return (
+          <Text
+            text={labelText}
+            fontSize={fontSize}
+            fill={selected ? colors.gateSelected : colors.labelText}
+            fontFamily="monospace"
+            listening={false}
+            x={0}
+            y={-fontSize / 2}
+            align="right"
+            offsetX={fontSize * labelText.length * 0.6}
+          />
+        );
+      })()}
+      {/* TO text */}
+      {def.guiType === "TO" && (() => {
+        const labelText = gate.params.JUNCTION_ID ?? "";
+        const fontSize = 1.5 * GRID_SIZE;
+        return (
+          <Text
+            text={labelText}
+            fontSize={fontSize}
+            fill={selected ? colors.gateSelected : colors.labelText}
+            fontFamily="monospace"
+            listening={false}
+            x={0.4 * GRID_SIZE}
+            y={-fontSize / 2}
+          />
+        );
+      })()}
+      {/* Input pins */}
+      {def.inputs.map((pin) => {
+        const isHovered = hoveredPin?.gateId === gate.id && hoveredPin?.pinName === pin.name && hoveredPin?.pinDirection === "input";
+        return (
+          <React.Fragment key={`in-group-${pin.name}`}>
+            {isHovered && (
+              <Rect
+                x={pin.x * GRID_SIZE - 5}
+                y={pin.y * GRID_SIZE - 5}
+                width={10}
+                height={10}
+                fill={colors.pinHover}
+                listening={false}
+              />
+            )}
+            <Circle
+              x={pin.x * GRID_SIZE}
+              y={pin.y * GRID_SIZE}
+              radius={3}
+              fill={colors.pinDot}
+              listening={false}
+            />
+            <Circle
+              x={pin.x * GRID_SIZE}
+              y={pin.y * GRID_SIZE}
+              radius={PIN_HIT_RADIUS}
+              fill="rgba(0,0,0,0.01)"
+              onMouseDown={(e) =>
+                onPinMouseDown(gate.id, gate.x, gate.y, gate.rotation, pin.name, "input", pin.x, pin.y, e)
+              }
+              onMouseUp={(e) =>
+                onPinMouseUp(gate.id, gate.x, gate.y, gate.rotation, pin.name, "input", pin.x, pin.y, e)
+              }
+              onMouseEnter={(e) =>
+                onPinMouseEnter(gate.id, gate.x, gate.y, gate.rotation, pin.name, "input", pin.x, pin.y, e)
+              }
+              onMouseLeave={onPinMouseLeave}
+            />
+          </React.Fragment>
+        );
+      })}
+      {/* Output pins */}
+      {def.outputs.map((pin) => {
+        const isHovered = hoveredPin?.gateId === gate.id && hoveredPin?.pinName === pin.name && hoveredPin?.pinDirection === "output";
+        return (
+          <React.Fragment key={`out-group-${pin.name}`}>
+            {isHovered && (
+              <Rect
+                x={pin.x * GRID_SIZE - 5}
+                y={pin.y * GRID_SIZE - 5}
+                width={10}
+                height={10}
+                fill={colors.pinHover}
+                listening={false}
+              />
+            )}
+            <Circle
+              x={pin.x * GRID_SIZE}
+              y={pin.y * GRID_SIZE}
+              radius={3}
+              fill={colors.pinDot}
+              listening={false}
+            />
+            <Circle
+              x={pin.x * GRID_SIZE}
+              y={pin.y * GRID_SIZE}
+              radius={PIN_HIT_RADIUS}
+              fill="rgba(0,0,0,0.01)"
+              onMouseDown={(e) =>
+                onPinMouseDown(gate.id, gate.x, gate.y, gate.rotation, pin.name, "output", pin.x, pin.y, e)
+              }
+              onMouseUp={(e) =>
+                onPinMouseUp(gate.id, gate.x, gate.y, gate.rotation, pin.name, "output", pin.x, pin.y, e)
+              }
+              onMouseEnter={(e) =>
+                onPinMouseEnter(gate.id, gate.x, gate.y, gate.rotation, pin.name, "output", pin.x, pin.y, e)
+              }
+              onMouseLeave={onPinMouseLeave}
+            />
+          </React.Fragment>
+        );
+      })}
+    </Group>
+  );
+});
+
+// ---------------------------------------------------------------------------
+// GateLayer — no longer subscribes to wireStates
+// ---------------------------------------------------------------------------
+
 export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
   const [gates, setGates] = useState<Map<string, GateRenderData>>(new Map());
   const [defs, setDefs] = useState<GateDefinition[]>([]);
-  // Map from gateId to array of connected wireIds
-  const [gateWireMap, setGateWireMap] = useState<Map<string, string[]>>(new Map());
+  // Map from gateId to first connected wireId (for LED/NODE state)
+  const [gateFirstWire, setGateFirstWire] = useState<Map<string, string>>(new Map());
   // Map from "gateId:pinName" to wireId (for computing register values)
   const [pinWireMap, setPinWireMap] = useState<Map<string, string>>(new Map());
-  const selectedIds = useCanvasStore((s) => s.selectedIds);
   const selectOnly = useCanvasStore((s) => s.selectOnly);
   const toggleSelection = useCanvasStore((s) => s.toggleSelection);
   const setWireDrawing = useCanvasStore((s) => s.setWireDrawing);
-  const hoveredPin = useCanvasStore((s) => s.hoveredPin);
   const setHoveredPin = useCanvasStore((s) => s.setHoveredPin);
-  const wireStates = useSimulationStore((s) => s.wireStates);
-  const colors = useCanvasColors();
 
   useEffect(() => {
     loadGateDefs().then(setDefs);
@@ -216,18 +572,16 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
     const connectionsMap = getConnectionsMap(doc);
 
     function syncConns() {
-      const next = new Map<string, string[]>();
+      const nextFirst = new Map<string, string>();
       const nextPinWire = new Map<string, string>();
       connectionsMap.forEach((yConn) => {
         const gateId = yConn.get("gateId") as string;
         const wireId = yConn.get("wireId") as string;
         const pinName = yConn.get("pinName") as string;
-        const arr = next.get(gateId) || [];
-        arr.push(wireId);
-        next.set(gateId, arr);
+        if (!nextFirst.has(gateId)) nextFirst.set(gateId, wireId);
         nextPinWire.set(`${gateId}:${pinName}`, wireId);
       });
-      setGateWireMap(next);
+      setGateFirstWire(nextFirst);
       setPinWireMap(nextPinWire);
     }
 
@@ -271,8 +625,6 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
         const allPins = [...def.inputs, ...def.outputs];
         const pin = allPins.find((p) => p.name === pName);
         if (!pin) return false;
-        // A pin is vertical if its x is at the center (not on left/right edge)
-        // Use same heuristic as C++: check if pin is at top/bottom vs left/right
         return pin.x === 0;
       };
 
@@ -582,283 +934,25 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
       {Array.from(gates.values()).map((gate) => {
         const def = defsMap.get(gate.defId);
         if (!def) return null;
-        const selected = !!selectedIds[gate.id];
-        const strokeColor = selected ? colors.gateSelected : colors.gateStroke;
-        const bounds = getGateBounds(def);
-
-        const isToggle = def.guiType === "TOGGLE";
-        const toggleOn = isToggle && gate.params.OUTPUT_NUM === "1";
-        const isLed = def.guiType === "LED";
-
-        // Get wire state for LED/NODE visualization
-        let gateWireState: WireState = WIRE_STATE.UNKNOWN;
-        const connectedWires = gateWireMap.get(gate.id);
-        if (connectedWires) {
-          for (const wid of connectedWires) {
-            const ws = wireStates.get(wid);
-            if (ws !== undefined) {
-              gateWireState = ws;
-              break;
-            }
-          }
-        }
-        const ledColor = colors.wire[gateWireState];
 
         return (
-          <Group
+          <GateShape
             key={gate.id}
-            x={gate.x}
-            y={gate.y}
-            rotation={gate.rotation}
-            draggable={!readOnly && !useCanvasStore.getState().wireDrawing}
-            onDragMove={(e) => handleDragMove(gate.id, e)}
-            onDragEnd={(e) => handleDragEnd(gate.id, e)}
-            onMouseDown={(e) => handleMouseDown(gate.id, e)}
-            onDblClick={() => onGateDblClick?.(gate.id)}
-          >
-            {/* Invisible hit area */}
-            <Rect
-              x={bounds.x}
-              y={bounds.y}
-              width={bounds.width}
-              height={bounds.height}
-              fill="rgba(0,0,0,0.01)"
-            />
-            {/* Toggle state indicator */}
-            {isToggle && (
-              <Rect
-                x={-0.6 * GRID_SIZE}
-                y={-0.6 * GRID_SIZE}
-                width={1.2 * GRID_SIZE}
-                height={1.2 * GRID_SIZE}
-                fill={toggleOn ? colors.toggleOn : colors.toggleOff}
-                cornerRadius={2}
-                onMouseDown={(e) => handleToggleClick(gate.id, e)}
-              />
-            )}
-            {/* LED state indicator — fill the LED_BOX area */}
-            {isLed && (() => {
-              const boxStr = def.guiParams?.LED_BOX;
-              if (!boxStr) return null;
-              const [bx1, rawY1, bx2, rawY2] = boxStr.split(",").map(Number);
-              // Flip Y (guiParams are in Y-up space) and ensure min/max order
-              const by1 = Math.min(-rawY1, -rawY2);
-              const by2 = Math.max(-rawY1, -rawY2);
-              return (
-                <Rect
-                  x={bx1 * GRID_SIZE}
-                  y={by1 * GRID_SIZE}
-                  width={(bx2 - bx1) * GRID_SIZE}
-                  height={(by2 - by1) * GRID_SIZE}
-                  fill={ledColor}
-                  opacity={0.85}
-                  listening={false}
-                />
-              );
-            })()}
-            {/* REGISTER display — 7-segment style */}
-            {def.guiType === "REGISTER" && (() => {
-              const boxStr = def.guiParams?.VALUE_BOX;
-              if (!boxStr) return null;
-              const [bx1, rawY1, bx2, rawY2] = boxStr.split(",").map(Number);
-              const by1 = Math.min(-rawY1, -rawY2);
-              const by2 = Math.max(-rawY1, -rawY2);
-
-              // Compute value from input wire states
-              let value = 0;
-              const numBits = parseInt(def.params?.INPUT_BITS ?? "0", 10);
-              for (let i = 0; i < numBits; i++) {
-                const wireId = pinWireMap.get(`${gate.id}:IN_${i}`);
-                if (wireId) {
-                  const ws = wireStates.get(wireId);
-                  if (ws === WIRE_STATE.ONE) {
-                    value |= (1 << i);
-                  }
-                }
-              }
-
-              // Convert to hex string, determine how many digits to show
-              const hexDigits = Math.max(1, Math.ceil(numBits / 4));
-              const hexStr = value.toString(16).toUpperCase().padStart(hexDigits, "0");
-
-              const boxW = (bx2 - bx1) * GRID_SIZE;
-              const boxH = (by2 - by1) * GRID_SIZE;
-              const boxX = bx1 * GRID_SIZE;
-              const boxY = by1 * GRID_SIZE;
-
-              return (
-                <>
-                  <Rect
-                    x={boxX}
-                    y={boxY}
-                    width={boxW}
-                    height={boxH}
-                    fill={colors.sevenSegBg}
-                    listening={false}
-                  />
-                  {renderSevenSegDigits(hexStr, boxX, boxY, boxW, boxH, colors.sevenSegOn, colors.sevenSegOff)}
-                </>
-              );
-            })()}
-            {def.shape.map((seg, i) => (
-              <Line
-                key={i}
-                points={[
-                  seg.x1 * GRID_SIZE,
-                  seg.y1 * GRID_SIZE,
-                  seg.x2 * GRID_SIZE,
-                  seg.y2 * GRID_SIZE,
-                ]}
-                stroke={strokeColor}
-                strokeWidth={1.5}
-                lineCap="round"
-                lineJoin="round"
-              />
-            ))}
-            {def.circles?.map((c, i) => (
-              <Circle
-                key={`circle-${i}`}
-                x={c.cx * GRID_SIZE}
-                y={c.cy * GRID_SIZE}
-                radius={c.r * GRID_SIZE}
-                stroke={strokeColor}
-                strokeWidth={1.5}
-                listening={false}
-              />
-            ))}
-            {/* LABEL text */}
-            {def.guiType === "LABEL" && (() => {
-              const labelText = gate.params.LABEL_TEXT ?? "Text";
-              const textHeight = parseFloat(gate.params.TEXT_HEIGHT ?? "2.0");
-              const fontSize = textHeight * GRID_SIZE;
-              return (
-                <Text
-                  text={labelText}
-                  fontSize={fontSize}
-                  fill={selected ? colors.gateSelected : colors.labelText}
-                  fontFamily="monospace"
-                  listening={false}
-                  offsetY={fontSize / 2}
-                />
-              );
-            })()}
-            {/* FROM text — label to the left of the arrow */}
-            {def.guiType === "FROM" && (() => {
-              const labelText = gate.params.JUNCTION_ID ?? "";
-              const fontSize = 1.5 * GRID_SIZE;
-              return (
-                <Text
-                  text={labelText}
-                  fontSize={fontSize}
-                  fill={selected ? colors.gateSelected : colors.labelText}
-                  fontFamily="monospace"
-                  listening={false}
-                  x={0}
-                  y={-fontSize / 2}
-                  align="right"
-                  offsetX={fontSize * labelText.length * 0.6}
-                />
-              );
-            })()}
-            {/* TO text — label to the right of the arrow */}
-            {def.guiType === "TO" && (() => {
-              const labelText = gate.params.JUNCTION_ID ?? "";
-              const fontSize = 1.5 * GRID_SIZE;
-              return (
-                <Text
-                  text={labelText}
-                  fontSize={fontSize}
-                  fill={selected ? colors.gateSelected : colors.labelText}
-                  fontFamily="monospace"
-                  listening={false}
-                  x={0.4 * GRID_SIZE}
-                  y={-fontSize / 2}
-                />
-              );
-            })()}
-            {/* Input pins */}
-            {def.inputs.map((pin) => {
-              const isHovered = hoveredPin?.gateId === gate.id && hoveredPin?.pinName === pin.name && hoveredPin?.pinDirection === "input";
-              return (
-                <React.Fragment key={`in-group-${pin.name}`}>
-                  {isHovered && (
-                    <Rect
-                      x={pin.x * GRID_SIZE - 5}
-                      y={pin.y * GRID_SIZE - 5}
-                      width={10}
-                      height={10}
-                      fill={colors.pinHover}
-                      listening={false}
-                    />
-                  )}
-                  <Circle
-                    x={pin.x * GRID_SIZE}
-                    y={pin.y * GRID_SIZE}
-                    radius={3}
-                    fill={colors.pinDot}
-                    listening={false}
-                  />
-                  <Circle
-                    x={pin.x * GRID_SIZE}
-                    y={pin.y * GRID_SIZE}
-                    radius={PIN_HIT_RADIUS}
-                    fill="rgba(0,0,0,0.01)"
-                    onMouseDown={(e) =>
-                      handlePinMouseDown(gate.id, gate.x, gate.y, gate.rotation, pin.name, "input", pin.x, pin.y, e)
-                    }
-                    onMouseUp={(e) =>
-                      handlePinMouseUp(gate.id, gate.x, gate.y, gate.rotation, pin.name, "input", pin.x, pin.y, e)
-                    }
-                    onMouseEnter={(e) =>
-                      handlePinMouseEnter(gate.id, gate.x, gate.y, gate.rotation, pin.name, "input", pin.x, pin.y, e)
-                    }
-                    onMouseLeave={handlePinMouseLeave}
-                  />
-                </React.Fragment>
-              );
-            })}
-            {/* Output pins */}
-            {def.outputs.map((pin) => {
-              const isHovered = hoveredPin?.gateId === gate.id && hoveredPin?.pinName === pin.name && hoveredPin?.pinDirection === "output";
-              return (
-                <React.Fragment key={`out-group-${pin.name}`}>
-                  {isHovered && (
-                    <Rect
-                      x={pin.x * GRID_SIZE - 5}
-                      y={pin.y * GRID_SIZE - 5}
-                      width={10}
-                      height={10}
-                      fill={colors.pinHover}
-                      listening={false}
-                    />
-                  )}
-                  <Circle
-                    x={pin.x * GRID_SIZE}
-                    y={pin.y * GRID_SIZE}
-                    radius={3}
-                    fill={colors.pinDot}
-                    listening={false}
-                  />
-                  <Circle
-                    x={pin.x * GRID_SIZE}
-                    y={pin.y * GRID_SIZE}
-                    radius={PIN_HIT_RADIUS}
-                    fill="rgba(0,0,0,0.01)"
-                    onMouseDown={(e) =>
-                      handlePinMouseDown(gate.id, gate.x, gate.y, gate.rotation, pin.name, "output", pin.x, pin.y, e)
-                    }
-                    onMouseUp={(e) =>
-                      handlePinMouseUp(gate.id, gate.x, gate.y, gate.rotation, pin.name, "output", pin.x, pin.y, e)
-                    }
-                    onMouseEnter={(e) =>
-                      handlePinMouseEnter(gate.id, gate.x, gate.y, gate.rotation, pin.name, "output", pin.x, pin.y, e)
-                    }
-                    onMouseLeave={handlePinMouseLeave}
-                  />
-                </React.Fragment>
-              );
-            })}
-          </Group>
+            gate={gate}
+            def={def}
+            readOnly={readOnly}
+            connectedWireId={gateFirstWire.get(gate.id)}
+            pinWireMap={pinWireMap}
+            onDragMove={handleDragMove}
+            onDragEnd={handleDragEnd}
+            onMouseDown={handleMouseDown}
+            onToggleClick={handleToggleClick}
+            onDblClick={onGateDblClick}
+            onPinMouseDown={handlePinMouseDown}
+            onPinMouseUp={handlePinMouseUp}
+            onPinMouseEnter={handlePinMouseEnter}
+            onPinMouseLeave={handlePinMouseLeave}
+          />
         );
       })}
     </Layer>
