@@ -209,16 +209,19 @@ function RegisterDisplay({
   if (!boxStr) return null;
 
   const numBits = parseInt(def.params?.INPUT_BITS ?? "0", 10);
+  // Counting registers expose their value on OUT pins; pure LED displays only have IN pins
+  const hasOutputs = def.outputs.some((p) => p.name.startsWith("OUT_"));
+  const pinPrefix = hasOutputs ? "OUT" : "IN";
 
-  // Collect wireIds for all input bits
+  // Collect wireIds for the display bits
   const wireIds = useMemo(() => {
     const ids: string[] = [];
     for (let i = 0; i < numBits; i++) {
-      const wid = pinWireMap.get(`${gate.id}:IN_${i}`);
+      const wid = pinWireMap.get(`${gate.id}:${pinPrefix}_${i}`);
       if (wid) ids.push(wid);
     }
     return ids;
-  }, [gate.id, numBits, pinWireMap]);
+  }, [gate.id, numBits, pinPrefix, pinWireMap]);
 
   const getState = useWireStates(wireIds);
 
@@ -226,10 +229,10 @@ function RegisterDisplay({
   const by1 = Math.min(-rawY1, -rawY2);
   const by2 = Math.max(-rawY1, -rawY2);
 
-  // Compute value from input wire states
+  // Compute value from wire states
   let value = 0;
   for (let i = 0; i < numBits; i++) {
-    const wireId = pinWireMap.get(`${gate.id}:IN_${i}`);
+    const wireId = pinWireMap.get(`${gate.id}:${pinPrefix}_${i}`);
     if (wireId) {
       const ws = getState(wireId);
       if (ws === WIRE_STATE.ONE) {
@@ -735,6 +738,20 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, onGateDb
     [readOnly, doc]
   );
 
+  // Junction gates (FROM/TO) use the engine's Junction mechanism — all their
+  // pins are inputs that get spliced into a shared electrical node. The
+  // same-direction check must be bypassed when either pin is on a junction gate.
+  const isJunction = useCallback(
+    (gateId: string): boolean => {
+      const gatesMap = getGatesMap(doc);
+      const yGate = gatesMap.get(gateId);
+      if (!yGate) return false;
+      const def = defsMap.get(yGate.get("defId"));
+      return def?.guiType === "FROM" || def?.guiType === "TO";
+    },
+    [doc, defsMap],
+  );
+
   const handlePinMouseDown = useCallback(
     (
       gateId: string,
@@ -806,8 +823,10 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, onGateDb
         return;
       }
 
-      // Don't connect two pins of the same direction
-      if (srcPinDir === dstPinDir) {
+      // Don't connect two pins of the same direction (unless one is a
+      // junction gate — FROM/TO use the engine's Junction mechanism where
+      // all pins are inputs spliced into a shared electrical node).
+      if (srcPinDir === dstPinDir && !isJunction(srcGateId) && !isJunction(dstGateId)) {
         setWireDrawing(null);
         setHoveredPin(null);
         return;
@@ -884,7 +903,7 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, onGateDb
       setWireDrawing(null);
       setHoveredPin(null);
     },
-    [readOnly, setWireDrawing, setHoveredPin, doc, defsMap]
+    [readOnly, setWireDrawing, setHoveredPin, doc, defsMap, isJunction]
   );
 
   const handlePinMouseEnter = useCallback(
@@ -904,8 +923,8 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, onGateDb
 
       const wd = useCanvasStore.getState().wireDrawing;
       if (!wd) return;
-      // Only highlight if compatible: different direction, different gate
-      if (wd.fromPinDirection === pinDirection) return;
+      // Only highlight if compatible: different direction (or junction gate), different gate
+      if (wd.fromPinDirection === pinDirection && !isJunction(wd.fromGateId) && !isJunction(gateId)) return;
       if (wd.fromGateId === gateId) return;
 
       const { x, y } = rotatePin(pinX * GRID_SIZE, pinY * GRID_SIZE, gateX, gateY, gateRotation);
@@ -917,7 +936,7 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, onGateDb
         y,
       });
     },
-    [setHoveredPin],
+    [setHoveredPin, isJunction],
   );
 
   const handlePinMouseLeave = useCallback(

@@ -8,12 +8,18 @@ export function useSimulation(doc: Y.Doc | null) {
   const workerRef = useRef<Worker | null>(null);
   const bridgeRef = useRef<ReturnType<typeof createYjsToWorkerBridge> | null>(null);
   const genRef = useRef(0);
+  // Tracks whether the current worker has sent "ready". Reset on each new worker
+  // so the second effect only sends setRunning for user-initiated changes, never
+  // the initial mount (which is handled by the ready handler itself).
+  const readyRef = useRef(false);
 
   const running = useSimulationStore((s) => s.running);
   const stepsPerFrame = useSimulationStore((s) => s.stepsPerFrame);
 
   useEffect(() => {
     if (!doc) return;
+
+    readyRef.current = false;
 
     const worker = new Worker(
       new URL("../lib/worker/simulation.worker.ts", import.meta.url),
@@ -25,6 +31,7 @@ export function useSimulation(doc: Y.Doc | null) {
       const msg = e.data;
       switch (msg.type) {
         case "ready":
+          readyRef.current = true;
           bridgeRef.current?.fullSync();
           const { running: r, stepsPerFrame: s } = useSimulationStore.getState();
           worker.postMessage({ type: "setRunning", running: r, stepsPerFrame: s, gen: genRef.current });
@@ -56,9 +63,9 @@ export function useSimulation(doc: Y.Doc | null) {
   }, [doc]);
 
   useEffect(() => {
-    if (!workerRef.current) return;
+    if (!readyRef.current) return;
     genRef.current++;
-    workerRef.current.postMessage({
+    workerRef.current?.postMessage({
       type: "setRunning",
       running,
       stepsPerFrame,
