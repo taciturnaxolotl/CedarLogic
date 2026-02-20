@@ -1,4 +1,5 @@
 import { Database } from "bun:sqlite";
+import * as Y from "yjs";
 import { authenticateRequest } from "../middleware/auth";
 import {
   createFile,
@@ -10,7 +11,9 @@ import {
   addPermission,
   removePermission,
   getFilePermissions,
+  loadYjsState,
 } from "../db/queries/files";
+import type { ThumbnailData } from "@shared/types";
 
 export async function fileRoutes(req: Request, db: Database): Promise<Response> {
   const url = new URL(req.url);
@@ -29,6 +32,84 @@ export async function fileRoutes(req: Request, db: Database): Promise<Response> 
     if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
     const files = listUserFiles(db, auth.userId, auth.email);
     return Response.json(files);
+  }
+
+  // POST /api/files/thumbnails — get thumbnail data for multiple files
+  if (url.pathname === "/api/files/thumbnails" && req.method === "POST") {
+    if (!auth) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    const body = (await req.json().catch(() => ({}))) as { fileIds?: string[] };
+    const fileIds = body.fileIds;
+    if (!Array.isArray(fileIds)) {
+      return Response.json({ error: "fileIds array required" }, { status: 400 });
+    }
+
+    // Only process files the user has access to
+    const userFiles = listUserFiles(db, auth.userId, auth.email);
+    const accessibleIds = new Set(userFiles.map((f) => f.id));
+
+    const result: Record<string, ThumbnailData> = {};
+    for (const fileId of fileIds) {
+      if (!accessibleIds.has(fileId)) continue;
+      const state = loadYjsState(db, fileId);
+      if (!state) {
+        result[fileId] = { gates: [], wires: [] };
+        continue;
+      }
+
+      const doc = new Y.Doc();
+      Y.applyUpdate(doc, new Uint8Array(state));
+
+      const gates: ThumbnailData["gates"] = [];
+      const gatesMap = doc.getMap("gates") as Y.Map<Y.Map<any>>;
+      gatesMap.forEach((yGate) => {
+        gates.push({
+          defId: yGate.get("defId"),
+          x: yGate.get("x"),
+          y: yGate.get("y"),
+          rotation: yGate.get("rotation") ?? 0,
+        });
+      });
+
+      const wires: ThumbnailData["wires"] = [];
+      const wiresMap = doc.getMap("wires") as Y.Map<Y.Map<any>>;
+      wiresMap.forEach((yWire) => {
+        const segments: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+
+        // Try new model format first
+        const modelStr = yWire.get("model");
+        if (modelStr) {
+          try {
+            const model = JSON.parse(modelStr);
+            for (const seg of Object.values(model.segMap) as any[]) {
+              segments.push({
+                x1: seg.begin.x,
+                y1: seg.begin.y,
+                x2: seg.end.x,
+                y2: seg.end.y,
+              });
+            }
+          } catch {}
+        } else {
+          // Legacy format
+          const segStr = yWire.get("segments");
+          if (segStr) {
+            try {
+              const segs = JSON.parse(segStr);
+              segments.push(...segs);
+            } catch {}
+          }
+        }
+
+        if (segments.length > 0) {
+          wires.push({ segments });
+        }
+      });
+
+      result[fileId] = { gates, wires };
+      doc.destroy();
+    }
+
+    return Response.json(result);
   }
 
   // Match /api/files/:id

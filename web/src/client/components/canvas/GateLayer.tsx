@@ -102,7 +102,7 @@ async function loadGateDefs(): Promise<GateDefinition[]> {
   return gateDefs;
 }
 
-export { gateDefs as loadedGateDefs };
+export { gateDefs as loadedGateDefs, loadGateDefs };
 
 interface GateLayerProps {
   doc: Y.Doc;

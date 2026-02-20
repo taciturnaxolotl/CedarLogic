@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { ShareDialog } from "./ShareDialog";
-import type { FileWithPermission } from "@shared/types";
+import { FilesToolbar, type FilterTab, type SortBy } from "./FilesToolbar";
+import { CircuitCardGrid } from "./CircuitCardGrid";
+import type { FileWithPermission, ThumbnailData } from "@shared/types";
 
 interface FilesPageProps {
   onOpenFile: (fileId: string) => void;
@@ -10,7 +11,10 @@ interface FilesPageProps {
 export function FilesPage({ onOpenFile }: FilesPageProps) {
   const { user, logout } = useAuth();
   const [files, setFiles] = useState<FileWithPermission[]>([]);
-  const [shareFileId, setShareFileId] = useState<string | null>(null);
+  const [thumbnails, setThumbnails] = useState<Record<string, ThumbnailData>>({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortBy>("date");
+  const [filterTab, setFilterTab] = useState<FilterTab>("all");
 
   useEffect(() => {
     fetchFiles();
@@ -18,7 +22,21 @@ export function FilesPage({ onOpenFile }: FilesPageProps) {
 
   async function fetchFiles() {
     const res = await fetch("/api/files");
-    if (res.ok) setFiles(await res.json());
+    if (!res.ok) return;
+    const data: FileWithPermission[] = await res.json();
+    setFiles(data);
+
+    // Fetch thumbnails
+    if (data.length > 0) {
+      const thumbRes = await fetch("/api/files/thumbnails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileIds: data.map((f) => f.id) }),
+      });
+      if (thumbRes.ok) {
+        setThumbnails(await thumbRes.json());
+      }
+    }
   }
 
   async function createFile() {
@@ -40,6 +58,41 @@ export function FilesPage({ onOpenFile }: FilesPageProps) {
     fetchFiles();
   }
 
+  const filteredFiles = useMemo(() => {
+    let result = files;
+
+    // Filter tab
+    if (filterTab === "my") {
+      result = result.filter((f) => f.permission === "owner");
+    } else if (filterTab === "shared") {
+      result = result.filter((f) => f.permission !== "owner");
+    }
+
+    // Search
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((f) => f.title.toLowerCase().includes(q));
+    }
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      if (sortBy === "name") return a.title.localeCompare(b.title);
+      if (sortBy === "owner") return (a.ownerName ?? "").localeCompare(b.ownerName ?? "");
+      // date (default) — newest first
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+
+    return result;
+  }, [files, filterTab, searchQuery, sortBy]);
+
+  const emptyMessage = searchQuery.trim()
+    ? "No circuits match your search."
+    : filterTab === "my"
+      ? "You don't have any circuits yet. Create one to get started."
+      : filterTab === "shared"
+        ? "No one has shared any circuits with you yet."
+        : "No circuits yet. Create one to get started.";
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       <header className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
@@ -55,69 +108,25 @@ export function FilesPage({ onOpenFile }: FilesPageProps) {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold">My Circuits</h2>
-          <button
-            onClick={createFile}
-            className="px-4 py-2 bg-blue-600 rounded-lg text-sm font-medium hover:bg-blue-500 transition-colors cursor-pointer"
-          >
-            New Circuit
-          </button>
-        </div>
-
-        {files.length === 0 ? (
-          <p className="text-gray-500">No circuits yet. Create one to get started.</p>
-        ) : (
-          <div className="grid gap-3">
-            {files.map((file) => (
-              <div
-                key={file.id}
-                onClick={() => onOpenFile(file.id)}
-                className="flex items-center justify-between p-4 bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
-              >
-                <div>
-                  <div className="font-medium">{file.title}</div>
-                  <div className="text-sm text-gray-500">
-                    {file.permission === "owner" ? "Owned by you" : `Shared by ${file.ownerName}`}
-                    {" · "}
-                    {new Date(file.updatedAt).toLocaleDateString()}
-                  </div>
-                </div>
-                {file.permission === "owner" && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShareFileId(file.id);
-                      }}
-                      className="px-3 py-1 text-sm bg-gray-700 rounded hover:bg-gray-600 transition-colors cursor-pointer"
-                    >
-                      Share
-                    </button>
-                    <button
-                      onClick={(e) => deleteFile(file.id, e)}
-                      className="px-3 py-1 text-sm bg-gray-700 rounded hover:bg-red-600 transition-colors cursor-pointer"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </main>
-
-      {shareFileId && (
-        <ShareDialog
-          fileId={shareFileId}
-          onClose={() => {
-            setShareFileId(null);
-            fetchFiles();
-          }}
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        <FilesToolbar
+          filterTab={filterTab}
+          onFilterTab={setFilterTab}
+          searchQuery={searchQuery}
+          onSearchQuery={setSearchQuery}
+          sortBy={sortBy}
+          onSortBy={setSortBy}
+          onCreateFile={createFile}
         />
-      )}
+
+        <CircuitCardGrid
+          files={filteredFiles}
+          thumbnails={thumbnails}
+          emptyMessage={emptyMessage}
+          onOpenFile={onOpenFile}
+          onDeleteFile={deleteFile}
+        />
+      </main>
     </div>
   );
 }
