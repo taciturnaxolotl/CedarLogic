@@ -136,6 +136,10 @@ export function getGateBounds(def: GateDefinition) {
     maxX = Math.max(maxX, pin.x);
     maxY = Math.max(maxY, pin.y);
   }
+  // Gates with no shape or pins (e.g. AA_LABEL) get a minimal bounding box
+  if (!isFinite(minX)) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
   return {
     x: minX * GRID_SIZE,
     y: minY * GRID_SIZE,
