@@ -10,8 +10,8 @@ export function useSimulation(doc: Y.Doc | null) {
   const genRef = useRef(0);
   const mountedRef = useRef(false);
 
-  const { running, stepsPerFrame, setSimTime, setRunning } =
-    useSimulationStore();
+  const running = useSimulationStore((s) => s.running);
+  const stepsPerFrame = useSimulationStore((s) => s.stepsPerFrame);
 
   useEffect(() => {
     if (!doc) return;
@@ -27,20 +27,17 @@ export function useSimulation(doc: Y.Doc | null) {
       const msg = e.data;
       switch (msg.type) {
         case "ready":
-          // Do full sync once worker is ready
           bridgeRef.current?.fullSync();
-          // Send current running state now that WASM is loaded
           const { running: r, stepsPerFrame: s } = useSimulationStore.getState();
           worker.postMessage({ type: "setRunning", running: r, stepsPerFrame: s, gen: genRef.current });
           break;
         case "wireStates":
-          // Drop stale messages from a previous run/speed generation
           if (msg.gen !== genRef.current) break;
           updateWireStates(msg.states.map((s) => ({ id: s.id, state: s.state as any })));
           break;
         case "time":
           if (msg.gen !== genRef.current) break;
-          setSimTime(msg.time);
+          useSimulationStore.getState().setSimTime(msg.time);
           break;
         case "error":
           console.error("[Simulation Worker]", msg.message);
@@ -58,11 +55,9 @@ export function useSimulation(doc: Y.Doc | null) {
       workerRef.current = null;
       bridgeRef.current = null;
     };
-  }, [doc, setSimTime]);
+  }, [doc]);
 
-  // Sync running state to worker — bump generation so in-flight messages get discarded
   useEffect(() => {
-    // Skip the initial mount — the "ready" handler already sends the first setRunning
     if (!mountedRef.current) {
       mountedRef.current = true;
       return;

@@ -231,16 +231,24 @@ function reportAllWireStates() {
 
 let runTimer: ReturnType<typeof setTimeout> | null = null;
 let stepAccumulator = 0;
+let lastTickTime = 0;
 
-// Fixed tick rate (~60 Hz). We batch multiple simulation steps per tick
+// Target tick rate (~60 Hz). We batch multiple simulation steps per tick
 // so that high Hz values don't require hundreds of setTimeout calls/sec.
 const TICK_MS = 16;
+// Cap dt to prevent death spiral when stepN is expensive
+const MAX_DT_MS = TICK_MS * 3;
 
 function runLoop() {
   if (!running) return;
 
+  // Use real elapsed time so we don't under-count when stepN takes a while
+  const now = performance.now();
+  const dt = lastTickTime ? Math.min(now - lastTickTime, MAX_DT_MS) : TICK_MS;
+  lastTickTime = now;
+
   // Accumulate fractional steps so we don't lose precision
-  stepAccumulator += stepsPerFrame * TICK_MS / 1000;
+  stepAccumulator += stepsPerFrame * dt / 1000;
   const stepsThisTick = Math.floor(stepAccumulator);
   stepAccumulator -= stepsThisTick;
 
@@ -387,6 +395,7 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
       stepsPerFrame = msg.stepsPerFrame;
       gen = msg.gen;
       stepAccumulator = 0;
+      lastTickTime = 0;
       // Always clear existing timer to avoid overlapping loops
       if (runTimer) {
         clearTimeout(runTimer);

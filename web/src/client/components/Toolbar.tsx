@@ -6,7 +6,7 @@ import type { GateDefinition } from "@shared/types";
 // Log-scale slider: maps a 0–1 slider position to 1–300 Hz exponentially.
 // This gives equal travel per doubling (e.g. 1→2→4→8→16→…→256→300).
 const MIN_HZ = 1;
-const MAX_HZ = 300;
+const MAX_HZ = 100;
 const LOG_MIN = Math.log(MIN_HZ);
 const LOG_MAX = Math.log(MAX_HZ);
 
@@ -19,7 +19,10 @@ function hzToSlider(hz: number): number {
 }
 
 export function SimControls() {
-  const { running, setRunning, stepsPerFrame, setStepsPerFrame } = useSimulationStore();
+  const running = useSimulationStore((s) => s.running);
+  const setRunning = useSimulationStore((s) => s.setRunning);
+  const stepsPerFrame = useSimulationStore((s) => s.stepsPerFrame);
+  const setStepsPerFrame = useSimulationStore((s) => s.setStepsPerFrame);
 
   return (
     <div className={`flex items-center gap-3 backdrop-blur-sm border rounded-lg px-3 py-1.5 shadow-lg transition-colors ${
