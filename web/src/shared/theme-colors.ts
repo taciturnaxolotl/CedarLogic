@@ -108,7 +108,7 @@ const lightPalette: CanvasColors = {
   sevenSegBg: "#f1f5f9",     // slate-100
   wire: {
     [WIRE_STATE.ZERO]: "#64748b",  // slate-500
-    [WIRE_STATE.ONE]: "#dc2626",   // red-600
+    [WIRE_STATE.ONE]: "#FF0000",   // red-600
     [WIRE_STATE.HI_Z]: "#16a34a",  // green-600
     [WIRE_STATE.UNKNOWN]: "#2563eb", // blue-600
     [WIRE_STATE.CONFLICT]: "#0891b2", // cyan-600
