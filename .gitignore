@@ -20,5 +20,6 @@ web/node_modules/
 web/dist/
 web/src/client/lib/canvas/gate-defs.json
 web/data/
+web/.vite
 
 .env

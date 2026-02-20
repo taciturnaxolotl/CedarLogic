@@ -146,17 +146,16 @@ export function getGateBounds(def: GateDefinition) {
 
 const PIN_HIT_RADIUS = 8;
 
-function getPinPosition(
-  gateDef: GateDefinition,
-  pinName: string,
-  pinDirection: "input" | "output",
-  gateX: number,
-  gateY: number,
-): { x: number; y: number } | null {
-  const pins = pinDirection === "input" ? gateDef.inputs : gateDef.outputs;
-  const pin = pins.find((p) => p.name === pinName);
-  if (!pin) return null;
-  return { x: gateX + pin.x * GRID_SIZE, y: gateY + pin.y * GRID_SIZE };
+/** Rotate a local-space offset (lx, ly) by `degrees` around the origin, then translate by (gateX, gateY). */
+function rotatePin(lx: number, ly: number, gateX: number, gateY: number, degrees: number): { x: number; y: number } {
+  if (degrees === 0) return { x: gateX + lx, y: gateY + ly };
+  const rad = (degrees * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return {
+    x: gateX + lx * cos - ly * sin,
+    y: gateY + lx * sin + ly * cos,
+  };
 }
 
 export function GateLayer({ doc, readOnly }: GateLayerProps) {
@@ -250,10 +249,11 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
         if (!def) return { x: 0, y: 0 };
         const gx = gId === id ? gateX : (g.get("x") as number);
         const gy = gId === id ? gateY : (g.get("y") as number);
+        const rot = g.get("rotation") as number ?? 0;
         const allPins = [...def.inputs, ...def.outputs];
         const pin = allPins.find((p) => p.name === pName);
         if (!pin) return { x: gx, y: gy };
-        return { x: gx + pin.x * GRID_SIZE, y: gy + pin.y * GRID_SIZE };
+        return rotatePin(pin.x * GRID_SIZE, pin.y * GRID_SIZE, gx, gy, rot);
       };
 
       const makeIsVerticalPin = (gId: string, pName: string) => {
@@ -381,6 +381,7 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
       gateId: string,
       gateX: number,
       gateY: number,
+      gateRotation: number,
       pinName: string,
       pinDirection: "input" | "output",
       pinX: number,
@@ -391,8 +392,7 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
       e.cancelBubble = true;
       if (e.evt.button !== 0) return;
 
-      const absX = gateX + pinX * GRID_SIZE;
-      const absY = gateY + pinY * GRID_SIZE;
+      const { x: absX, y: absY } = rotatePin(pinX * GRID_SIZE, pinY * GRID_SIZE, gateX, gateY, gateRotation);
 
       // Always start a new wire drawing (completion happens on mouseUp)
       setWireDrawing({
@@ -413,6 +413,7 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
       gateId: string,
       gateX: number,
       gateY: number,
+      gateRotation: number,
       pinName: string,
       pinDirection: "input" | "output",
       pinX: number,
@@ -422,8 +423,7 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
       if (readOnly) return;
       e.cancelBubble = true;
 
-      const absX = gateX + pinX * GRID_SIZE;
-      const absY = gateY + pinY * GRID_SIZE;
+      const { x: absX, y: absY } = rotatePin(pinX * GRID_SIZE, pinY * GRID_SIZE, gateX, gateY, gateRotation);
 
       const wd = useCanvasStore.getState().wireDrawing;
       if (!wd) return;
@@ -492,10 +492,11 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
         if (!def) return { x: 0, y: 0 };
         const gx = g.get("x") as number;
         const gy = g.get("y") as number;
+        const rot = g.get("rotation") as number ?? 0;
         const allPins = [...def.inputs, ...def.outputs];
         const pin = allPins.find((p) => p.name === pName);
         if (!pin) return { x: gx, y: gy };
-        return { x: gx + pin.x * GRID_SIZE, y: gy + pin.y * GRID_SIZE };
+        return rotatePin(pin.x * GRID_SIZE, pin.y * GRID_SIZE, gx, gy, rot);
       };
 
       const makeIsVerticalPin = (gId: string, pName: string) => {
@@ -532,6 +533,7 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
       gateId: string,
       gateX: number,
       gateY: number,
+      gateRotation: number,
       pinName: string,
       pinDirection: "input" | "output",
       pinX: number,
@@ -547,12 +549,13 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
       if (wd.fromPinDirection === pinDirection) return;
       if (wd.fromGateId === gateId) return;
 
+      const { x, y } = rotatePin(pinX * GRID_SIZE, pinY * GRID_SIZE, gateX, gateY, gateRotation);
       setHoveredPin({
         gateId,
         pinName,
         pinDirection,
-        x: gateX + pinX * GRID_SIZE,
-        y: gateY + pinY * GRID_SIZE,
+        x,
+        y,
       });
     },
     [setHoveredPin],
@@ -743,13 +746,13 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
                     radius={PIN_HIT_RADIUS}
                     fill="rgba(0,0,0,0.01)"
                     onMouseDown={(e) =>
-                      handlePinMouseDown(gate.id, gate.x, gate.y, pin.name, "input", pin.x, pin.y, e)
+                      handlePinMouseDown(gate.id, gate.x, gate.y, gate.rotation, pin.name, "input", pin.x, pin.y, e)
                     }
                     onMouseUp={(e) =>
-                      handlePinMouseUp(gate.id, gate.x, gate.y, pin.name, "input", pin.x, pin.y, e)
+                      handlePinMouseUp(gate.id, gate.x, gate.y, gate.rotation, pin.name, "input", pin.x, pin.y, e)
                     }
                     onMouseEnter={(e) =>
-                      handlePinMouseEnter(gate.id, gate.x, gate.y, pin.name, "input", pin.x, pin.y, e)
+                      handlePinMouseEnter(gate.id, gate.x, gate.y, gate.rotation, pin.name, "input", pin.x, pin.y, e)
                     }
                     onMouseLeave={handlePinMouseLeave}
                   />
@@ -784,13 +787,13 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
                     radius={PIN_HIT_RADIUS}
                     fill="rgba(0,0,0,0.01)"
                     onMouseDown={(e) =>
-                      handlePinMouseDown(gate.id, gate.x, gate.y, pin.name, "output", pin.x, pin.y, e)
+                      handlePinMouseDown(gate.id, gate.x, gate.y, gate.rotation, pin.name, "output", pin.x, pin.y, e)
                     }
                     onMouseUp={(e) =>
-                      handlePinMouseUp(gate.id, gate.x, gate.y, pin.name, "output", pin.x, pin.y, e)
+                      handlePinMouseUp(gate.id, gate.x, gate.y, gate.rotation, pin.name, "output", pin.x, pin.y, e)
                     }
                     onMouseEnter={(e) =>
-                      handlePinMouseEnter(gate.id, gate.x, gate.y, pin.name, "output", pin.x, pin.y, e)
+                      handlePinMouseEnter(gate.id, gate.x, gate.y, gate.rotation, pin.name, "output", pin.x, pin.y, e)
                     }
                     onMouseLeave={handlePinMouseLeave}
                   />
