@@ -59,6 +59,11 @@ export type {
   WireRenderInfo,
 } from "./wire-types";
 
+export interface ThumbnailData {
+  gates: Array<{ defId: string; x: number; y: number; rotation: number }>;
+  wires: Array<{ segments: Array<{ x1: number; y1: number; x2: number; y2: number }> }>;
+}
+
 export interface GateDefinition {
   id: string;
   name: string;
