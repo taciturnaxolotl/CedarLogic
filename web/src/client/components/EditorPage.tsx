@@ -5,6 +5,7 @@ import { Canvas } from "./Canvas";
 import { Toolbar, SimControls } from "./Toolbar";
 import { QuickAddDialog } from "./QuickAddDialog";
 import { ShareDialog } from "./ShareDialog";
+import { GatePropertiesDialog } from "./GatePropertiesDialog";
 import { exportToCdl } from "../lib/cdl-export";
 import { importFromCdl } from "../lib/cdl-import";
 import { loadedGateDefs } from "./canvas/GateLayer";
@@ -111,6 +112,7 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
   const [editingTitle, setEditingTitle] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [editingGateId, setEditingGateId] = useState<string | null>(null);
   const [presenceOpen, setPresenceOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -386,6 +388,17 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
               doc={doc}
               readOnly={!!readOnly}
               onQuickAdd={() => setQuickAddOpen(true)}
+              onGateDblClick={(gateId) => {
+                if (readOnly) return;
+                const def = loadedGateDefs.find((d) => {
+                  const gatesMap = getGatesMap(doc);
+                  const yGate = gatesMap.get(gateId);
+                  return yGate && d.id === yGate.get("defId");
+                });
+                if (def?.paramDlg?.some((e) => e.type !== "FILE_IN" && e.type !== "FILE_OUT")) {
+                  setEditingGateId(gateId);
+                }
+              }}
               onCursorMove={(x, y) => cursorWSRef.current?.sendCursorMove(x, y)}
               onCursorLeave={() => cursorWSRef.current?.sendCursorLeave()}
               cursorWS={cursorWS}
@@ -408,6 +421,9 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
       )}
       {shareOpen && (
         <ShareDialog fileId={fileId} onClose={() => setShareOpen(false)} />
+      )}
+      {editingGateId && doc && (
+        <GatePropertiesDialog gateId={editingGateId} doc={doc} onClose={() => setEditingGateId(null)} />
       )}
     </div>
   );

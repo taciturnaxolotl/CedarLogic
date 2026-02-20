@@ -27,6 +27,7 @@ interface CanvasProps {
   doc: Y.Doc;
   readOnly: boolean;
   onQuickAdd?: () => void;
+  onGateDblClick?: (gateId: string) => void;
   onCursorMove?: (x: number, y: number) => void;
   onCursorLeave?: () => void;
   cursorWS?: CursorWS | null;
@@ -87,7 +88,7 @@ function segmentIntersectsRect(
 
 const EMPTY_META = new Map<number, { name: string; color: string }>();
 
-export function Canvas({ doc, readOnly, onQuickAdd, onCursorMove, onCursorLeave, cursorWS, userMetaByHash }: CanvasProps) {
+export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove, onCursorLeave, cursorWS, userMetaByHash }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -868,7 +869,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onCursorMove, onCursorLeave,
         >
           <GridLayer />
           <WireLayer doc={doc} readOnly={readOnly} />
-          <GateLayer doc={doc} readOnly={readOnly} />
+          <GateLayer doc={doc} readOnly={readOnly} onGateDblClick={onGateDblClick} />
           <OverlayLayer />
           <CursorLayer cursorWS={cursorWS ?? null} userMeta={userMetaByHash ?? EMPTY_META} />
         </Stage>
