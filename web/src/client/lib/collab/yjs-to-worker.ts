@@ -6,6 +6,24 @@ import type {
   FullSyncWire,
   FullSyncConnection,
 } from "../worker/protocol";
+import type { GateDefinition } from "@shared/types";
+import gateDefsRaw from "../canvas/gate-defs.json";
+
+const gateDefMap = new Map<string, GateDefinition>();
+for (const def of gateDefsRaw as unknown as GateDefinition[]) {
+  gateDefMap.set(def.id, def);
+}
+
+function getInvertedPins(defId: string): { invertedInputs?: string[]; invertedOutputs?: string[] } {
+  const def = gateDefMap.get(defId);
+  if (!def) return {};
+  const invertedInputs = def.inputs.filter(p => p.inverted).map(p => p.name);
+  const invertedOutputs = def.outputs.filter(p => p.inverted).map(p => p.name);
+  const result: { invertedInputs?: string[]; invertedOutputs?: string[] } = {};
+  if (invertedInputs.length > 0) result.invertedInputs = invertedInputs;
+  if (invertedOutputs.length > 0) result.invertedOutputs = invertedOutputs;
+  return result;
+}
 
 /**
  * Observes Yjs maps and sends incremental updates to the simulation worker.
@@ -28,7 +46,8 @@ export function createYjsToWorkerBridge(
           params[key.replace("param:", "")] = val;
         }
       }
-      syncGates.push({ id, logicType: yGate.get("logicType"), params });
+      const defId = yGate.get("defId") as string;
+      syncGates.push({ id, logicType: yGate.get("logicType"), params, ...getInvertedPins(defId) });
     });
 
     const syncWires: FullSyncWire[] = [];
@@ -67,11 +86,13 @@ export function createYjsToWorkerBridge(
             for (const [k, v] of yGate.entries()) {
               if (k.startsWith("param:")) params[k.replace("param:", "")] = v;
             }
+            const defId = yGate.get("defId") as string;
             postToWorker({
               type: "addGate",
               id: key,
               logicType: yGate.get("logicType"),
               params,
+              ...getInvertedPins(defId),
             });
           } else if (change.action === "delete") {
             postToWorker({ type: "removeGate", id: key });
