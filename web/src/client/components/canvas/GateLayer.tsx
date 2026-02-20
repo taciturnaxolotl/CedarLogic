@@ -524,7 +524,7 @@ const GateShape = React.memo(function GateShape({
 // GateLayer — no longer subscribes to wireStates
 // ---------------------------------------------------------------------------
 
-export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
+export const GateLayer = React.memo(function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
   const [gates, setGates] = useState<Map<string, GateRenderData>>(new Map());
   const [defs, setDefs] = useState<GateDefinition[]>([]);
   // Map from gateId to first connected wireId (for LED/NODE state)
@@ -957,4 +957,4 @@ export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
       })}
     </Layer>
   );
-}
+});
