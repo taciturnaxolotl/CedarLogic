@@ -10,13 +10,13 @@ export type MainToWorkerMessage =
   | { type: "disconnect"; gateId: string; pinName: string; pinDirection: "input" | "output" }
   | { type: "setParam"; gateId: string; paramName: string; value: string }
   | { type: "step"; count: number }
-  | { type: "setRunning"; running: boolean; stepsPerFrame: number };
+  | { type: "setRunning"; running: boolean; stepsPerFrame: number; gen: number };
 
 // Worker → Main messages
 export type WorkerToMainMessage =
   | { type: "ready" }
-  | { type: "wireStates"; states: Array<{ id: string; state: number }> }
-  | { type: "time"; time: number }
+  | { type: "wireStates"; states: Array<{ id: string; state: number }>; gen: number }
+  | { type: "time"; time: number; gen: number }
   | { type: "error"; message: string };
 
 export interface FullSyncGate {

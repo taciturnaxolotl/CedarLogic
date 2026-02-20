@@ -5,10 +5,12 @@ let circuit: any = null;
 let cedarModule: any = null;
 let running = false;
 let stepsPerFrame = 5;
+let gen = 0;
 
 // Maps between string IDs and numeric IDs for the WASM engine
 const gateIdMap = new Map<string, number>();
 const wireIdMap = new Map<string, number>(); // Yjs wireId → WASM wire number (merged wires share a number)
+const reverseWireMap = new Map<number, string[]>(); // WASM wire number → all Yjs wireIds sharing it
 const wireMergeMap = new Map<string, string>(); // merged wireId → canonical wireId (for tracking)
 let nextGateId = 1;
 let nextWireId = 1;
@@ -46,6 +48,7 @@ function getOrCreateWireId(id: string): number {
   if (wireIdMap.has(id)) return wireIdMap.get(id)!;
   const numId = nextWireId++;
   wireIdMap.set(id, numId);
+  reverseWireMap.set(numId, [id]);
   return numId;
 }
 
@@ -57,6 +60,7 @@ function fullSync(msg: Extract<MainToWorkerMessage, { type: "fullSync" }>) {
   circuit = new cedarModule.Circuit();
   gateIdMap.clear();
   wireIdMap.clear();
+  reverseWireMap.clear();
   wireMergeMap.clear();
   nextGateId = 1;
   nextWireId = 1;
@@ -143,6 +147,9 @@ function fullSync(msg: Extract<MainToWorkerMessage, { type: "fullSync" }>) {
     }
     const wasmId = groupWasmId.get(root)!;
     wireIdMap.set(wire.id, wasmId);
+    let arr = reverseWireMap.get(wasmId);
+    if (!arr) { arr = []; reverseWireMap.set(wasmId, arr); }
+    arr.push(wire.id);
     if (root !== wire.id) {
       wireMergeMap.set(wire.id, root);
     }
@@ -171,36 +178,42 @@ function fullSync(msg: Extract<MainToWorkerMessage, { type: "fullSync" }>) {
 
   // Settle and report all wire states
   stepAndReport(5);
-  lastWireState.clear();
   reportAllWireStates();
+}
+
+/** Map WASM changedWires to Yjs string IDs using reverse map (O(1) per wire).
+ *  Uses indexed access + Number() cast to avoid embind val iteration/type issues. */
+function mapChangedWires(changedWires: any): Array<{ id: string; state: number }> {
+  const states: Array<{ id: string; state: number }> = [];
+  const len = changedWires.length ?? 0;
+  for (let i = 0; i < len; i++) {
+    const w = changedWires[i];
+    const numId = Number(w.id);
+    const stringIds = reverseWireMap.get(numId);
+    if (stringIds) {
+      for (const sid of stringIds) {
+        states.push({ id: sid, state: Number(w.state) });
+      }
+    }
+  }
+  return states;
 }
 
 function stepAndReport(count: number) {
   if (!circuit) return;
   try {
     const result = circuit.stepN(count);
-    const states = result.changedWires.map((w: any) => {
-      // Find string ID for this numeric wire ID
-      let stringId = "";
-      for (const [sid, nid] of wireIdMap) {
-        if (nid === w.id) {
-          stringId = sid;
-          break;
-        }
-      }
-      return { id: stringId, state: w.state };
-    });
+    const states = mapChangedWires(result.changedWires);
     if (states.length > 0) {
-      post({ type: "wireStates", states });
+      post({ type: "wireStates", states, gen });
     }
-    post({ type: "time", time: result.time });
+    post({ type: "time", time: result.time, gen });
   } catch (e: any) {
     post({ type: "error", message: `Step error: ${e.message}` });
   }
 }
 
-/** Report ALL wire states (not just changed). Used after fullSync to init colors.
- *  Reports state for every Yjs wireId, including merged wires that share a WASM wire. */
+/** Report ALL wire states (not just changed). Used after fullSync to init colors. */
 function reportAllWireStates() {
   if (!circuit) return;
   const states: Array<{ id: string; state: number }> = [];
@@ -212,46 +225,40 @@ function reportAllWireStates() {
     }
   }
   if (states.length > 0) {
-    post({ type: "wireStates", states });
-  }
-}
-
-// Cache of last-known wire states so we can diff and only post actual changes
-const lastWireState = new Map<string, number>();
-
-/** Poll all wire states and post only those that changed since last poll. */
-function reportChangedWireStates() {
-  if (!circuit) return;
-  const changed: Array<{ id: string; state: number }> = [];
-  for (const [stringId, numId] of wireIdMap) {
-    try {
-      const state = circuit.getWireState(numId);
-      if (lastWireState.get(stringId) !== state) {
-        lastWireState.set(stringId, state);
-        changed.push({ id: stringId, state });
-      }
-    } catch {
-      // skip
-    }
-  }
-  if (changed.length > 0) {
-    post({ type: "wireStates", states: changed });
+    post({ type: "wireStates", states, gen });
   }
 }
 
 let runTimer: ReturnType<typeof setTimeout> | null = null;
+let stepAccumulator = 0;
+
+// Fixed tick rate (~60 Hz). We batch multiple simulation steps per tick
+// so that high Hz values don't require hundreds of setTimeout calls/sec.
+const TICK_MS = 16;
 
 function runLoop() {
   if (!running) return;
-  try {
-    const result = circuit?.stepN(1);
-    if (result) post({ type: "time", time: result.time });
-  } catch (e: any) {
-    post({ type: "error", message: `Step error: ${e.message}` });
+
+  // Accumulate fractional steps so we don't lose precision
+  stepAccumulator += stepsPerFrame * TICK_MS / 1000;
+  const stepsThisTick = Math.floor(stepAccumulator);
+  stepAccumulator -= stepsThisTick;
+
+  if (stepsThisTick > 0) {
+    try {
+      const result = circuit?.stepN(stepsThisTick);
+      if (result) {
+        post({ type: "time", time: result.time, gen });
+        const states = mapChangedWires(result.changedWires);
+        if (states.length > 0) {
+          post({ type: "wireStates", states, gen });
+        }
+      }
+    } catch (e: any) {
+      post({ type: "error", message: `Step error: ${e.message}` });
+    }
   }
-  reportChangedWireStates();
-  const interval = Math.max(1, Math.round(1000 / stepsPerFrame));
-  runTimer = setTimeout(runLoop, interval);
+  runTimer = setTimeout(runLoop, TICK_MS);
 }
 
 self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
@@ -319,6 +326,12 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
           circuit.deleteWire(numId);
         } catch {}
         wireIdMap.delete(msg.id);
+        const arr = reverseWireMap.get(numId);
+        if (arr) {
+          const idx = arr.indexOf(msg.id);
+          if (idx !== -1) arr.splice(idx, 1);
+          if (arr.length === 0) reverseWireMap.delete(numId);
+        }
       }
       break;
     }
@@ -372,6 +385,8 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
     case "setRunning":
       running = msg.running;
       stepsPerFrame = msg.stepsPerFrame;
+      gen = msg.gen;
+      stepAccumulator = 0;
       // Always clear existing timer to avoid overlapping loops
       if (runTimer) {
         clearTimeout(runTimer);
