@@ -32,6 +32,13 @@ interface CircleDef {
   r: number;
 }
 
+interface ParamDlgEntry {
+  type: string;
+  label: string;
+  varname: string;
+  range?: string;
+}
+
 interface GateDef {
   id: string;
   name: string;
@@ -45,6 +52,7 @@ interface GateDef {
   outputs: Pin[];
   shape: LineSegment[];
   circles: CircleDef[];
+  paramDlg: ParamDlgEntry[];
 }
 
 function parsePoint(text: string): { x: number; y: number } {
@@ -166,6 +174,24 @@ for (const lib of libraryBlocks) {
       }
     }
 
+    // Parse param_dlg_data blocks
+    const paramDlg: ParamDlgEntry[] = [];
+    const dlgBlocks = extractAllTags(content, "param_dlg_data");
+    for (const dlgBlock of dlgBlocks) {
+      const paramBlocks = extractAllTags(dlgBlock.content, "param");
+      for (const pb of paramBlocks) {
+        const pType = extractTag(`<x>${pb.content}</x>`, "type");
+        const pLabel = extractTag(`<x>${pb.content}</x>`, "label");
+        const pVarname = extractTag(`<x>${pb.content}</x>`, "varname");
+        if (pType && pLabel && pVarname) {
+          const entry: ParamDlgEntry = { type: pType, label: pLabel, varname: pVarname };
+          const pRange = extractTag(`<x>${pb.content}</x>`, "range");
+          if (pRange) entry.range = pRange;
+          paramDlg.push(entry);
+        }
+      }
+    }
+
     // Parse shape lines, handling <offset> blocks that translate child lines
     const shape: LineSegment[] = [];
     const circles: CircleDef[] = [];
@@ -240,6 +266,7 @@ for (const lib of libraryBlocks) {
       outputs: outputs.map((p) => ({ ...p, y: -p.y })),
       shape: shape.map((s) => ({ x1: s.x1, y1: -s.y1, x2: s.x2, y2: -s.y2 })),
       circles: circles.map((c) => ({ ...c, cy: -c.cy })),
+      paramDlg,
     });
   }
 }
