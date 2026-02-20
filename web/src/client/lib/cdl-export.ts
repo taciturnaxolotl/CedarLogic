@@ -11,6 +11,7 @@ import {
   getConnectionsMap,
   readWireModel,
 } from "./collab/yjs-schema";
+import { loadedGateDefs } from "../components/canvas/GateLayer";
 import { GRID_SIZE } from "@shared/constants";
 import type { WireModel } from "@shared/wire-types";
 
@@ -206,10 +207,18 @@ export function exportToCdl(doc: Y.Doc, title: string): void {
 
     out += `<gparam>angle ${rotation.toFixed(1)}</gparam>\n`;
 
+    // Look up gate definition to know which params are guiParams vs logic params
+    const gateDef = loadedGateDefs.find((d) => d.id === defId);
+    const guiParamKeys = new Set(Object.keys(gateDef?.guiParams ?? {}));
+
     for (const [k, v] of yGate.entries()) {
       if (k.startsWith("param:")) {
         const paramName = k.slice(6);
-        out += `<lparam>${escapeXml(paramName)} ${escapeXml(String(v))}</lparam>\n`;
+        if (guiParamKeys.has(paramName)) {
+          out += `<gparam>${escapeXml(paramName)} ${escapeXml(String(v))}</gparam>\n`;
+        } else {
+          out += `<lparam>${escapeXml(paramName)} ${escapeXml(String(v))}</lparam>\n`;
+        }
       }
     }
 
