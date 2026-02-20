@@ -38,6 +38,8 @@ jobs:
             bun install
             bun run parse-gates
             bun run build
+            # Ensure Caddy (in cedarlogic group) can read dist files
+            chmod -R g+rX dist/
             sudo /run/current-system/sw/bin/systemctl restart cedarlogic.service
           EOF
 
