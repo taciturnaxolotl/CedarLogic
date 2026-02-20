@@ -145,7 +145,9 @@ function importFromXmlDoc(
       const key = text.slice(0, spaceIdx);
       const val = text.slice(spaceIdx + 1);
       if (key === "angle") {
-        rotation = parseFloat(val) || 0;
+        // CDL uses Y-up with CCW rotation; web uses Y-down with CW rotation.
+        // Negating Y flips the rotation direction, so negate the angle.
+        rotation = -(parseFloat(val) || 0);
       } else {
         // Store GUI params (LABEL_TEXT, TEXT_HEIGHT, etc.) alongside logic params
         params[key] = val;
