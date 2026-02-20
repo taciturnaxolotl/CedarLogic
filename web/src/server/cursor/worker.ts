@@ -59,8 +59,10 @@ function removeClient(client: ClientState) {
   if (room.size === 0) rooms.delete(client.roomId);
 }
 
+const CURSOR_PORT = parseInt(process.env.CURSOR_PORT || "3002");
+
 const server = Bun.serve({
-  port: 3002,
+  port: CURSOR_PORT,
   fetch(req, server) {
     if (server.upgrade(req)) return undefined;
     return new Response("Cursor relay", { status: 200 });
