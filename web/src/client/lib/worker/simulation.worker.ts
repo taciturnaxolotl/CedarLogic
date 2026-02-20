@@ -69,6 +69,16 @@ function fullSync(msg: Extract<MainToWorkerMessage, { type: "fullSync" }>) {
       for (const [param, value] of Object.entries(gate.params)) {
         circuit.setGateParameter(numId, param, value);
       }
+      if (gate.invertedInputs) {
+        for (const pinName of gate.invertedInputs) {
+          circuit.setGateInputParameter(numId, pinName, "INVERTED", "TRUE");
+        }
+      }
+      if (gate.invertedOutputs) {
+        for (const pinName of gate.invertedOutputs) {
+          circuit.setGateOutputParameter(numId, pinName, "INVERTED", "TRUE");
+        }
+      }
     } catch (e: any) {
       console.warn(`Failed to create gate ${gate.id}: ${e.message}`);
     }
@@ -263,6 +273,16 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
         circuit.newGate(msg.logicType, numId);
         for (const [param, value] of Object.entries(msg.params)) {
           circuit.setGateParameter(numId, param, value);
+        }
+        if (msg.invertedInputs) {
+          for (const pinName of msg.invertedInputs) {
+            circuit.setGateInputParameter(numId, pinName, "INVERTED", "TRUE");
+          }
+        }
+        if (msg.invertedOutputs) {
+          for (const pinName of msg.invertedOutputs) {
+            circuit.setGateOutputParameter(numId, pinName, "INVERTED", "TRUE");
+          }
         }
       } catch (e: any) {
         post({ type: "error", message: `addGate: ${e.message}` });
