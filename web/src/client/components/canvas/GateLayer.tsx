@@ -107,6 +107,7 @@ export { gateDefs as loadedGateDefs, loadGateDefs };
 interface GateLayerProps {
   doc: Y.Doc;
   readOnly: boolean;
+  onGateDblClick?: (gateId: string) => void;
 }
 
 interface GateRenderData {
@@ -162,7 +163,7 @@ function rotatePin(lx: number, ly: number, gateX: number, gateY: number, degrees
   };
 }
 
-export function GateLayer({ doc, readOnly }: GateLayerProps) {
+export function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
   const [gates, setGates] = useState<Map<string, GateRenderData>>(new Map());
   const [defs, setDefs] = useState<GateDefinition[]>([]);
   // Map from gateId to array of connected wireIds
@@ -611,6 +612,7 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
             onDragMove={(e) => handleDragMove(gate.id, e)}
             onDragEnd={(e) => handleDragEnd(gate.id, e)}
             onMouseDown={(e) => handleMouseDown(gate.id, e)}
+            onDblClick={() => onGateDblClick?.(gate.id)}
           >
             {/* Invisible hit area */}
             <Rect
