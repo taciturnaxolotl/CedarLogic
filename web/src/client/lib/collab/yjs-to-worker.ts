@@ -37,7 +37,18 @@ export function createYjsToWorkerBridge(
   const wires = getWiresMap(doc);
   const connections = getConnectionsMap(doc);
 
+  // O(1) reverse lookup: Y.Map instance → gate ID
+  const yMapToGateId = new WeakMap<Y.Map<any>, string>();
+
+  function populateGateIdMap() {
+    gates.forEach((yGate, id) => {
+      yMapToGateId.set(yGate, id);
+    });
+  }
+
   function fullSync() {
+    populateGateIdMap();
+
     const syncGates: FullSyncGate[] = [];
     gates.forEach((yGate, id) => {
       const params: Record<string, string> = {};
@@ -82,6 +93,8 @@ export function createYjsToWorkerBridge(
           if (change.action === "add") {
             const yGate = gates.get(key);
             if (!yGate) continue;
+            // Register in reverse-lookup map
+            yMapToGateId.set(yGate, key);
             const params: Record<string, string> = {};
             for (const [k, v] of yGate.entries()) {
               if (k.startsWith("param:")) params[k.replace("param:", "")] = v;
@@ -103,12 +116,9 @@ export function createYjsToWorkerBridge(
         event.target instanceof Y.Map &&
         event instanceof Y.YMapEvent
       ) {
-        // Inner gate parameter change — find the gate ID
+        // Inner gate parameter change — O(1) lookup instead of O(N) scan
         const yGate = event.target as Y.Map<any>;
-        let gateId: string | null = null;
-        gates.forEach((v, k) => {
-          if (v === yGate) gateId = k;
-        });
+        const gateId = yMapToGateId.get(yGate) ?? null;
         if (!gateId) continue;
 
         for (const [key, change] of event.changes.keys) {
