@@ -46,7 +46,7 @@ export function CursorLayer({ cursorWS, userMeta }: CursorLayerProps) {
       const group = new Konva.Group({ x: 0, y: 0, visible: false });
 
       const arrow = new Konva.Line({
-        points: [0, 0, 0, 14, 4, 11, 8, 18, 11, 16, 7, 10, 12, 10],
+        points: [0, 0, 3.6, 13.5, 6.9, 9.7, 13.3, 7.2],
         fill: color,
         closed: true,
         stroke: "#000",
