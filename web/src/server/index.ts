@@ -5,16 +5,20 @@ import { setupHocuspocus } from "./collab/hocuspocus";
 
 const db = initDb();
 
-// Start Hocuspocus WebSocket server on port 3001
-const hocuspocus = setupHocuspocus(db);
-hocuspocus.listen(3001);
+const API_PORT = parseInt(process.env.PORT || "3000");
+const WS_PORT = parseInt(process.env.WS_PORT || "3001");
+const CURSOR_PORT = parseInt(process.env.CURSOR_PORT || "3002");
 
-// Start dedicated cursor relay worker on port 3002
+// Start Hocuspocus WebSocket server
+const hocuspocus = setupHocuspocus(db);
+hocuspocus.listen(WS_PORT);
+
+// Start dedicated cursor relay worker
 new Worker(new URL("./cursor/worker.ts", import.meta.url).href);
 
-// HTTP API server on port 3000
+// HTTP API server
 const server = Bun.serve({
-  port: 3000,
+  port: API_PORT,
   async fetch(req) {
     const url = new URL(req.url);
 
