@@ -611,16 +611,17 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
       const stage = stageRef.current;
       if (!stage) return;
 
+      const { viewportX: vx, viewportY: vy, zoom: z } = useCanvasStore.getState();
+
       if (e.evt.ctrlKey || e.evt.metaKey) {
-        const oldZoom = zoom;
         const pointer = stage.getPointerPosition()!;
         const mousePointTo = {
-          x: (pointer.x - viewportX) / oldZoom,
-          y: (pointer.y - viewportY) / oldZoom,
+          x: (pointer.x - vx) / z,
+          y: (pointer.y - vy) / z,
         };
         const newZoom = Math.max(
           0.1,
-          Math.min(5, oldZoom * (e.evt.deltaY < 0 ? 1.1 : 0.9))
+          Math.min(5, z * (e.evt.deltaY < 0 ? 1.1 : 0.9))
         );
         setViewport(
           pointer.x - mousePointTo.x * newZoom,
@@ -629,13 +630,13 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
         );
       } else {
         setViewport(
-          viewportX - e.evt.deltaX,
-          viewportY - e.evt.deltaY,
-          zoom
+          vx - e.evt.deltaX,
+          vy - e.evt.deltaY,
+          z
         );
       }
     },
-    [viewportX, viewportY, zoom, setViewport]
+    [setViewport]
   );
 
   const handleMouseDown = useCallback(
@@ -678,21 +679,23 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
 
       if (e.target !== stage) return;
 
+      const { viewportX: vx, viewportY: vy, zoom: z } = useCanvasStore.getState();
+
       if (e.evt.button === 1 || e.evt.button === 2) {
         dragMode.current = "pan";
         dragStart.current = { x: e.evt.clientX, y: e.evt.clientY };
-        viewportStart.current = { x: viewportX, y: viewportY };
+        viewportStart.current = { x: vx, y: vy };
       } else if (e.evt.button === 0) {
         clearSelection();
         dragMode.current = "select-box";
         const pointer = stage.getPointerPosition()!;
         dragStart.current = {
-          x: (pointer.x - viewportX) / zoom,
-          y: (pointer.y - viewportY) / zoom,
+          x: (pointer.x - vx) / z,
+          y: (pointer.y - vy) / z,
         };
       }
     },
-    [viewportX, viewportY, zoom, clearSelection, setWireDrawing, setPendingPaste, setPendingGate, commitPaste, doc]
+    [clearSelection, setWireDrawing, setPendingPaste, setPendingGate, commitPaste, doc]
   );
 
   const handleMouseMove = useCallback(
@@ -700,12 +703,14 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
       const stage = stageRef.current;
       if (!stage) return;
 
+      const { viewportX: vx, viewportY: vy, zoom: z } = useCanvasStore.getState();
+
       // Update wire drawing preview
       const wd = useCanvasStore.getState().wireDrawing;
       if (wd) {
         const pointer = stage.getPointerPosition()!;
-        const x = snapToGrid((pointer.x - viewportX) / zoom);
-        const y = snapToGrid((pointer.y - viewportY) / zoom);
+        const x = snapToGrid((pointer.x - vx) / z);
+        const y = snapToGrid((pointer.y - vy) / z);
         setWireDrawing({ ...wd, currentX: x, currentY: y });
         return;
       }
@@ -713,8 +718,8 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
       // Track mouse position for paste
       const pointer = stage.getPointerPosition();
       if (pointer) {
-        const worldX = (pointer.x - viewportX) / zoom;
-        const worldY = (pointer.y - viewportY) / zoom;
+        const worldX = (pointer.x - vx) / z;
+        const worldY = (pointer.y - vy) / z;
         mousePos.current = { x: worldX, y: worldY };
         onCursorMove?.(worldX, worldY);
       }
@@ -722,8 +727,8 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
       // Update pending paste preview position
       const pp = useCanvasStore.getState().pendingPaste;
       if (pp && pointer) {
-        const x = snapToGrid((pointer.x - viewportX) / zoom);
-        const y = snapToGrid((pointer.y - viewportY) / zoom);
+        const x = snapToGrid((pointer.x - vx) / z);
+        const y = snapToGrid((pointer.y - vy) / z);
         setPendingPaste({ ...pp, x, y });
         return;
       }
@@ -734,12 +739,12 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
         setViewport(
           viewportStart.current.x + dx,
           viewportStart.current.y + dy,
-          zoom
+          z
         );
       } else if (dragMode.current === "select-box") {
         const pointer = stage.getPointerPosition()!;
-        const currentX = (pointer.x - viewportX) / zoom;
-        const currentY = (pointer.y - viewportY) / zoom;
+        const currentX = (pointer.x - vx) / z;
+        const currentY = (pointer.y - vy) / z;
         setSelectionBox({
           x: Math.min(dragStart.current.x, currentX),
           y: Math.min(dragStart.current.y, currentY),
@@ -748,7 +753,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
         });
       }
     },
-    [viewportX, viewportY, zoom, setViewport, setSelectionBox, setWireDrawing, setPendingPaste]
+    [setViewport, setSelectionBox, setWireDrawing, setPendingPaste, onCursorMove]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -819,9 +824,10 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
       const container = containerRef.current;
       if (!container) return;
 
+      const { viewportX: vx, viewportY: vy, zoom: z } = useCanvasStore.getState();
       const rect = container.getBoundingClientRect();
-      const x = snapToGrid((e.clientX - rect.left - viewportX) / zoom);
-      const y = snapToGrid((e.clientY - rect.top - viewportY) / zoom);
+      const x = snapToGrid((e.clientX - rect.left - vx) / z);
+      const y = snapToGrid((e.clientY - rect.top - vy) / z);
 
       const id = crypto.randomUUID();
       addGateToDoc(doc, id, {
@@ -835,7 +841,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
         ),
       });
     },
-    [readOnly, doc, viewportX, viewportY, zoom]
+    [readOnly, doc]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
