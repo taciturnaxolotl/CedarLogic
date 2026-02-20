@@ -16,6 +16,7 @@ interface Pin {
   name: string;
   x: number;
   y: number;
+  inverted?: boolean;
 }
 
 interface LineSegment {
@@ -143,7 +144,10 @@ for (const lib of libraryBlocks) {
       const pointMatch = inp.content.match(/<point>([\s\S]*?)<\/point>/);
       if (pinName && pointMatch) {
         const pt = parsePoint(pointMatch[1].trim());
-        inputs.push({ name: pinName, x: pt.x, y: pt.y });
+        const invertedTag = extractTag(`<x>${inp.content}</x>`, "inverted");
+        const pin: Pin = { name: pinName, x: pt.x, y: pt.y };
+        if (invertedTag === "true") pin.inverted = true;
+        inputs.push(pin);
       }
     }
 
@@ -155,7 +159,10 @@ for (const lib of libraryBlocks) {
       const pointMatch = out.content.match(/<point>([\s\S]*?)<\/point>/);
       if (pinName && pointMatch) {
         const pt = parsePoint(pointMatch[1].trim());
-        outputs.push({ name: pinName, x: pt.x, y: pt.y });
+        const invertedTag = extractTag(`<x>${out.content}</x>`, "inverted");
+        const pin: Pin = { name: pinName, x: pt.x, y: pt.y };
+        if (invertedTag === "true") pin.inverted = true;
+        outputs.push(pin);
       }
     }
 
