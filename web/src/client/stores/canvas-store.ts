@@ -50,7 +50,7 @@ interface CanvasState {
   clipboard: ClipboardData | null;
 
   /** When non-null, a paste preview is being positioned by the user */
-  pendingPaste: { data: ClipboardData; x: number; y: number } | null;
+  pendingPaste: { data: ClipboardData; x: number; y: number; shiftKey?: boolean } | null;
 
   /** When non-null, a gate ghost preview is following the mouse for placement */
   pendingGate: { defId: string; logicType: string; params?: Record<string, string>; x: number; y: number; rotation?: number } | null;
