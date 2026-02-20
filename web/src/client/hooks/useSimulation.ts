@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import * as Y from "yjs";
 import type { WorkerToMainMessage } from "../lib/worker/protocol";
 import { createYjsToWorkerBridge } from "../lib/collab/yjs-to-worker";
-import { useSimulationStore } from "../stores/simulation-store";
+import { useSimulationStore, updateWireStates } from "../stores/simulation-store";
 
 export function useSimulation(doc: Y.Doc | null) {
   const workerRef = useRef<Worker | null>(null);
@@ -10,7 +10,7 @@ export function useSimulation(doc: Y.Doc | null) {
   const genRef = useRef(0);
   const mountedRef = useRef(false);
 
-  const { running, stepsPerFrame, updateWireStates, setSimTime, setRunning } =
+  const { running, stepsPerFrame, setSimTime, setRunning } =
     useSimulationStore();
 
   useEffect(() => {
@@ -58,7 +58,7 @@ export function useSimulation(doc: Y.Doc | null) {
       workerRef.current = null;
       bridgeRef.current = null;
     };
-  }, [doc, updateWireStates, setSimTime]);
+  }, [doc, setSimTime]);
 
   // Sync running state to worker — bump generation so in-flight messages get discarded
   useEffect(() => {
