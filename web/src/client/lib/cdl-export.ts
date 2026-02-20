@@ -205,7 +205,8 @@ export function exportToCdl(doc: Y.Doc, title: string): void {
       out += `<ID>${escapeXml(conn.pinName)}</ID>${wireIntId} </${tag}>\n`;
     }
 
-    out += `<gparam>angle ${rotation.toFixed(1)}</gparam>\n`;
+    // Negate rotation back to CDL convention (Y-up, CCW)
+    out += `<gparam>angle ${(-rotation).toFixed(1)}</gparam>\n`;
 
     // Look up gate definition to know which params are guiParams vs logic params
     const gateDef = loadedGateDefs.find((d) => d.id === defId);
