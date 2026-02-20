@@ -54,21 +54,21 @@ export function CursorLayer({ cursorWS, userMeta }: CursorLayerProps) {
       });
 
       const labelGroup = new Konva.Group({ x: 12, y: 14 });
-      const labelBg = new Konva.Rect({
-        width: name.length * 7 + 8,
-        height: 18,
-        fill: color,
-        cornerRadius: 3,
-      });
       const labelText = new Konva.Text({
         text: name,
         fontSize: 11,
         fill: "#fff",
         x: 4,
-        y: 3,
+        y: 2,
         fontFamily: "system-ui, sans-serif",
       });
 
+      const labelBg = new Konva.Rect({
+        width: Math.ceil(labelText.getTextWidth()) + 8,
+        height: 16,
+        fill: color,
+        cornerRadius: 3,
+      });
       labelGroup.add(labelBg, labelText);
       group.add(arrow, labelGroup);
       layer!.add(group);
