@@ -137,6 +137,77 @@ export function Canvas({ doc, readOnly, onQuickAdd, onCursorMove, onCursorLeave,
 
   const undoManager = useRef<Y.UndoManager | null>(null);
 
+  /** Compute and apply a viewport that fits all circuit content on screen. */
+  const fitToContent = useCallback(
+    (canvasWidth: number, canvasHeight: number) => {
+      if (canvasWidth === 0 || canvasHeight === 0) return;
+      const gatesMap = getGatesMap(doc);
+      const wiresMap = getWiresMap(doc);
+      const defsMap = new Map<string, GateDefinition>(
+        loadedGateDefs.map((d) => [d.id, d])
+      );
+
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      let hasContent = false;
+
+      gatesMap.forEach((yGate) => {
+        const def = defsMap.get(yGate.get("defId"));
+        if (!def) return;
+        const bounds = getGateBounds(def);
+        const gx = yGate.get("x") as number;
+        const gy = yGate.get("y") as number;
+        minX = Math.min(minX, gx + bounds.x);
+        minY = Math.min(minY, gy + bounds.y);
+        maxX = Math.max(maxX, gx + bounds.x + bounds.width);
+        maxY = Math.max(maxY, gy + bounds.y + bounds.height);
+        hasContent = true;
+      });
+
+      wiresMap.forEach((yWire) => {
+        const model = readWireModel(yWire);
+        if (!model) return;
+        for (const seg of Object.values(model.segMap)) {
+          minX = Math.min(minX, seg.begin.x, seg.end.x);
+          minY = Math.min(minY, seg.begin.y, seg.end.y);
+          maxX = Math.max(maxX, seg.begin.x, seg.end.x);
+          maxY = Math.max(maxY, seg.begin.y, seg.end.y);
+          hasContent = true;
+        }
+      });
+
+      if (hasContent && isFinite(minX) && isFinite(maxX) && isFinite(minY) && isFinite(maxY)) {
+        const padding = 60;
+        const contentW = maxX - minX;
+        const contentH = maxY - minY;
+        const newZoom = Math.min(
+          (canvasWidth - padding * 2) / Math.max(contentW, 1),
+          (canvasHeight - padding * 2) / Math.max(contentH, 1),
+          2
+        );
+        const clampedZoom = Math.max(0.1, newZoom);
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        setViewport(
+          canvasWidth / 2 - centerX * clampedZoom,
+          canvasHeight / 2 - centerY * clampedZoom,
+          clampedZoom
+        );
+      }
+    },
+    [doc, setViewport]
+  );
+
+  // Auto-fit viewport to content on initial load
+  const hasFittedOnLoad = useRef(false);
+  useEffect(() => {
+    if (hasFittedOnLoad.current) return;
+    if (size.width === 0 || size.height === 0) return;
+    const gatesMap = getGatesMap(doc);
+    if (gatesMap.size === 0) return;
+    hasFittedOnLoad.current = true;
+    fitToContent(size.width, size.height);
+  }, [doc, size, fitToContent]);
+
   useEffect(() => {
     const gates = getGatesMap(doc);
     const wires = getWiresMap(doc);
@@ -433,61 +504,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onCursorMove, onCursorLeave,
         // Don't trigger if typing in an input
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
         e.preventDefault();
-
-        const gatesMap = getGatesMap(doc);
-        const wiresMap = getWiresMap(doc);
-        const defsMap = new Map<string, GateDefinition>(
-          loadedGateDefs.map((d) => [d.id, d])
-        );
-
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        let hasContent = false;
-
-        // Include gate bounds
-        gatesMap.forEach((yGate) => {
-          const def = defsMap.get(yGate.get("defId"));
-          if (!def) return;
-          const bounds = getGateBounds(def);
-          const gx = yGate.get("x") as number;
-          const gy = yGate.get("y") as number;
-          minX = Math.min(minX, gx + bounds.x);
-          minY = Math.min(minY, gy + bounds.y);
-          maxX = Math.max(maxX, gx + bounds.x + bounds.width);
-          maxY = Math.max(maxY, gy + bounds.y + bounds.height);
-          hasContent = true;
-        });
-
-        // Include wire segment endpoints from WireModel
-        wiresMap.forEach((yWire) => {
-          const model = readWireModel(yWire);
-          if (!model) return;
-          for (const seg of Object.values(model.segMap)) {
-            minX = Math.min(minX, seg.begin.x, seg.end.x);
-            minY = Math.min(minY, seg.begin.y, seg.end.y);
-            maxX = Math.max(maxX, seg.begin.x, seg.end.x);
-            maxY = Math.max(maxY, seg.begin.y, seg.end.y);
-            hasContent = true;
-          }
-        });
-
-        if (hasContent) {
-          const padding = 60;
-          const contentW = maxX - minX;
-          const contentH = maxY - minY;
-          const newZoom = Math.min(
-            (size.width - padding * 2) / Math.max(contentW, 1),
-            (size.height - padding * 2) / Math.max(contentH, 1),
-            2 // don't zoom in too much
-          );
-          const clampedZoom = Math.max(0.1, newZoom);
-          const centerX = (minX + maxX) / 2;
-          const centerY = (minY + maxY) / 2;
-          setViewport(
-            size.width / 2 - centerX * clampedZoom,
-            size.height / 2 - centerY * clampedZoom,
-            clampedZoom
-          );
-        }
+        fitToContent(size.width, size.height);
       }
 
       // Quick add gate dialog
@@ -545,7 +562,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onCursorMove, onCursorLeave,
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [doc, readOnly, selectedIds, clearSelection, select, setViewport, setWireDrawing, setClipboard, setPendingPaste, setPendingGate, size, onQuickAdd]);
+  }, [doc, readOnly, selectedIds, clearSelection, select, setViewport, setWireDrawing, setClipboard, setPendingPaste, setPendingGate, size, onQuickAdd, fitToContent]);
 
   // Track mouse for pending gate placement using native DOM events
   // (Konva stage events don't fire reliably after an HTML overlay closes)
