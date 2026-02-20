@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Layer, Group, Line, Circle, Rect } from "react-konva";
+import { Layer, Group, Line, Circle, Rect, Text } from "react-konva";
 import * as Y from "yjs";
 import type Konva from "konva";
 import {
@@ -722,6 +722,56 @@ export function GateLayer({ doc, readOnly }: GateLayerProps) {
                 listening={false}
               />
             ))}
+            {/* LABEL text */}
+            {def.guiType === "LABEL" && (() => {
+              const labelText = gate.params.LABEL_TEXT ?? "Text";
+              const textHeight = parseFloat(gate.params.TEXT_HEIGHT ?? "2.0");
+              const fontSize = textHeight * GRID_SIZE;
+              return (
+                <Text
+                  text={labelText}
+                  fontSize={fontSize}
+                  fill={selected ? "#3b82f6" : "#e2e8f0"}
+                  fontFamily="monospace"
+                  listening={false}
+                  offsetY={fontSize / 2}
+                />
+              );
+            })()}
+            {/* FROM text — label to the left of the arrow */}
+            {def.guiType === "FROM" && (() => {
+              const labelText = gate.params.JUNCTION_ID ?? "";
+              const fontSize = 1.5 * GRID_SIZE;
+              return (
+                <Text
+                  text={labelText}
+                  fontSize={fontSize}
+                  fill={selected ? "#3b82f6" : "#e2e8f0"}
+                  fontFamily="monospace"
+                  listening={false}
+                  x={0}
+                  y={-fontSize / 2}
+                  align="right"
+                  offsetX={fontSize * labelText.length * 0.6}
+                />
+              );
+            })()}
+            {/* TO text — label to the right of the arrow */}
+            {def.guiType === "TO" && (() => {
+              const labelText = gate.params.JUNCTION_ID ?? "";
+              const fontSize = 1.5 * GRID_SIZE;
+              return (
+                <Text
+                  text={labelText}
+                  fontSize={fontSize}
+                  fill={selected ? "#3b82f6" : "#e2e8f0"}
+                  fontFamily="monospace"
+                  listening={false}
+                  x={0.4 * GRID_SIZE}
+                  y={-fontSize / 2}
+                />
+              );
+            })()}
             {/* Input pins */}
             {def.inputs.map((pin) => {
               const isHovered = hoveredPin?.gateId === gate.id && hoveredPin?.pinName === pin.name && hoveredPin?.pinDirection === "input";
