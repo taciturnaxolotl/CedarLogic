@@ -19,7 +19,8 @@ import {
 import type { DragState } from "../../lib/canvas/wire-model";
 import { useSimulationStore } from "../../stores/simulation-store";
 import { useCanvasStore } from "../../stores/canvas-store";
-import { WIRE_COLORS, WIRE_STATE, SNAP_SIZE, GRID_SIZE } from "@shared/constants";
+import { WIRE_STATE, SNAP_SIZE, GRID_SIZE } from "@shared/constants";
+import { useCanvasColors } from "../../hooks/useCanvasColors";
 import type { WireModel, WireRenderInfo } from "@shared/wire-types";
 import type { GateDefinition } from "@shared/types";
 
@@ -66,6 +67,7 @@ export function WireLayer({ doc, readOnly }: WireLayerProps) {
   const wireStates = useSimulationStore((s) => s.wireStates);
   const selectedIds = useCanvasStore((s) => s.selectedIds);
   const selectOnly = useCanvasStore((s) => s.selectOnly);
+  const colors = useCanvasColors();
 
   // Local drag preview — rendered directly from React state, bypasses Yjs round-trip
   const [dragPreview, setDragPreview] = useState<{
@@ -231,9 +233,9 @@ export function WireLayer({ doc, readOnly }: WireLayerProps) {
     <Layer>
       {Array.from(wires.values()).map((wire) => {
         const state = wireStates.get(wire.id) ?? WIRE_STATE.UNKNOWN;
-        const color = WIRE_COLORS[state];
+        const color = colors.wire[state];
         const selected = !!selectedIds[wire.id];
-        const strokeColor = selected ? "#3b82f6" : color;
+        const strokeColor = selected ? colors.wireSelected : color;
 
         // Use drag preview if this wire is being dragged, otherwise use Yjs data
         const preview = dragPreview?.wireId === wire.id ? dragPreview : null;

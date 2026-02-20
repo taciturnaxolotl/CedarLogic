@@ -62,13 +62,13 @@ export function ShareDialog({ fileId, onClose }: ShareDialogProps) {
   const isPublic = file.linkSharing !== "private";
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/30 dark:bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white">Share "{file.title}"</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Share "{file.title}"</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white cursor-pointer"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white cursor-pointer"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M4 4l8 8M12 4l-8 8" />
@@ -78,11 +78,11 @@ export function ShareDialog({ fileId, onClose }: ShareDialogProps) {
 
         {/* Link sharing */}
         <div className="mb-4">
-          <label className="block text-sm text-gray-400 mb-2">Link access</label>
+          <label className="block text-sm text-gray-500 dark:text-gray-400 mb-2">Link access</label>
           <select
             value={file.linkSharing}
             onChange={(e) => updateLinkSharing(e.target.value)}
-            className="w-full bg-gray-800 text-white rounded px-3 py-2 text-sm cursor-pointer"
+            className="w-full bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white rounded px-3 py-2 text-sm cursor-pointer"
           >
             <option value="private">Private - only invited people</option>
             <option value="viewer">Anyone with link can view</option>
@@ -98,7 +98,7 @@ export function ShareDialog({ fileId, onClose }: ShareDialogProps) {
               ? "bg-green-600/20 text-green-400 border border-green-600/40"
               : isPublic
                 ? "bg-blue-600 hover:bg-blue-500 text-white"
-                : "bg-gray-800 hover:bg-gray-700 text-gray-300"
+                : "bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
           }`}
         >
           {copied ? (
@@ -120,26 +120,26 @@ export function ShareDialog({ fileId, onClose }: ShareDialogProps) {
         </button>
 
         {!isPublic && (
-          <p className="text-xs text-gray-500 -mt-3 mb-4">
+          <p className="text-xs text-gray-400 dark:text-gray-500 -mt-3 mb-4">
             Only invited people can access this link. Change to "Anyone with link" above to share publicly.
           </p>
         )}
 
         {/* Invite by email */}
-        <div className="border-t border-gray-800 pt-4">
-          <label className="block text-sm text-gray-400 mb-2">Invite people</label>
+        <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
+          <label className="block text-sm text-gray-500 dark:text-gray-400 mb-2">Invite people</label>
           <form onSubmit={addInvite} className="flex gap-2 mb-3">
             <input
               type="email"
               placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 bg-gray-800 text-white rounded px-3 py-2 text-sm placeholder-gray-500"
+              className="flex-1 bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white rounded px-3 py-2 text-sm placeholder-gray-400 dark:placeholder-gray-500"
             />
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as "viewer" | "editor")}
-              className="bg-gray-800 text-white rounded px-3 py-2 text-sm cursor-pointer"
+              className="bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white rounded px-3 py-2 text-sm cursor-pointer"
             >
               <option value="viewer">Viewer</option>
               <option value="editor">Editor</option>
@@ -157,14 +157,14 @@ export function ShareDialog({ fileId, onClose }: ShareDialogProps) {
               {file.permissions.map((perm) => (
                 <div
                   key={perm.id}
-                  className="flex items-center justify-between text-sm text-gray-300"
+                  className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300"
                 >
                   <span>{perm.userEmail}</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-gray-500">{perm.role}</span>
+                    <span className="text-gray-400 dark:text-gray-500">{perm.role}</span>
                     <button
                       onClick={() => removeInvite(perm.id)}
-                      className="text-gray-500 hover:text-red-400 cursor-pointer"
+                      className="text-gray-400 dark:text-gray-500 hover:text-red-400 cursor-pointer"
                     >
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                         <path d="M3 3l6 6M9 3l-6 6" />

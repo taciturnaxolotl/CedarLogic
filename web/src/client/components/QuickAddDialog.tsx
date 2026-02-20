@@ -88,13 +88,13 @@ export function QuickAddDialog({ onClose }: QuickAddDialogProps) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 pt-[15vh]"
+      className="fixed inset-0 bg-black/30 dark:bg-black/50 flex items-start justify-center z-50 pt-[15vh]"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-gray-900 rounded-xl w-full max-w-md shadow-2xl border border-gray-700 overflow-hidden">
-        <div className="p-3 border-b border-gray-800">
+      <div className="bg-gray-50 dark:bg-gray-900 rounded-xl w-full max-w-md shadow-2xl border border-gray-300 dark:border-gray-700 overflow-hidden">
+        <div className="p-3 border-b border-gray-200 dark:border-gray-800">
           <input
             autoFocus
             type="text"
@@ -102,20 +102,20 @@ export function QuickAddDialog({ onClose }: QuickAddDialogProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <div ref={listRef} className="max-h-80 overflow-y-auto p-2">
           {filtered.length === 0 ? (
-            <div className="text-sm text-gray-500 text-center py-6">No gates found</div>
+            <div className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">No gates found</div>
           ) : (
             filtered.map((def, i) => (
               <button
                 key={def.id}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors cursor-pointer ${
                   i === selectedIndex
-                    ? "bg-blue-600/30 text-white"
-                    : "text-gray-300 hover:bg-gray-800"
+                    ? "bg-blue-600/30 text-gray-900 dark:text-white"
+                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800"
                 }`}
                 onMouseEnter={() => setSelectedIndex(i)}
                 onClick={() => selectGate(def)}
@@ -125,7 +125,7 @@ export function QuickAddDialog({ onClose }: QuickAddDialogProps) {
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-medium truncate">{def.caption || def.id}</div>
-                  <div className="text-xs text-gray-500 truncate">{def.library}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 truncate">{def.library}</div>
                 </div>
               </button>
             ))

@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect, useLayoutEffect, useState } from "react";
-import { Stage, Layer } from "react-konva";
+import { Stage, Layer, Rect } from "react-konva";
 import type Konva from "konva";
 import * as Y from "yjs";
 import { useCanvasStore, type ClipboardData } from "../stores/canvas-store";
@@ -10,6 +10,7 @@ import { OverlayLayer } from "./canvas/OverlayLayer";
 import { CursorLayer } from "./canvas/CursorLayer";
 import type { CursorWS } from "../lib/collab/cursor-ws";
 import { SNAP_SIZE } from "@shared/constants";
+import { useCanvasColors } from "../hooks/useCanvasColors";
 import type { GateDefinition, WireSegment } from "@shared/types";
 import type { WireModel } from "@shared/wire-types";
 import {
@@ -92,6 +93,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const colors = useCanvasColors();
 
   const dragMode = useRef<DragMode>("none");
   const dragStart = useRef({ x: 0, y: 0 });
@@ -867,6 +869,16 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
         >
+          <Layer listening={false}>
+            <Rect
+              x={-viewportX / zoom}
+              y={-viewportY / zoom}
+              width={size.width / zoom}
+              height={size.height / zoom}
+              fill={colors.canvasBg}
+              listening={false}
+            />
+          </Layer>
           <GridLayer />
           <WireLayer doc={doc} readOnly={readOnly} />
           <GateLayer doc={doc} readOnly={readOnly} onGateDblClick={onGateDblClick} />

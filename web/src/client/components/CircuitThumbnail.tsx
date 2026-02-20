@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from "react";
 import type { ThumbnailData, GateDefinition } from "@shared/types";
 import { loadGateDefs } from "./canvas/GateLayer";
 import { GRID_SIZE } from "@shared/constants";
+import { useCanvasColors } from "../hooks/useCanvasColors";
 
 interface CircuitThumbnailProps {
   data: ThumbnailData | undefined;
@@ -10,6 +11,7 @@ interface CircuitThumbnailProps {
 export function CircuitThumbnail({ data }: CircuitThumbnailProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [defs, setDefs] = useState<GateDefinition[]>([]);
+  const colors = useCanvasColors();
 
   useEffect(() => {
     loadGateDefs().then(setDefs);
@@ -91,7 +93,7 @@ export function CircuitThumbnail({ data }: CircuitThumbnailProps) {
     ctx.scale(scale, scale);
 
     // Draw wires
-    ctx.strokeStyle = "#555";
+    ctx.strokeStyle = colors.thumbnailWire;
     ctx.lineWidth = 2 / scale;
     ctx.lineCap = "round";
     for (const wire of data.wires) {
@@ -104,7 +106,7 @@ export function CircuitThumbnail({ data }: CircuitThumbnailProps) {
     }
 
     // Draw gates
-    ctx.strokeStyle = "#888";
+    ctx.strokeStyle = colors.thumbnailGate;
     ctx.lineWidth = 1.5 / scale;
     for (const gate of data.gates) {
       const def = defsMap.get(gate.defId);
@@ -133,18 +135,18 @@ export function CircuitThumbnail({ data }: CircuitThumbnailProps) {
     }
 
     ctx.restore();
-  }, [data, defs]);
+  }, [data, defs, colors]);
 
   if (data === undefined) {
     return (
-      <div className="w-full aspect-[4/3] bg-gray-800 rounded-t-xl animate-pulse" />
+      <div className="w-full aspect-[4/3] bg-gray-200 dark:bg-gray-800 rounded-t-xl animate-pulse" />
     );
   }
 
   return (
     <canvas
       ref={canvasRef}
-      className="w-full aspect-[4/3] rounded-t-xl bg-gray-800/50"
+      className="w-full aspect-[4/3] rounded-t-xl bg-gray-200/50 dark:bg-gray-800/50"
       style={{ display: "block" }}
     />
   );

@@ -24,12 +24,12 @@ export function SimControls() {
   return (
     <div className={`flex items-center gap-3 backdrop-blur-sm border rounded-lg px-3 py-1.5 shadow-lg transition-colors ${
       running
-        ? "bg-green-950/80 border-green-700/60"
-        : "bg-yellow-950/80 border-yellow-700/60"
+        ? "bg-green-100/80 dark:bg-green-950/80 border-green-500/60 dark:border-green-700/60"
+        : "bg-yellow-100/80 dark:bg-yellow-950/80 border-yellow-500/60 dark:border-yellow-700/60"
     }`}>
       <button
         onClick={() => setRunning(!running)}
-        className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 transition-colors cursor-pointer"
+        className="w-7 h-7 flex items-center justify-center rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer"
         title={running ? "Pause" : "Play"}
       >
         {running ? (
@@ -43,8 +43,8 @@ export function SimControls() {
           </svg>
         )}
       </button>
-      <div className="w-px h-4 bg-gray-700" />
-      <label className="flex items-center gap-2 text-xs text-gray-400">
+      <div className="w-px h-4 bg-gray-300 dark:bg-gray-700" />
+      <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
         Speed
         <input
           type="range"
@@ -55,7 +55,7 @@ export function SimControls() {
           onChange={(e) => setStepsPerFrame(sliderToHz(Number(e.target.value)))}
           className="w-20 h-1 accent-blue-500 cursor-pointer"
         />
-        <span className="text-gray-500 text-right tabular-nums whitespace-nowrap">{stepsPerFrame} Hz</span>
+        <span className="text-gray-400 dark:text-gray-500 text-right tabular-nums whitespace-nowrap">{stepsPerFrame} Hz</span>
       </label>
     </div>
   );
@@ -96,15 +96,15 @@ export function Toolbar() {
   const libraries = groupByLibrary(gateDefs);
 
   return (
-    <div className="w-60 bg-gray-900 border-r border-gray-800 flex flex-col overflow-hidden">
+    <div className="w-60 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col overflow-hidden">
       {/* Gate palette */}
       <div className="flex-1 overflow-y-auto p-3">
-        <div className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Gates</div>
+        <div className="text-xs text-gray-400 dark:text-gray-500 mb-2 uppercase tracking-wider">Gates</div>
         {Array.from(libraries.entries()).map(([lib, defs]) => (
           <div key={lib} className="mb-1">
             <button
               onClick={() => setExpandedLib(expandedLib === lib ? null : lib)}
-              className="w-full text-left text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-800 cursor-pointer transition-colors"
+              className="w-full text-left text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 cursor-pointer transition-colors"
             >
               {expandedLib === lib ? "▾" : "▸"} {lib}
             </button>
@@ -115,13 +115,13 @@ export function Toolbar() {
                     key={def.id}
                     draggable
                     onDragStart={(e) => handleDragStart(e, def)}
-                    className="flex flex-col items-center gap-1 p-2 rounded bg-gray-800/50 hover:bg-gray-700/70 cursor-grab active:cursor-grabbing transition-colors border border-transparent hover:border-gray-600"
+                    className="flex flex-col items-center gap-1 p-2 rounded bg-gray-200/50 dark:bg-gray-800/50 hover:bg-gray-300/70 dark:hover:bg-gray-700/70 cursor-grab active:cursor-grabbing transition-colors border border-transparent hover:border-gray-400 dark:hover:border-gray-600"
                     title={def.caption}
                   >
                     <div className="w-10 h-10">
                       <GatePreview def={def} />
                     </div>
-                    <span className="text-[10px] text-gray-400 text-center leading-tight truncate w-full">
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400 text-center leading-tight truncate w-full">
                       {def.caption || def.id}
                     </span>
                   </div>

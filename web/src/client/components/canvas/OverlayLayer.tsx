@@ -4,9 +4,11 @@ import { useCanvasStore } from "../../stores/canvas-store";
 import { GRID_SIZE } from "@shared/constants";
 import type { GateDefinition } from "@shared/types";
 import { loadedGateDefs, getGateBounds } from "./GateLayer";
+import { useCanvasColors } from "../../hooks/useCanvasColors";
 
 export function OverlayLayer() {
   const { selectionBox, wireDrawing, pendingPaste, pendingGate } = useCanvasStore();
+  const colors = useCanvasColors();
 
   const defsMap = useMemo(
     () => new Map<string, GateDefinition>(loadedGateDefs.map((d) => [d.id, d])),
@@ -24,8 +26,8 @@ export function OverlayLayer() {
           y={selectionBox.y}
           width={selectionBox.width}
           height={selectionBox.height}
-          fill="rgba(59, 130, 246, 0.1)"
-          stroke="#3b82f6"
+          fill={colors.selectionFill}
+          stroke={colors.selectionStroke}
           strokeWidth={1}
           dash={[4, 4]}
         />
@@ -35,7 +37,7 @@ export function OverlayLayer() {
       {wireDrawing && (
         <Line
           points={[wireDrawing.fromX, wireDrawing.fromY, wireDrawing.currentX, wireDrawing.currentY]}
-          stroke="#3b82f6"
+          stroke={colors.selectionStroke}
           strokeWidth={2}
           lineCap="round"
           lineJoin="round"
@@ -64,7 +66,7 @@ export function OverlayLayer() {
                       seg.x2 * GRID_SIZE,
                       seg.y2 * GRID_SIZE,
                     ]}
-                    stroke="#3b82f6"
+                    stroke={colors.selectionStroke}
                     strokeWidth={1.5}
                     lineCap="round"
                     lineJoin="round"
@@ -86,7 +88,7 @@ export function OverlayLayer() {
                     seg.end.x + pendingPaste.x,
                     seg.end.y + pendingPaste.y,
                   ]}
-                  stroke="#3b82f6"
+                  stroke={colors.selectionStroke}
                   strokeWidth={2}
                   lineCap="round"
                   lineJoin="round"
@@ -102,7 +104,7 @@ export function OverlayLayer() {
                   seg.x2 + pendingPaste.x,
                   seg.y2 + pendingPaste.y,
                 ]}
-                stroke="#3b82f6"
+                stroke={colors.selectionStroke}
                 strokeWidth={2}
                 lineCap="round"
                 lineJoin="round"
@@ -127,7 +129,7 @@ export function OverlayLayer() {
                   seg.x2 * GRID_SIZE,
                   seg.y2 * GRID_SIZE,
                 ]}
-                stroke="#3b82f6"
+                stroke={colors.selectionStroke}
                 strokeWidth={1.5}
                 lineCap="round"
                 lineJoin="round"

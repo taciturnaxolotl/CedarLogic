@@ -1,4 +1,5 @@
 import type { GateDefinition } from "@shared/types";
+import { useCanvasColors } from "../hooks/useCanvasColors";
 
 export function getGatePreviewBounds(def: GateDefinition) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -24,6 +25,7 @@ export function GatePreview({ def }: { def: GateDefinition }) {
   const vbY = bounds.minY - padding;
   const vbW = bounds.width + padding * 2;
   const vbH = bounds.height + padding * 2;
+  const colors = useCanvasColors();
 
   return (
     <svg
@@ -36,7 +38,7 @@ export function GatePreview({ def }: { def: GateDefinition }) {
           key={i}
           x1={seg.x1} y1={seg.y1}
           x2={seg.x2} y2={seg.y2}
-          stroke="#94a3b8"
+          stroke={colors.previewStroke}
           strokeWidth={0.15}
           strokeLinecap="round"
         />
@@ -46,7 +48,7 @@ export function GatePreview({ def }: { def: GateDefinition }) {
           key={`c-${i}`}
           cx={c.cx} cy={c.cy}
           r={c.r}
-          stroke="#94a3b8"
+          stroke={colors.previewStroke}
           strokeWidth={0.15}
           fill="none"
         />
@@ -56,7 +58,7 @@ export function GatePreview({ def }: { def: GateDefinition }) {
           key={`in-${pin.name}`}
           cx={pin.x} cy={pin.y}
           r={0.25}
-          fill="#60a5fa"
+          fill={colors.previewPin}
         />
       ))}
       {def.outputs.map((pin) => (
@@ -64,7 +66,7 @@ export function GatePreview({ def }: { def: GateDefinition }) {
           key={`out-${pin.name}`}
           cx={pin.x} cy={pin.y}
           r={0.25}
-          fill="#60a5fa"
+          fill={colors.previewPin}
         />
       ))}
     </svg>
