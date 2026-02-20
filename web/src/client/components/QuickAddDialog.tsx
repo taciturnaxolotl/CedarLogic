@@ -61,7 +61,7 @@ export function QuickAddDialog({ onClose }: QuickAddDialogProps) {
     useCanvasStore.getState().setPendingGate({
       defId: def.id,
       logicType: def.logicType || "",
-      params: def.params,
+      params: { ...def.params, ...def.guiParams },
       x: centerX,
       y: centerY,
     });

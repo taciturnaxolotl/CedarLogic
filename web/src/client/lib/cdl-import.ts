@@ -146,6 +146,9 @@ function importFromXmlDoc(
       const val = text.slice(spaceIdx + 1);
       if (key === "angle") {
         rotation = parseFloat(val) || 0;
+      } else {
+        // Store GUI params (LABEL_TEXT, TEXT_HEIGHT, etc.) alongside logic params
+        params[key] = val;
       }
     }
 
