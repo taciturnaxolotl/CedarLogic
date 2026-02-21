@@ -40,10 +40,6 @@ export function QuickAddDialog({ onClose }: QuickAddDialogProps) {
   }, [query]);
 
   useEffect(() => {
-    setSelectedIndex(0);
-  }, [filtered]);
-
-  useEffect(() => {
     const list = listRef.current;
     if (!list) return;
     const item = list.children[selectedIndex] as HTMLElement | undefined;
@@ -100,7 +96,7 @@ export function QuickAddDialog({ onClose }: QuickAddDialogProps) {
             type="text"
             placeholder="Search gates..."
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); setSelectedIndex(0); }}
             onKeyDown={handleKeyDown}
             className="w-full bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
           />
