@@ -77,7 +77,7 @@ export function FloatingToolbar({
     [file.title, onTitleSave],
   );
 
-  const barClass = "bg-gray-100/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200 dark:border-gray-800 rounded-xl px-2 py-1 shadow-lg";
+  const barClass = "bg-gray-100/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200 dark:border-gray-800 rounded-xl px-2 py-1 shadow-xs";
 
   /* ─── Shared left-bar content (sim controls only — title is centered separately) ─── */
   const leftBarContent = (
@@ -140,7 +140,7 @@ export function FloatingToolbar({
       <div className="absolute top-0 left-0 bottom-0 w-64 z-30 pointer-events-none">
         {/* Morphing background — content-independent */}
         <div
-          className="absolute bg-gray-100/80 dark:bg-gray-900/80 backdrop-blur-sm border-gray-200 dark:border-gray-800 shadow-lg transition-all duration-200 ease-out"
+          className="absolute bg-gray-100/80 dark:bg-gray-900/80 backdrop-blur-sm border-gray-200 dark:border-gray-800 shadow-xs transition-all duration-200 ease-out"
           style={{
             top: leftOpen ? 0 : 12,
             left: leftOpen ? 0 : 12,
