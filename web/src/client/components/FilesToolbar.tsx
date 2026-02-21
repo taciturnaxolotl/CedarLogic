@@ -27,7 +27,7 @@ export function FilesToolbar({
   onCreateFile,
 }: FilesToolbarProps) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6 bg-gray-100/50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 rounded-xl px-3 py-2">
       {/* Filter tabs */}
       <div className="flex gap-1">
         {filterTabs.map((tab) => (
@@ -68,7 +68,7 @@ export function FilesToolbar({
           placeholder="Search circuits..."
           value={searchQuery}
           onChange={(e) => onSearchQuery(e.target.value)}
-          className="pl-8 pr-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 w-48"
+          className="pl-8 pr-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 w-48"
         />
       </div>
 
@@ -86,7 +86,7 @@ export function FilesToolbar({
       {/* New Circuit button */}
       <button
         onClick={onCreateFile}
-        className="px-4 py-1.5 bg-blue-600 rounded-lg text-sm font-medium hover:bg-blue-500 transition-colors cursor-pointer"
+        className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-500 transition-colors cursor-pointer"
       >
         New Circuit
       </button>

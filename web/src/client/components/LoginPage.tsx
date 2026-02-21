@@ -6,6 +6,7 @@ export function LoginPage() {
   return (
     <div className="flex items-center justify-center h-screen bg-white dark:bg-gray-950">
       <div className="text-center">
+        <img src="/icon.png" alt="CedarLogic" className="w-12 h-12 mx-auto mb-4" />
         <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">CedarLogic Web</h1>
         <p className="text-gray-500 dark:text-gray-400 mb-8">Digital logic simulator</p>
         <button
