@@ -206,7 +206,6 @@ function RegisterDisplay({
 }) {
   const colors = useCanvasColors();
   const boxStr = def.guiParams?.VALUE_BOX;
-  if (!boxStr) return null;
 
   const numBits = parseInt(def.params?.INPUT_BITS ?? "0", 10);
   // Counting registers expose their value on OUT pins; pure LED displays only have IN pins
@@ -215,15 +214,18 @@ function RegisterDisplay({
 
   // Collect wireIds for the display bits
   const wireIds = useMemo(() => {
+    if (!boxStr) return [];
     const ids: string[] = [];
     for (let i = 0; i < numBits; i++) {
       const wid = pinWireMap.get(`${gate.id}:${pinPrefix}_${i}`);
       if (wid) ids.push(wid);
     }
     return ids;
-  }, [gate.id, numBits, pinPrefix, pinWireMap]);
+  }, [boxStr, gate.id, numBits, pinPrefix, pinWireMap]);
 
   const getState = useWireStates(wireIds);
+
+  if (!boxStr) return null;
 
   const [bx1, rawY1, bx2, rawY2] = boxStr.split(",").map(Number);
   const by1 = Math.min(-rawY1, -rawY2);
