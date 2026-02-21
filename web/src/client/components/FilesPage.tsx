@@ -97,8 +97,11 @@ export function FilesPage({ onOpenFile }: FilesPageProps) {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-white">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800">
-        <h1 className="text-xl font-bold">CedarLogic Web</h1>
+      <header className="flex items-center justify-between px-6 py-4">
+        <div className="flex items-center gap-2.5">
+          <img src="/icon.png" alt="CedarLogic" className="w-6 h-6" />
+          <span className="text-lg font-bold">CedarLogic</span>
+        </div>
         <div className="flex items-center gap-4">
           <button
             onClick={toggleTheme}
