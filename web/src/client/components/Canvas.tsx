@@ -145,10 +145,11 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
 
   const undoManager = useRef<Y.UndoManager | null>(null);
 
-  /** Compute and apply a viewport that fits all circuit content on screen. */
+  /** Compute and apply a viewport that fits all circuit content on screen.
+   *  Returns true if content was found and viewport was adjusted. */
   const fitToContent = useCallback(
-    (canvasWidth: number, canvasHeight: number) => {
-      if (canvasWidth === 0 || canvasHeight === 0) return;
+    (canvasWidth: number, canvasHeight: number): boolean => {
+      if (canvasWidth === 0 || canvasHeight === 0) return false;
       const gatesMap = getGatesMap(doc);
       const wiresMap = getWiresMap(doc);
       const currentPage = useCanvasStore.getState().activePage;
@@ -208,20 +209,20 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
           canvasHeight / 2 - centerY * clampedZoom,
           clampedZoom
         );
+        return true;
       }
+      return false;
     },
     [doc, setViewport]
   );
 
-  // Auto-fit viewport when visiting a page for the first time
-  const fittedPages = useRef(new Set<string>());
-  useEffect(() => {
-    if (size.width === 0 || size.height === 0) return;
-    if (fittedPages.current.has(activePage)) return;
-    fittedPages.current.add(activePage);
-    // Defer so the page-filtered gate/wire data is available
-    requestAnimationFrame(() => fitToContent(size.width, size.height));
-  }, [activePage, size, fitToContent]);
+  // Auto-fit is triggered by GateLayer's onContentReady callback,
+  // which fires once per page when both gate defs and Yjs data are loaded.
+  const handleContentReady = useCallback(() => {
+    if (size.width > 0 && size.height > 0) {
+      fitToContent(size.width, size.height);
+    }
+  }, [size, fitToContent]);
 
   useEffect(() => {
     const gates = getGatesMap(doc);
@@ -907,7 +908,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
           </Layer>
           <GridLayer />
           <WireLayer doc={doc} readOnly={readOnly} activePage={activePage} />
-          <GateLayer doc={doc} readOnly={readOnly} activePage={activePage} onGateDblClick={onGateDblClick} />
+          <GateLayer doc={doc} readOnly={readOnly} activePage={activePage} onGateDblClick={onGateDblClick} onContentReady={handleContentReady} />
           <OverlayLayer />
           <CursorLayer cursorWS={cursorWS ?? null} userMeta={userMetaByHash ?? EMPTY_META} activePage={activePage} userPageByHash={userPageByHash ?? EMPTY_PAGE_MAP} />
         </Stage>

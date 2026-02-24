@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Layer, Group, Line, Circle, Rect, Text } from "react-konva";
 import * as Y from "yjs";
 import type Konva from "konva";
@@ -111,6 +111,7 @@ interface GateLayerProps {
   readOnly: boolean;
   activePage: string;
   onGateDblClick?: (gateId: string) => void;
+  onContentReady?: () => void;
 }
 
 interface GateRenderData {
@@ -305,10 +306,12 @@ interface GateShapeProps {
   readOnly: boolean;
   connectedWireId: string | undefined; // first connected wireId for LED/NODE
   pinWireMap: Map<string, string>;
+  pulseTick: number;
   onDragMove: (id: string, e: Konva.KonvaEventObject<DragEvent>) => void;
   onDragEnd: (id: string, e: Konva.KonvaEventObject<DragEvent>) => void;
   onMouseDown: (id: string, e: Konva.KonvaEventObject<MouseEvent>) => void;
   onToggleClick: (id: string, e: Konva.KonvaEventObject<MouseEvent>) => void;
+  onPulseClick: (id: string, e: Konva.KonvaEventObject<MouseEvent>) => void;
   onDblClick?: (gateId: string) => void;
   onPinMouseDown: (
     gateId: string, gateX: number, gateY: number, gateRotation: number,
@@ -334,10 +337,12 @@ const GateShape = React.memo(function GateShape({
   readOnly,
   connectedWireId,
   pinWireMap,
+  pulseTick,
   onDragMove,
   onDragEnd,
   onMouseDown,
   onToggleClick,
+  onPulseClick,
   onDblClick,
   onPinMouseDown,
   onPinMouseUp,
@@ -354,6 +359,18 @@ const GateShape = React.memo(function GateShape({
   const isToggle = def.guiType === "TOGGLE";
   const toggleOn = isToggle && gate.params.OUTPUT_NUM === "1";
   const isLed = def.guiType === "LED";
+  const isPulse = def.guiType === "PULSE";
+
+  // Brief flash when pulse gate is clicked — driven by pulseTick prop from parent
+  const [pulseActive, setPulseActive] = useState(false);
+  const pulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!isPulse || pulseTick === 0) return;
+    setPulseActive(true);
+    if (pulseTimer.current) clearTimeout(pulseTimer.current);
+    pulseTimer.current = setTimeout(() => setPulseActive(false), 150);
+    return () => { if (pulseTimer.current) clearTimeout(pulseTimer.current); };
+  }, [isPulse, pulseTick]);
 
   return (
     <Group
@@ -374,6 +391,26 @@ const GateShape = React.memo(function GateShape({
         height={bounds.height}
         fill="rgba(0,0,0,0.01)"
       />
+      {/* Pulse click target + flash indicator (behind shape lines) */}
+      {isPulse && (() => {
+        const boxStr = def.guiParams?.CLICK_BOX;
+        if (!boxStr) return null;
+        const [bx1, rawY1, bx2, rawY2] = boxStr.split(",").map(Number);
+        const by1 = Math.min(-rawY1, -rawY2);
+        const by2 = Math.max(-rawY1, -rawY2);
+        return (
+          <Rect
+            x={bx1 * GRID_SIZE}
+            y={by1 * GRID_SIZE}
+            width={(bx2 - bx1) * GRID_SIZE}
+            height={(by2 - by1) * GRID_SIZE}
+            fill={pulseActive ? colors.toggleOn : colors.toggleOff}
+            opacity={pulseActive ? 0.75 : 0.6}
+            cornerRadius={2}
+            onMouseDown={(e) => onPulseClick(gate.id, e)}
+          />
+        );
+      })()}
       {/* Toggle state indicator */}
       {isToggle && (
         <Rect
@@ -557,7 +594,7 @@ const GateShape = React.memo(function GateShape({
 // GateLayer — no longer subscribes to wireStates
 // ---------------------------------------------------------------------------
 
-export const GateLayer = React.memo(function GateLayer({ doc, readOnly, activePage, onGateDblClick }: GateLayerProps) {
+export const GateLayer = React.memo(function GateLayer({ doc, readOnly, activePage, onGateDblClick, onContentReady }: GateLayerProps) {
   const [gates, setGates] = useState<Map<string, GateRenderData>>(new Map());
   const [defs, setDefs] = useState<GateDefinition[]>([]);
   // Map from gateId to first connected wireId (for LED/NODE state)
@@ -625,6 +662,15 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, activePa
   }, [doc]);
 
   const defsMap = useMemo(() => new Map(defs.map((d) => [d.id, d])), [defs]);
+
+  // Signal when page content is first available (gates + defs both loaded)
+  const contentReadyFired = useRef(new Set<string>());
+  useEffect(() => {
+    if (gates.size > 0 && defs.length > 0 && !contentReadyFired.current.has(activePage)) {
+      contentReadyFired.current.add(activePage);
+      onContentReady?.();
+    }
+  }, [gates, defs, activePage, onContentReady]);
 
   // Recompute wires connected to a moved gate using updateConnectionPos
   const recomputeConnectedWires = useCallback(
@@ -745,10 +791,6 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, activePa
       const def = defsMap.get(defId);
       if (!def) return;
 
-      if (def.guiType === "PULSE") {
-        const pulseWidth = def.guiParams?.PULSE_WIDTH ?? "1";
-        yGate.set("param:PULSE", pulseWidth);
-      }
     },
     [selectOnly, toggleSelection, readOnly, doc, defsMap]
   );
@@ -764,6 +806,24 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, activePa
       yGate.set("param:OUTPUT_NUM", current === "1" ? "0" : "1");
     },
     [readOnly, doc]
+  );
+
+  const [pulseTicks, setPulseTicks] = useState<Record<string, number>>({});
+
+  const handlePulseClick = useCallback(
+    (id: string, e: Konva.KonvaEventObject<MouseEvent>) => {
+      e.cancelBubble = true;
+      if (readOnly || e.evt.button !== 0) return;
+      const gatesMap = getGatesMap(doc);
+      const yGate = gatesMap.get(id);
+      if (!yGate) return;
+      const def = defsMap.get(yGate.get("defId"));
+      if (!def) return;
+      const pulseWidth = def.guiParams?.PULSE_WIDTH ?? "1";
+      yGate.set("param:PULSE", pulseWidth);
+      setPulseTicks((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
+    },
+    [readOnly, doc, defsMap]
   );
 
   // Junction gates (FROM/TO) use the engine's Junction mechanism — all their
@@ -990,10 +1050,12 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, activePa
             readOnly={readOnly}
             connectedWireId={gateFirstWire.get(gate.id)}
             pinWireMap={pinWireMap}
+            pulseTick={pulseTicks[gate.id] ?? 0}
             onDragMove={handleDragMove}
             onDragEnd={handleDragEnd}
             onMouseDown={handleMouseDown}
             onToggleClick={handleToggleClick}
+            onPulseClick={handlePulseClick}
             onDblClick={onGateDblClick}
             onPinMouseDown={handlePinMouseDown}
             onPinMouseUp={handlePinMouseUp}
