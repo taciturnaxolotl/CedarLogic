@@ -111,7 +111,7 @@ const lightPalette: CanvasColors = {
     [WIRE_STATE.ONE]: "#FF0000",   // red-600
     [WIRE_STATE.HI_Z]: "#16a34a",  // green-600
     [WIRE_STATE.UNKNOWN]: "#2563eb", // blue-600
-    [WIRE_STATE.CONFLICT]: "#0891b2", // cyan-600
+    [WIRE_STATE.CONFLICT]: "#15c0db", // cyan-600
   },
   wireSelected: "#2563eb",
   selectionFill: "rgba(37, 99, 235, 0.1)",
