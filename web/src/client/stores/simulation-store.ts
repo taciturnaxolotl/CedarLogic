@@ -51,7 +51,7 @@ export function updateWireStates(updates: Array<{ id: string; state: WireState }
 
 /** Read wire state directly (non-reactive). */
 export function getWireState(wireId: string): WireState {
-  return wireStates.get(wireId) ?? WIRE_STATE.UNKNOWN;
+  return wireStates.get(wireId) ?? WIRE_STATE.HI_Z;
 }
 
 function subscribeWire(wireId: string, listener: WireListener): () => void {
@@ -73,7 +73,7 @@ function subscribeWire(wireId: string, listener: WireListener): () => void {
 export function useWireState(wireId: string): WireState {
   return useSyncExternalStore(
     (cb) => subscribeWire(wireId, cb),
-    () => wireStates.get(wireId) ?? WIRE_STATE.UNKNOWN,
+    () => wireStates.get(wireId) ?? WIRE_STATE.HI_Z,
   );
 }
 
@@ -93,10 +93,10 @@ export function useWireStates(wireIds: string[]): (wireId: string) => WireState 
       // that changes whenever any subscribed wire changes.
       let h = 0;
       for (const id of wireIds) {
-        h = (h * 5 + (wireStates.get(id) ?? WIRE_STATE.UNKNOWN)) | 0;
+        h = (h * 5 + (wireStates.get(id) ?? WIRE_STATE.HI_Z)) | 0;
       }
       return h;
     },
   );
-  return (id: string) => wireStates.get(id) ?? WIRE_STATE.UNKNOWN;
+  return (id: string) => wireStates.get(id) ?? WIRE_STATE.HI_Z;
 }

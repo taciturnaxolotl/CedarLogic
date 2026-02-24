@@ -171,7 +171,7 @@ function rotatePin(lx: number, ly: number, gateX: number, gateY: number, degrees
 function LedIndicator({ wireId, def }: { wireId: string | undefined; def: GateDefinition }) {
   const state = useWireState(wireId ?? "");
   const colors = useCanvasColors();
-  const ledColor = colors.wire[wireId ? state : WIRE_STATE.UNKNOWN];
+  const ledColor = colors.wire[wireId ? state : WIRE_STATE.HI_Z];
 
   const boxStr = def.guiParams?.LED_BOX;
   if (!boxStr) return null;
