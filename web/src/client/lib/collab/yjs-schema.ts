@@ -58,7 +58,8 @@ export function getMetaMap(doc: Y.Doc): Y.Map<any> {
 export function addGateToDoc(
   doc: Y.Doc,
   id: string,
-  gate: YGate
+  gate: YGate,
+  page?: string,
 ): void {
   const gates = getGatesMap(doc);
   const yGate = new Y.Map<any>();
@@ -67,6 +68,7 @@ export function addGateToDoc(
   yGate.set("x", gate.x);
   yGate.set("y", gate.y);
   yGate.set("rotation", gate.rotation);
+  yGate.set("page", page ?? "0");
   for (const [k, v] of Object.entries(gate)) {
     if (k.startsWith("param:")) yGate.set(k, v);
   }
@@ -77,11 +79,13 @@ export function addGateToDoc(
 export function addWireToDoc(
   doc: Y.Doc,
   id: string,
-  segments: Array<{ x1: number; y1: number; x2: number; y2: number }>
+  segments: Array<{ x1: number; y1: number; x2: number; y2: number }>,
+  page?: string,
 ): void {
   const wires = getWiresMap(doc);
   const yWire = new Y.Map<any>();
   yWire.set("segments", JSON.stringify(segments));
+  yWire.set("page", page ?? "0");
   wires.set(id, yWire);
 }
 
@@ -90,10 +94,12 @@ export function addWireModelToDoc(
   doc: Y.Doc,
   id: string,
   wireModel: WireModel,
+  page?: string,
 ): void {
   const wires = getWiresMap(doc);
   const yWire = new Y.Map<any>();
   yWire.set("model", JSON.stringify(wireModel));
+  yWire.set("page", page ?? "0");
   wires.set(id, yWire);
 }
 
@@ -224,6 +230,30 @@ export function syncConnectionsFromWire(
       addConnectionToDoc(doc, conn.gateId, conn.pinName, conn.pinDirection, wireId);
     }
   }
+}
+
+/** Read the page field from a gate or wire Y.Map, defaulting to "0". */
+export function getPage(yMap: Y.Map<any>): string {
+  return (yMap.get("page") as string) ?? "0";
+}
+
+/** Get the list of pages stored in meta, defaulting to ["0"]. */
+export function getPageList(doc: Y.Doc): string[] {
+  const meta = getMetaMap(doc);
+  const raw = meta.get("pages") as string | undefined;
+  if (raw) {
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length > 0) return arr;
+    } catch {}
+  }
+  return ["0"];
+}
+
+/** Set the page list in meta. */
+export function setPageList(doc: Y.Doc, pages: string[]): void {
+  const meta = getMetaMap(doc);
+  meta.set("pages", JSON.stringify(pages));
 }
 
 export function addConnectionToDoc(

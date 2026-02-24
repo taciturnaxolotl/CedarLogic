@@ -10,6 +10,7 @@ import {
   addGateToDoc,
   addWireModelToDoc,
   addConnectionToDoc,
+  setPageList,
 } from "./collab/yjs-schema";
 import { GRID_SIZE } from "@shared/constants";
 import type { GateDefinition } from "@shared/types";
@@ -60,6 +61,26 @@ export function importFromCdl(
   importFromXmlDoc(doc, xmlDoc, gateDefs);
 }
 
+interface ParsedGate {
+  uuid: string;
+  intId: string;
+  defId: string;
+  logicType: string;
+  x: number;
+  y: number;
+  rotation: number;
+  params: Record<string, string>;
+  inputConns: Array<{ pinName: string; wireIntIds: string[] }>;
+  outputConns: Array<{ pinName: string; wireIntIds: string[] }>;
+  page: string;
+}
+
+interface ParsedWire {
+  uuid: string;
+  model: WireModel;
+  page: string;
+}
+
 function importFromXmlDoc(
   doc: Y.Doc,
   xmlDoc: Document,
@@ -83,273 +104,242 @@ function importFromXmlDoc(
     return;
   }
 
-  // Find first page element (page_0, page_1, etc.)
-  let pageEl: Element | null = null;
+  // Find ALL page elements (page_0, page_1, etc.)
+  const pageElements: Array<{ el: Element; pageId: string }> = [];
   console.log("[CDL import] Circuit children:", Array.from(circuit.children).map(c => c.tagName));
   for (const child of circuit.children) {
-    if (child.tagName.toLowerCase().startsWith("page_")) {
-      pageEl = child;
-      break;
+    const tag = child.tagName.toLowerCase();
+    if (tag.startsWith("page_")) {
+      const pageId = tag.replace("page_", "");
+      pageElements.push({ el: child, pageId });
     }
   }
-  if (!pageEl) {
-    console.warn("[CDL import] No <page_N> found, using circuit as container");
-    pageEl = circuit;
+
+  if (pageElements.length === 0) {
+    console.warn("[CDL import] No <page_N> found, using circuit as container (page 0)");
+    pageElements.push({ el: circuit, pageId: "0" });
   } else {
-    console.log("[CDL import] Using page element:", pageEl.tagName);
+    console.log("[CDL import] Found pages:", pageElements.map(p => p.pageId));
   }
 
-  // Integer ID → UUID maps
+  // Integer ID → UUID maps (global across all pages)
   const gateIntToUuid = new Map<string, string>();
   const wireIntToUuid = new Map<string, string>();
 
-  // Parse gates first to build ID map
-  interface ParsedGate {
-    uuid: string;
-    intId: string;
-    defId: string;
-    logicType: string;
-    x: number;
-    y: number;
-    rotation: number;
-    params: Record<string, string>;
-    inputConns: Array<{ pinName: string; wireIntIds: string[] }>;
-    outputConns: Array<{ pinName: string; wireIntIds: string[] }>;
-  }
+  const allParsedGates: ParsedGate[] = [];
+  const allParsedWires: ParsedWire[] = [];
+  const pageIds: string[] = [];
 
-  const parsedGates: ParsedGate[] = [];
+  // Parse each page
+  for (const { el: pageEl, pageId } of pageElements) {
+    pageIds.push(pageId);
 
-  for (const gateEl of pageEl.querySelectorAll("gate")) {
-    const idEl = gateEl.querySelector("ID");
-    const typeEl = gateEl.querySelector("type");
-    const posEl = gateEl.querySelector("position");
-    if (!idEl || !typeEl || !posEl) continue;
+    // Parse gates
+    for (const gateEl of pageEl.querySelectorAll("gate")) {
+      const idEl = gateEl.querySelector("ID");
+      const typeEl = gateEl.querySelector("type");
+      const posEl = gateEl.querySelector("position");
+      if (!idEl || !typeEl || !posEl) continue;
 
-    const intId = idEl.textContent?.trim() ?? "";
-    const defId = typeEl.textContent?.trim() ?? "";
-    const posText = posEl.textContent?.trim() ?? "0,0";
+      const intId = idEl.textContent?.trim() ?? "";
+      const defId = typeEl.textContent?.trim() ?? "";
+      const posText = posEl.textContent?.trim() ?? "0,0";
 
-    const [gx, gy] = posText.split(",").map(Number);
-    const pos = toWeb(gx, gy);
-    const uuid = crypto.randomUUID();
-    gateIntToUuid.set(intId, uuid);
+      const [gx, gy] = posText.split(",").map(Number);
+      const pos = toWeb(gx, gy);
+      const uuid = crypto.randomUUID();
+      gateIntToUuid.set(intId, uuid);
 
-    // Parse rotation from gparam angle
-    let rotation = 0;
-    const params: Record<string, string> = {};
+      let rotation = 0;
+      const params: Record<string, string> = {};
 
-    for (const paramEl of gateEl.querySelectorAll("gparam")) {
-      const text = paramEl.textContent?.trim() ?? "";
-      const spaceIdx = text.indexOf(" ");
-      if (spaceIdx === -1) continue;
-      const key = text.slice(0, spaceIdx);
-      const val = text.slice(spaceIdx + 1);
-      if (key === "angle") {
-        // CDL uses Y-up with CCW rotation; web uses Y-down with CW rotation.
-        // Negating Y flips the rotation direction, so negate the angle.
-        rotation = -(parseFloat(val) || 0);
-      } else {
-        // Store GUI params (LABEL_TEXT, TEXT_HEIGHT, etc.) alongside logic params
+      for (const paramEl of gateEl.querySelectorAll("gparam")) {
+        const text = paramEl.textContent?.trim() ?? "";
+        const spaceIdx = text.indexOf(" ");
+        if (spaceIdx === -1) continue;
+        const key = text.slice(0, spaceIdx);
+        const val = text.slice(spaceIdx + 1);
+        if (key === "angle") {
+          rotation = -(parseFloat(val) || 0);
+        } else {
+          params[key] = val;
+        }
+      }
+
+      for (const paramEl of gateEl.querySelectorAll("lparam")) {
+        const text = paramEl.textContent?.trim() ?? "";
+        const spaceIdx = text.indexOf(" ");
+        if (spaceIdx === -1) continue;
+        const key = text.slice(0, spaceIdx);
+        const val = text.slice(spaceIdx + 1);
         params[key] = val;
       }
-    }
 
-    for (const paramEl of gateEl.querySelectorAll("lparam")) {
-      const text = paramEl.textContent?.trim() ?? "";
-      const spaceIdx = text.indexOf(" ");
-      if (spaceIdx === -1) continue;
-      const key = text.slice(0, spaceIdx);
-      const val = text.slice(spaceIdx + 1);
-      params[key] = val;
-    }
+      const inputConns: Array<{ pinName: string; wireIntIds: string[] }> = [];
+      const outputConns: Array<{ pinName: string; wireIntIds: string[] }> = [];
 
-    // Parse input/output connections
-    const inputConns: Array<{ pinName: string; wireIntIds: string[] }> = [];
-    const outputConns: Array<{ pinName: string; wireIntIds: string[] }> = [];
-
-    for (const inputEl of gateEl.querySelectorAll("input")) {
-      const pinIdEl = inputEl.querySelector("ID");
-      const pinName = pinIdEl?.textContent?.trim() ?? "";
-      const wireIntIds: string[] = [];
-      for (const node of inputEl.childNodes) {
-        if (node.nodeType === Node.TEXT_NODE) {
-          const parts = (node.textContent ?? "").trim().split(/\s+/);
-          for (const p of parts) {
-            if (/^\d+$/.test(p)) wireIntIds.push(p);
-          }
-        }
-      }
-      inputConns.push({ pinName, wireIntIds });
-    }
-
-    for (const outputEl of gateEl.querySelectorAll("output")) {
-      const pinIdEl = outputEl.querySelector("ID");
-      const pinName = pinIdEl?.textContent?.trim() ?? "";
-      const wireIntIds: string[] = [];
-      for (const node of outputEl.childNodes) {
-        if (node.nodeType === Node.TEXT_NODE) {
-          const parts = (node.textContent ?? "").trim().split(/\s+/);
-          for (const p of parts) {
-            if (/^\d+$/.test(p)) wireIntIds.push(p);
-          }
-        }
-      }
-      outputConns.push({ pinName, wireIntIds });
-    }
-
-    const logicType = defToLogic.get(defId) ?? "";
-    if (!logicType) {
-      console.warn("[CDL import] No logicType found for defId:", defId);
-    }
-
-    parsedGates.push({
-      uuid,
-      intId,
-      defId,
-      logicType,
-      x: pos.x,
-      y: pos.y,
-      rotation,
-      params,
-      inputConns,
-      outputConns,
-    });
-  }
-
-  // Build gate int ID → parsed gate lookup
-  const gateByIntId = new Map<string, ParsedGate>();
-  for (const g of parsedGates) {
-    gateByIntId.set(g.intId, g);
-  }
-
-  // Parse wires — build full WireModel with segment tree
-  interface ParsedWire {
-    uuid: string;
-    model: WireModel;
-  }
-
-  const parsedWires: ParsedWire[] = [];
-
-  for (const wireEl of pageEl.querySelectorAll("wire")) {
-    const idEl = wireEl.querySelector("ID");
-    if (!idEl) continue;
-    const idText = idEl.textContent?.trim() ?? "";
-    const primaryIntId = idText.split(/\s+/)[0];
-
-    const uuid = crypto.randomUUID();
-    wireIntToUuid.set(primaryIntId, uuid);
-    for (const wid of idText.split(/\s+/).filter(Boolean)) {
-      if (!wireIntToUuid.has(wid)) {
-        wireIntToUuid.set(wid, uuid);
-      }
-    }
-
-    const model: WireModel = { segMap: {}, headSegment: 0, nextSegId: 0 };
-    // Map from CDL segment int ID to our segment int ID (they may differ)
-    const cdlSegIdMap = new Map<number, number>();
-
-    const shapeEl = wireEl.querySelector("shape");
-    if (shapeEl) {
-      for (const segEl of shapeEl.querySelectorAll("hsegment, vsegment")) {
-        const isVertical = segEl.tagName.toLowerCase() === "vsegment";
-        const segIdEl = segEl.querySelector("ID");
-        const pointsEl = segEl.querySelector("points");
-        if (!pointsEl) continue;
-
-        const cdlSegId = parseInt(segIdEl?.textContent?.trim() ?? "0", 10);
-        const pts = (pointsEl.textContent?.trim() ?? "").split(",").map(Number);
-        if (pts.length < 4) continue;
-
-        const p1 = toWeb(pts[0], pts[1]);
-        const p2 = toWeb(pts[2], pts[3]);
-        const segId = model.nextSegId++;
-
-        cdlSegIdMap.set(cdlSegId, segId);
-
-        const seg: WireSegmentNode = {
-          id: segId,
-          vertical: isVertical,
-          begin: { x: Math.min(p1.x, p2.x), y: Math.min(p1.y, p2.y) },
-          end: { x: Math.max(p1.x, p2.x), y: Math.max(p1.y, p2.y) },
-          connections: [],
-          intersects: {},
-        };
-
-        // Parse per-segment connections
-        for (const connEl of segEl.querySelectorAll("connection")) {
-          const gidEl = connEl.querySelector("GID");
-          const nameEl = connEl.querySelector("name");
-          if (!gidEl || !nameEl) continue;
-          const gid = gidEl.textContent?.trim() ?? "";
-          const connName = nameEl.textContent?.trim() ?? "";
-          const gateUuid = gateIntToUuid.get(gid);
-          if (gateUuid) {
-            // Determine pin direction from gate data
-            const pg = gateByIntId.get(gid);
-            let pinDir: "input" | "output" = "input";
-            if (pg) {
-              for (const oc of pg.outputConns) {
-                if (oc.pinName === connName) { pinDir = "output"; break; }
-              }
+      for (const inputEl of gateEl.querySelectorAll("input")) {
+        const pinIdEl = inputEl.querySelector("ID");
+        const pinName = pinIdEl?.textContent?.trim() ?? "";
+        const wireIntIds: string[] = [];
+        for (const node of inputEl.childNodes) {
+          if (node.nodeType === Node.TEXT_NODE) {
+            const parts = (node.textContent ?? "").trim().split(/\s+/);
+            for (const p of parts) {
+              if (/^\d+$/.test(p)) wireIntIds.push(p);
             }
-            seg.connections.push({
-              gateId: gateUuid,
-              pinName: connName,
-              pinDirection: pinDir,
-            });
           }
         }
+        inputConns.push({ pinName, wireIntIds });
+      }
 
-        // Parse intersections (will remap IDs after all segments parsed)
-        for (const isectEl of segEl.querySelectorAll("intersection")) {
-          const text = isectEl.textContent?.trim() ?? "";
-          const parts = text.split(/\s+/);
-          if (parts.length >= 2) {
-            const cdlPos = parseFloat(parts[0]);
-            const cdlOtherId = parseInt(parts[1], 10);
-            // Convert CDL position to web coords
-            // For vertical segments, the key is Y (CDL Y-up → web Y-down)
-            // For horizontal segments, the key is X (CDL → web)
-            const webPos = isVertical
-              ? -cdlPos * GRID_SIZE  // Y coordinate
-              : cdlPos * GRID_SIZE;   // X coordinate
-            if (!seg.intersects[webPos]) seg.intersects[webPos] = [];
-            // Store CDL segment ID temporarily; we'll remap below
-            seg.intersects[webPos].push(cdlOtherId);
+      for (const outputEl of gateEl.querySelectorAll("output")) {
+        const pinIdEl = outputEl.querySelector("ID");
+        const pinName = pinIdEl?.textContent?.trim() ?? "";
+        const wireIntIds: string[] = [];
+        for (const node of outputEl.childNodes) {
+          if (node.nodeType === Node.TEXT_NODE) {
+            const parts = (node.textContent ?? "").trim().split(/\s+/);
+            for (const p of parts) {
+              if (/^\d+$/.test(p)) wireIntIds.push(p);
+            }
           }
         }
-
-        model.segMap[segId] = seg;
+        outputConns.push({ pinName, wireIntIds });
       }
+
+      const logicType = defToLogic.get(defId) ?? "";
+      if (!logicType) {
+        console.warn("[CDL import] No logicType found for defId:", defId);
+      }
+
+      allParsedGates.push({
+        uuid, intId, defId, logicType,
+        x: pos.x, y: pos.y, rotation, params,
+        inputConns, outputConns, page: pageId,
+      });
     }
 
-    // Remap intersection segment IDs from CDL IDs to our IDs
-    for (const seg of Object.values(model.segMap)) {
-      const newIntersects: Record<number, number[]> = {};
-      for (const [posStr, cdlIds] of Object.entries(seg.intersects)) {
-        const pos = Number(posStr);
-        const mappedIds: number[] = [];
-        for (const cdlId of cdlIds) {
-          const mapped = cdlSegIdMap.get(cdlId);
-          if (mapped !== undefined) mappedIds.push(mapped);
+    // Build gate int ID → parsed gate lookup (for wire connection direction)
+    const gateByIntId = new Map<string, ParsedGate>();
+    for (const g of allParsedGates) {
+      gateByIntId.set(g.intId, g);
+    }
+
+    // Parse wires
+    for (const wireEl of pageEl.querySelectorAll("wire")) {
+      const idEl = wireEl.querySelector("ID");
+      if (!idEl) continue;
+      const idText = idEl.textContent?.trim() ?? "";
+      const primaryIntId = idText.split(/\s+/)[0];
+
+      const uuid = crypto.randomUUID();
+      wireIntToUuid.set(primaryIntId, uuid);
+      for (const wid of idText.split(/\s+/).filter(Boolean)) {
+        if (!wireIntToUuid.has(wid)) {
+          wireIntToUuid.set(wid, uuid);
         }
-        if (mappedIds.length > 0) newIntersects[pos] = mappedIds;
       }
-      seg.intersects = newIntersects;
-    }
 
-    if (Object.keys(model.segMap).length > 0) {
-      model.headSegment = Number(Object.keys(model.segMap)[0]);
-    }
+      const model: WireModel = { segMap: {}, headSegment: 0, nextSegId: 0 };
+      const cdlSegIdMap = new Map<number, number>();
 
-    parsedWires.push({ uuid, model });
+      const shapeEl = wireEl.querySelector("shape");
+      if (shapeEl) {
+        for (const segEl of shapeEl.querySelectorAll("hsegment, vsegment")) {
+          const isVertical = segEl.tagName.toLowerCase() === "vsegment";
+          const segIdEl = segEl.querySelector("ID");
+          const pointsEl = segEl.querySelector("points");
+          if (!pointsEl) continue;
+
+          const cdlSegId = parseInt(segIdEl?.textContent?.trim() ?? "0", 10);
+          const pts = (pointsEl.textContent?.trim() ?? "").split(",").map(Number);
+          if (pts.length < 4) continue;
+
+          const p1 = toWeb(pts[0], pts[1]);
+          const p2 = toWeb(pts[2], pts[3]);
+          const segId = model.nextSegId++;
+
+          cdlSegIdMap.set(cdlSegId, segId);
+
+          const seg: WireSegmentNode = {
+            id: segId,
+            vertical: isVertical,
+            begin: { x: Math.min(p1.x, p2.x), y: Math.min(p1.y, p2.y) },
+            end: { x: Math.max(p1.x, p2.x), y: Math.max(p1.y, p2.y) },
+            connections: [],
+            intersects: {},
+          };
+
+          for (const connEl of segEl.querySelectorAll("connection")) {
+            const gidEl = connEl.querySelector("GID");
+            const nameEl = connEl.querySelector("name");
+            if (!gidEl || !nameEl) continue;
+            const gid = gidEl.textContent?.trim() ?? "";
+            const connName = nameEl.textContent?.trim() ?? "";
+            const gateUuid = gateIntToUuid.get(gid);
+            if (gateUuid) {
+              const pg = gateByIntId.get(gid);
+              let pinDir: "input" | "output" = "input";
+              if (pg) {
+                for (const oc of pg.outputConns) {
+                  if (oc.pinName === connName) { pinDir = "output"; break; }
+                }
+              }
+              seg.connections.push({
+                gateId: gateUuid,
+                pinName: connName,
+                pinDirection: pinDir,
+              });
+            }
+          }
+
+          for (const isectEl of segEl.querySelectorAll("intersection")) {
+            const text = isectEl.textContent?.trim() ?? "";
+            const parts = text.split(/\s+/);
+            if (parts.length >= 2) {
+              const cdlPos = parseFloat(parts[0]);
+              const cdlOtherId = parseInt(parts[1], 10);
+              const webPos = isVertical
+                ? -cdlPos * GRID_SIZE
+                : cdlPos * GRID_SIZE;
+              if (!seg.intersects[webPos]) seg.intersects[webPos] = [];
+              seg.intersects[webPos].push(cdlOtherId);
+            }
+          }
+
+          model.segMap[segId] = seg;
+        }
+      }
+
+      // Remap intersection segment IDs from CDL IDs to our IDs
+      for (const seg of Object.values(model.segMap)) {
+        const newIntersects: Record<number, number[]> = {};
+        for (const [posStr, cdlIds] of Object.entries(seg.intersects)) {
+          const pos = Number(posStr);
+          const mappedIds: number[] = [];
+          for (const cdlId of cdlIds) {
+            const mapped = cdlSegIdMap.get(cdlId);
+            if (mapped !== undefined) mappedIds.push(mapped);
+          }
+          if (mappedIds.length > 0) newIntersects[pos] = mappedIds;
+        }
+        seg.intersects = newIntersects;
+      }
+
+      if (Object.keys(model.segMap).length > 0) {
+        model.headSegment = Number(Object.keys(model.segMap)[0]);
+      }
+
+      allParsedWires.push({ uuid, model, page: pageId });
+    }
   }
 
-  console.log("[CDL import] Parsed", parsedGates.length, "gates,", parsedWires.length, "wires");
+  console.log("[CDL import] Parsed", allParsedGates.length, "gates,", allParsedWires.length, "wires across", pageIds.length, "pages");
 
   // Count connections that will be created
   let connCount = 0;
-  for (const g of parsedGates) {
+  for (const g of allParsedGates) {
     for (const conn of [...g.inputConns, ...g.outputConns]) {
       for (const wireIntId of conn.wireIntIds) {
         if (wireIntToUuid.has(wireIntId)) connCount++;
@@ -361,8 +351,8 @@ function importFromXmlDoc(
 
   // Now apply everything to the doc in a single transaction
   doc.transact(() => {
-    // Add gates
-    for (const g of parsedGates) {
+    // Add gates with page
+    for (const g of allParsedGates) {
       const gateData: Record<string, any> = {
         defId: g.defId,
         logicType: g.logicType,
@@ -373,16 +363,16 @@ function importFromXmlDoc(
       for (const [k, v] of Object.entries(g.params)) {
         gateData[`param:${k}`] = v;
       }
-      addGateToDoc(doc, g.uuid, gateData as any);
+      addGateToDoc(doc, g.uuid, gateData as any, g.page);
     }
 
-    // Add wires as WireModel
-    for (const w of parsedWires) {
-      addWireModelToDoc(doc, w.uuid, w.model);
+    // Add wires as WireModel with page
+    for (const w of allParsedWires) {
+      addWireModelToDoc(doc, w.uuid, w.model, w.page);
     }
 
     // Add connections from gate input/output data
-    for (const g of parsedGates) {
+    for (const g of allParsedGates) {
       for (const conn of g.inputConns) {
         for (const wireIntId of conn.wireIntIds) {
           const wireUuid = wireIntToUuid.get(wireIntId);
@@ -399,6 +389,11 @@ function importFromXmlDoc(
           }
         }
       }
+    }
+
+    // Store page list in meta
+    if (pageIds.length > 1 || (pageIds.length === 1 && pageIds[0] !== "0")) {
+      setPageList(doc, pageIds);
     }
   });
 }
