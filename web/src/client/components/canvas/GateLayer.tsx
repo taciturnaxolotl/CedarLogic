@@ -717,11 +717,8 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, onGateDb
       if (!def) return;
 
       if (def.guiType === "PULSE") {
-        yGate.set("param:OUTPUT_NUM", "1");
-        setTimeout(() => {
-          const stillExists = gatesMap.get(id);
-          if (stillExists) stillExists.set("param:OUTPUT_NUM", "0");
-        }, 100);
+        const pulseWidth = def.guiParams?.PULSE_WIDTH ?? "1";
+        yGate.set("param:PULSE", pulseWidth);
       }
     },
     [selectOnly, toggleSelection, readOnly, doc, defsMap]
