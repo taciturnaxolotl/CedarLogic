@@ -745,7 +745,7 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, onGateDb
       const yGate = gatesMap.get(gateId);
       if (!yGate) return false;
       const def = defsMap.get(yGate.get("defId"));
-      return def?.guiType === "FROM" || def?.guiType === "TO";
+      return def?.guiType === "FROM" || def?.guiType === "TO" || def?.logicType === "NODE";
     },
     [doc, defsMap],
   );
