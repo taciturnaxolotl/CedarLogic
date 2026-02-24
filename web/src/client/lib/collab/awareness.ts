@@ -55,6 +55,7 @@ export function setupAwareness(
         avatarUrl: avatarUrl ?? null,
         role: role ?? "viewer",
         userHash,
+        activePage: awareness.getLocalState()?.user?.activePage ?? "0",
       });
     }
     colorResolved = true;
@@ -66,6 +67,7 @@ export function setupAwareness(
     avatarUrl: avatarUrl ?? null,
     role: role ?? "viewer",
     userHash,
+    activePage: "0",
   });
 
   // Re-pick color once we see other clients' states
@@ -75,5 +77,12 @@ export function setupAwareness(
   }
   awareness.on("change", onFirstChange);
 
-  return { awareness };
+  function setActivePage(page: string) {
+    const current = awareness.getLocalState()?.user;
+    if (current) {
+      awareness.setLocalStateField("user", { ...current, activePage: page });
+    }
+  }
+
+  return { awareness, setActivePage };
 }

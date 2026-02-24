@@ -15,6 +15,7 @@ import { usePresence } from "../hooks/usePresence";
 import { CursorWS } from "../lib/collab/cursor-ws";
 import { hashUserId } from "@/server/cursor/protocol";
 import { useCanvasStore } from "../stores/canvas-store";
+import { PageTabBar } from "./PageTabBar";
 import type { FileRecord, PermissionLevel, PublicUser } from "@shared/types";
 
 interface EditorPageProps {
@@ -39,12 +40,18 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
 
   const permission = file?.permission ?? null;
   const userId = currentUser?.id ?? "anonymous";
-  const { remoteUsers, userMetaByHash } = usePresence(
+  const { remoteUsers, userMetaByHash, userPageByHash, setActivePageInAwareness } = usePresence(
     provider,
     currentUser ? { name: currentUser.name, avatarUrl: currentUser.avatarUrl } : null,
     userId,
     permission,
   );
+
+  // Sync active page to awareness for cursor filtering
+  const activePage = useCanvasStore((s) => s.activePage);
+  useEffect(() => {
+    setActivePageInAwareness(activePage);
+  }, [activePage, setActivePageInAwareness]);
 
   // Dedicated cursor WebSocket
   const [cursorWS, setCursorWS] = useState<CursorWS | null>(null);
@@ -166,8 +173,8 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
 
   return (
     <div className="h-dvh relative bg-white dark:bg-gray-950">
-      {/* Canvas — fills entire viewport */}
-      <div className="absolute inset-0">
+      {/* Canvas — fills viewport minus tab bar */}
+      <div className="absolute inset-0 bottom-8">
         {doc && synced ? (
           <Canvas
             doc={doc}
@@ -189,6 +196,7 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
             onCursorLeave={() => cursorWSRef.current?.sendCursorLeave()}
             cursorWS={cursorWS}
             userMetaByHash={userMetaByHash}
+            userPageByHash={userPageByHash}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
@@ -196,6 +204,13 @@ export function EditorPage({ fileId, onBack, user: currentUser }: EditorPageProp
           </div>
         )}
       </div>
+
+      {/* Page tab bar */}
+      {doc && synced && (
+        <div className="absolute bottom-0 left-0 right-0">
+          <PageTabBar doc={doc} readOnly={!!readOnly} />
+        </div>
+      )}
 
       {/* Floating toolbar (includes gate palette) */}
       <FloatingToolbar

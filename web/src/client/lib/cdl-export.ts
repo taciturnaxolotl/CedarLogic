@@ -10,6 +10,8 @@ import {
   getWiresMap,
   getConnectionsMap,
   readWireModel,
+  getPageList,
+  getPage,
 } from "./collab/yjs-schema";
 import { loadedGateDefs } from "../components/canvas/GateLayer";
 import { GRID_SIZE } from "@shared/constants";
@@ -178,126 +180,132 @@ export function exportToCdl(doc: Y.Doc, title: string): void {
   out += `<throw_away></throw_away>\n`;
 
   // Version tag + real circuit
+  const pages = getPageList(doc);
   out += `\t<version>2.0 | web</version>`;
   out += `<circuit>\n`;
   out += `<CurrentPage>0</CurrentPage>\n`;
-  out += `<page 0>\n`;
 
-  // Gates
-  gatesMap.forEach((yGate, uuid) => {
-    const intId = gateIdMap.get(uuid)!;
-    const defId = yGate.get("defId") as string;
-    const px = yGate.get("x") as number;
-    const py = yGate.get("y") as number;
-    const rotation = (yGate.get("rotation") as number) ?? 0;
-    const [cx, cy] = toCdl(px, py);
+  for (const pageId of pages) {
+    out += `<page ${pageId}>\n`;
 
-    out += `<gate>\n`;
-    out += `<ID>${intId}</ID>\n`;
-    out += `<type>${escapeXml(defId)}</type>\n`;
-    out += `<position>${cx},${cy}</position>\n`;
+    // Gates on this page
+    gatesMap.forEach((yGate, uuid) => {
+      if (getPage(yGate) !== pageId) return;
+      const intId = gateIdMap.get(uuid)!;
+      const defId = yGate.get("defId") as string;
+      const px = yGate.get("x") as number;
+      const py = yGate.get("y") as number;
+      const rotation = (yGate.get("rotation") as number) ?? 0;
+      const [cx, cy] = toCdl(px, py);
 
-    const conns = gateConnections.get(uuid) || [];
-    for (const conn of conns) {
-      const tag = conn.pinDirection === "input" ? "input" : "output";
-      const wireIntId = wireIdMap.get(conn.wireUuid) ?? 0;
-      out += `<${tag}>\n`;
-      out += `<ID>${escapeXml(conn.pinName)}</ID>${wireIntId} </${tag}>\n`;
-    }
+      out += `<gate>\n`;
+      out += `<ID>${intId}</ID>\n`;
+      out += `<type>${escapeXml(defId)}</type>\n`;
+      out += `<position>${cx},${cy}</position>\n`;
 
-    // Negate rotation back to CDL convention (Y-up, CCW)
-    out += `<gparam>angle ${(-rotation).toFixed(1)}</gparam>\n`;
-
-    // Look up gate definition to know which params are guiParams vs logic params
-    const gateDef = loadedGateDefs.find((d) => d.id === defId);
-    const guiParamKeys = new Set(Object.keys(gateDef?.guiParams ?? {}));
-
-    for (const [k, v] of yGate.entries()) {
-      if (k.startsWith("param:")) {
-        const paramName = k.slice(6);
-        if (guiParamKeys.has(paramName)) {
-          out += `<gparam>${escapeXml(paramName)} ${escapeXml(String(v))}</gparam>\n`;
-        } else {
-          out += `<lparam>${escapeXml(paramName)} ${escapeXml(String(v))}</lparam>\n`;
-        }
+      const conns = gateConnections.get(uuid) || [];
+      for (const conn of conns) {
+        const tag = conn.pinDirection === "input" ? "input" : "output";
+        const wireIntId = wireIdMap.get(conn.wireUuid) ?? 0;
+        out += `<${tag}>\n`;
+        out += `<ID>${escapeXml(conn.pinName)}</ID>${wireIntId} </${tag}>\n`;
       }
-    }
 
-    out += `</gate>\n`;
-  });
+      // Negate rotation back to CDL convention (Y-up, CCW)
+      out += `<gparam>angle ${(-rotation).toFixed(1)}</gparam>\n`;
 
-  // Wires — write merged wire groups, combining segment trees
-  wireGroups.forEach((members, root) => {
-    const intId = wireIdMap.get(root)!;
+      // Look up gate definition to know which params are guiParams vs logic params
+      const gateDef = loadedGateDefs.find((d) => d.id === defId);
+      const guiParamKeys = new Set(Object.keys(gateDef?.guiParams ?? {}));
 
-    out += `<wire>\n`;
-    out += `<ID>${intId} </ID>\n`;
-    out += `<shape>\n`;
-
-    // Merge segment maps from all wires in the group, re-numbering segment IDs
-    // to avoid collisions between different source wires.
-    let nextSegId = 0;
-    const segIdRemap = new Map<string, Map<number, number>>(); // wireUuid → old segId → new segId
-
-    // First pass: assign new segment IDs
-    for (const wireUuid of members) {
-      const yWire = wiresMap.get(wireUuid);
-      if (!yWire) continue;
-      const model = readWireModel(yWire);
-      if (!model) continue;
-      const remap = new Map<number, number>();
-      for (const seg of Object.values(model.segMap)) {
-        remap.set(seg.id, nextSegId++);
-      }
-      segIdRemap.set(wireUuid, remap);
-    }
-
-    // Second pass: write segments with remapped IDs
-    for (const wireUuid of members) {
-      const yWire = wiresMap.get(wireUuid);
-      if (!yWire) continue;
-      const model = readWireModel(yWire);
-      if (!model) continue;
-      const remap = segIdRemap.get(wireUuid)!;
-
-      for (const seg of Object.values(model.segMap)) {
-        const segTag = seg.vertical ? "vsegment" : "hsegment";
-        const [x1, y1] = toCdl(seg.begin.x, seg.begin.y);
-        const [x2, y2] = toCdl(seg.end.x, seg.end.y);
-        const newSegId = remap.get(seg.id)!;
-
-        out += `<${segTag}>\n`;
-        out += `<ID>${newSegId}</ID>\n`;
-        out += `<points>${x1},${y1},${x2},${y2}</points>\n`;
-
-        for (const conn of seg.connections) {
-          const gateIntId = gateUuidToIntId.get(conn.gateId) ?? 0;
-          out += `<connection>\n`;
-          out += `<GID>${gateIntId}</GID>\n`;
-          out += `<name>${escapeXml(conn.pinName)}</name>\n`;
-          out += `</connection>\n`;
-        }
-
-        for (const [posStr, ids] of Object.entries(seg.intersects)) {
-          const webPos = Number(posStr);
-          const cdlPos = seg.vertical
-            ? -webPos / GRID_SIZE
-            : webPos / GRID_SIZE;
-          for (const otherId of ids) {
-            const remappedOtherId = remap.get(otherId) ?? otherId;
-            out += `<intersection>${cdlPos} ${remappedOtherId}</intersection>\n`;
+      for (const [k, v] of yGate.entries()) {
+        if (k.startsWith("param:")) {
+          const paramName = k.slice(6);
+          if (guiParamKeys.has(paramName)) {
+            out += `<gparam>${escapeXml(paramName)} ${escapeXml(String(v))}</gparam>\n`;
+          } else {
+            out += `<lparam>${escapeXml(paramName)} ${escapeXml(String(v))}</lparam>\n`;
           }
         }
-
-        out += `</${segTag}>\n`;
       }
-    }
 
-    out += `</shape>\n`;
-    out += `</wire>\n`;
-  });
+      out += `</gate>\n`;
+    });
 
-  out += `</page 0>`;
+    // Wires on this page — write merged wire groups, combining segment trees
+    wireGroups.forEach((members, root) => {
+      // Only include wire groups where the root wire belongs to this page
+      const rootYWire = wiresMap.get(root);
+      if (!rootYWire || getPage(rootYWire) !== pageId) return;
+
+      const intId = wireIdMap.get(root)!;
+
+      out += `<wire>\n`;
+      out += `<ID>${intId} </ID>\n`;
+      out += `<shape>\n`;
+
+      let nextSegId = 0;
+      const segIdRemap = new Map<string, Map<number, number>>();
+
+      for (const wireUuid of members) {
+        const yWire = wiresMap.get(wireUuid);
+        if (!yWire) continue;
+        const model = readWireModel(yWire);
+        if (!model) continue;
+        const remap = new Map<number, number>();
+        for (const seg of Object.values(model.segMap)) {
+          remap.set(seg.id, nextSegId++);
+        }
+        segIdRemap.set(wireUuid, remap);
+      }
+
+      for (const wireUuid of members) {
+        const yWire = wiresMap.get(wireUuid);
+        if (!yWire) continue;
+        const model = readWireModel(yWire);
+        if (!model) continue;
+        const remap = segIdRemap.get(wireUuid)!;
+
+        for (const seg of Object.values(model.segMap)) {
+          const segTag = seg.vertical ? "vsegment" : "hsegment";
+          const [x1, y1] = toCdl(seg.begin.x, seg.begin.y);
+          const [x2, y2] = toCdl(seg.end.x, seg.end.y);
+          const newSegId = remap.get(seg.id)!;
+
+          out += `<${segTag}>\n`;
+          out += `<ID>${newSegId}</ID>\n`;
+          out += `<points>${x1},${y1},${x2},${y2}</points>\n`;
+
+          for (const conn of seg.connections) {
+            const gateIntId = gateUuidToIntId.get(conn.gateId) ?? 0;
+            out += `<connection>\n`;
+            out += `<GID>${gateIntId}</GID>\n`;
+            out += `<name>${escapeXml(conn.pinName)}</name>\n`;
+            out += `</connection>\n`;
+          }
+
+          for (const [posStr, ids] of Object.entries(seg.intersects)) {
+            const webPos = Number(posStr);
+            const cdlPos = seg.vertical
+              ? -webPos / GRID_SIZE
+              : webPos / GRID_SIZE;
+            for (const otherId of ids) {
+              const remappedOtherId = remap.get(otherId) ?? otherId;
+              out += `<intersection>${cdlPos} ${remappedOtherId}</intersection>\n`;
+            }
+          }
+
+          out += `</${segTag}>\n`;
+        }
+      }
+
+      out += `</shape>\n`;
+      out += `</wire>\n`;
+    });
+
+    out += `</page ${pageId}>`;
+  }
+
   out += `</circuit>`;
 
   // Trigger download

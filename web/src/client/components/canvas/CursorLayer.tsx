@@ -13,6 +13,8 @@ interface CursorState {
 interface CursorLayerProps {
   cursorWS: CursorWS | null;
   userMeta: Map<number, { name: string; color: string }>;
+  activePage: string;
+  userPageByHash: Map<number, string>;
 }
 
 /**
@@ -20,7 +22,7 @@ interface CursorLayerProps {
  * Subscribes to CursorWS binary messages and drives a rAF loop
  * that ticks spring physics and updates Konva nodes imperatively.
  */
-export function CursorLayer({ cursorWS, userMeta }: CursorLayerProps) {
+export function CursorLayer({ cursorWS, userMeta, activePage, userPageByHash }: CursorLayerProps) {
   const layerRef = useRef<Konva.Layer>(null);
   const cursorsRef = useRef<Map<number, CursorState>>(new Map());
   const rafRef = useRef<number>(0);
@@ -32,6 +34,10 @@ export function CursorLayer({ cursorWS, userMeta }: CursorLayerProps) {
   const colors = useCanvasColors();
   const colorsRef = useRef(colors);
   colorsRef.current = colors;
+  const activePageRef = useRef(activePage);
+  activePageRef.current = activePage;
+  const userPageByHashRef = useRef(userPageByHash);
+  userPageByHashRef.current = userPageByHash;
 
   useEffect(() => {
     if (!cursorWS) return;
@@ -113,6 +119,13 @@ export function CursorLayer({ cursorWS, userMeta }: CursorLayerProps) {
 
     cursorWS.on({
       onCursorMove(userHash, x, y) {
+        // Hide cursors from users on a different page
+        const remotePage = userPageByHashRef.current.get(userHash) ?? "0";
+        if (remotePage !== activePageRef.current) {
+          const c = cursors.get(userHash);
+          if (c) c.group.visible(false);
+          return;
+        }
         const c = ensureCursor(userHash);
         // If this is the first position, snap instead of animating
         if (!c.group.visible()) {

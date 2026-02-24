@@ -21,6 +21,7 @@ import {
   addWireModelToDoc,
   addConnectionToDoc,
   readWireModel,
+  getPage,
 } from "../lib/collab/yjs-schema";
 import { generateRenderInfo } from "../lib/canvas/wire-model";
 
@@ -33,6 +34,7 @@ interface CanvasProps {
   onCursorLeave?: () => void;
   cursorWS?: CursorWS | null;
   userMetaByHash?: Map<number, { name: string; color: string }>;
+  userPageByHash?: Map<number, string>;
 }
 
 function snapToGrid(val: number): number {
@@ -88,8 +90,9 @@ function segmentIntersectsRect(
 }
 
 const EMPTY_META = new Map<number, { name: string; color: string }>();
+const EMPTY_PAGE_MAP = new Map<number, string>();
 
-export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove, onCursorLeave, cursorWS, userMetaByHash }: CanvasProps) {
+export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove, onCursorLeave, cursorWS, userMetaByHash, userPageByHash }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -138,6 +141,8 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
   const setPendingGate = useCanvasStore((s) => s.setPendingGate);
   const mousePos = useRef({ x: 0, y: 0 });
 
+  const activePage = useCanvasStore((s) => s.activePage);
+
   const undoManager = useRef<Y.UndoManager | null>(null);
 
   /** Compute and apply a viewport that fits all circuit content on screen. */
@@ -146,6 +151,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
       if (canvasWidth === 0 || canvasHeight === 0) return;
       const gatesMap = getGatesMap(doc);
       const wiresMap = getWiresMap(doc);
+      const currentPage = useCanvasStore.getState().activePage;
       const defsMap = new Map<string, GateDefinition>(
         loadedGateDefs.map((d) => [d.id, d])
       );
@@ -154,6 +160,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
       let hasContent = false;
 
       gatesMap.forEach((yGate) => {
+        if (getPage(yGate) !== currentPage) return;
         const def = defsMap.get(yGate.get("defId"));
         if (!def) return;
         const bounds = getGateBounds(def);
@@ -167,6 +174,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
       });
 
       wiresMap.forEach((yWire) => {
+        if (getPage(yWire) !== currentPage) return;
         const model = readWireModel(yWire);
         if (!model) return;
         for (const seg of Object.values(model.segMap)) {
@@ -234,6 +242,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
         wireIdMap.set(w.originalId, crypto.randomUUID());
       }
 
+      const currentPage = useCanvasStore.getState().activePage;
       doc.transact(() => {
         for (const g of data.gates) {
           const newId = gateIdMap.get(g.originalId)!;
@@ -244,7 +253,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
             y: snapToGrid(pasteY + g.offsetY),
             rotation: g.rotation,
             ...g.params,
-          });
+          }, currentPage);
         }
 
         for (const w of data.wires) {
@@ -258,7 +267,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
               seg.end.x += pasteX;
               seg.end.y += pasteY;
             }
-            addWireModelToDoc(doc, newId, model);
+            addWireModelToDoc(doc, newId, model, currentPage);
           } else if (w.segments) {
             // Legacy format
             const model: WireModel = { segMap: {}, headSegment: 0, nextSegId: 0 };
@@ -274,7 +283,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
               };
             }
             model.nextSegId = w.segments.length;
-            addWireModelToDoc(doc, newId, model);
+            addWireModelToDoc(doc, newId, model, currentPage);
           }
         }
 
@@ -665,7 +674,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
           ...Object.fromEntries(
             Object.entries(pg.params || {}).map(([k, v]) => [`param:${k}`, v])
           ),
-        });
+        }, useCanvasStore.getState().activePage);
         setPendingGate(null);
         return;
       }
@@ -772,8 +781,10 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
         );
 
         // Hit-test gates
+        const currentPage = useCanvasStore.getState().activePage;
         const gatesMap = getGatesMap(doc);
         gatesMap.forEach((yGate, id) => {
+          if (getPage(yGate) !== currentPage) return;
           const def = defsMap.get(yGate.get("defId"));
           if (!def) return;
           const bounds = getGateBounds(def);
@@ -791,6 +802,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
         // Hit-test wires using WireModel render info
         const wiresMap = getWiresMap(doc);
         wiresMap.forEach((yWire, id) => {
+          if (getPage(yWire) !== currentPage) return;
           const model = readWireModel(yWire);
           if (!model) return;
           const ri = generateRenderInfo(model);
@@ -839,7 +851,7 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
         ...Object.fromEntries(
           Object.entries(params || {}).map(([k, v]) => [`param:${k}`, v])
         ),
-      });
+      }, useCanvasStore.getState().activePage);
     },
     [readOnly, doc]
   );
@@ -886,10 +898,10 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
             />
           </Layer>
           <GridLayer />
-          <WireLayer doc={doc} readOnly={readOnly} />
-          <GateLayer doc={doc} readOnly={readOnly} onGateDblClick={onGateDblClick} />
+          <WireLayer doc={doc} readOnly={readOnly} activePage={activePage} />
+          <GateLayer doc={doc} readOnly={readOnly} activePage={activePage} onGateDblClick={onGateDblClick} />
           <OverlayLayer />
-          <CursorLayer cursorWS={cursorWS ?? null} userMeta={userMetaByHash ?? EMPTY_META} />
+          <CursorLayer cursorWS={cursorWS ?? null} userMeta={userMetaByHash ?? EMPTY_META} activePage={activePage} userPageByHash={userPageByHash ?? EMPTY_PAGE_MAP} />
         </Stage>
       )}
     </div>

@@ -8,6 +8,7 @@ import {
   getConnectionsMap,
   readWireModel,
   updateWireModel,
+  getPage,
 } from "../../lib/collab/yjs-schema";
 import {
   startSegDrag,
@@ -27,6 +28,7 @@ import type { GateDefinition } from "@shared/types";
 interface WireLayerProps {
   doc: Y.Doc;
   readOnly: boolean;
+  activePage: string;
 }
 
 interface WireRenderData {
@@ -182,7 +184,7 @@ const WireShape = React.memo(function WireShape({
 // WireLayer — no longer subscribes to wireStates
 // ---------------------------------------------------------------------------
 
-export const WireLayer = React.memo(function WireLayer({ doc, readOnly }: WireLayerProps) {
+export const WireLayer = React.memo(function WireLayer({ doc, readOnly, activePage }: WireLayerProps) {
   const [wires, setWires] = useState<Map<string, WireRenderData>>(new Map());
   const [gateDefs, setGateDefs] = useState<GateDefinition[]>([]);
   const selectOnly = useCanvasStore((s) => s.selectOnly);
@@ -223,6 +225,7 @@ export const WireLayer = React.memo(function WireLayer({ doc, readOnly }: WireLa
     function sync() {
       const next = new Map<string, WireRenderData>();
       wiresMap.forEach((yWire, id) => {
+        if (getPage(yWire) !== activePage) return;
         const model = readWireModel(yWire);
         if (!model) return;
         const renderInfo = generateRenderInfo(model, getPinPos);
@@ -234,7 +237,7 @@ export const WireLayer = React.memo(function WireLayer({ doc, readOnly }: WireLa
     sync();
     wiresMap.observeDeep(sync);
     return () => wiresMap.unobserveDeep(sync);
-  }, [doc, getPinPos]);
+  }, [doc, getPinPos, activePage]);
 
   // We use refs for the handlers so that addEventListener always gets the latest version
   const getPinPosRef = useRef(getPinPos);

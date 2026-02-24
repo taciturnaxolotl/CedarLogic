@@ -11,6 +11,7 @@ import {
   readWireModel,
   updateWireModel,
   syncConnectionsFromWire,
+  getPage,
 } from "../../lib/collab/yjs-schema";
 import {
   calcShape,
@@ -108,6 +109,7 @@ export { gateDefs as loadedGateDefs, loadGateDefs };
 interface GateLayerProps {
   doc: Y.Doc;
   readOnly: boolean;
+  activePage: string;
   onGateDblClick?: (gateId: string) => void;
 }
 
@@ -528,7 +530,7 @@ const GateShape = React.memo(function GateShape({
 // GateLayer — no longer subscribes to wireStates
 // ---------------------------------------------------------------------------
 
-export const GateLayer = React.memo(function GateLayer({ doc, readOnly, onGateDblClick }: GateLayerProps) {
+export const GateLayer = React.memo(function GateLayer({ doc, readOnly, activePage, onGateDblClick }: GateLayerProps) {
   const [gates, setGates] = useState<Map<string, GateRenderData>>(new Map());
   const [defs, setDefs] = useState<GateDefinition[]>([]);
   // Map from gateId to first connected wireId (for LED/NODE state)
@@ -550,6 +552,7 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, onGateDb
     function sync() {
       const next = new Map<string, GateRenderData>();
       gatesMap.forEach((yGate, id) => {
+        if (getPage(yGate) !== activePage) return;
         const params: Record<string, string> = {};
         for (const [k, v] of yGate.entries()) {
           if (k.startsWith("param:")) params[k.replace("param:", "")] = String(v);
@@ -569,7 +572,7 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, onGateDb
     sync();
     gatesMap.observeDeep(sync);
     return () => gatesMap.unobserveDeep(sync);
-  }, [doc]);
+  }, [doc, activePage]);
 
   // Track connections: which wires are connected to each gate
   useEffect(() => {
@@ -894,7 +897,7 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, onGateDb
       const wireModel = calcShape(connections, makePinPos, makeIsVerticalPin);
 
       doc.transact(() => {
-        addWireModelToDoc(doc, wireId, wireModel);
+        addWireModelToDoc(doc, wireId, wireModel, useCanvasStore.getState().activePage);
         syncConnectionsFromWire(doc, wireId, wireModel);
       });
 

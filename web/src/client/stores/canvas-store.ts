@@ -57,6 +57,9 @@ interface CanvasState {
 
   canvasSize: { width: number; height: number };
 
+  activePage: string;
+  pageViewports: Record<string, { x: number; y: number; zoom: number }>;
+
   hoveredPin: {
     gateId: string;
     pinName: string;
@@ -77,6 +80,7 @@ interface CanvasState {
   setPendingPaste: (pp: CanvasState["pendingPaste"]) => void;
   setPendingGate: (pg: CanvasState["pendingGate"]) => void;
   setHoveredPin: (pin: CanvasState["hoveredPin"]) => void;
+  setActivePage: (page: string) => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -90,6 +94,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   pendingPaste: null,
   pendingGate: null,
   canvasSize: { width: 0, height: 0 },
+  activePage: "0",
+  pageViewports: {},
   hoveredPin: null,
 
   setViewport: (viewportX, viewportY, zoom) => set({ viewportX, viewportY, zoom }),
@@ -119,4 +125,26 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setPendingPaste: (pendingPaste) => set({ pendingPaste }),
   setPendingGate: (pendingGate) => set({ pendingGate }),
   setHoveredPin: (hoveredPin) => set({ hoveredPin }),
+
+  setActivePage: (page) => {
+    const s = get();
+    // Save current viewport for current page
+    const updated = {
+      ...s.pageViewports,
+      [s.activePage]: { x: s.viewportX, y: s.viewportY, zoom: s.zoom },
+    };
+    // Restore target page's viewport (or defaults)
+    const target = updated[page] ?? { x: 0, y: 0, zoom: 1 };
+    set({
+      activePage: page,
+      pageViewports: updated,
+      viewportX: target.x,
+      viewportY: target.y,
+      zoom: target.zoom,
+      selectedIds: {},
+      wireDrawing: null,
+      pendingPaste: null,
+      pendingGate: null,
+    });
+  },
 }));

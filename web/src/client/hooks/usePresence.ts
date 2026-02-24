@@ -21,21 +21,29 @@ export function usePresence(
 ) {
   const [remoteUsers, setRemoteUsers] = useState<RemoteUser[]>([]);
   const [userMetaByHash, setUserMetaByHash] = useState<Map<number, { name: string; color: string }>>(new Map());
+  const [userPageByHash, setUserPageByHash] = useState<Map<number, string>>(new Map());
+  const setActivePageRef = useRef<((page: string) => void) | null>(null);
   const anonName = useMemo(() => generateAnonName(), []);
 
   const userName = user?.name ?? anonName;
   const avatarUrl = user?.avatarUrl ?? null;
+
+  const setActivePageInAwareness = useCallback((page: string) => {
+    setActivePageRef.current?.(page);
+  }, []);
 
   useEffect(() => {
     if (!provider) return;
 
     const result = setupAwareness(provider, userName, userId, avatarUrl, role);
     const aw = result.awareness;
+    setActivePageRef.current = result.setActivePage;
     let prevUserKey = "";
 
     function syncUsers() {
       const users: RemoteUser[] = [];
       const meta = new Map<number, { name: string; color: string }>();
+      const pages = new Map<number, string>();
       const seen = new Set<string>();
 
       aw.getStates().forEach((state, clientId) => {
@@ -53,6 +61,7 @@ export function usePresence(
         });
         if (u.userHash != null) {
           meta.set(u.userHash, { name: u.name, color: u.color });
+          pages.set(u.userHash, u.activePage ?? "0");
         }
       });
 
@@ -62,6 +71,7 @@ export function usePresence(
         setRemoteUsers(users);
       }
       setUserMetaByHash(meta);
+      setUserPageByHash(pages);
     }
 
     aw.on("change", syncUsers);
@@ -69,8 +79,9 @@ export function usePresence(
 
     return () => {
       aw.off("change", syncUsers);
+      setActivePageRef.current = null;
     };
   }, [provider, userName, userId, avatarUrl, role]);
 
-  return { remoteUsers, userMetaByHash };
+  return { remoteUsers, userMetaByHash, userPageByHash, setActivePageInAwareness };
 }
