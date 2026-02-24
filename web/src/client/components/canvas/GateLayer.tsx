@@ -126,7 +126,7 @@ function snapToGrid(val: number): number {
   return Math.round(val / SNAP_SIZE) * SNAP_SIZE;
 }
 
-export function getGateBounds(def: GateDefinition) {
+export function getGateBounds(def: GateDefinition, params?: Record<string, string>) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const seg of def.shape) {
     minX = Math.min(minX, seg.x1, seg.x2);
@@ -140,7 +140,34 @@ export function getGateBounds(def: GateDefinition) {
     maxX = Math.max(maxX, pin.x);
     maxY = Math.max(maxY, pin.y);
   }
-  // Gates with no shape or pins (e.g. AA_LABEL) get a minimal bounding box
+
+  // Estimate text bounds for text-based gates
+  if (def.guiType === "LABEL" && params) {
+    const text = params.LABEL_TEXT ?? "Text";
+    const textHeight = parseFloat(params.TEXT_HEIGHT ?? "2.0");
+    // Monospace: char width ≈ 0.6 × height
+    const textWidthGrid = text.length * textHeight * 0.6;
+    minX = Math.min(minX, 0);
+    minY = Math.min(minY, -textHeight / 2);
+    maxX = Math.max(maxX, textWidthGrid);
+    maxY = Math.max(maxY, textHeight / 2);
+  } else if (def.guiType === "FROM" && params) {
+    const text = params.JUNCTION_ID ?? "";
+    const h = 1.5; // grid units
+    const textW = text.length * h * 0.6;
+    minX = Math.min(minX, -textW);
+    minY = Math.min(minY, -h / 2);
+    maxY = Math.max(maxY, h / 2);
+  } else if (def.guiType === "TO" && params) {
+    const text = params.JUNCTION_ID ?? "";
+    const h = 1.5;
+    const textW = text.length * h * 0.6;
+    maxX = Math.max(maxX, 0.4 + textW);
+    minY = Math.min(minY, -h / 2);
+    maxY = Math.max(maxY, h / 2);
+  }
+
+  // Gates with no shape, pins, or text get a minimal bounding box
   if (!isFinite(minX)) {
     return { x: 0, y: 0, width: 0, height: 0 };
   }
@@ -322,7 +349,7 @@ const GateShape = React.memo(function GateShape({
   const colors = useCanvasColors();
 
   const strokeColor = selected ? colors.gateSelected : colors.gateStroke;
-  const bounds = getGateBounds(def);
+  const bounds = getGateBounds(def, gate.params);
 
   const isToggle = def.guiType === "TOGGLE";
   const toggleOn = isToggle && gate.params.OUTPUT_NUM === "1";

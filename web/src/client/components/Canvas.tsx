@@ -163,7 +163,12 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
         if (getPage(yGate) !== currentPage) return;
         const def = defsMap.get(yGate.get("defId"));
         if (!def) return;
-        const bounds = getGateBounds(def);
+        // Extract params for text-aware bounds
+        const params: Record<string, string> = {};
+        for (const [k, v] of yGate.entries()) {
+          if (k.startsWith("param:")) params[k.replace("param:", "")] = String(v);
+        }
+        const bounds = getGateBounds(def, params);
         const gx = yGate.get("x") as number;
         const gy = yGate.get("y") as number;
         minX = Math.min(minX, gx + bounds.x);
@@ -208,16 +213,15 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
     [doc, setViewport]
   );
 
-  // Auto-fit viewport to content on initial load
-  const hasFittedOnLoad = useRef(false);
+  // Auto-fit viewport when visiting a page for the first time
+  const fittedPages = useRef(new Set<string>());
   useEffect(() => {
-    if (hasFittedOnLoad.current) return;
     if (size.width === 0 || size.height === 0) return;
-    const gatesMap = getGatesMap(doc);
-    if (gatesMap.size === 0) return;
-    hasFittedOnLoad.current = true;
-    fitToContent(size.width, size.height);
-  }, [doc, size, fitToContent]);
+    if (fittedPages.current.has(activePage)) return;
+    fittedPages.current.add(activePage);
+    // Defer so the page-filtered gate/wire data is available
+    requestAnimationFrame(() => fitToContent(size.width, size.height));
+  }, [activePage, size, fitToContent]);
 
   useEffect(() => {
     const gates = getGatesMap(doc);
@@ -787,7 +791,11 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
           if (getPage(yGate) !== currentPage) return;
           const def = defsMap.get(yGate.get("defId"));
           if (!def) return;
-          const bounds = getGateBounds(def);
+          const params: Record<string, string> = {};
+          for (const [k, v] of yGate.entries()) {
+            if (k.startsWith("param:")) params[k.replace("param:", "")] = String(v);
+          }
+          const bounds = getGateBounds(def, params);
           const gateBounds = {
             x: yGate.get("x") + bounds.x,
             y: yGate.get("y") + bounds.y,
