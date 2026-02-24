@@ -400,7 +400,6 @@ const GateShape = React.memo(function GateShape({
             fontSize={fontSize}
             fill={selected ? colors.gateSelected : colors.labelText}
             fontFamily="monospace"
-            listening={false}
             offsetY={fontSize / 2}
           />
         );
