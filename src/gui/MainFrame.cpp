@@ -1377,49 +1377,78 @@ void MainFrame::OnKeyboardShortcuts(wxCommandEvent& event) {
 	wxString mod = "Ctrl";
 #endif
 
-	wxString shortcuts =
-		"File Operations:\n"
-		"  " + mod + "+N          New Circuit\n"
-		"  " + mod + "+O          Open Circuit\n"
-		"  " + mod + "+S          Save Circuit\n"
-		"  " + mod + "+Shift+S    Save As\n"
-		"  " + mod + "+E          Export as Image\n"
-		"\n"
-		"Edit:\n"
-		"  " + mod + "+Z          Undo\n"
-		"  " + mod + "+Shift+Z    Redo\n"
-		"  " + mod + "+C          Copy\n"
-		"  " + mod + "+V          Paste\n"
-		"  Delete            Delete Selection\n"
-		"  Escape            Clear Selection\n"
-		"\n"
-		"View:\n"
-		"  +/=               Zoom In\n"
-		"  -                 Zoom Out\n"
-		"  Scroll            Zoom In/Out\n"
-		"  Space             Zoom to Fit\n"
-		"  Arrow Keys        Pan View\n"
+	wxDialog dlg(this, wxID_ANY, "Keyboard Shortcuts", wxDefaultPosition, wxDefaultSize,
+				 wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+
+	wxBoxSizer* topSizer = new wxBoxSizer(wxVERTICAL);
+
+	// Helper to add a section header
+	auto addHeader = [&](wxFlexGridSizer* grid, const wxString& title) {
+		wxStaticText* header = new wxStaticText(&dlg, wxID_ANY, title);
+		wxFont headerFont = header->GetFont();
+		headerFont.SetWeight(wxFONTWEIGHT_BOLD);
+		header->SetFont(headerFont);
+		grid->Add(header, 0, wxTOP | wxBOTTOM, 4);
+		grid->Add(new wxStaticText(&dlg, wxID_ANY, ""), 0); // empty cell
+	};
+
+	// Helper to add a shortcut row
+	auto addRow = [&](wxFlexGridSizer* grid, const wxString& key, const wxString& desc) {
+		wxStaticText* keyText = new wxStaticText(&dlg, wxID_ANY, key);
+		wxFont keyFont = keyText->GetFont();
+		keyFont.SetFamily(wxFONTFAMILY_TELETYPE);
+		keyText->SetFont(keyFont);
+		grid->Add(keyText, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 12);
+		grid->Add(new wxStaticText(&dlg, wxID_ANY, desc), 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
+	};
+
+	wxFlexGridSizer* grid = new wxFlexGridSizer(2, 6, 4);
+	grid->AddGrowableCol(1, 1);
+
+	addHeader(grid, "File Operations");
+	addRow(grid, mod + "+N", "New Circuit");
+	addRow(grid, mod + "+O", "Open Circuit");
+	addRow(grid, mod + "+S", "Save Circuit");
+	addRow(grid, mod + "+Shift+S", "Save As");
+	addRow(grid, mod + "+E", "Export as Image");
+
+	addHeader(grid, "Edit");
+	addRow(grid, mod + "+Z", "Undo");
+	addRow(grid, mod + "+Shift+Z", "Redo");
+	addRow(grid, mod + "+C", "Copy");
+	addRow(grid, mod + "+V", "Paste");
+	addRow(grid, "Delete", "Delete Selection");
+	addRow(grid, "Escape", "Clear Selection");
+
+	addHeader(grid, "View");
+	addRow(grid, "+/=", "Zoom In");
+	addRow(grid, "-", "Zoom Out");
+	addRow(grid, "Scroll", "Zoom In/Out");
+	addRow(grid, "Space", "Zoom to Fit");
+	addRow(grid, "Arrow Keys", "Pan View");
 #ifdef __WXOSX__
-		"  Cmd+Scroll/Swipe  Pan View\n"
+	addRow(grid, "Cmd+Scroll/Swipe", "Pan View");
 #else
-		"  Trackpad Swipe    Pan Horizontally (natural)\n"
+	addRow(grid, "Trackpad Swipe", "Pan Horizontally (natural)");
 #endif
-		"  Shift+Scroll      Pan Horizontally\n"
-		"  Ctrl+Scroll       Pan Vertically\n"
-		"  " + mod + "+G          Show Oscilloscope\n"
-		"\n"
-		"Gates:\n"
-		"  A                 Quick Add Gate\n"
-		"  R                 Rotate Selection\n"
-		"\n"
-		"Tabs:\n"
-		"  " + mod + "+T          New Tab\n"
+	addRow(grid, "Shift+Scroll", "Pan Horizontally");
+	addRow(grid, "Ctrl+Scroll", "Pan Vertically");
+	addRow(grid, mod + "+G", "Show Oscilloscope");
+
+	addHeader(grid, "Gates");
+	addRow(grid, "A", "Quick Add Gate");
+	addRow(grid, "R", "Rotate Selection");
+
+	addHeader(grid, "Tabs");
+	addRow(grid, mod + "+T", "New Tab");
 #ifdef __WXOSX__
-		"  " + mod + "+W          Close Tab";
-#else
-		"";
+	addRow(grid, mod + "+W", "Close Tab");
 #endif
 
-	wxMessageBox(shortcuts, "Keyboard Shortcuts",
-				 wxOK | wxICON_INFORMATION, this);
+	topSizer->Add(grid, 1, wxALL | wxEXPAND, 16);
+	topSizer->Add(dlg.CreateButtonSizer(wxOK), 0, wxALIGN_CENTER | wxBOTTOM, 12);
+
+	dlg.SetSizerAndFit(topSizer);
+	dlg.CentreOnParent();
+	dlg.ShowModal();
 }
