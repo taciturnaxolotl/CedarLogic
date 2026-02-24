@@ -62,6 +62,8 @@ export async function fileRoutes(req: Request, db: Database): Promise<Response> 
       const gates: ThumbnailData["gates"] = [];
       const gatesMap = doc.getMap("gates") as Y.Map<Y.Map<any>>;
       gatesMap.forEach((yGate) => {
+        // Only include first page (page "0") for thumbnail clarity
+        if ((yGate.get("page") as string ?? "0") !== "0") return;
         gates.push({
           defId: yGate.get("defId"),
           x: yGate.get("x"),
@@ -73,6 +75,8 @@ export async function fileRoutes(req: Request, db: Database): Promise<Response> 
       const wires: ThumbnailData["wires"] = [];
       const wiresMap = doc.getMap("wires") as Y.Map<Y.Map<any>>;
       wiresMap.forEach((yWire) => {
+        // Only include first page for thumbnail clarity
+        if ((yWire.get("page") as string ?? "0") !== "0") return;
         const segments: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
 
         // Try new model format first
