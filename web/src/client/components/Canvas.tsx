@@ -264,13 +264,18 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
         for (const w of data.wires) {
           const newId = wireIdMap.get(w.originalId)!;
           if (w.model) {
-            // New format: offset all segment positions in the WireModel
+            // New format: offset all segment positions and remap gate IDs in the WireModel
             const model: WireModel = JSON.parse(JSON.stringify(w.model));
             for (const seg of Object.values(model.segMap)) {
               seg.begin.x += pasteX;
               seg.begin.y += pasteY;
               seg.end.x += pasteX;
               seg.end.y += pasteY;
+              // Remap gate IDs in segment connections to point to the new pasted gates
+              for (const conn of seg.connections) {
+                const newGateId = gateIdMap.get(conn.gateId);
+                if (newGateId) conn.gateId = newGateId;
+              }
             }
             addWireModelToDoc(doc, newId, model, currentPage);
           } else if (w.segments) {
@@ -334,6 +339,10 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
   // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      // Don't handle shortcuts when focus is inside an input/textarea (e.g. gate properties dialog)
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
       if (e.key === "Delete" || e.key === "Backspace") {
         const ids = Object.keys(selectedIds);
         if (readOnly || ids.length === 0) return;
