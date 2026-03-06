@@ -892,9 +892,9 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 
 	// Output style box with better spacing
 	wxStaticBoxSizer* styleBox = new wxStaticBoxSizer(wxVERTICAL, &exportDialog, "Output style");
-	wxString styles[] = {"Color", "Black & White", "Grayscale"};
+	wxString styles[] = {"Color", "Black && White", "Grayscale"};
 	wxRadioButton* colorRadio = new wxRadioButton(&exportDialog, wxID_ANY, "Color", wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
-	wxRadioButton* bwRadio = new wxRadioButton(&exportDialog, wxID_ANY, "Black & White");
+	wxRadioButton* bwRadio = new wxRadioButton(&exportDialog, wxID_ANY, "Black && White");
 	wxRadioButton* grayRadio = new wxRadioButton(&exportDialog, wxID_ANY, "Grayscale");
 	colorRadio->SetValue(true);
 	styleBox->Add(colorRadio, 0, wxALL, 5);
@@ -923,6 +923,10 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 	wxButton* saveBtn = new wxButton(&exportDialog, wxID_OK, "Export to File...");
 	wxButton* copyBtn = new wxButton(&exportDialog, wxID_APPLY, "Copy to Clipboard");
 	wxButton* cancelBtn = new wxButton(&exportDialog, wxID_CANCEL, "Cancel");
+
+	copyBtn->Bind(wxEVT_BUTTON, [&exportDialog](wxCommandEvent&) {
+		exportDialog.EndModal(wxID_APPLY);
+	});
 
 	saveBtn->SetDefault(); // Make it blue (default button)
 
