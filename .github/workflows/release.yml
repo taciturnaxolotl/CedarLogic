@@ -413,4 +413,11 @@ jobs:
           mkdir -p npm-publish
           tar -xzf artifacts/wasm-bundle/CedarLogic-*-wasm.tar.gz -C npm-publish
           cd npm-publish
-          npm publish --access public
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          # Skip publish if this version already exists on npm
+          if npm view "${PKG_NAME}@${PKG_VERSION}" version 2>/dev/null; then
+            echo "Version ${PKG_VERSION} already published to npm, skipping."
+          else
+            npm publish --access public
+          fi
