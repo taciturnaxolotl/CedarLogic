@@ -492,15 +492,22 @@ guiGateTOGGLE::guiGateTOGGLE() {
 void guiGateTOGGLE::draw( bool color ) {
 	// Draw the default lines:
 	guiGate::draw(color);
-	
-	// Add the rectangle:
-	glColor4f( (float)renderInfo_outputNum, 0.0, 0.0, 1.0 );
 
-	//Inner Square
-	if (color) glRectd  ( renderInfo_clickBox.begin.x, renderInfo_clickBox.begin.y, 
-			renderInfo_clickBox.end.x, renderInfo_clickBox.end.y ) ;
-	
-	// Set the color back to the old color:
+	float x1 = renderInfo_clickBox.begin.x, y1 = renderInfo_clickBox.begin.y;
+	float x2 = renderInfo_clickBox.end.x, y2 = renderInfo_clickBox.end.y;
+
+	if (!color) {
+		// B&W schematic mode: just draw the outline
+		glColor4f(0.0, 0.0, 0.0, 1.0);
+		glBegin(GL_LINE_LOOP);
+		glVertex2f(x1, y1); glVertex2f(x2, y1);
+		glVertex2f(x2, y2); glVertex2f(x1, y2);
+		glEnd();
+	} else {
+		glColor4f( (float)renderInfo_outputNum, 0.0, 0.0, 1.0 );
+		glRectd(x1, y1, x2, y2);
+	}
+
 	glColor4f( 0.0, 0.0, 0.0, 1.0 );
 }
 
@@ -836,27 +843,61 @@ void guiGateLED::draw( bool color ) {
 		outputState = (theCnk->second)->getState()[0];
 	}
 
-	switch( outputState ) {
-	case ZERO:
-		glColor4f( 0.0, 0.0, 0.0, 1.0 );
-		break;
-	case ONE:
-		glColor4f( 1.0, 0.0, 0.0, 1.0 );
-		break;
-	case HI_Z:
-		glColor4f( 0.0, 0.78f, 0.0, 1.0 );
-		break;
-	case UNKNOWN:
-		glColor4f( 0.3f, 0.3f, 1.0, 1.0 );
-		break;
-	case CONFLICT:
-		glColor4f( 0.0, 1.0, 1.0, 1.0 );
-		break;
-	}
+	if (!color) {
+		// B&W schematic mode: outline with distinct markers for broken states
+		glColor4f(0.0, 0.0, 0.0, 1.0);
 
-	//Inner Square
-	if (color) glRectd  ( renderInfo_ledBox.begin.x, renderInfo_ledBox.begin.y, 
-			renderInfo_ledBox.end.x, renderInfo_ledBox.end.y ) ;
+		float x1 = renderInfo_ledBox.begin.x, y1 = renderInfo_ledBox.begin.y;
+		float x2 = renderInfo_ledBox.end.x, y2 = renderInfo_ledBox.end.y;
+		glBegin(GL_LINE_LOOP);
+		glVertex2f(x1, y1); glVertex2f(x2, y1);
+		glVertex2f(x2, y2); glVertex2f(x1, y2);
+		glEnd();
+
+		if (outputState == CONFLICT) {
+			// X cross-hatch
+			glBegin(GL_LINES);
+			glVertex2f(x1, y1); glVertex2f(x2, y2);
+			glVertex2f(x1, y2); glVertex2f(x2, y1);
+			glEnd();
+		}
+		else if (outputState == UNKNOWN) {
+			// Single diagonal slash
+			glBegin(GL_LINES);
+			glVertex2f(x1, y1); glVertex2f(x2, y2);
+			glEnd();
+		}
+		else if (outputState == HI_Z) {
+			// Horizontal line through center
+			float midY = (y1 + y2) / 2;
+			glBegin(GL_LINES);
+			glVertex2f(x1, midY); glVertex2f(x2, midY);
+			glEnd();
+		}
+	}
+	else {
+		switch( outputState ) {
+		case ZERO:
+			glColor4f( 0.0, 0.0, 0.0, 1.0 );
+			break;
+		case ONE:
+			glColor4f( 1.0, 0.0, 0.0, 1.0 );
+			break;
+		case HI_Z:
+			glColor4f( 0.0, 0.78f, 0.0, 1.0 );
+			break;
+		case UNKNOWN:
+			glColor4f( 0.3f, 0.3f, 1.0, 1.0 );
+			break;
+		case CONFLICT:
+			glColor4f( 0.0, 1.0, 1.0, 1.0 );
+			break;
+		}
+
+		//Inner Square
+		if (color) glRectd  ( renderInfo_ledBox.begin.x, renderInfo_ledBox.begin.y,
+				renderInfo_ledBox.end.x, renderInfo_ledBox.end.y ) ;
+	}
 
 	// Set the color back to black:
 	glColor4f( 0.0, 0.0, 0.0, 1.0 );

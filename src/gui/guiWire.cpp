@@ -240,6 +240,7 @@ void guiWire::draw(bool color) {
 		glColor4f(0.0, 0.0, 0.0, 1.0);
 	}
 
+
 	// Draw the wire from the previously-saved render info
 	vector< GLLine2f >* lineSegments = &(renderInfo.lineSegments);
 	glLineWidth(ids.size() != 1 ? 4 : 1);
@@ -312,6 +313,7 @@ void guiWire::draw(bool color) {
 		}
 		glLineStipple(oldRepeat, oldStipple);
 	}
+
 }
 
 bool guiWire::hover(float cx, float cy, float delta) {

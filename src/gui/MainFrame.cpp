@@ -898,14 +898,11 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 
 	// Output style box with better spacing
 	wxStaticBoxSizer* styleBox = new wxStaticBoxSizer(wxVERTICAL, &exportDialog, "Output style");
-	wxString styles[] = {"Color", "Black && White", "Grayscale"};
 	wxRadioButton* colorRadio = new wxRadioButton(&exportDialog, wxID_ANY, "Color", wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
 	wxRadioButton* bwRadio = new wxRadioButton(&exportDialog, wxID_ANY, "Black && White");
-	wxRadioButton* grayRadio = new wxRadioButton(&exportDialog, wxID_ANY, "Grayscale");
 	colorRadio->SetValue(true);
 	styleBox->Add(colorRadio, 0, wxALL, 5);
 	styleBox->Add(bwRadio, 0, wxALL, 5);
-	styleBox->Add(grayRadio, 0, wxALL, 5);
 	optionsSizer->Add(styleBox, 1, wxRIGHT | wxEXPAND, 10);
 
 	// Resolution box with better spacing
@@ -951,14 +948,10 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 	auto updatePreview = [&]() {
 		bool showGrid = gridCheck->GetValue();
 		bool noColor = bwRadio->GetValue();
-		bool grayscale = grayRadio->GetValue();
 
 		// Render at native canvas size (1:1 with what the user sees)
 		wxBitmap bmp = getBitmap(showGrid, noColor, 1);
 		wxImage img = bmp.ConvertToImage();
-		if (grayscale) {
-			img = img.ConvertToGreyscale();
-		}
 
 		// Compute logical thumbnail size preserving aspect ratio
 		int srcW = img.GetWidth(), srcH = img.GetHeight();
@@ -986,7 +979,6 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 	gridCheck->Bind(wxEVT_CHECKBOX, onOptionChange);
 	colorRadio->Bind(wxEVT_RADIOBUTTON, onOptionChange);
 	bwRadio->Bind(wxEVT_RADIOBUTTON, onOptionChange);
-	grayRadio->Bind(wxEVT_RADIOBUTTON, onOptionChange);
 
 	// Generate initial preview and size dialog to fit
 	updatePreview();
@@ -999,14 +991,10 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 	// Get user choices
 	bool showGrid = gridCheck->GetValue();
 	bool useNoColor = bwRadio->GetValue();
-	bool useGrayscale = grayRadio->GetValue();
 	int multiplier = screen2x->GetValue() ? 2 : (print4x->GetValue() ? 4 : 6);
 
 	// Generate bitmap
 	wxBitmap bitmap = getBitmap(showGrid, useNoColor, multiplier);
-	if (useGrayscale) {
-		bitmap = wxBitmap(bitmap.ConvertToImage().ConvertToGreyscale());
-	}
 
 	// Handle action
 	if (result == wxID_APPLY) {
