@@ -13,15 +13,28 @@ function snapToGrid(val: number): number {
   return Math.round(val / SNAP_SIZE) * SNAP_SIZE;
 }
 
-function fuzzyMatch(query: string, text: string): boolean {
+/** Score how well `query` matches `text`. Higher = better, -1 = no match. */
+function matchScore(query: string, text: string): number {
   const q = query.toLowerCase();
   const t = text.toLowerCase();
-  if (t.includes(q)) return true;
+  if (!t || !q) return -1;
+
+  // Exact match
+  if (t === q) return 100;
+  // Starts with query
+  if (t.startsWith(q)) return 90;
+  // Word boundary match (e.g. "led" matches "Red LED")
+  if (new RegExp(`\\b${q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(t))
+    return 80;
+  // Substring match
+  if (t.includes(q)) return 70;
+  // Fuzzy match — characters in order
   let qi = 0;
   for (let ti = 0; ti < t.length && qi < q.length; ti++) {
     if (t[ti] === q[qi]) qi++;
   }
-  return qi === q.length;
+  if (qi === q.length) return 50;
+  return -1;
 }
 
 export function QuickAddDialog({ onClose }: QuickAddDialogProps) {
@@ -31,12 +44,22 @@ export function QuickAddDialog({ onClose }: QuickAddDialogProps) {
 
   const filtered = useMemo(() => {
     if (!query.trim()) return loadedGateDefs;
-    return loadedGateDefs.filter(
-      (def) =>
-        fuzzyMatch(query, def.caption || "") ||
-        fuzzyMatch(query, def.id) ||
-        fuzzyMatch(query, def.library)
-    );
+    const q = query.trim();
+    const scored: { def: GateDefinition; score: number }[] = [];
+    for (const def of loadedGateDefs) {
+      // Caption gets a slight bonus (+5) so display-name matches rank higher
+      const caption = matchScore(q, def.caption || "");
+      const id = matchScore(q, def.id);
+      const lib = matchScore(q, def.library);
+      const best = Math.max(
+        caption >= 0 ? caption + 5 : -1,
+        id,
+        lib
+      );
+      if (best >= 0) scored.push({ def, score: best });
+    }
+    scored.sort((a, b) => b.score - a.score);
+    return scored.map((s) => s.def);
   }, [query]);
 
   useEffect(() => {
