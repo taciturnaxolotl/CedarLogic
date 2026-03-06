@@ -878,13 +878,19 @@ void MainFrame::OnPaste(wxCommandEvent& event) {
 
 void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 	// Create unified export dialog with horizontal layout
-	wxDialog exportDialog(this, wxID_ANY, "Export as Image", wxDefaultPosition, wxSize(480, 280));
+	wxDialog exportDialog(this, wxID_ANY, "Export as Image", wxDefaultPosition, wxDefaultSize);
 	wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
+
+	// Preview panel — sized dynamically on first render
+	const int previewMaxW = 560, previewMaxH = 220;
+	wxStaticBitmap* previewBitmap = new wxStaticBitmap(&exportDialog, wxID_ANY, wxNullBitmap,
+		wxDefaultPosition, wxDefaultSize);
+	mainSizer->Add(previewBitmap, 0, wxALL | wxALIGN_CENTER_HORIZONTAL, 15);
 
 	// Grid option
 	wxCheckBox* gridCheck = new wxCheckBox(&exportDialog, wxID_ANY, "Include grid lines");
 	gridCheck->SetValue(false);
-	mainSizer->Add(gridCheck, 0, wxALL, 15);
+	mainSizer->Add(gridCheck, 0, wxLEFT | wxRIGHT, 15);
 
 	// Horizontal sizer for output style and resolution side-by-side
 	mainSizer->AddSpacer(10);
@@ -939,6 +945,52 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 	mainSizer->Add(buttonSizer, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 20);
 
 	exportDialog.SetSizer(mainSizer);
+
+	// Preview update helper — renders at full canvas resolution and downscales for crisp preview
+	double contentScaleFactor = exportDialog.GetContentScaleFactor();
+	auto updatePreview = [&]() {
+		bool showGrid = gridCheck->GetValue();
+		bool noColor = bwRadio->GetValue();
+		bool grayscale = grayRadio->GetValue();
+
+		// Render at native canvas size (1:1 with what the user sees)
+		wxBitmap bmp = getBitmap(showGrid, noColor, 1);
+		wxImage img = bmp.ConvertToImage();
+		if (grayscale) {
+			img = img.ConvertToGreyscale();
+		}
+
+		// Compute logical thumbnail size preserving aspect ratio
+		int srcW = img.GetWidth(), srcH = img.GetHeight();
+		double scale = std::min((double)previewMaxW / srcW, (double)previewMaxH / srcH);
+		if (scale > 1.0) scale = 1.0;
+		int logicalW = std::max(1, (int)(srcW * scale));
+		int logicalH = std::max(1, (int)(srcH * scale));
+
+		// Scale to Retina physical pixels for sharp rendering
+		int physW = (int)(logicalW * contentScaleFactor);
+		int physH = (int)(logicalH * contentScaleFactor);
+		img.Rescale(physW, physH, wxIMAGE_QUALITY_HIGH);
+
+		// Create a Retina-aware bitmap at the logical size
+		wxBitmap retinaThumb(img);
+		retinaThumb.SetScaleFactor(contentScaleFactor);
+
+		previewBitmap->SetBitmap(retinaThumb);
+		previewBitmap->SetMinSize(wxSize(logicalW, logicalH));
+		exportDialog.GetSizer()->Layout();
+	};
+
+	// Bind option changes to refresh preview
+	auto onOptionChange = [&](wxCommandEvent&) { updatePreview(); };
+	gridCheck->Bind(wxEVT_CHECKBOX, onOptionChange);
+	colorRadio->Bind(wxEVT_RADIOBUTTON, onOptionChange);
+	bwRadio->Bind(wxEVT_RADIOBUTTON, onOptionChange);
+	grayRadio->Bind(wxEVT_RADIOBUTTON, onOptionChange);
+
+	// Generate initial preview and size dialog to fit
+	updatePreview();
+	exportDialog.Fit();
 	exportDialog.Centre();
 
 	int result = exportDialog.ShowModal();
