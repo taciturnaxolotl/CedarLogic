@@ -51,6 +51,7 @@ interface GateDef {
   inputs: Pin[];
   outputs: Pin[];
   shape: LineSegment[];
+  labelShape?: LineSegment[];
   circles: CircleDef[];
   paramDlg: ParamDlgEntry[];
 }
@@ -194,6 +195,7 @@ for (const lib of libraryBlocks) {
 
     // Parse shape lines, handling <offset> blocks that translate child lines
     const shape: LineSegment[] = [];
+    const labelShape: LineSegment[] = [];
     const circles: CircleDef[] = [];
     const shapeMatch = content.match(/<shape>([\s\S]*?)<\/shape>/);
     if (shapeMatch) {
@@ -210,13 +212,13 @@ for (const lib of libraryBlocks) {
           ? parsePoint(offsetPointMatch[1].trim())
           : { x: 0, y: 0 };
 
-        // Parse lines inside this offset block
+        // Parse lines inside this offset block — these are label lines
         const offsetLineMatches = om[1].matchAll(/<line>([\s\S]*?)<\/line>/g);
         for (const lm of offsetLineMatches) {
           try {
             const seg = parseLine(lm[1].trim());
             const round = (n: number) => Math.round(n * 1000) / 1000;
-            shape.push({
+            labelShape.push({
               x1: round(seg.x1 + offsetPt.x),
               y1: round(seg.y1 + offsetPt.y),
               x2: round(seg.x2 + offsetPt.x),
@@ -253,7 +255,7 @@ for (const lib of libraryBlocks) {
     }
 
     // Flip Y axis: XML uses Y-up (math), canvas uses Y-down (screen)
-    allGates.push({
+    const gateDef: GateDef = {
       id: gateId,
       name: gateId,
       caption,
@@ -267,7 +269,11 @@ for (const lib of libraryBlocks) {
       shape: shape.map((s) => ({ x1: s.x1, y1: -s.y1, x2: s.x2, y2: -s.y2 })),
       circles: circles.map((c) => ({ ...c, cy: -c.cy })),
       paramDlg,
-    });
+    };
+    if (labelShape.length > 0) {
+      gateDef.labelShape = labelShape.map((s) => ({ x1: s.x1, y1: -s.y1, x2: s.x2, y2: -s.y2 }));
+    }
+    allGates.push(gateDef);
   }
 }
 

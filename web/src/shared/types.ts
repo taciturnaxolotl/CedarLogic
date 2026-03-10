@@ -83,6 +83,7 @@ export interface GateDefinition {
   inputs: Array<{ name: string; x: number; y: number; inverted?: boolean }>;
   outputs: Array<{ name: string; x: number; y: number; inverted?: boolean }>;
   shape: Array<{ x1: number; y1: number; x2: number; y2: number }>;
+  labelShape?: Array<{ x1: number; y1: number; x2: number; y2: number }>;
   circles: Array<{ cx: number; cy: number; r: number }>;
   paramDlg: ParamDlgEntry[];
 }
