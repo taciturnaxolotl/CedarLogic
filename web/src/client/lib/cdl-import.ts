@@ -28,7 +28,10 @@ function toWeb(gx: number, gy: number): { x: number; y: number } {
  */
 function preprocessCdl(text: string): string {
   // Replace <page N> and </page N> with <page_N> and </page_N>
-  return text.replace(/<(\/?)page\s+(\d+)>/g, "<$1page_$2>");
+  let result = text.replace(/<(\/?)page\s+(\d+)>/g, "<$1page_$2>");
+  // Escape bare & characters that aren't already XML entities
+  result = result.replace(/&(?!amp;|lt;|gt;|apos;|quot;|#\d+;|#x[\da-fA-F]+;)/g, "&amp;");
+  return result;
 }
 
 export function importFromCdl(
