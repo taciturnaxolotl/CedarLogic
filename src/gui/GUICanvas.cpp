@@ -1451,11 +1451,21 @@ void GUICanvas::rotateSelection() {
 		return;
 	}
 
-	// If we're in paste mode, rotate all gates being pasted
+	// If we're in paste mode, rotate all gates being pasted that have no wire connections
 	if (isWithinPaste) {
 		for (unsigned int i = 0; i < preMove.size(); i++) {
 			if (gateList.find(preMove[i].id) == gateList.end()) continue;
 			guiGate* gate = gateList[preMove[i].id];
+
+			map< string, GLPoint2f > hotspots = gate->getHotspotList();
+			bool hasConnections = false;
+			for (auto& hotspot : hotspots) {
+				if (gate->isConnected(hotspot.first)) {
+					hasConnections = true;
+					break;
+				}
+			}
+			if (hasConnections) continue;
 
 			istringstream iss(gate->getGUIParam("angle"));
 			float currentAngle = 0.0f;
