@@ -51,6 +51,7 @@ struct ApplicationSettings {
     float wireConnRadius;
     bool wireConnVisible;
     bool gridlineVisible;
+    bool rightClickRotate;
 };
 
 class MainApp : public wxApp {

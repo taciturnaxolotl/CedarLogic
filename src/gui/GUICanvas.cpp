@@ -528,7 +528,7 @@ void GUICanvas::mouseRightDown(wxMouseEvent& event) {
 			else gCircuit->GetCommandProcessor()->Submit( (wxCommand*)(new cmdDeleteWire( gCircuit, this, gateList[hotspotGate]->getConnection(hotspotHighlight)->getID() )) );
 		}
 		currentDragState = DRAG_NONE;
-	} else if (currentDragState == DRAG_NONE) {
+	} else if (currentDragState == DRAG_NONE && wxGetApp().appSettings.rightClickRotate) {
 		// Not on a hotspot, so check if it's on a gate:
 		// Loop through all objects hit by the mouse
 		CollisionGroup hitThings = mouse->getOverlaps();

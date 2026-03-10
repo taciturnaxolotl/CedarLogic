@@ -173,6 +173,7 @@ void MainApp::loadSettings() {
 	conf->Read("WireConnRadius", &appSettings.wireConnRadius, 0.18f);
 	conf->Read("WireConnVisible", &appSettings.wireConnVisible, true);
 	conf->Read("GridlineVisible", &appSettings.gridlineVisible, true);
+	conf->Read("RightClickRotate", &appSettings.rightClickRotate, true);
 
 	// check screen coords
 	wxScreenDC sdc;

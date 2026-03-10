@@ -65,6 +65,7 @@ BEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(View_Oscope, MainFrame::OnOscope)
     EVT_MENU(View_Gridline, MainFrame::OnViewGridline)
     EVT_MENU(View_WireConn, MainFrame::OnViewWireConn)
+    EVT_MENU(View_RightClickRotate, MainFrame::OnViewRightClickRotate)
     EVT_MENU(View_Preferences, MainFrame::OnPreferences)
     
 	EVT_TOOL(Tool_Pause, MainFrame::OnPause)
@@ -129,6 +130,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
     wxMenu *settingsMenu = new wxMenu;
     settingsMenu->AppendCheckItem(View_Gridline, "Display Gridlines", "Toggle gridline display");
     settingsMenu->AppendCheckItem(View_WireConn, "Display Wire Connection Points", "Toggle wire connection points");
+    settingsMenu->AppendCheckItem(View_RightClickRotate, "Right-Click Rotate", "Toggle right-click to rotate gates");
     settingsMenu->AppendSeparator();
     settingsMenu->Append(View_Preferences, "Preferences...\tCtrl+,", "Open preferences dialog");
     viewMenu->AppendSeparator();
@@ -170,6 +172,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
     // set checkmarks on settings menu
     menuBar->Check(View_Gridline, wxGetApp().appSettings.gridlineVisible);
     menuBar->Check(View_WireConn, wxGetApp().appSettings.wireConnVisible);
+    menuBar->Check(View_RightClickRotate, wxGetApp().appSettings.rightClickRotate);
     
     // ... and attach this menu bar to the frame
     SetMenuBar(menuBar);
@@ -744,6 +747,10 @@ void MainFrame::OnViewWireConn(wxCommandEvent& event) {
 	if (currentCanvas != NULL) currentCanvas->Update();
 }
 
+void MainFrame::OnViewRightClickRotate(wxCommandEvent& event) {
+	wxGetApp().appSettings.rightClickRotate = event.IsChecked();
+}
+
 void MainFrame::OnPreferences(wxCommandEvent& event) {
 	SettingsDialog dlg(this);
 	if (dlg.ShowModal() == wxID_OK) {
@@ -755,6 +762,7 @@ void MainFrame::OnPreferences(wxCommandEvent& event) {
 		// Sync menu checkmarks
 		GetMenuBar()->Check(View_Gridline, wxGetApp().appSettings.gridlineVisible);
 		GetMenuBar()->Check(View_WireConn, wxGetApp().appSettings.wireConnVisible);
+		GetMenuBar()->Check(View_RightClickRotate, wxGetApp().appSettings.rightClickRotate);
 
 		if (currentCanvas != NULL) currentCanvas->Update();
 	}
@@ -1185,6 +1193,7 @@ void MainFrame::saveSettings() {
 	conf->Write("WireConnRadius", settings.wireConnRadius);
 	conf->Write("WireConnVisible", settings.wireConnVisible);
 	conf->Write("GridlineVisible", settings.gridlineVisible);
+	conf->Write("RightClickRotate", settings.rightClickRotate);
 }
 
 void MainFrame::ResumeExecution() {
