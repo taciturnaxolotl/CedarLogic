@@ -312,6 +312,7 @@ interface GateShapeProps {
   onMouseDown: (id: string, e: Konva.KonvaEventObject<MouseEvent>) => void;
   onToggleClick: (id: string, e: Konva.KonvaEventObject<MouseEvent>) => void;
   onPulseClick: (id: string, e: Konva.KonvaEventObject<MouseEvent>) => void;
+  onKeypadClick: (id: string, value: string, e: Konva.KonvaEventObject<MouseEvent>) => void;
   onDblClick?: (gateId: string) => void;
   onPinMouseDown: (
     gateId: string, gateX: number, gateY: number, gateRotation: number,
@@ -343,6 +344,7 @@ const GateShape = React.memo(function GateShape({
   onMouseDown,
   onToggleClick,
   onPulseClick,
+  onKeypadClick,
   onDblClick,
   onPinMouseDown,
   onPinMouseUp,
@@ -455,6 +457,34 @@ const GateShape = React.memo(function GateShape({
           listening={false}
         />
       ))}
+      {/* KEYPAD hit areas (after shape so they're on top) */}
+      {def.guiType === "KEYPAD" && (() => {
+        const activeValue = gate.params.OUTPUT_NUM ?? "0";
+        const buttons: React.JSX.Element[] = [];
+        const guiParams = def.guiParams ?? {};
+        for (const [key, boxStr] of Object.entries(guiParams)) {
+          if (!key.startsWith("KEYPAD_BOX_")) continue;
+          const label = key.replace("KEYPAD_BOX_", "");
+          const [bx1, rawY1, bx2, rawY2] = (boxStr as string).split(",").map(Number);
+          const by1 = Math.min(-rawY1, -rawY2);
+          const by2 = Math.max(-rawY1, -rawY2);
+          const decValue = parseInt(label, 16);
+          const isActive = String(decValue) === activeValue;
+          buttons.push(
+            <Rect
+              key={key}
+              x={bx1 * GRID_SIZE}
+              y={by1 * GRID_SIZE}
+              width={(bx2 - bx1) * GRID_SIZE}
+              height={(by2 - by1) * GRID_SIZE}
+              fill={isActive ? colors.toggleOn : "transparent"}
+              opacity={isActive ? 0.3 : 1}
+              onMouseDown={(e) => onKeypadClick(gate.id, String(decValue), e)}
+            />
+          );
+        }
+        return buttons;
+      })()}
       {/* LABEL text */}
       {def.guiType === "LABEL" && (() => {
         const labelText = gate.params.LABEL_TEXT ?? "Text";
@@ -808,6 +838,18 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, activePa
     [readOnly, doc]
   );
 
+  const handleKeypadClick = useCallback(
+    (id: string, value: string, e: Konva.KonvaEventObject<MouseEvent>) => {
+      e.cancelBubble = true;
+      if (readOnly || e.evt.button !== 0) return;
+      const gatesMap = getGatesMap(doc);
+      const yGate = gatesMap.get(id);
+      if (!yGate) return;
+      yGate.set("param:OUTPUT_NUM", value);
+    },
+    [readOnly, doc]
+  );
+
   const [pulseTicks, setPulseTicks] = useState<Record<string, number>>({});
 
   const handlePulseClick = useCallback(
@@ -1056,6 +1098,7 @@ export const GateLayer = React.memo(function GateLayer({ doc, readOnly, activePa
             onMouseDown={handleMouseDown}
             onToggleClick={handleToggleClick}
             onPulseClick={handlePulseClick}
+            onKeypadClick={handleKeypadClick}
             onDblClick={onGateDblClick}
             onPinMouseDown={handlePinMouseDown}
             onPinMouseUp={handlePinMouseUp}
