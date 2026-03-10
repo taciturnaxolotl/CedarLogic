@@ -722,14 +722,16 @@ void klsGLCanvas::endDrag( mouseButton whichButton ) {
 
 
 void klsGLCanvas::wxKeyDown(wxKeyEvent& event) {
+	wxGetApp().SetCurrentCanvas(this);
 	reclaimViewport();
 
 	// Give the subclassed handler first dibs on the event:
 	OnKeyDown( event );
-	
+
 	// If the subclassed handler took the event, then don't handle it:
 	if( event.GetSkipped() ) return;
-	
+
+	bool handled = true;
 	switch (event.GetKeyCode()) {
 	case WXK_LEFT:
 	case WXK_NUMPAD_LEFT:
@@ -757,10 +759,11 @@ void klsGLCanvas::wxKeyDown(wxKeyEvent& event) {
 		setZoom( getZoom() / ZOOM_STEP );
 		break;
 	default:
-		event.Skip();
+		handled = false;
 		break;
 	}
-	
+
+	if (!handled) event.Skip();
 	updateMiniMap();
 }
 
