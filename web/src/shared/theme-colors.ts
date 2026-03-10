@@ -72,7 +72,7 @@ const darkPalette: CanvasColors = {
   toggleOn: "#ef4444",       // red-500
   labelText: "#e2e8f0",      // slate-200
   sevenSegOn: "#ff2222",
-  sevenSegOff: "#1a0000",
+  sevenSegOff: "#110000",
   sevenSegBg: "#0a0a0a",
   wire: {
     [WIRE_STATE.ZERO]: "#AAAAAA",
@@ -104,7 +104,7 @@ const lightPalette: CanvasColors = {
   toggleOn: "#dc2626",       // red-600
   labelText: "#334155",      // slate-700
   sevenSegOn: "#dc2626",
-  sevenSegOff: "#fecaca",    // red-100
+  sevenSegOff: "#e8d5d5",    // muted rose
   sevenSegBg: "#f1f5f9",     // slate-100
   wire: {
     [WIRE_STATE.ZERO]: "#64748b",  // slate-500
