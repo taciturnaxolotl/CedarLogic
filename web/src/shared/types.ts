@@ -81,7 +81,7 @@ export interface GateDefinition {
   params: Record<string, string>;
   guiParams: Record<string, string>;
   inputs: Array<{ name: string; x: number; y: number; inverted?: boolean }>;
-  outputs: Array<{ name: string; x: number; y: number; inverted?: boolean }>;
+  outputs: Array<{ name: string; x: number; y: number; inverted?: boolean; enableInput?: string }>;
   shape: Array<{ x1: number; y1: number; x2: number; y2: number }>;
   labelShape?: Array<{ x1: number; y1: number; x2: number; y2: number }>;
   circles: Array<{ cx: number; cy: number; r: number }>;

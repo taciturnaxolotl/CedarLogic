@@ -14,14 +14,19 @@ for (const def of gateDefsRaw as unknown as GateDefinition[]) {
   gateDefMap.set(def.id, def);
 }
 
-function getInvertedPins(defId: string): { invertedInputs?: string[]; invertedOutputs?: string[] } {
+function getPinConfig(defId: string): { invertedInputs?: string[]; invertedOutputs?: string[]; enableInputs?: Record<string, string> } {
   const def = gateDefMap.get(defId);
   if (!def) return {};
   const invertedInputs = def.inputs.filter(p => p.inverted).map(p => p.name);
   const invertedOutputs = def.outputs.filter(p => p.inverted).map(p => p.name);
-  const result: { invertedInputs?: string[]; invertedOutputs?: string[] } = {};
+  const enableInputs: Record<string, string> = {};
+  for (const out of def.outputs) {
+    if (out.enableInput) enableInputs[out.name] = out.enableInput;
+  }
+  const result: { invertedInputs?: string[]; invertedOutputs?: string[]; enableInputs?: Record<string, string> } = {};
   if (invertedInputs.length > 0) result.invertedInputs = invertedInputs;
   if (invertedOutputs.length > 0) result.invertedOutputs = invertedOutputs;
+  if (Object.keys(enableInputs).length > 0) result.enableInputs = enableInputs;
   return result;
 }
 
@@ -58,7 +63,7 @@ export function createYjsToWorkerBridge(
         }
       }
       const defId = yGate.get("defId") as string;
-      syncGates.push({ id, logicType: yGate.get("logicType"), params, ...getInvertedPins(defId) });
+      syncGates.push({ id, logicType: yGate.get("logicType"), params, ...getPinConfig(defId) });
     });
 
     const syncWires: FullSyncWire[] = [];
@@ -105,7 +110,7 @@ export function createYjsToWorkerBridge(
               id: key,
               logicType: yGate.get("logicType"),
               params,
-              ...getInvertedPins(defId),
+              ...getPinConfig(defId),
             });
           } else if (change.action === "delete") {
             postToWorker({ type: "removeGate", id: key });
