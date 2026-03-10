@@ -129,7 +129,7 @@ void LibraryParse::parseFile() {
 							do {
 								temp = mParse->readTag();
 								if (temp == "") break;
-								parseShapeObject( temp, &newGate, offX, offY );
+								parseShapeObject( temp, &newGate, offX, offY, true );
 							} while (!mParse->isCloseTag(mParse->getCurrentIndex())); // end offset
 							mParse->readCloseTag();
 						} else {
@@ -214,7 +214,7 @@ void LibraryParse::parseFile() {
 }
 
 // Parse the shape object from the mParse file, adding an offset if needed:
-bool LibraryParse::parseShapeObject( string type, LibraryGate* newGate, double offX, double offY ) {
+bool LibraryParse::parseShapeObject( string type, LibraryGate* newGate, double offX, double offY, bool isLabel ) {
 	float x1, y1, x2, y2;
 	char dump;
 	string temp;
@@ -228,7 +228,7 @@ bool LibraryParse::parseShapeObject( string type, LibraryGate* newGate, double o
 		// Apply the offset:
 		x1 += offX; x2 += offX;
 		y1 += offY; y2 += offY;
-		newGate->shape.push_back( lgLine( x1, y1, x2, y2) );
+		newGate->shape.push_back( lgLine( x1, y1, x2, y2, isLabel) );
 		return true;
 	} else if( type == "circle" ) {
 		temp = mParse->readTagValue("circle");

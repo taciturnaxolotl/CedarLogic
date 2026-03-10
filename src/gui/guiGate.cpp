@@ -10,6 +10,7 @@
 
 #include "guiGate.h"
 #include <iomanip>
+#include <cmath>
 #include "wx/wx.h"
 #include "MainApp.h"
 #include "klsCollisionChecker.h"
@@ -167,8 +168,36 @@ void guiGate::draw(bool color) {
 	}
 	glEnd();
 
+	// Draw label lines with counter-rotation so they stay upright:
+	if (!labelVertices.empty()) {
+		istringstream iss(gparams["angle"]);
+		GLfloat angle = 0;
+		iss >> angle;
+
+		if (angle != 0) {
+			float rad = angle * DEG2RAD;
+			float cosA = cos(rad);
+			float sinA = sin(rad);
+			glBegin(GL_LINES);
+			for (unsigned int i = 0; i < labelVertices.size(); i++) {
+				float x = labelVertices[i].x;
+				float y = labelVertices[i].y;
+				float rx = x * cosA + y * sinA;
+				float ry = -x * sinA + y * cosA;
+				glVertex2f(rx, ry);
+			}
+			glEnd();
+		} else {
+			glBegin(GL_LINES);
+			for (unsigned int i = 0; i < labelVertices.size(); i++) {
+				glVertex2f(labelVertices[i].x, labelVertices[i].y);
+			}
+			glEnd();
+		}
+	}
+
 	// Reset the stipple parameters:
-	if( selected && color ) {	
+	if( selected && color ) {
 		// Reset the line pattern:
 		if( !lineStipple ) {
 			glDisable( GL_LINE_STIPPLE );
@@ -217,18 +246,26 @@ bool guiGate::clickSelect( GLfloat x, GLfloat y ) {
 }
 
 // Insert a line in the line list.
-void guiGate::insertLine( float x1, float y1, float x2, float y2 ) {
-	vertices.push_back( GLPoint2f( x1, y1 ) );
-	vertices.push_back( GLPoint2f( x2, y2 ) );
+void guiGate::insertLine( float x1, float y1, float x2, float y2, bool isLabel ) {
+	if (isLabel) {
+		labelVertices.push_back( GLPoint2f( x1, y1 ) );
+		labelVertices.push_back( GLPoint2f( x2, y2 ) );
+	} else {
+		vertices.push_back( GLPoint2f( x1, y1 ) );
+		vertices.push_back( GLPoint2f( x2, y2 ) );
+	}
 }
 
 
 // Recalculate the bounding box, based on the lines that are included already:
 void guiGate::calcBBox( void ) {
 	modelBBox.reset();
-	
+
 	for( unsigned int i = 0; i < vertices.size(); i++ ) {
 		modelBBox.addPoint( vertices[i] );
+	}
+	for( unsigned int i = 0; i < labelVertices.size(); i++ ) {
+		modelBBox.addPoint( labelVertices[i] );
 	}
 
 	// Recalculate the world-space bbox:

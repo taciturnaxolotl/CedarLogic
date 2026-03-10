@@ -34,8 +34,9 @@ struct lgHotspot {
 };
 
 struct lgLine {
-	lgLine( float nX1 = 0, float nY1 = 0, float nX2 = 0, float nY2 = 0 ) : x1(nX1), x2(nX2), y1(nY1), y2(nY2) {}
+	lgLine( float nX1 = 0, float nY1 = 0, float nX2 = 0, float nY2 = 0, bool nIsLabel = false ) : x1(nX1), x2(nX2), y1(nY1), y2(nY2), isLabel(nIsLabel) {}
 	float x1, x2, y1, y2;
+	bool isLabel;
 };
 
 struct lgDlgParam {
@@ -74,7 +75,7 @@ public:
 	void addGate(string libName, LibraryGate newGate);
 
 	// Parse the shape object from the mParse file, adding an offset if needed:
-	bool parseShapeObject( string type, LibraryGate* newGate, double offX = 0.0, double offY = 0.0 );
+	bool parseShapeObject( string type, LibraryGate* newGate, double offX = 0.0, double offY = 0.0, bool isLabel = false );
 	
 	// Returns a gate from the library in lgGate.  If the gate does not
 	//	exist in the library, returns false, otherwise true.

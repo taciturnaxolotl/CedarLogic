@@ -166,7 +166,7 @@ public:
 	bool clickSelect( GLfloat x, GLfloat y );
 
 	// Insert a line in the line list.
-	void insertLine( float x1, float y1, float x2, float y2 );
+	void insertLine( float x1, float y1, float x2, float y2, bool isLabel = false );
 
 	// Recalculate the bounding box, based on the lines that are included alredy:
 	virtual void calcBBox( void );
@@ -202,6 +202,9 @@ public:
 
 	// Get the gate's vertices (for SVG export, etc.)
 	const vector<GLPoint2f>& getVertices() const { return vertices; }
+
+	// Get the gate's label vertices (for SVG export, etc.)
+	const vector<GLPoint2f>& getLabelVertices() const { return labelVertices; }
 
 	// Get the gate's transformation matrix (for SVG export, etc.)
 	const GLdouble* getModelMatrix() const { return mModel; }
@@ -268,6 +271,7 @@ protected:
 	klsBBox modelBBox;
 	
 	vector<GLPoint2f> vertices;
+	vector<GLPoint2f> labelVertices;
 	// map i/o name to hotspot coord
 	map< string, gateHotspot* > hotspots;
 	// map i/o name to wire id
