@@ -27,7 +27,7 @@ export function GatePalette() {
       e.dataTransfer.setData("application/cedarlogic-gate", JSON.stringify({
         defId: def.id,
         logicType: def.logicType,
-        params: def.params,
+        params: { ...def.params, ...def.guiParams },
       }));
       e.dataTransfer.effectAllowed = "copy";
     },
