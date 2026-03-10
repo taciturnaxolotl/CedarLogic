@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect, useLayoutEffect, useState } from "react";
-import { Stage, Layer, Rect } from "react-konva";
+import { Stage } from "react-konva";
 import type Konva from "konva";
 import * as Y from "yjs";
 import { useCanvasStore, type ClipboardData } from "../stores/canvas-store";
@@ -905,16 +905,6 @@ export function Canvas({ doc, readOnly, onQuickAdd, onGateDblClick, onCursorMove
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
         >
-          <Layer listening={false}>
-            <Rect
-              x={-viewportX / zoom}
-              y={-viewportY / zoom}
-              width={size.width / zoom}
-              height={size.height / zoom}
-              fill={colors.canvasBg}
-              listening={false}
-            />
-          </Layer>
           <GridLayer />
           <WireLayer doc={doc} readOnly={readOnly} activePage={activePage} />
           <GateLayer doc={doc} readOnly={readOnly} activePage={activePage} onGateDblClick={onGateDblClick} onContentReady={handleContentReady} />

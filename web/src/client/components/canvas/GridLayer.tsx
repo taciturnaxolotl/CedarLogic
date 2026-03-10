@@ -1,4 +1,4 @@
-import { Layer, Line } from "react-konva";
+import { Layer, Line, Rect } from "react-konva";
 import { GRID_SIZE } from "@shared/constants";
 import { useCanvasStore } from "../../stores/canvas-store";
 import { useCanvasColors } from "../../hooks/useCanvasColors";
@@ -47,6 +47,14 @@ export function GridLayer() {
 
   return (
     <Layer listening={false}>
+      <Rect
+        x={-viewportX / zoom}
+        y={-viewportY / zoom}
+        width={canvasSize.width / zoom}
+        height={canvasSize.height / zoom}
+        fill={colors.canvasBg}
+        listening={false}
+      />
       {lines}
     </Layer>
   );
