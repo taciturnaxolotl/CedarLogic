@@ -2,7 +2,7 @@
 export type MainToWorkerMessage =
   | { type: "init" }
   | { type: "fullSync"; gates: FullSyncGate[]; wires: FullSyncWire[]; connections: FullSyncConnection[] }
-  | { type: "addGate"; id: string; logicType: string; params: Record<string, string>; invertedInputs?: string[]; invertedOutputs?: string[] }
+  | { type: "addGate"; id: string; logicType: string; params: Record<string, string>; invertedInputs?: string[]; invertedOutputs?: string[]; enableInputs?: Record<string, string> }
   | { type: "removeGate"; id: string }
   | { type: "addWire"; id: string }
   | { type: "removeWire"; id: string }
@@ -25,6 +25,7 @@ export interface FullSyncGate {
   params: Record<string, string>;
   invertedInputs?: string[];
   invertedOutputs?: string[];
+  enableInputs?: Record<string, string>;
 }
 
 export interface FullSyncWire {

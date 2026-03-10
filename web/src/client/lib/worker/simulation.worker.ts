@@ -83,6 +83,11 @@ function fullSync(msg: Extract<MainToWorkerMessage, { type: "fullSync" }>) {
           circuit.setGateOutputParameter(numId, pinName, "INVERTED", "TRUE");
         }
       }
+      if (gate.enableInputs) {
+        for (const [outputName, enableInputName] of Object.entries(gate.enableInputs)) {
+          circuit.setGateOutputParameter(numId, outputName, "E_INPUT", enableInputName);
+        }
+      }
     } catch (e: any) {
       console.warn(`Failed to create gate ${gate.id}: ${e.message}`);
     }
@@ -297,6 +302,11 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
         if (msg.invertedOutputs) {
           for (const pinName of msg.invertedOutputs) {
             circuit.setGateOutputParameter(numId, pinName, "INVERTED", "TRUE");
+          }
+        }
+        if (msg.enableInputs) {
+          for (const [outputName, enableInputName] of Object.entries(msg.enableInputs)) {
+            circuit.setGateOutputParameter(numId, outputName, "E_INPUT", enableInputName);
           }
         }
       } catch (e: any) {
