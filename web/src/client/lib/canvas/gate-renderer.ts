@@ -40,6 +40,27 @@ export function createGateShape(
     group.add(line);
   }
 
+  // Draw label lines (from offset blocks) — counter-rotated to stay upright
+  if (def.labelShape && def.labelShape.length > 0) {
+    const labelGroup = new Konva.Group({ rotation: -rotation });
+    for (const seg of def.labelShape) {
+      const line = new Konva.Line({
+        points: [
+          seg.x1 * GRID_SIZE,
+          seg.y1 * GRID_SIZE,
+          seg.x2 * GRID_SIZE,
+          seg.y2 * GRID_SIZE,
+        ],
+        stroke: selected ? SELECTED_COLOR : STROKE_COLOR,
+        strokeWidth: 1.5,
+        lineCap: "round",
+        lineJoin: "round",
+      });
+      labelGroup.add(line);
+    }
+    group.add(labelGroup);
+  }
+
   // Draw input pins
   for (const pin of def.inputs) {
     const circle = new Konva.Circle({
@@ -83,6 +104,14 @@ export function getGateBounds(def: GateDefinition): {
     minY = Math.min(minY, seg.y1, seg.y2);
     maxX = Math.max(maxX, seg.x1, seg.x2);
     maxY = Math.max(maxY, seg.y1, seg.y2);
+  }
+  if (def.labelShape) {
+    for (const seg of def.labelShape) {
+      minX = Math.min(minX, seg.x1, seg.x2);
+      minY = Math.min(minY, seg.y1, seg.y2);
+      maxX = Math.max(maxX, seg.x1, seg.x2);
+      maxY = Math.max(maxY, seg.y1, seg.y2);
+    }
   }
 
   for (const pin of [...def.inputs, ...def.outputs]) {

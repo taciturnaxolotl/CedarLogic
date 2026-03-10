@@ -135,6 +135,14 @@ export function getGateBounds(def: GateDefinition, params?: Record<string, strin
     maxX = Math.max(maxX, seg.x1, seg.x2);
     maxY = Math.max(maxY, seg.y1, seg.y2);
   }
+  if (def.labelShape) {
+    for (const seg of def.labelShape) {
+      minX = Math.min(minX, seg.x1, seg.x2);
+      minY = Math.min(minY, seg.y1, seg.y2);
+      maxX = Math.max(maxX, seg.x1, seg.x2);
+      maxY = Math.max(maxY, seg.y1, seg.y2);
+    }
+  }
   for (const pin of [...def.inputs, ...def.outputs]) {
     minX = Math.min(minX, pin.x);
     minY = Math.min(minY, pin.y);
@@ -446,6 +454,27 @@ const GateShape = React.memo(function GateShape({
           lineJoin="round"
         />
       ))}
+      {/* Label lines (from offset blocks) — counter-rotated to stay upright */}
+      {def.labelShape && def.labelShape.length > 0 && (
+        <Group rotation={-gate.rotation}>
+          {def.labelShape.map((seg, i) => (
+            <Line
+              key={`label-${i}`}
+              points={[
+                seg.x1 * GRID_SIZE,
+                seg.y1 * GRID_SIZE,
+                seg.x2 * GRID_SIZE,
+                seg.y2 * GRID_SIZE,
+              ]}
+              stroke={strokeColor}
+              strokeWidth={1.5}
+              lineCap="round"
+              lineJoin="round"
+              listening={false}
+            />
+          ))}
+        </Group>
+      )}
       {def.circles?.map((c, i) => (
         <Circle
           key={`circle-${i}`}
@@ -485,53 +514,59 @@ const GateShape = React.memo(function GateShape({
         }
         return buttons;
       })()}
-      {/* LABEL text */}
+      {/* LABEL text — counter-rotated to stay upright */}
       {def.guiType === "LABEL" && (() => {
         const labelText = gate.params.LABEL_TEXT ?? "Text";
         const textHeight = parseFloat(gate.params.TEXT_HEIGHT ?? "2.0");
         const fontSize = textHeight * GRID_SIZE;
         return (
-          <Text
-            text={labelText}
-            fontSize={fontSize}
-            fill={selected ? colors.gateSelected : colors.labelText}
-            fontFamily="monospace"
-            offsetY={fontSize / 2}
-          />
+          <Group rotation={-gate.rotation}>
+            <Text
+              text={labelText}
+              fontSize={fontSize}
+              fill={selected ? colors.gateSelected : colors.labelText}
+              fontFamily="monospace"
+              offsetY={fontSize / 2}
+            />
+          </Group>
         );
       })()}
-      {/* FROM text */}
+      {/* FROM text — counter-rotated to stay upright */}
       {def.guiType === "FROM" && (() => {
         const labelText = gate.params.JUNCTION_ID ?? "";
         const fontSize = 1.5 * GRID_SIZE;
         return (
-          <Text
-            text={labelText}
-            fontSize={fontSize}
-            fill={selected ? colors.gateSelected : colors.labelText}
-            fontFamily="monospace"
-            listening={false}
-            x={0}
-            y={-fontSize / 2}
-            align="right"
-            offsetX={fontSize * labelText.length * 0.6}
-          />
+          <Group rotation={-gate.rotation}>
+            <Text
+              text={labelText}
+              fontSize={fontSize}
+              fill={selected ? colors.gateSelected : colors.labelText}
+              fontFamily="monospace"
+              listening={false}
+              x={0}
+              y={-fontSize / 2}
+              align="right"
+              offsetX={fontSize * labelText.length * 0.6}
+            />
+          </Group>
         );
       })()}
-      {/* TO text */}
+      {/* TO text — counter-rotated to stay upright */}
       {def.guiType === "TO" && (() => {
         const labelText = gate.params.JUNCTION_ID ?? "";
         const fontSize = 1.5 * GRID_SIZE;
         return (
-          <Text
-            text={labelText}
-            fontSize={fontSize}
-            fill={selected ? colors.gateSelected : colors.labelText}
-            fontFamily="monospace"
-            listening={false}
-            x={0.4 * GRID_SIZE}
-            y={-fontSize / 2}
-          />
+          <Group rotation={-gate.rotation}>
+            <Text
+              text={labelText}
+              fontSize={fontSize}
+              fill={selected ? colors.gateSelected : colors.labelText}
+              fontFamily="monospace"
+              listening={false}
+              x={0.4 * GRID_SIZE}
+              y={-fontSize / 2}
+            />
+          </Group>
         );
       })()}
       {/* Input pins */}
