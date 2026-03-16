@@ -7,63 +7,51 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 2.4.1</title>
-      <pubDate>Fri, 06 Mar 2026 19:13:12 +0000</pubDate>
-      <sparkle:version>2.4.1</sparkle:version>
-      <sparkle:shortVersionString>2.4.1</sparkle:shortVersionString>
+      <title>Version 2.4.2</title>
+      <pubDate>Mon, 16 Mar 2026 17:37:26 +0000</pubDate>
+      <sparkle:version>2.4.2</sparkle:version>
+      <sparkle:shortVersionString>2.4.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<h2>[2.4.1] - 2026-03-06</h2>
+      <description><![CDATA[<h2>[2.4.2] - 2026-03-16</h2>
 <h3>Added</h3>
 <ul>
-  <li><b>Export Preview</b>: The Export as Image dialog now shows a live preview of the circuit</li>
-  <li>Preview updates in real-time when toggling grid lines or switching between Color and B&W modes</li>
-  <li>Retina-aware rendering for crisp output on HiDPI displays</li>
-  <li>Dialog auto-sizes to fit the preview and all controls</li>
-  <li><b>Improved Black & White Export</b>: B&W mode now works as a proper schematic mode</li>
-  <li>Clean black line rendering for all wires and gate outlines</li>
-  <li>LED indicators show distinct markers for broken states: X for conflict, diagonal slash for unknown, horizontal line for unconnected (HI-Z)</li>
-  <li>Toggle switches render as outlined boxes without state fill</li>
-  <li>Register seven-segment displays hidden in B&W for clean schematics</li>
+  <li><b>Gate Counterrotation</b>: Gate labels and text now counterrotate to stay readable when gates are rotated</li>
+  <li><b>Right-click Rotate Setting</b>: New preference to disable right-click rotation for gates</li>
 </ul>
-<h3>Removed</h3>
+<h3>Fixed</h3>
 <ul>
-  <li><b>Grayscale export option</b>: Replaced by the improved B&W schematic mode which produces cleaner output for printing</li>
+  <li>Rotating gates with wires attached while pasting no longer allowed, preventing broken wire connections</li>
+  <li>Fixed crash when zooming on Windows</li>
 </ul>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.4.0...v2.4.1</p>]]></description>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.4.1...v2.4.2</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.4.1/CedarLogic-2.4.1-Darwin.dmg"
-        sparkle:edSignature="JsuGxCh3dc9rbHWI6tBe6UpAZwQfxcZPeykedxPeNRjvQcqtdTMqPLCtnPRHjly/xyh2wGdnexFJYZMP5f1NAw=="
-        length="8900841"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.4.2/CedarLogic-2.4.2-Darwin.dmg"
+        sparkle:edSignature="9hSUULB7CoTCkqfCohyKOjKKjvzXPVcLrFR68b/4CAjxqivo4T5E7bsYG7URYTP2bQvF3ng86LwPKGtl8Ax1BQ=="
+        length="8905539"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 2.4.1</title>
-      <pubDate>Fri, 06 Mar 2026 19:13:12 +0000</pubDate>
-      <sparkle:version>2.4.1</sparkle:version>
-      <sparkle:shortVersionString>2.4.1</sparkle:shortVersionString>
-      <description><![CDATA[<h2>[2.4.1] - 2026-03-06</h2>
+      <title>Version 2.4.2</title>
+      <pubDate>Mon, 16 Mar 2026 17:37:26 +0000</pubDate>
+      <sparkle:version>2.4.2</sparkle:version>
+      <sparkle:shortVersionString>2.4.2</sparkle:shortVersionString>
+      <description><![CDATA[<h2>[2.4.2] - 2026-03-16</h2>
 <h3>Added</h3>
 <ul>
-  <li><b>Export Preview</b>: The Export as Image dialog now shows a live preview of the circuit</li>
-  <li>Preview updates in real-time when toggling grid lines or switching between Color and B&W modes</li>
-  <li>Retina-aware rendering for crisp output on HiDPI displays</li>
-  <li>Dialog auto-sizes to fit the preview and all controls</li>
-  <li><b>Improved Black & White Export</b>: B&W mode now works as a proper schematic mode</li>
-  <li>Clean black line rendering for all wires and gate outlines</li>
-  <li>LED indicators show distinct markers for broken states: X for conflict, diagonal slash for unknown, horizontal line for unconnected (HI-Z)</li>
-  <li>Toggle switches render as outlined boxes without state fill</li>
-  <li>Register seven-segment displays hidden in B&W for clean schematics</li>
+  <li><b>Gate Counterrotation</b>: Gate labels and text now counterrotate to stay readable when gates are rotated</li>
+  <li><b>Right-click Rotate Setting</b>: New preference to disable right-click rotation for gates</li>
 </ul>
-<h3>Removed</h3>
+<h3>Fixed</h3>
 <ul>
-  <li><b>Grayscale export option</b>: Replaced by the improved B&W schematic mode which produces cleaner output for printing</li>
+  <li>Rotating gates with wires attached while pasting no longer allowed, preventing broken wire connections</li>
+  <li>Fixed crash when zooming on Windows</li>
 </ul>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.4.0...v2.4.1</p>]]></description>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.4.1...v2.4.2</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.4.1/CedarLogic-2.4.1-win32.exe"
-        length="10654641"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.4.2/CedarLogic-2.4.2-win32.exe"
+        length="10655163"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
