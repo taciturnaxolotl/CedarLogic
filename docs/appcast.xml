@@ -7,51 +7,33 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 2.4.2</title>
-      <pubDate>Mon, 16 Mar 2026 17:37:26 +0000</pubDate>
-      <sparkle:version>2.4.2</sparkle:version>
-      <sparkle:shortVersionString>2.4.2</sparkle:shortVersionString>
+      <title>Version 2.4.3</title>
+      <pubDate>Sat, 04 Apr 2026 04:03:41 +0000</pubDate>
+      <sparkle:version>2.4.3</sparkle:version>
+      <sparkle:shortVersionString>2.4.3</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<h2>[2.4.2] - 2026-03-16</h2>
-<h3>Added</h3>
-<ul>
-  <li><b>Gate Counterrotation</b>: Gate labels and text now counterrotate to stay readable when gates are rotated</li>
-  <li><b>Right-click Rotate Setting</b>: New preference to disable right-click rotation for gates</li>
-</ul>
-<h3>Fixed</h3>
-<ul>
-  <li>Rotating gates with wires attached while pasting no longer allowed, preventing broken wire connections</li>
-  <li>Fixed crash when zooming on Windows</li>
-</ul>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.4.1...v2.4.2</p>]]></description>
+      <description><![CDATA[<p>fixed a bug with xor gates causing them to be partly rotated</p>
+<p><img width="353" height="289" alt="image" src="https://github.com/user-attachments/assets/1bdace5e-1ea0-4814-b531-a6bdc2b32b59" /></p>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.4.2...v2.4.3</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.4.2/CedarLogic-2.4.2-Darwin.dmg"
-        sparkle:edSignature="9hSUULB7CoTCkqfCohyKOjKKjvzXPVcLrFR68b/4CAjxqivo4T5E7bsYG7URYTP2bQvF3ng86LwPKGtl8Ax1BQ=="
-        length="8905539"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.4.3/CedarLogic-2.4.3-Darwin.dmg"
+        sparkle:edSignature="zTXXPmYAhMtxDlRIzYX6/x4VTHanKiAKJ2CJ/7qcN78jgc5ZRjcAhymAy0Lluv0SvylzMs1Mz+hF5BszRqicDA=="
+        length="8905649"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 2.4.2</title>
-      <pubDate>Mon, 16 Mar 2026 17:37:26 +0000</pubDate>
-      <sparkle:version>2.4.2</sparkle:version>
-      <sparkle:shortVersionString>2.4.2</sparkle:shortVersionString>
-      <description><![CDATA[<h2>[2.4.2] - 2026-03-16</h2>
-<h3>Added</h3>
-<ul>
-  <li><b>Gate Counterrotation</b>: Gate labels and text now counterrotate to stay readable when gates are rotated</li>
-  <li><b>Right-click Rotate Setting</b>: New preference to disable right-click rotation for gates</li>
-</ul>
-<h3>Fixed</h3>
-<ul>
-  <li>Rotating gates with wires attached while pasting no longer allowed, preventing broken wire connections</li>
-  <li>Fixed crash when zooming on Windows</li>
-</ul>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.4.1...v2.4.2</p>]]></description>
+      <title>Version 2.4.3</title>
+      <pubDate>Sat, 04 Apr 2026 04:03:41 +0000</pubDate>
+      <sparkle:version>2.4.3</sparkle:version>
+      <sparkle:shortVersionString>2.4.3</sparkle:shortVersionString>
+      <description><![CDATA[<p>fixed a bug with xor gates causing them to be partly rotated</p>
+<p><img width="353" height="289" alt="image" src="https://github.com/user-attachments/assets/1bdace5e-1ea0-4814-b531-a6bdc2b32b59" /></p>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.4.2...v2.4.3</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.4.2/CedarLogic-2.4.2-win32.exe"
-        length="10655163"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.4.3/CedarLogic-2.4.3-win32.exe"
+        length="10654104"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
