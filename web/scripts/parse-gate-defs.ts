@@ -204,37 +204,43 @@ for (const lib of libraryBlocks) {
     if (shapeMatch) {
       const shapeContent = shapeMatch[1];
 
-      // First, extract offset blocks and replace them with a placeholder so
-      // top-level lines don't include offset children
+      // First, extract offset and label_offset blocks and replace them with a
+      // placeholder so top-level lines don't include offset children.
+      // <offset> = shape lines that rotate with the gate
+      // <label_offset> = lines that counter-rotate to stay upright (letters/digits)
       let topLevelContent = shapeContent;
-      const offsetMatches = shapeContent.matchAll(/<offset>([\s\S]*?)<\/offset>/g);
-      for (const om of offsetMatches) {
-        // Parse the offset point
-        const offsetPointMatch = om[1].match(/<point>([\s\S]*?)<\/point>/);
-        const offsetPt = offsetPointMatch
-          ? parsePoint(offsetPointMatch[1].trim())
-          : { x: 0, y: 0 };
 
-        // Parse lines inside this offset block — these are label lines
-        const offsetLineMatches = om[1].matchAll(/<line>([\s\S]*?)<\/line>/g);
-        for (const lm of offsetLineMatches) {
-          try {
-            const seg = parseLine(lm[1].trim());
-            const round = (n: number) => Math.round(n * 1000) / 1000;
-            labelShape.push({
-              x1: round(seg.x1 + offsetPt.x),
-              y1: round(seg.y1 + offsetPt.y),
-              x2: round(seg.x2 + offsetPt.x),
-              y2: round(seg.y2 + offsetPt.y),
-            });
-          } catch {
-            // Skip malformed lines
+      function processOffsetBlocks(tag: string, target: LineSegment[]) {
+        const re = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "g");
+        const matches = shapeContent.matchAll(re);
+        for (const om of matches) {
+          const offsetPointMatch = om[1].match(/<point>([\s\S]*?)<\/point>/);
+          const offsetPt = offsetPointMatch
+            ? parsePoint(offsetPointMatch[1].trim())
+            : { x: 0, y: 0 };
+
+          const offsetLineMatches = om[1].matchAll(/<line>([\s\S]*?)<\/line>/g);
+          for (const lm of offsetLineMatches) {
+            try {
+              const seg = parseLine(lm[1].trim());
+              const round = (n: number) => Math.round(n * 1000) / 1000;
+              target.push({
+                x1: round(seg.x1 + offsetPt.x),
+                y1: round(seg.y1 + offsetPt.y),
+                x2: round(seg.x2 + offsetPt.x),
+                y2: round(seg.y2 + offsetPt.y),
+              });
+            } catch {
+              // Skip malformed lines
+            }
           }
-        }
 
-        // Remove offset block from top-level content
-        topLevelContent = topLevelContent.replace(om[0], "");
+          topLevelContent = topLevelContent.replace(om[0], "");
+        }
       }
+
+      processOffsetBlocks("offset", shape);
+      processOffsetBlocks("label_offset", labelShape);
 
       // Parse top-level lines (not inside offset blocks)
       const lineMatches = topLevelContent.matchAll(/<line>([\s\S]*?)<\/line>/g);
