@@ -2892,14 +2892,14 @@
       <line>1,-0.1,2,-0.1</line>
       
       #	0
-			<offset><point>-0.1,-1</point>
+			<label_offset><point>-0.1,-1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 		</shape>
 	</gate>
   <gate> 
@@ -2973,14 +2973,14 @@
       <line>1,-0.1,2,-0.1</line>
     
       #	0
-			<offset><point>-0.1,-3</point>
+			<label_offset><point>-0.1,-3</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 		</shape>
 	</gate>
   <gate> 
@@ -3098,14 +3098,14 @@
       <line>1,-0.1,2,-0.1</line>
       
       #	0
-			<offset><point>-0.1,-7</point>
+			<label_offset><point>-0.1,-7</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 		</shape>
 	</gate>
 	<gate> <name>CA_SMALL_TGATE</name>
@@ -3421,7 +3421,7 @@
 
 		<shape>
 #0
-			<offset> <point>-3.65,3.05</point>
+			<label_offset> <point>-3.65,3.05</point>
 			<line>0.3,2.3,1.3,2.3</line>
 			<line>0.3,0.3,1.3,0.3</line>
 			
@@ -3429,55 +3429,55 @@
 			<line>1.3,2.3,1.3,1.3</line>
 			<line>0.3,0.3,0.3,1.3</line>
 			<line>1.3,0.3,1.3,1.3</line>
-			</offset>
+			</label_offset>
 
 #1
-			<offset> <point>-1.76,3.05</point>
+			<label_offset> <point>-1.76,3.05</point>
 			<line>1.3,0.3,1.3,1.3</line>
 			<line>1.3,1.3,1.3,2.3</line>
-			</offset>
+			</label_offset>
 
 #2
-			<offset> <point>0.15,3.05</point>
+			<label_offset> <point>0.15,3.05</point>
 			<line>0.3,2.3,1.3,2.3</line>
 			<line>0.3,1.3,1.3,1.3</line>
 			<line>0.3,0.3,1.3,0.3</line>
 			
 			<line>1.3,2.3,1.3,1.3</line>
 			<line>0.3,0.3,0.3,1.3</line>
-			</offset>
+			</label_offset>
 
 #3
-			<offset> <point>2.05,3.05</point>
+			<label_offset> <point>2.05,3.05</point>
 			<line>0.3,2.3,1.3,2.3</line>
 			<line>0.3,1.3,1.3,1.3</line>
 			<line>0.3,0.3,1.3,0.3</line>
 			
 			<line>1.3,2.3,1.3,1.3</line>
 			<line>1.3,0.3,1.3,1.3</line>
-			</offset>
+			</label_offset>
 
 #4
-			<offset> <point>-3.65,0.15</point>
+			<label_offset> <point>-3.65,0.15</point>
 			<line>0.3,1.3,1.3,1.3</line>
 			
 			<line>0.3,2.3,0.3,1.3</line>
 			<line>1.3,2.3,1.3,1.3</line>
 			<line>1.3,0.3,1.3,1.3</line>
-			</offset>
+			</label_offset>
 
 #5
-			<offset> <point>-1.76,0.15</point>
+			<label_offset> <point>-1.76,0.15</point>
 			<line>0.3,2.3,1.3,2.3</line>
 			<line>0.3,1.3,1.3,1.3</line>
 			<line>0.3,0.3,1.3,0.3</line>
 			
 			<line>0.3,2.3,0.3,1.3</line>
 			<line>1.3,0.3,1.3,1.3</line>
-			</offset>
+			</label_offset>
 
 #6
-			<offset> <point>0.15,0.15</point>
+			<label_offset> <point>0.15,0.15</point>
 			<line>0.3,2.3,1.3,2.3</line>
 			<line>0.3,1.3,1.3,1.3</line>
 			<line>0.3,0.3,1.3,0.3</line>
@@ -3485,18 +3485,18 @@
 			<line>0.3,2.3,0.3,1.3</line>
 			<line>0.3,0.3,0.3,1.3</line>
 			<line>1.3,0.3,1.3,1.3</line>
-			</offset>
+			</label_offset>
 
 #7
-			<offset> <point>2.05,0.15</point>
+			<label_offset> <point>2.05,0.15</point>
 			<line>0.3,2.3,1.3,2.3</line>
 			
 			<line>1.3,2.3,1.3,1.3</line>
 			<line>1.3,0.3,1.3,1.3</line>
-			</offset>
+			</label_offset>
 
 #8
-			<offset> <point>-3.65,-2.75</point>
+			<label_offset> <point>-3.65,-2.75</point>
 			<line>0.3,2.3,1.3,2.3</line>
 			<line>0.3,1.3,1.3,1.3</line>
 			<line>0.3,0.3,1.3,0.3</line>
@@ -3505,20 +3505,20 @@
 			<line>1.3,2.3,1.3,1.3</line>
 			<line>0.3,0.3,0.3,1.3</line>
 			<line>1.3,0.3,1.3,1.3</line>
-			</offset>
+			</label_offset>
 
 #9
-			<offset> <point>-1.76,-2.75</point>
+			<label_offset> <point>-1.76,-2.75</point>
 			<line>0.3,2.3,1.3,2.3</line>
 			<line>0.3,1.3,1.3,1.3</line>
 			
 			<line>0.3,2.3,0.3,1.3</line>
 			<line>1.3,2.3,1.3,1.3</line>
 			<line>1.3,0.3,1.3,1.3</line>
-			</offset>
+			</label_offset>
 
 #A
-			<offset> <point>0.15,-2.75</point>
+			<label_offset> <point>0.15,-2.75</point>
 			<line>0.3,2.3,1.3,2.3</line>
 			<line>0.3,1.3,1.3,1.3</line>
 			
@@ -3526,55 +3526,55 @@
 			<line>1.3,2.3,1.3,1.3</line>
 			<line>0.3,0.3,0.3,1.3</line>
 			<line>1.3,0.3,1.3,1.3</line>
-			</offset>
+			</label_offset>
 
 #B
-			<offset> <point>2.05,-2.75</point>
+			<label_offset> <point>2.05,-2.75</point>
 			<line>0.3,1.3,1.3,1.3</line>
 			<line>0.3,0.3,1.3,0.3</line>
 			
 			<line>0.3,2.3,0.3,1.3</line>
 			<line>0.3,0.3,0.3,1.3</line>
 			<line>1.3,0.3,1.3,1.3</line>
-			</offset>
+			</label_offset>
 
 #C
-			<offset> <point>-3.65,-5.65</point>
+			<label_offset> <point>-3.65,-5.65</point>
 			<line>0.3,2.3,1.3,2.3</line>
 			<line>0.3,0.3,1.3,0.3</line>
 			
 			<line>0.3,2.3,0.3,1.3</line>
 			<line>0.3,0.3,0.3,1.3</line>
-			</offset>
+			</label_offset>
 
 #D
-			<offset> <point>-1.76,-5.65</point>
+			<label_offset> <point>-1.76,-5.65</point>
 			<line>0.3,1.3,1.3,1.3</line>
 			<line>0.3,0.3,1.3,0.3</line>
 			
 			<line>1.3,2.3,1.3,1.3</line>
 			<line>0.3,0.3,0.3,1.3</line>
 			<line>1.3,0.3,1.3,1.3</line>
-			</offset>
+			</label_offset>
 
 #E
-			<offset> <point>0.15,-5.65</point>
+			<label_offset> <point>0.15,-5.65</point>
 			<line>0.3,2.3,1.3,2.3</line>
 			<line>0.3,1.3,1.3,1.3</line>
 			<line>0.3,0.3,1.3,0.3</line>
 			
 			<line>0.3,2.3,0.3,1.3</line>
 			<line>0.3,0.3,0.3,1.3</line>
-			</offset>
+			</label_offset>
 
 #F
-			<offset> <point>2.05,-5.65</point>
+			<label_offset> <point>2.05,-5.65</point>
 			<line>0.3,2.3,1.3,2.3</line>
 			<line>0.3,1.3,1.3,1.3</line>
 			
 			<line>0.3,2.3,0.3,1.3</line>
 			<line>0.3,0.3,0.3,1.3</line>
-			</offset>
+			</label_offset>
 
 #lines for outer box
 			<line>-3.95,6.00,-3.95,-6.00</line>
@@ -3990,69 +3990,69 @@
 			<line>-1.5,-3,-1,-2</line>
 
 #			R
-			<offset><point>0.8,-1.9</point>
+			<label_offset><point>0.8,-1.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0,-0.8</line>
 			<line>0,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			L
-			<offset><point>-1.2,3.7</point>
+			<label_offset><point>-1.2,3.7</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			C
-			<offset><point>-0.2,3.7</point>
+			<label_offset><point>-0.2,3.7</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
 			<line>0,0,0.4,0</line>
-			</offset>
+			</label_offset>
 
 #			U
-			<offset><point>0.8,3.7</point>
+			<label_offset><point>0.8,3.7</point>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,0</line>
-			</offset>
+			</label_offset>
 
 #			C
-			<offset><point>1.6,3.7</point>
+			<label_offset><point>1.6,3.7</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
 			<line>0,0,0.4,0</line>
-			</offset>
+			</label_offset>
 
 #			O
-			<offset><point>2.1,3.7</point>
+			<label_offset><point>2.1,3.7</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>2.3,-0.6</point>
+			<label_offset><point>2.3,-0.6</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-2.7,-0.6</point>
+			<label_offset><point>-2.7,-0.6</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 		</shape>
 	</gate>
@@ -4216,69 +4216,69 @@
 			<line>-1.5,-4,-1,-3</line>
 
 #			R
-			<offset><point>0.8,-2.9</point>
+			<label_offset><point>0.8,-2.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0,-0.8</line>
 			<line>0,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			L
-			<offset><point>-1.2,4.7</point>
+			<label_offset><point>-1.2,4.7</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			C
-			<offset><point>-0.2,4.7</point>
+			<label_offset><point>-0.2,4.7</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
 			<line>0,0,0.4,0</line>
-			</offset>
+			</label_offset>
 
 #			U
-			<offset><point>0.8,4.7</point>
+			<label_offset><point>0.8,4.7</point>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,0</line>
-			</offset>
+			</label_offset>
 
 #			C
-			<offset><point>1.6,4.7</point>
+			<label_offset><point>1.6,4.7</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
 			<line>0,0,0.4,0</line>
-			</offset>
+			</label_offset>
 
 #			O
-			<offset><point>2.1,4.7</point>
+			<label_offset><point>2.1,4.7</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-2.7,-2.6</point>
+			<label_offset><point>-2.7,-2.6</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>2.3,-2.6</point>
+			<label_offset><point>2.3,-2.6</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 		</shape>
 	</gate>
@@ -4490,69 +4490,69 @@
 			<line>-1.5,-6.5,-1,-5.5</line>
 
 #			R
-			<offset><point>0.8,-5.4</point>
+			<label_offset><point>0.8,-5.4</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0,-0.8</line>
 			<line>0,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			L
-			<offset><point>-1.2,6.2</point>
+			<label_offset><point>-1.2,6.2</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			C
-			<offset><point>-0.2,6.2</point>
+			<label_offset><point>-0.2,6.2</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
 			<line>0,0,0.4,0</line>
-			</offset>
+			</label_offset>
 
 #			U
-			<offset><point>0.8,6.2</point>
+			<label_offset><point>0.8,6.2</point>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,0</line>
-			</offset>
+			</label_offset>
 
 #			C
-			<offset><point>2.6,6.2</point>
+			<label_offset><point>2.6,6.2</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
 			<line>0,0,0.4,0</line>
-			</offset>
+			</label_offset>
 
 #			O
-			<offset><point>3.1,6.2</point>
+			<label_offset><point>3.1,6.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-3.7,-5.1</point>
+			<label_offset><point>-3.7,-5.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>3.3,-5.1</point>
+			<label_offset><point>3.3,-5.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 		</shape>
 	</gate>
 	<gate> <name>AM_REGISTER16</name>
@@ -4801,69 +4801,69 @@
 			<line>-1.5,-8.5,-1,-7.5</line>
 
 #			R
-			<offset><point>0.8,-7.4</point>
+			<label_offset><point>0.8,-7.4</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0,-0.8</line>
 			<line>0,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			L
-			<offset><point>-1.2,8.2</point>
+			<label_offset><point>-1.2,8.2</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			C
-			<offset><point>-0.2,8.2</point>
+			<label_offset><point>-0.2,8.2</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
 			<line>0,0,0.4,0</line>
-			</offset>
+			</label_offset>
 
 #			U
-			<offset><point>0.8,8.2</point>
+			<label_offset><point>0.8,8.2</point>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,0</line>
-			</offset>
+			</label_offset>
 
 #			C
-			<offset><point>2.6,8.2</point>
+			<label_offset><point>2.6,8.2</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
 			<line>0,0,0.4,0</line>
-			</offset>
+			</label_offset>
 
 #			O
-			<offset><point>3.1,8.2</point>
+			<label_offset><point>3.1,8.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>3.3,-7.1</point>
+			<label_offset><point>3.3,-7.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-3.6,-7.1</point>
+			<label_offset><point>-3.6,-7.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 		</shape>
 	</gate>
@@ -4995,53 +4995,53 @@
 			<line>-4,-1,-5,-1</line>
 			
 #			0
-			<offset><point>1.3,-1.4</point>
+			<label_offset><point>1.3,-1.4</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			3
-			<offset><point>-1.7,2.2</point>
+			<label_offset><point>-1.7,2.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>1.3,2.2</point>
+			<label_offset><point>1.3,2.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			3
-			<offset><point>-1.7,-1.4</point>
+			<label_offset><point>-1.7,-1.4</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			R
-			<offset><point>-3.7,0.4</point>
+			<label_offset><point>-3.7,0.4</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0,-0.8</line>
 			<line>0,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			S
-			<offset><point>3.3,0.4</point>
+			<label_offset><point>3.3,0.4</point>
 			<line>0.4,0,0.1,0</line>
 			<line>0,-0.1,0.1,0</line>
 			<line>0,-0.1,0.1,0</line>
@@ -5050,13 +5050,13 @@
 			<line>0.4,-0.7,0.4,-0.6</line>
 			<line>0.4,-0.7,0.3,-0.8</line>
 			<line>0.3,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			L
-			<offset><point>3.3,-0.6</point>
+			<label_offset><point>3.3,-0.6</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 
 #			Arrow
@@ -5067,7 +5067,7 @@
 			</offset>
 
 #			S
-			<offset><point>-3.7,1.9</point>
+			<label_offset><point>-3.7,1.9</point>
 			<line>0.4,0,0.1,0</line>
 			<line>0,-0.1,0.1,0</line>
 			<line>0,-0.1,0.1,0</line>
@@ -5076,20 +5076,20 @@
 			<line>0.4,-0.7,0.4,-0.6</line>
 			<line>0.4,-0.7,0.3,-0.8</line>
 			<line>0.3,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-3.2,1.9</point>
+			<label_offset><point>-3.2,1.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			S
-			<offset><point>2.8,1.9</point>
+			<label_offset><point>2.8,1.9</point>
 			<line>0.4,0,0.1,0</line>
 			<line>0,-0.1,0.1,0</line>
 			<line>0,-0.1,0.1,0</line>
@@ -5098,14 +5098,14 @@
 			<line>0.4,-0.7,0.4,-0.6</line>
 			<line>0.4,-0.7,0.3,-0.8</line>
 			<line>0.3,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			I
-			<offset><point>3.3,1.9</point>
+			<label_offset><point>3.3,1.9</point>
 			<line>0.2,0,0.2,-0.8</line>
 			<line>0,0,0.4,0</line>
 			<line>0,-0.8,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 		</shape>
 	</gate>
@@ -5156,14 +5156,14 @@
 			<line>0,1.5,0,2.5</line>
 
 #			0
-			<offset><point>-0.7,-0.6</point>
+			<label_offset><point>-0.7,-0.6</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 
 		</shape>
@@ -5207,14 +5207,14 @@
 			<line>1,3.25,1,5</line>
 
 #			0
-			<offset><point>-1.7,-2.6</point>
+			<label_offset><point>-1.7,-2.6</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 		</shape>
 	</gate>
@@ -5287,14 +5287,14 @@
 			<line>1,3.75,1,5.5</line>
 
 #			0
-			<offset><point>-1.7,-3.1</point>
+			<label_offset><point>-1.7,-3.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 		</shape>
 	</gate>
@@ -5407,14 +5407,14 @@
 			<line>1.5,7.6,1.5,9.5</line>
 
 #			0
-			<offset><point>-1.7,-7.1</point>
+			<label_offset><point>-1.7,-7.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 		</shape>
 	</gate>
@@ -5463,41 +5463,41 @@
 			<line>-2,1.5,-3,1.5</line>
 			
 #			E
-			<offset><point>-1.7,1.9</point>
+			<label_offset><point>-1.7,1.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-1.7,-1.1</point>
+			<label_offset><point>-1.7,-1.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>1.3,-1.1</point>
+			<label_offset><point>1.3,-1.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			3
-			<offset><point>1.3,1.9</point>
+			<label_offset><point>1.3,1.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 		</shape>
 	</gate>
 	<gate> <name>BE_DECODER_3x8</name>
@@ -5560,49 +5560,49 @@
 			<line>2,3.5,3,3.5</line>
 
 #			E
-			<offset><point>-1.7,3.9</point>
+			<label_offset><point>-1.7,3.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
-			</offset>
+			</label_offset>
 
 #			2
-			<offset><point>-1.7,-1.1</point>
+			<label_offset><point>-1.7,-1.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0.4,-0.4</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-1.7,-3.1</point>
+			<label_offset><point>-1.7,-3.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>1.3,-3.1</point>
+			<label_offset><point>1.3,-3.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			7
-			<offset><point>1.3,3.9</point>
+			<label_offset><point>1.3,3.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 		</shape>
 	</gate>
@@ -5719,57 +5719,57 @@
 			<line>-2,7.5,-3,7.5</line>	
 
 #			E
-			<offset><point>-1.7,7.9</point>
+			<label_offset><point>-1.7,7.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
-			</offset>
+			</label_offset>
 
 #			3
-			<offset><point>-1.7,-4.1</point>
+			<label_offset><point>-1.7,-4.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-1.7,-7.1</point>
+			<label_offset><point>-1.7,-7.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>1.3,-7.1</point>
+			<label_offset><point>1.3,-7.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			1
-			<offset><point>1.1,7.9</point>
+			<label_offset><point>1.1,7.9</point>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			5
-			<offset><point>1.3,7.9</point>
+			<label_offset><point>1.3,7.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 		</shape>
 	</gate>
   <gate>
@@ -5829,13 +5829,13 @@
 			<line>-2,2.5,-3,2.5</line>
 			
 #			E
-			<offset><point>-1.7,2.9</point>
+			<label_offset><point>-1.7,2.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
-			</offset>
+			</label_offset>
 
 #			VA
       <offset>
@@ -5960,14 +5960,14 @@
     <line>-2,4.5,-3,4.5</line>
 
     #			E
-    <offset>
+    <label_offset>
       <point>-1.7,4.9</point>
       <line>0,0,0.4,0</line>
       <line>0.4,-0.8,0,-0.8</line>
       <line>0,-0.8,0,-0.4</line>
       <line>0,-0.4,0,0</line>
       <line>0,-0.4,0.4,-0.4</line>
-    </offset>
+    </label_offset>
 
 #			VA
     <offset>
@@ -6141,14 +6141,14 @@
     <line>-2,8.5,-3,8.5</line>
 
     #			E
-    <offset>
+    <label_offset>
       <point>-1.7,8.9</point>
       <line>0,0,0.4,0</line>
       <line>0.4,-0.8,0,-0.8</line>
       <line>0,-0.8,0,-0.4</line>
       <line>0,-0.4,0,0</line>
       <line>0,-0.4,0.4,-0.4</line>
-    </offset>
+    </label_offset>
 
     #			VA
     <offset>
@@ -6366,15 +6366,15 @@
 			<line>0,-3.7,0,-4</line>
 
 #			D
-			<offset><point>-1.7,2.4</point>
+			<label_offset><point>-1.7,2.4</point>
 			<line>0,0,0.4,-0.1</line>
 			<line>0.4,-0.1,0.4,-0.7</line>
 			<line>0.4,-0.7,0,-0.8</line>
 			<line>0,-0.8,0,0</line>
-			</offset>
+			</label_offset>
 
 #			Q
-			<offset><point>1.3,2.4</point>
+			<label_offset><point>1.3,2.4</point>
 			<line>0.1,0,0,-0.1</line>
 			<line>0,-0.1,0,-0.7</line>
 			<line>0,-0.7,0.1,-0.8</line>
@@ -6384,10 +6384,10 @@
 			<line>0.4,-0.1,0.3,0</line>
 			<line>0.3,0,0.1,0</line>
 			<line>0.4,-0.8,0.2,-0.6</line>
-			</offset>
+			</label_offset>
 
 #			Q NOT
-			<offset><point>1.3,-0.6</point>
+			<label_offset><point>1.3,-0.6</point>
 			<line>0,0.1,0.4,0.1</line>
 			<line>0.1,0,0,-0.1</line>
 			<line>0,-0.1,0,-0.7</line>
@@ -6398,7 +6398,7 @@
 			<line>0.4,-0.1,0.3,0</line>
 			<line>0.3,0,0.1,0</line>
 			<line>0.4,-0.8,0.2,-0.6</line>
-			</offset>
+			</label_offset>
 
 #			Low Active Portion
 			<circle>0,3.35,0.35,24</circle>
@@ -6478,15 +6478,15 @@
 			<line>0,-3.7,0,-4</line>
 
 #			D
-			<offset><point>-1.7,2.4</point>
+			<label_offset><point>-1.7,2.4</point>
 			<line>0,0,0.4,-0.1</line>
 			<line>0.4,-0.1,0.4,-0.7</line>
 			<line>0.4,-0.7,0,-0.8</line>
 			<line>0,-0.8,0,0</line>
-			</offset>
+			</label_offset>
 
 #			Q
-			<offset><point>1.3,2.4</point>
+			<label_offset><point>1.3,2.4</point>
 			<line>0.1,0,0,-0.1</line>
 			<line>0,-0.1,0,-0.7</line>
 			<line>0,-0.7,0.1,-0.8</line>
@@ -6496,10 +6496,10 @@
 			<line>0.4,-0.1,0.3,0</line>
 			<line>0.3,0,0.1,0</line>
 			<line>0.4,-0.8,0.2,-0.6</line>
-			</offset>
+			</label_offset>
 
 #			Q NOT
-			<offset><point>1.3,-0.6</point>
+			<label_offset><point>1.3,-0.6</point>
 			<line>0,0.1,0.4,0.1</line>
 			<line>0.1,0,0,-0.1</line>
 			<line>0,-0.1,0,-0.7</line>
@@ -6510,7 +6510,7 @@
 			<line>0.4,-0.1,0.3,0</line>
 			<line>0.3,0,0.1,0</line>
 			<line>0.4,-0.8,0.2,-0.6</line>
-			</offset>
+			</label_offset>
 
 #			Low Active Portion
 			<circle>0,3.35,0.35,24</circle>
@@ -6596,12 +6596,12 @@
 			<line>0,-3.7,0,-4</line>
 
 #			D
-			<offset><point>-1.7,2.4</point>
+			<label_offset><point>-1.7,2.4</point>
 			<line>0,0,0.4,-0.1</line>
 			<line>0.4,-0.1,0.4,-0.7</line>
 			<line>0.4,-0.7,0,-0.8</line>
 			<line>0,-0.8,0,0</line>
-			</offset>
+			</label_offset>
 
 #			CE
 			<offset><point>-1.7,-1.6</point>
@@ -6618,7 +6618,7 @@
 			</offset>
 			
 #			Q
-			<offset><point>1.3,2.4</point>
+			<label_offset><point>1.3,2.4</point>
 			<line>0.1,0,0,-0.1</line>
 			<line>0,-0.1,0,-0.7</line>
 			<line>0,-0.7,0.1,-0.8</line>
@@ -6628,10 +6628,10 @@
 			<line>0.4,-0.1,0.3,0</line>
 			<line>0.3,0,0.1,0</line>
 			<line>0.4,-0.8,0.2,-0.6</line>
-			</offset>
+			</label_offset>
 
 #			Q NOT
-			<offset><point>1.3,-0.6</point>
+			<label_offset><point>1.3,-0.6</point>
 			<line>0,0.1,0.4,0.1</line>
 			<line>0.1,0,0,-0.1</line>
 			<line>0,-0.1,0,-0.7</line>
@@ -6642,7 +6642,7 @@
 			<line>0.4,-0.1,0.3,0</line>
 			<line>0.3,0,0.1,0</line>
 			<line>0.4,-0.8,0.2,-0.6</line>
-			</offset>
+			</label_offset>
 			
 #			Low Active Portion
 			<circle>0,3.35,0.35,24</circle>
@@ -6844,22 +6844,22 @@
 			<line>0,-3.7,0,-4</line>
 
 #			J
-			<offset><point>-1.7,2.4</point>
+			<label_offset><point>-1.7,2.4</point>
 			<line>0,0,0.4,0</line>
 			<line>0.2,0,0.2,-0.7</line>
 			<line>0.2,-0.7,0.1,-0.8</line>
 			<line>0.1,-0.8,0,-0.7</line>
-			</offset>
+			</label_offset>
 
 #			K
-			<offset><point>-1.7,-1.6</point>
+			<label_offset><point>-1.7,-1.6</point>
 			<line>0,0,0,-0.8</line>
 			<line>0.4,0,0,-0.4</line>
 			<line>0,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			Q
-			<offset><point>1.3,2.4</point>
+			<label_offset><point>1.3,2.4</point>
 			<line>0.1,0,0,-0.1</line>
 			<line>0,-0.1,0,-0.7</line>
 			<line>0,-0.7,0.1,-0.8</line>
@@ -6869,10 +6869,10 @@
 			<line>0.4,-0.1,0.3,0</line>
 			<line>0.3,0,0.1,0</line>
 			<line>0.4,-0.8,0.2,-0.6</line>
-			</offset>
+			</label_offset>
 
 #			Q NOT
-			<offset><point>1.3,-1.6</point>
+			<label_offset><point>1.3,-1.6</point>
 			<line>0,0.1,0.4,0.1</line>
 			<line>0.1,0,0,-0.1</line>
 			<line>0,-0.1,0,-0.7</line>
@@ -6883,7 +6883,7 @@
 			<line>0.4,-0.1,0.3,0</line>
 			<line>0.3,0,0.1,0</line>
 			<line>0.4,-0.8,0.2,-0.6</line>
-			</offset>
+			</label_offset>
 
 #			Low Active Portion
 			<circle>0,3.35,0.35,24</circle>
@@ -7090,22 +7090,22 @@
 			<line>0,-3.7,0,-4</line>
 
 #			J
-			<offset><point>-1.7,2.4</point>
+			<label_offset><point>-1.7,2.4</point>
 			<line>0,0,0.4,0</line>
 			<line>0.2,0,0.2,-0.7</line>
 			<line>0.2,-0.7,0.1,-0.8</line>
 			<line>0.1,-0.8,0,-0.7</line>
-			</offset>
+			</label_offset>
 
 #			K
-			<offset><point>-1.7,-1.6</point>
+			<label_offset><point>-1.7,-1.6</point>
 			<line>0,0,0,-0.8</line>
 			<line>0.4,0,0,-0.4</line>
 			<line>0,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			Q
-			<offset><point>1.3,2.4</point>
+			<label_offset><point>1.3,2.4</point>
 			<line>0.1,0,0,-0.1</line>
 			<line>0,-0.1,0,-0.7</line>
 			<line>0,-0.7,0.1,-0.8</line>
@@ -7115,10 +7115,10 @@
 			<line>0.4,-0.1,0.3,0</line>
 			<line>0.3,0,0.1,0</line>
 			<line>0.4,-0.8,0.2,-0.6</line>
-			</offset>
+			</label_offset>
 
 #			Q NOT
-			<offset><point>1.3,-1.6</point>
+			<label_offset><point>1.3,-1.6</point>
 			<line>0,0.1,0.4,0.1</line>
 			<line>0.1,0,0,-0.1</line>
 			<line>0,-0.1,0,-0.7</line>
@@ -7129,7 +7129,7 @@
 			<line>0.4,-0.1,0.3,0</line>
 			<line>0.3,0,0.1,0</line>
 			<line>0.4,-0.8,0.2,-0.6</line>
-			</offset>
+			</label_offset>
 
 #			Low Active Portion
 			<circle>0,3.35,0.35,24</circle>
@@ -7252,58 +7252,58 @@
 			<line>4,1,3,1.5</line>
 
 #			W
-			<offset><point>3.3,0.9</point>
+			<label_offset><point>3.3,0.9</point>
 			<line>0,0,0.1,-0.8</line>
 			<line>0.1,-0.8,0.2,-0.4</line>
 			<line>0.3,-0.8,0.2,-0.4</line>
 			<line>0.4,0,0.3,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			E
-			<offset><point>3.3,-0.1</point>
+			<label_offset><point>3.3,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>2.7,-0.1</point>
+			<label_offset><point>2.7,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			R
-			<offset><point>-.6,0.2</point>
+			<label_offset><point>-.6,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0,-0.8</line>
 			<line>0,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			A
-			<offset><point>0,0.2</point>
+			<label_offset><point>0,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			M
-			<offset><point>.6,0.2</point>
+			<label_offset><point>.6,0.2</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,0,0.2,-0.4</line>
 			<line>0.4,0,0.2,-0.4</line>
 			<line>0.4,0,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 ##			0
 #			<offset><point>1.3,3.7</point>
@@ -7316,24 +7316,24 @@
 #			</offset>
 
 #			0
-			<offset><point>-3.7,-1.1</point>
+			<label_offset><point>-3.7,-1.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>1.3,-2.9</point>
+			<label_offset><point>1.3,-2.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 ##			3
 #			<offset><point>-1.7,3.7</point>
@@ -7344,20 +7344,20 @@
 #			</offset>
 
 #			3
-			<offset><point>-3.7,1.9</point>
+			<label_offset><point>-3.7,1.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			3
-			<offset><point>-1.7,-2.9</point>
+			<label_offset><point>-1.7,-2.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0.4,-0.8,0,-0.8</line>			
-			</offset>
+			</label_offset>
 		</shape>
 	</gate>
 	<gate> <name>AE_RAM_8x8</name>
@@ -7524,58 +7524,58 @@
 			<line>4,1,3,1.5</line>
 
 #			W
-			<offset><point>3.3,0.9</point>
+			<label_offset><point>3.3,0.9</point>
 			<line>0,0,0.1,-0.8</line>
 			<line>0.1,-0.8,0.2,-0.4</line>
 			<line>0.3,-0.8,0.2,-0.4</line>
 			<line>0.4,0,0.3,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			E
-			<offset><point>3.3,-0.1</point>
+			<label_offset><point>3.3,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>2.7,-0.1</point>
+			<label_offset><point>2.7,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			R
-			<offset><point>-.6,0.2</point>
+			<label_offset><point>-.6,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0,-0.8</line>
 			<line>0,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			A
-			<offset><point>0,0.2</point>
+			<label_offset><point>0,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			M
-			<offset><point>.6,0.2</point>
+			<label_offset><point>.6,0.2</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,0,0.2,-0.4</line>
 			<line>0.4,0,0.2,-0.4</line>
 			<line>0.4,0,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 ##			0
 #			<offset><point>3.3,5.7</point>
@@ -7588,24 +7588,24 @@
 #			</offset>
 
 #			0
-			<offset><point>-3.7,-3.1</point>
+			<label_offset><point>-3.7,-3.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>3.3,-4.9</point>
+			<label_offset><point>3.3,-4.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 ##			7
 #			<offset><point>-3.7,5.7</point>
@@ -7615,18 +7615,18 @@
 #			</offset>
 
 #			7
-			<offset><point>-3.7,3.9</point>
+			<label_offset><point>-3.7,3.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			7
-			<offset><point>-3.7,-4.9</point>
+			<label_offset><point>-3.7,-4.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 		</shape>
 	</gate>
 	<gate> <name>AI_RAM_12x16</name>
@@ -7883,103 +7883,103 @@
 			<line>8,1,7,1.5</line>
 
 #			W
-			<offset><point>7.3,0.9</point>
+			<label_offset><point>7.3,0.9</point>
 			<line>0,0,0.1,-0.8</line>
 			<line>0.1,-0.8,0.2,-0.4</line>
 			<line>0.3,-0.8,0.2,-0.4</line>
 			<line>0.4,0,0.3,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			E
-			<offset><point>7.3,-0.1</point>
+			<label_offset><point>7.3,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>6.7,-0.1</point>
+			<label_offset><point>6.7,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			R
-			<offset><point>-.6,0.2</point>
+			<label_offset><point>-.6,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0,-0.8</line>
 			<line>0,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			A
-			<offset><point>0,0.2</point>
+			<label_offset><point>0,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			M
-			<offset><point>.6,0.2</point>
+			<label_offset><point>.6,0.2</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,0,0.2,-0.4</line>
 			<line>0.4,0,0.2,-0.4</line>
 			<line>0.4,0,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-7.7,-5.1</point>
+			<label_offset><point>-7.7,-5.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			1
-			<offset><point>-7.7,5.9</point>
+			<label_offset><point>-7.7,5.9</point>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			1
-			<offset><point>-7.4,5.9</point>
+			<label_offset><point>-7.4,5.9</point>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>7.3,-8.9</point>
+			<label_offset><point>7.3,-8.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			1
-			<offset><point>-7.7,-8.9</point>
+			<label_offset><point>-7.7,-8.9</point>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			5
-			<offset><point>-7.5,-8.9</point>
+			<label_offset><point>-7.5,-8.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 ##			0
 #			<offset><point>7.3,9.7</point>
@@ -8629,108 +8629,108 @@
 			<line>8,1,7,1.5</line>
 
 #			W
-			<offset><point>7.3,0.9</point>
+			<label_offset><point>7.3,0.9</point>
 			<line>0,0,0.1,-0.8</line>
 			<line>0.1,-0.8,0.2,-0.4</line>
 			<line>0.3,-0.8,0.2,-0.4</line>
 			<line>0.4,0,0.3,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			E
-			<offset><point>7.3,-0.1</point>
+			<label_offset><point>7.3,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>6.7,-0.1</point>
+			<label_offset><point>6.7,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			R
-			<offset><point>-.6,0.2</point>
+			<label_offset><point>-.6,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0,-0.8</line>
 			<line>0,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			A
-			<offset><point>0,0.2</point>
+			<label_offset><point>0,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			M
-			<offset><point>.6,0.2</point>
+			<label_offset><point>.6,0.2</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,0,0.2,-0.4</line>
 			<line>0.4,0,0.2,-0.4</line>
 			<line>0.4,0,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-7.7,-7.2</point>
+			<label_offset><point>-7.7,-7.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			1
-			<offset><point>-7.7,7.8</point>
+			<label_offset><point>-7.7,7.8</point>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			5
-			<offset><point>-7.5,7.8</point>
+			<label_offset><point>-7.5,7.8</point>
 			<line>0,0,0.4,0</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>7.3,-8.9</point>
+			<label_offset><point>7.3,-8.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			1
-			<offset><point>-7.7,-8.9</point>
+			<label_offset><point>-7.7,-8.9</point>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			5
-			<offset><point>-7.5,-8.9</point>
+			<label_offset><point>-7.5,-8.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 ##			0
 #			<offset><point>7.3,9.7</point>
@@ -8838,85 +8838,85 @@
 			<line>5,-0.5,4,-0.5</line>
 
 #			E
-			<offset><point>3.3,-0.1</point>
+			<label_offset><point>3.3,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>2.7,-0.1</point>
+			<label_offset><point>2.7,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			R
-			<offset><point>-.6,0.2</point>
+			<label_offset><point>-.6,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0,-0.8</line>
 			<line>0,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			O
-			<offset><point>0,0.2</point>
+			<label_offset><point>0,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			M
-			<offset><point>.6,0.2</point>
+			<label_offset><point>.6,0.2</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,0,0.2,-0.4</line>
 			<line>0.4,0,0.2,-0.4</line>
 			<line>0.4,0,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-3.7,-1.1</point>
+			<label_offset><point>-3.7,-1.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>1.3,-2.9</point>
+			<label_offset><point>1.3,-2.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			3
-			<offset><point>-3.7,1.9</point>
+			<label_offset><point>-3.7,1.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			3
-			<offset><point>-1.7,-2.9</point>
+			<label_offset><point>-1.7,-2.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0.4,-0.8,0,-0.8</line>			
-			</offset>
+			</label_offset>
 		</shape>
 	</gate>
 	<gate> <name>BE_ROM_8x8</name>
@@ -9035,83 +9035,83 @@
 			<line>5,-0.5,4,-0.5</line>
 
 #			E
-			<offset><point>3.3,-0.1</point>
+			<label_offset><point>3.3,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>2.7,-0.1</point>
+			<label_offset><point>2.7,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			R
-			<offset><point>-.6,0.2</point>
+			<label_offset><point>-.6,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0,-0.8</line>
 			<line>0,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			O
-			<offset><point>0,0.2</point>
+			<label_offset><point>0,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			M
-			<offset><point>.6,0.2</point>
+			<label_offset><point>.6,0.2</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,0,0.2,-0.4</line>
 			<line>0.4,0,0.2,-0.4</line>
 			<line>0.4,0,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-3.7,-3.1</point>
+			<label_offset><point>-3.7,-3.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>3.3,-4.9</point>
+			<label_offset><point>3.3,-4.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			7
-			<offset><point>-3.7,3.9</point>
+			<label_offset><point>-3.7,3.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			7
-			<offset><point>-3.7,-4.9</point>
+			<label_offset><point>-3.7,-4.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 		</shape>
 	</gate>
 	<gate> <name>BI_ROM_12x16</name>
@@ -9290,94 +9290,94 @@
 			<line>8,-0.5,9,-0.5</line>
 
 #			E
-			<offset><point>7.3,-0.1</point>
+			<label_offset><point>7.3,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>6.7,-0.1</point>
+			<label_offset><point>6.7,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			R
-			<offset><point>-.6,0.2</point>
+			<label_offset><point>-.6,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0,-0.8</line>
 			<line>0,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			O
-			<offset><point>0,0.2</point>
+			<label_offset><point>0,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			M
-			<offset><point>.6,0.2</point>
+			<label_offset><point>.6,0.2</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,0,0.2,-0.4</line>
 			<line>0.4,0,0.2,-0.4</line>
 			<line>0.4,0,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-7.7,-5.1</point>
+			<label_offset><point>-7.7,-5.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			1
-			<offset><point>-7.7,5.9</point>
+			<label_offset><point>-7.7,5.9</point>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			1
-			<offset><point>-7.4,5.9</point>
+			<label_offset><point>-7.4,5.9</point>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>7.3,-8.9</point>
+			<label_offset><point>7.3,-8.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			1
-			<offset><point>-7.7,-8.9</point>
+			<label_offset><point>-7.7,-8.9</point>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			5
-			<offset><point>-7.5,-8.9</point>
+			<label_offset><point>-7.5,-8.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 		</shape>
 	</gate>
 	<gate> <name>BM_ROM_16x16</name>
@@ -9568,99 +9568,99 @@
 			<line>8,-0.5,9,-0.5</line>
 
 #			E
-			<offset><point>7.3,-0.1</point>
+			<label_offset><point>7.3,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>6.7,-0.1</point>
+			<label_offset><point>6.7,-0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			R
-			<offset><point>-.6,0.2</point>
+			<label_offset><point>-.6,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0,-0.8</line>
 			<line>0,-0.4,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			O
-			<offset><point>0,0.2</point>
+			<label_offset><point>0,0.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			M
-			<offset><point>.6,0.2</point>
+			<label_offset><point>.6,0.2</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,0,0.2,-0.4</line>
 			<line>0.4,0,0.2,-0.4</line>
 			<line>0.4,0,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-7.7,-7.2</point>
+			<label_offset><point>-7.7,-7.2</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			1
-			<offset><point>-7.7,7.8</point>
+			<label_offset><point>-7.7,7.8</point>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			5
-			<offset><point>-7.5,7.8</point>
+			<label_offset><point>-7.5,7.8</point>
 			<line>0,0,0.4,0</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>7.3,-8.9</point>
+			<label_offset><point>7.3,-8.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			1
-			<offset><point>-7.7,-8.9</point>
+			<label_offset><point>-7.7,-8.9</point>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			5
-			<offset><point>-7.5,-8.9</point>
+			<label_offset><point>-7.5,-8.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0,0,0,-0.4</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 		</shape>
 	</gate>
 </library>
@@ -9708,67 +9708,67 @@
 			<line>0,-2,0,-3</line>
 
 #			C
-			<offset><point>-2.7,0.4</point>
+			<label_offset><point>-2.7,0.4</point>
 			<line>0,0,0.4,0</line>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-2.2,0.4</point>
+			<label_offset><point>-2.2,0.4</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			C
-			<offset><point>1.8,0.4</point>
+			<label_offset><point>1.8,0.4</point>
 			<line>0,0,0.4,0</line>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			I
-			<offset><point>2.3,0.4</point>
+			<label_offset><point>2.3,0.4</point>
 			<line>0.2,0,0.2,-0.8</line>
 			<line>0,0,0.4,0</line>
 			<line>0,-0.8,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			X
-			<offset><point>-1.2,1.7</point>
+			<label_offset><point>-1.2,1.7</point>
 			<line>0,0,0.4,-0.8</line>
 			<line>0,-0.8,0.4,0</line>
-			</offset>
+			</label_offset>
 
 #			Y
-			<offset><point>0.8,1.7</point>
+			<label_offset><point>0.8,1.7</point>
 			<line>0,0,0.2,-0.4</line>
 			<line>0.4,0,0.2,-0.4</line>
 			<line>0.2,-0.4,0.2,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			F
-			<offset><point>-0.5,0.4</point>
+			<label_offset><point>-0.5,0.4</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,0,0.4,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
-			</offset>
+			</label_offset>
 
 #			A
-			<offset><point>0.1,0.4</point>
+			<label_offset><point>0.1,0.4</point>
 			<line>0,0,0.4,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			S
-			<offset><point>-0.2,-0.9</point>
+			<label_offset><point>-0.2,-0.9</point>
 			<line>0.4,0,0.1,0</line>
 			<line>0,-0.1,0.1,0</line>
 			<line>0,-0.1,0.1,0</line>
@@ -9777,7 +9777,7 @@
 			<line>0.4,-0.7,0.4,-0.6</line>
 			<line>0.4,-0.7,0.3,-0.8</line>
 			<line>0.3,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 		</shape>
 	</gate>
 	<gate> <name>AE_FULLADDER_4BIT</name>
@@ -9873,109 +9873,109 @@
 			<line>-1.5,-3,-1.5,-4</line>
 
 #			C
-			<offset><point>-6.7,1.4</point>
+			<label_offset><point>-6.7,1.4</point>
 			<line>0,0,0.4,0</line>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-6.2,1.4</point>
+			<label_offset><point>-6.2,1.4</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			V
-			<offset><point>-6.7,-0.6</point>
+			<label_offset><point>-6.7,-0.6</point>
 			<line>0,0,0.2,-0.8</line>
 			<line>0.2,-0.8,0.4,0</line>
-			</offset>
+			</label_offset>
 
 #			C
-			<offset><point>5.8,1.4</point>
+			<label_offset><point>5.8,1.4</point>
 			<line>0,0,0.4,0</line>
 			<line>0,0,0,-0.8</line>
 			<line>0,-0.8,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			I
-			<offset><point>6.3,1.4</point>
+			<label_offset><point>6.3,1.4</point>
 			<line>0.2,0,0.2,-0.8</line>
 			<line>0,0,0.4,0</line>
 			<line>0,-0.8,0.4,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			X
-			<offset><point>-3.7,1.9</point>
+			<label_offset><point>-3.7,1.9</point>
 			<line>0,0,0.4,-0.8</line>
 			<line>0,-0.8,0.4,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-2.2,2.7</point>
+			<label_offset><point>-2.2,2.7</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			3
-			<offset><point>-5.2,2.7</point>
+			<label_offset><point>-5.2,2.7</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			Y
-			<offset><point>3.3,1.9</point>
+			<label_offset><point>3.3,1.9</point>
 			<line>0,0,0.2,-0.4</line>
 			<line>0.4,0,0.2,-0.4</line>
 			<line>0.2,-0.4,0.2,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>4.8,2.7</point>
+			<label_offset><point>4.8,2.7</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			3
-			<offset><point>1.7,2.7</point>
+			<label_offset><point>1.7,2.7</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			F
-			<offset><point>-0.5,0.4</point>
+			<label_offset><point>-0.5,0.4</point>
 			<line>0,0,0,-0.8</line>
 			<line>0,0,0.4,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
-			</offset>
+			</label_offset>
 
 #			A
-			<offset><point>0.1,0.4</point>
+			<label_offset><point>0.1,0.4</point>
 			<line>0,0,0.4,0</line>
 			<line>0,-0.4,0.4,-0.4</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0,0,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			S
-			<offset><point>-0.2,-0.9</point>
+			<label_offset><point>-0.2,-0.9</point>
 			<line>0.4,0,0.1,0</line>
 			<line>0,-0.1,0.1,0</line>
 			<line>0,-0.1,0.1,0</line>
@@ -9984,25 +9984,25 @@
 			<line>0.4,-0.7,0.4,-0.6</line>
 			<line>0.4,-0.7,0.3,-0.8</line>
 			<line>0.3,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>1.3,-1.9</point>
+			<label_offset><point>1.3,-1.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			3
-			<offset><point>-1.7,-1.9</point>
+			<label_offset><point>-1.7,-1.9</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 		</shape>
 	</gate>
@@ -10095,71 +10095,71 @@
 			<line>-7,0,-8,0</line>
 
 #			X
-			<offset><point>-3.7,1.9</point>
+			<label_offset><point>-3.7,1.9</point>
 			<line>0,0,0.4,-0.8</line>
 			<line>0,-0.8,0.4,0</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>-2.2,2.7</point>
+			<label_offset><point>-2.2,2.7</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			3
-			<offset><point>-5.2,2.7</point>
+			<label_offset><point>-5.2,2.7</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			Y
-			<offset><point>3.3,1.9</point>
+			<label_offset><point>3.3,1.9</point>
 			<line>0,0,0.2,-0.4</line>
 			<line>0.4,0,0.2,-0.4</line>
 			<line>0.2,-0.4,0.2,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			0
-			<offset><point>4.8,2.7</point>
+			<label_offset><point>4.8,2.7</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.4</line>
 			<line>0.4,-0.4,0.4,-0.8</line>
 			<line>0.4,-0.8,0,-0.8</line>
 			<line>0,-0.8,0,-0.4</line>
 			<line>0,-0.4,0,0</line>
-			</offset>
+			</label_offset>
 
 #			3
-			<offset><point>1.7,2.7</point>
+			<label_offset><point>1.7,2.7</point>
 			<line>0,0,0.4,0</line>
 			<line>0.4,0,0.4,-0.8</line>
 			<line>0.4,-0.4,0,-0.4</line>
 			<line>0.4,-0.8,0,-0.8</line>
-			</offset>
+			</label_offset>
 
 #			>
-			<offset><point>-6.7,2.2</point>
+			<label_offset><point>-6.7,2.2</point>
 			<line>0,0,0.4,-0.2</line>
 			<line>0,-0.4,0.4,-0.2</line>
-			</offset>
+			</label_offset>
 
 #			=
-			<offset><point>-6.7,0.1</point>
+			<label_offset><point>-6.7,0.1</point>
 			<line>0,0,0.4,0</line>
 			<line>0,-0.2,0.4,-0.2</line>
-			</offset>
+			</label_offset>
 
 #			<
-			<offset><point>-6.7,-1.8</point>
+			<label_offset><point>-6.7,-1.8</point>
 			<line>0.4,0,0,-0.2</line>
 			<line>0.4,-0.4,0,-0.2</line>
-			</offset>
+			</label_offset>
 
 		</shape>
 	</gate>

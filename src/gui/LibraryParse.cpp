@@ -113,7 +113,8 @@ void LibraryParse::parseFile() {
 					do {
 						temp = mParse->readTag();
 						if (temp == "") break;
-						if( temp == "offset" ) {
+						if( temp == "offset" || temp == "label_offset" ) {
+							bool isLabelOffset = (temp == "label_offset");
 							float offX = 0.0, offY = 0.0;
 							temp = mParse->readTag();
 							if( temp == "point" ) {
@@ -129,7 +130,7 @@ void LibraryParse::parseFile() {
 							do {
 								temp = mParse->readTag();
 								if (temp == "") break;
-								parseShapeObject( temp, &newGate, offX, offY, true );
+								parseShapeObject( temp, &newGate, offX, offY, isLabelOffset );
 							} while (!mParse->isCloseTag(mParse->getCurrentIndex())); // end offset
 							mParse->readCloseTag();
 						} else {
