@@ -809,4 +809,13 @@ public:
 
 
 
+// Maps a logic-type string to how the circuit builds that gate. Adding a gate
+// type is one entry in gateRegistry() (logic_gate.cpp); newGate() stays generic.
+struct GateType {
+	GATE_PTR (*create)(Circuit *circuit);
+	bool polled;
+};
+
+const std::map<std::string, GateType> &gateRegistry();
+
 #endif // LOGIC_GATE_H

@@ -25,6 +25,34 @@ using namespace std;
 #define END_OF_FILE_HEX 0x01
 //*************************************************
 
+const std::map<std::string, GateType> &gateRegistry() {
+	static const std::map<std::string, GateType> registry = {
+		{ "AND",         { [](Circuit *)  { return GATE_PTR(new Gate_AND); },         false } },
+		{ "OR",          { [](Circuit *)  { return GATE_PTR(new Gate_OR); },          false } },
+		{ "XOR",         { [](Circuit *)  { return GATE_PTR(new Gate_XOR); },         false } },
+		{ "BUFFER",      { [](Circuit *)  { return GATE_PTR(new Gate_PASS); },        false } },
+		{ "MUX",         { [](Circuit *)  { return GATE_PTR(new Gate_MUX); },         false } },
+		{ "DECODER",     { [](Circuit *)  { return GATE_PTR(new Gate_DECODER); },     false } },
+		{ "PRI_ENCODER", { [](Circuit *)  { return GATE_PTR(new Gate_PRI_ENCODER); }, false } },
+		{ "BUS_END",     { [](Circuit *c) { return GATE_PTR(new Gate_BUS_END(c)); },  false } },
+		{ "CLOCK",       { [](Circuit *)  { return GATE_PTR(new Gate_CLOCK); },       true  } },
+		{ "PULSE",       { [](Circuit *)  { return GATE_PTR(new Gate_PULSE); },       true  } },
+		{ "DRIVER",      { [](Circuit *)  { return GATE_PTR(new Gate_DRIVER); },      false } },
+		{ "ADDER",       { [](Circuit *)  { return GATE_PTR(new Gate_ADDER); },       false } },
+		{ "COMPARE",     { [](Circuit *)  { return GATE_PTR(new Gate_COMPARE); },     false } },
+		{ "JKFF",        { [](Circuit *)  { return GATE_PTR(new Gate_JKFF); },        false } },
+		{ "RAM",         { [](Circuit *)  { return GATE_PTR(new Gate_RAM); },         false } },
+		{ "REGISTER",    { [](Circuit *)  { return GATE_PTR(new Gate_REGISTER); },    false } },
+		{ "FROM",        { [](Circuit *c) { return GATE_PTR(new Gate_JUNCTION(c)); }, false } },
+		{ "TO",          { [](Circuit *c) { return GATE_PTR(new Gate_JUNCTION(c)); }, false } },
+		{ "TGATE",       { [](Circuit *c) { return GATE_PTR(new Gate_T(c)); },        false } },
+		{ "NODE",        { [](Circuit *c) { return GATE_PTR(new Gate_NODE(c)); },     false } },
+		{ "EQUIVALENCE", { [](Circuit *)  { return GATE_PTR(new Gate_EQUIVALENCE); }, false } },
+		{ "Pauseulator", { [](Circuit *)  { return GATE_PTR(new Gate_pauseulator()); }, false } },
+	};
+	return registry;
+}
+
 // ***************************** GENERIC GATE ***********************************
 
 

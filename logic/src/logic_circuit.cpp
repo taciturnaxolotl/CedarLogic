@@ -206,53 +206,11 @@ IDType Circuit::newGate(const string &type, IDType gateID ) {
 	// If the gate isn't already created, then make it:
 	if( gateList.find(thisGateID)== gateList.end() ) {
 
-		// Create a gate of the proper type:
-		if( type == "AND" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_AND );
-		} else if( type == "OR" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_OR );
-		} else if( type == "XOR" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_XOR );
-		} else if( type == "BUFFER" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_PASS );
-		} else if( type == "MUX" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_MUX );
-		} else if( type == "DECODER" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_DECODER );
-		} else if (type == "PRI_ENCODER") {
-			gateList[thisGateID] = GATE_PTR( new Gate_PRI_ENCODER );
-		} else if (type == "BUS_END") {
-			gateList[thisGateID] = GATE_PTR( new Gate_BUS_END(this) );
-		} else if( type == "CLOCK" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_CLOCK );
-			// This is a polled gate, so insert it into the polled gates queue!
-			polledGates.insert(thisGateID);
-		} else if( type == "PULSE" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_PULSE );
-			// This is a polled gate, so insert it into the polled gates queue!
-			polledGates.insert(thisGateID);
-		} else if( type == "DRIVER" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_DRIVER );
-		} else if( type == "ADDER" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_ADDER );
-		} else if( type == "COMPARE" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_COMPARE );
-		} else if( type == "JKFF" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_JKFF );
-		} else if( type == "RAM" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_RAM );
-		} else if( type == "REGISTER" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_REGISTER );
-		} else if( ( type == "FROM" ) || ( type == "TO" ) ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_JUNCTION( this ) );
-		} else if( type == "TGATE" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_T( this ) );
-		} else if( type == "NODE" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_NODE( this ) );
-		} else if( type == "EQUIVALENCE" ) {
-			gateList[thisGateID] = GATE_PTR( new Gate_EQUIVALENCE );
-		} else if( type == "Pauseulator" ){
-			gateList[thisGateID] = GATE_PTR( new Gate_pauseulator() );
+		// Build the gate from the registry (defined in logic_gate.cpp):
+		auto it = gateRegistry().find(type);
+		if( it != gateRegistry().end() ) {
+			gateList[thisGateID] = it->second.create(this);
+			if( it->second.polled ) polledGates.insert(thisGateID);
 		} else {
 			WARNING( "Circuit::newGate() - Invalid logic type!" );
 		}
