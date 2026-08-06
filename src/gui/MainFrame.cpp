@@ -44,6 +44,17 @@
 
 DECLARE_APP(MainApp)
 
+// How often the sim/idle timers poll (ms). Kept at roughly half the refresh-rate
+// target (appSettings.refreshRate, ~16 ms) so the render cadence can actually
+// reach it: the cadence is a round-trip through two of these timers -- OnTimer
+// sends a step, the sim thread replies, OnIdle drains the reply and repaints --
+// so with two poll intervals per frame, ~8 ms gives a ~16 ms round-trip (~60
+// fps). The old 20 ms poll was coarser than the target and capped it near 16
+// fps. Simulation *speed* is unaffected: each step advances by
+// elapsed-time/timeStepMod (with the remainder carried over), not per-tick, so
+// a finer poll just means smaller, more frequent steps -- not a faster sim.
+static const int TIMER_POLL_MS = 8;
+
 BEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(wxID_EXIT,  MainFrame::OnQuit)
     EVT_MENU(wxID_ABOUT, MainFrame::OnAbout)
@@ -353,7 +364,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	simTimer = new wxTimer(this, TIMER_ID);
 	idleTimer = new wxTimer(this, IDLETIMER_ID);
 	stopTimers();
-	startTimers(20);
+	startTimers(TIMER_POLL_MS);
 
 	// Setup the "Maximize Catch" flag:
 	sizeChanged = false;
@@ -532,7 +543,7 @@ void MainFrame::OnClose(wxCloseEvent& event) {
 		destroy = true;      // postpone destruction until wxWidgets cleans up, KAS 4/26/07
 	}
 	
-	resumeTimers(20);
+	resumeTimers(TIMER_POLL_MS);
 
 	if (destroy)
 	{
@@ -605,7 +616,7 @@ void MainFrame::OnNew(wxCommandEvent& event) {
 	currentTempNum++;
     openedFilename = "";
 
-	resumeTimers(20);
+	resumeTimers(TIMER_POLL_MS);
 
 	handlingEvent = false;
 }
@@ -644,7 +655,7 @@ void MainFrame::OnOpen(wxCommandEvent& event) {
     currentCanvas->Update(); // Render();
 	currentCanvas->getCircuit()->setSimulate(true);
 
-	resumeTimers(20);
+	resumeTimers(TIMER_POLL_MS);
 
 	handlingEvent = false;
 }
@@ -1219,7 +1230,7 @@ void MainFrame::PauseSim() {
 	}
 	else {
 		wxGetApp().appSystemTime.Start(0);
-		simTimer->Start(20);
+		simTimer->Start(TIMER_POLL_MS);
 #ifdef __WXOSX__
 		NativeIcon_SetToolbarSFSymbol(toolBar, Tool_Pause, "pause.fill", 18);
 #else
