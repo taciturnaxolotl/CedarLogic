@@ -58,9 +58,11 @@ void applyRenames(CircuitFile &cf, std::vector<MigrationNotice> &out) {
 // -- handler 2: decoder output-width fix -------------------------------------
 // The DECODER gate historically sized its output bus as ceil(pow(inBits, 2)) —
 // inBits squared — instead of 2^inBits. For inBits 2 and 4 the two agree, but a
-// 3-bit decoder had 9 outputs (OUT_0..OUT_8) where it should have 8. Correcting
-// it drops OUT_8, so a saved circuit that wired OUT_8 needs a warning; one that
-// didn't just silently gains the correct pin count.
+// 3-bit decoder had 9 outputs (OUT_0..OUT_8) where it should have 8. The core now
+// declares the correct count; this handler only speaks up when that actually
+// costs a saved circuit something — a wire attached to a dropped output. When
+// nothing was wired to the vanished pins it stays silent (real files carry many
+// such decoders, and a notice per gate would just be noise).
 
 bool isDecoder(const std::string &libName) {
 	std::string lower = libName;
@@ -105,32 +107,24 @@ void applyDecoderWidth(CircuitFile &cf, std::vector<MigrationNotice> &out) {
 					int idx = outIndex(c.pin);
 					if (idx >= fixed && idx < buggy) dropped.push_back(idx);
 				}
+			if (dropped.empty()) continue; // corrected silently — nothing was lost
 
+			std::string pins;
+			for (size_t i = 0; i < dropped.size(); ++i) {
+				if (i) pins += ", ";
+				pins += "OUT_" + std::to_string(dropped[i]);
+			}
 			MigrationNotice n;
 			n.gateUuid = g.uuid;
 			n.libName = g.libName;
-			if (dropped.empty()) {
-				n.severity = Severity::Info;
-				n.autoFixed = true;
-				n.summary = "Decoder output count corrected from " + std::to_string(buggy) +
-				            " to " + std::to_string(fixed);
-				n.detail = "A width bug gave this decoder inBits-squared outputs instead of "
-				           "2^inBits. No wires used the removed outputs, so nothing was lost.";
-			} else {
-				std::string pins;
-				for (size_t i = 0; i < dropped.size(); ++i) {
-					if (i) pins += ", ";
-					pins += "OUT_" + std::to_string(dropped[i]);
-				}
-				n.severity = Severity::Warning;
-				n.autoFixed = false;
-				n.summary = "Decoder loses wired output(s): " + pins;
-				n.detail = "This decoder had " + std::to_string(buggy) +
-				           " outputs due to a width bug; the corrected count is " +
-				           std::to_string(fixed) + ". Wire(s) attached to " + pins +
-				           " will be disconnected. Reconnect them to a valid output (OUT_0.." +
-				           std::to_string(fixed - 1) + ") after loading.";
-			}
+			n.severity = Severity::Warning;
+			n.autoFixed = false;
+			n.summary = "Decoder loses wired output(s): " + pins;
+			n.detail = "This decoder had " + std::to_string(buggy) +
+			           " outputs due to a width bug; the corrected count is " +
+			           std::to_string(fixed) + ". Wire(s) attached to " + pins +
+			           " will be disconnected. Reconnect them to a valid output (OUT_0.." +
+			           std::to_string(fixed - 1) + ") after loading.";
 			out.push_back(std::move(n));
 		}
 	}

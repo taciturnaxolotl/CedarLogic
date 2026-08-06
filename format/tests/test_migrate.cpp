@@ -52,7 +52,9 @@ TEST_CASE("Deprecated gates are renamed and reported; the silent alias stays qui
 	CHECK(ram->libName == "AM_RAM_16x16");
 }
 
-TEST_CASE("A 3-bit decoder with no wire on the doomed output is fixed silently (info)") {
+TEST_CASE("A 3-bit decoder with no wire on the doomed output is corrected silently") {
+	// The core fixes the width regardless; the migration only speaks up on data
+	// loss. Real circuits carry many such decoders, so the safe case must be quiet.
 	CircuitFile cf;
 	Page pg;
 	pg.gates = { gate("dec", "BE_DECODER_3x8", { { "INPUT_BITS", "3", false } }) };
@@ -62,11 +64,7 @@ TEST_CASE("A 3-bit decoder with no wire on the doomed output is fixed silently (
 	pg.wires.push_back(w);
 	cf.pages.push_back(pg);
 
-	std::vector<MigrationNotice> ns = migrate(cf);
-	REQUIRE(ns.size() == 1);
-	CHECK(ns[0].severity == Severity::Info);
-	CHECK(ns[0].autoFixed == true);
-	CHECK(ns[0].summary.find("9 to 8") != std::string::npos);
+	CHECK(migrate(cf).empty());
 }
 
 TEST_CASE("A 3-bit decoder with a wire on OUT_8 warns and is not auto-fixed") {
