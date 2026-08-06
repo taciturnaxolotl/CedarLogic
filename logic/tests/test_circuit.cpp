@@ -349,12 +349,87 @@ TEST_CASE("REGISTER loads its input bus on a clock edge") {
 	CHECK(c.getWireState(wO3) == ZERO);
 }
 
+TEST_CASE("RAM stores a value on write and reads it back") {
+	Circuit c;
+	IDType ram = c.newGate("RAM");
+	c.setGateParameter(ram, "ADDRESS_BITS", "2");
+	c.setGateParameter(ram, "DATA_BITS", "4");
+
+	// ADDRESS = 01b = 1.
+	IDType wEnable; // driver id for write_enable, toggled between phases
+	{
+		IDType da0 = makeDriver(c, 1), da1 = makeDriver(c, 0);
+		IDType wa0 = c.newWire(), wa1 = c.newWire();
+		c.connectGateOutput(da0, "OUT_0", wa0);
+		c.connectGateOutput(da1, "OUT_0", wa1);
+		c.connectGateInput(ram, "ADDRESS_0", wa0);
+		c.connectGateInput(ram, "ADDRESS_1", wa1);
+	}
+	// DATA_IN = 1010b = 10.
+	int data[4] = {0, 1, 0, 1};
+	for (int i = 0; i < 4; i++) {
+		IDType d = makeDriver(c, data[i]), w = c.newWire();
+		c.connectGateOutput(d, "OUT_0", w);
+		c.connectGateInput(ram, "DATA_IN_" + std::to_string(i), w);
+	}
+	// write_enable starts high (write mode).
+	wEnable = makeDriver(c, 1);
+	{
+		IDType w = c.newWire();
+		c.connectGateOutput(wEnable, "OUT_0", w);
+		c.connectGateInput(ram, "write_enable", w);
+	}
+	// write_clock from a CLOCK to produce rising edges.
+	IDType clk = c.newGate("CLOCK");
+	c.setGateParameter(clk, "HALF_CYCLE", "1");
+	IDType wClk = c.newWire();
+	c.connectGateOutput(clk, "CLK", wClk);
+	c.connectGateInput(ram, "write_clock", wClk);
+
+	IDType o0 = c.newWire(), o1 = c.newWire(), o2 = c.newWire(), o3 = c.newWire();
+	c.connectGateOutput(ram, "DATA_OUT_0", o0);
+	c.connectGateOutput(ram, "DATA_OUT_1", o1);
+	c.connectGateOutput(ram, "DATA_OUT_2", o2);
+	c.connectGateOutput(ram, "DATA_OUT_3", o3);
+
+	stepN(c, 8); // write phase: value latched on a write_clock rising edge
+
+	// Switch to read mode: DATA_OUT should present memory[1] = 1010b.
+	c.setGateParameter(wEnable, "OUTPUT_NUM", "0");
+	stepN(c, 8);
+	CHECK(c.getWireState(o0) == ZERO);
+	CHECK(c.getWireState(o1) == ONE);
+	CHECK(c.getWireState(o2) == ZERO);
+	CHECK(c.getWireState(o3) == ONE);
+}
+
+TEST_CASE("PULSE holds its output high for a bounded number of steps") {
+	Circuit c;
+	IDType p = c.newGate("PULSE");
+	IDType w = c.newWire();
+	c.connectGateOutput(p, "OUT_0", w);
+	c.setGateParameter(p, "PULSE", "3");
+
+	int highCount = 0;
+	bool returnedLow = false;
+	for (int i = 0; i < 8; i++) {
+		ID_SET<IDType> ch;
+		c.step(&ch);
+		StateType s = c.getWireState(w);
+		if (s == ONE) highCount++;
+		if (s == ZERO && highCount > 0) returnedLow = true;
+	}
+	CHECK(highCount >= 1);   // the pulse went high
+	CHECK(highCount <= 4);   // for ~3 steps (allow +/-1 for propagation), not forever
+	CHECK(returnedLow);      // and then dropped back low
+}
+
 // TODO(behavioral coverage): the following shipping gates still lack C++
-// simulation tests (the gates above show combinational, multi-bit/bus, and
-// clocked/sequential patterns to follow):
-//   RAM, PULSE, TGATE, NODE, FROM/TO, BUS_END, PASS, T
+// simulation tests (the gates above show combinational, multi-bit/bus,
+// clocked/sequential, and stateful-memory patterns to follow):
+//   TGATE, NODE, FROM/TO, BUS_END, PASS, T
 // Also worth adding: REGISTER count/shift/clear ops, JKFF SYNC_SET/SYNC_CLEAR
-// and toggle (J=K=1) behavior, and RAM read-after-write.
+// and toggle (J=K=1) behavior.
 
 TEST_CASE("System time advances one unit per step") {
 	Circuit c;
