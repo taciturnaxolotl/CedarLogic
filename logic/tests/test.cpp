@@ -84,9 +84,10 @@ TEST_CASE("Logic junction, [LogicJunction]") {
         wasLastConnection = junc.disconnectWire(17);
         REQUIRE(wasLastConnection);
 
-        // Causes log statement attempt to file which crashes test!
-        // bool falseOnDisconnectedWire = junc.disconnectWire(17);
-        // REQUIRE_FALSE(falseOnDisconnectedWire);
+        // Disconnecting an already-removed wire returns false (previously this
+        // crashed via WARNING dereferencing a null logiclog; now null-guarded).
+        bool falseOnDisconnectedWire = junc.disconnectWire(17);
+        REQUIRE_FALSE(falseOnDisconnectedWire);
 
         auto wires{junc.getWires()};
         REQUIRE(wires.size() == 1);
@@ -355,17 +356,11 @@ TEST_CASE("XMLParser writing, [XMLParser]") {
 
 TEST_CASE("XMLParser reading, [XMLParser]") {
     std::fstream ifs(TESTXML_PATH, std::ios::in);  // path injected by CMake (TESTXML_PATH)
+    // Fail loudly if the fixture is missing rather than limping on with cryptic
+    // section failures.
+    REQUIRE(ifs.is_open());
     XMLParser parser(&ifs, false);
 
-    if (ifs.is_open())
-    {
-        std::cout << "File successfully open\n";
-    }
-    else
-    {
-        std::cout << "File not opened!\n";
-    }
-	
     // Contents of test-file:
     // <hello>HelloValue</hello>
     // <port>PortValue

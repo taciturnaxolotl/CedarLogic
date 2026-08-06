@@ -36,6 +36,37 @@ jobs:
           cmake --build build/simulator
           ctest --test-dir build/simulator --output-on-failure
 
+  # Coverage of the shipping logic engine, from the wx-free suite.
+  coverage:
+    name: Coverage (logic engine)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ninja-build gcovr
+
+      - name: Build logic tests with coverage
+        run: |
+          cmake -S logic -B build/logic -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON
+          cmake --build build/logic
+
+      - name: Run tests
+        run: ctest --test-dir build/logic --output-on-failure
+
+      - name: Generate coverage report
+        run: |
+          gcovr --root . --filter 'logic/src/' --print-summary \
+            --xml-pretty -o coverage.xml --html-details coverage.html
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.xml
+            coverage*.html
+
   # Full application build with the system wxWidgets, plus aggregated ctest, to
   # catch integration/compile regressions in the desktop app.
   build-linux:

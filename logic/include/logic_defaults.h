@@ -19,8 +19,11 @@
 
 // Warning message macro:
 #ifndef _PRODUCTION_
+// Guard against a null logiclog: it is only allocated by Circuit's constructor,
+// so logging from a Junction/Wire that has no owning Circuit would otherwise
+// dereference null and crash.
 #define WARNING(message) \
-	do { *logiclog << "Warning: " << message << "\n"; } while (0);
+	do { if (logiclog) { *logiclog << "Warning: " << message << "\n"; } } while (0);
 #else
 #define WARNING(message) \
 	do { } while (0);

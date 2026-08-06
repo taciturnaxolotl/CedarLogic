@@ -25,10 +25,16 @@ target_include_directories(Logic PUBLIC "${PROJECT_SOURCE_DIR}/include")
 # ---------------------------------------------------------------------------
 option(BUILD_TESTING "Build the test suite" ON)
 option(ENABLE_SANITIZERS "Build tests with ASan/UBSan (GCC/Clang only)" OFF)
+option(ENABLE_COVERAGE "Build tests with gcov coverage instrumentation (GCC/Clang only)" OFF)
 
 if(ENABLE_SANITIZERS AND NOT MSVC)
 	target_compile_options(Logic PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
 	target_link_options(Logic PUBLIC -fsanitize=address,undefined)
+endif()
+
+if(ENABLE_COVERAGE AND NOT MSVC)
+	target_compile_options(Logic PRIVATE --coverage -O0 -g)
+	target_link_options(Logic PUBLIC --coverage)
 endif()
 
 if(BUILD_TESTING)
@@ -56,7 +62,7 @@ if(BUILD_TESTING)
 		target_compile_options(XMLParser PRIVATE -Wall -pedantic)
 	endif()
 
-	add_executable(test_logic tests/test.cpp)
+	add_executable(test_logic tests/test.cpp tests/test_circuit.cpp)
 	target_link_libraries(test_logic PRIVATE doctest::doctest Logic XMLParser)
 
 	# Inject the fixture path so the XML reading test is independent of cwd.
@@ -67,6 +73,12 @@ if(BUILD_TESTING)
 		target_compile_options(XMLParser PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
 		target_compile_options(test_logic PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
 		target_link_options(test_logic PRIVATE -fsanitize=address,undefined)
+	endif()
+
+	if(ENABLE_COVERAGE AND NOT MSVC)
+		target_compile_options(XMLParser PRIVATE --coverage -O0 -g)
+		target_compile_options(test_logic PRIVATE --coverage -O0 -g)
+		target_link_options(test_logic PRIVATE --coverage)
 	endif()
 
 	enable_testing()
