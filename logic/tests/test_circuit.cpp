@@ -222,12 +222,138 @@ TEST_CASE("2-bit ADDER computes sum and carry") {
 	CHECK(c.getWireState(wCout) == ONE);  // carry out of a 2-bit add
 }
 
+TEST_CASE("2-bit COMPARE magnitude comparator") {
+	// Build a comparator over 2-bit A (IN) and B (IN_B), read one output pin.
+	// The cascade inputs (in_A_equal_B/greater/less) are left floating, which
+	// the gate treats as "equal favored".
+	auto cmpOut = [](int a, int b, const char *outPin) {
+		Circuit c;
+		IDType cmp = c.newGate("COMPARE");
+		c.setGateParameter(cmp, "INPUT_BITS", "2");
+		IDType dA0 = makeDriver(c, a & 1), dA1 = makeDriver(c, (a >> 1) & 1);
+		IDType dB0 = makeDriver(c, b & 1), dB1 = makeDriver(c, (b >> 1) & 1);
+		IDType wA0 = c.newWire(), wA1 = c.newWire(), wB0 = c.newWire(), wB1 = c.newWire(), wOut = c.newWire();
+		c.connectGateOutput(dA0, "OUT_0", wA0);
+		c.connectGateOutput(dA1, "OUT_0", wA1);
+		c.connectGateOutput(dB0, "OUT_0", wB0);
+		c.connectGateOutput(dB1, "OUT_0", wB1);
+		c.connectGateInput(cmp, "IN_0", wA0);
+		c.connectGateInput(cmp, "IN_1", wA1);
+		c.connectGateInput(cmp, "IN_B_0", wB0);
+		c.connectGateInput(cmp, "IN_B_1", wB1);
+		c.connectGateOutput(cmp, outPin, wOut);
+		stepN(c, 5);
+		return c.getWireState(wOut);
+	};
+	CHECK(cmpOut(2, 1, "A_greater_B") == ONE); // 2 > 1
+	CHECK(cmpOut(2, 1, "A_less_B") == ZERO);
+	CHECK(cmpOut(2, 1, "A_equal_B") == ZERO);
+	CHECK(cmpOut(1, 1, "A_equal_B") == ONE); // 1 == 1
+	CHECK(cmpOut(0, 2, "A_less_B") == ONE);  // 0 < 2
+}
+
+TEST_CASE("2-to-4 DECODER activates the addressed output line") {
+	// NOTE: the engine computes output width as inBits^2 (a latent bug in
+	// Gate_DECODER::setParameter); that only equals 2^inBits for INPUT_BITS in
+	// {2, 4}, so we exercise it at 2 where the intended and actual widths agree.
+	// Enable pins (ENABLE/ENABLE_B/ENABLE_C) are left floating = enabled.
+	Circuit c;
+	IDType dec = c.newGate("DECODER");
+	c.setGateParameter(dec, "INPUT_BITS", "2");
+	IDType d0 = makeDriver(c, 0), d1 = makeDriver(c, 1); // IN = 10b = 2
+	IDType wIn0 = c.newWire(), wIn1 = c.newWire();
+	c.connectGateOutput(d0, "OUT_0", wIn0);
+	c.connectGateOutput(d1, "OUT_0", wIn1);
+	c.connectGateInput(dec, "IN_0", wIn0);
+	c.connectGateInput(dec, "IN_1", wIn1);
+	IDType wO0 = c.newWire(), wO1 = c.newWire(), wO2 = c.newWire(), wO3 = c.newWire();
+	c.connectGateOutput(dec, "OUT_0", wO0);
+	c.connectGateOutput(dec, "OUT_1", wO1);
+	c.connectGateOutput(dec, "OUT_2", wO2);
+	c.connectGateOutput(dec, "OUT_3", wO3);
+	stepN(c, 5);
+	CHECK(c.getWireState(wO2) == ONE); // address 2 selected
+	CHECK(c.getWireState(wO0) == ZERO);
+	CHECK(c.getWireState(wO1) == ZERO);
+	CHECK(c.getWireState(wO3) == ZERO);
+}
+
+TEST_CASE("PRI_ENCODER outputs the index of the highest set input") {
+	Circuit c;
+	IDType enc = c.newGate("PRI_ENCODER");
+	c.setGateParameter(enc, "INPUT_BITS", "4"); // 4 inputs -> 2 output bits
+	// Drive IN = 0100b: only bit 2 set -> encoded index 2 (binary 10), VALID.
+	IDType d0 = makeDriver(c, 0), d1 = makeDriver(c, 0), d2 = makeDriver(c, 1), d3 = makeDriver(c, 0);
+	IDType wI0 = c.newWire(), wI1 = c.newWire(), wI2 = c.newWire(), wI3 = c.newWire();
+	c.connectGateOutput(d0, "OUT_0", wI0);
+	c.connectGateOutput(d1, "OUT_0", wI1);
+	c.connectGateOutput(d2, "OUT_0", wI2);
+	c.connectGateOutput(d3, "OUT_0", wI3);
+	c.connectGateInput(enc, "IN_0", wI0);
+	c.connectGateInput(enc, "IN_1", wI1);
+	c.connectGateInput(enc, "IN_2", wI2);
+	c.connectGateInput(enc, "IN_3", wI3);
+	IDType wO0 = c.newWire(), wO1 = c.newWire(), wValid = c.newWire();
+	c.connectGateOutput(enc, "OUT_0", wO0);
+	c.connectGateOutput(enc, "OUT_1", wO1);
+	c.connectGateOutput(enc, "VALID", wValid);
+	stepN(c, 5);
+	CHECK(c.getWireState(wO0) == ZERO); // index 2 = binary 10
+	CHECK(c.getWireState(wO1) == ONE);
+	CHECK(c.getWireState(wValid) == ONE);
+}
+
+TEST_CASE("REGISTER loads its input bus on a clock edge") {
+	Circuit c;
+	IDType reg = c.newGate("REGISTER");
+	c.setGateParameter(reg, "INPUT_BITS", "4");
+
+	// Control lines: load=1, clear=0, set=0, count/shift disabled, clock enabled.
+	auto drive = [&](const char *pin, int v) {
+		IDType d = makeDriver(c, v), w = c.newWire();
+		c.connectGateOutput(d, "OUT_0", w);
+		c.connectGateInput(reg, pin, w);
+	};
+	drive("clear", 0);
+	drive("set", 0);
+	drive("load", 1);
+	drive("count_enable", 0);
+	drive("shift_enable", 0);
+	drive("clock_enable", 1);
+
+	// Data input bus IN = 0101b = 5.
+	int data[4] = {1, 0, 1, 0};
+	for (int i = 0; i < 4; i++) {
+		IDType d = makeDriver(c, data[i]), w = c.newWire();
+		c.connectGateOutput(d, "OUT_0", w);
+		c.connectGateInput(reg, "IN_" + std::to_string(i), w);
+	}
+
+	// A clock to drive the load edge.
+	IDType clk = c.newGate("CLOCK");
+	c.setGateParameter(clk, "HALF_CYCLE", "1");
+	IDType wClk = c.newWire();
+	c.connectGateOutput(clk, "CLK", wClk);
+	c.connectGateInput(reg, "clock", wClk);
+
+	IDType wO0 = c.newWire(), wO1 = c.newWire(), wO2 = c.newWire(), wO3 = c.newWire();
+	c.connectGateOutput(reg, "OUT_0", wO0);
+	c.connectGateOutput(reg, "OUT_1", wO1);
+	c.connectGateOutput(reg, "OUT_2", wO2);
+	c.connectGateOutput(reg, "OUT_3", wO3);
+
+	stepN(c, 12);
+	CHECK(c.getWireState(wO0) == ONE);  // loaded value 0101b = 5
+	CHECK(c.getWireState(wO1) == ZERO);
+	CHECK(c.getWireState(wO2) == ONE);
+	CHECK(c.getWireState(wO3) == ZERO);
+}
+
 // TODO(behavioral coverage): the following shipping gates still lack C++
-// simulation tests. Each needs its pin names + expected values worked out
-// (the ADDER above shows the multi-bit/bus pattern):
-//   COMPARE, PRI_ENCODER, DECODER, REGISTER, RAM, PULSE, TGATE, NODE,
-//   FROM/TO, BUS_END, PASS, T
-// Also worth adding: multi-bit BUFFER/bus wiring, JKFF SYNC_SET/SYNC_CLEAR
+// simulation tests (the gates above show combinational, multi-bit/bus, and
+// clocked/sequential patterns to follow):
+//   RAM, PULSE, TGATE, NODE, FROM/TO, BUS_END, PASS, T
+// Also worth adding: REGISTER count/shift/clear ops, JKFF SYNC_SET/SYNC_CLEAR
 // and toggle (J=K=1) behavior, and RAM read-after-write.
 
 TEST_CASE("System time advances one unit per step") {
