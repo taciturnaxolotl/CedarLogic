@@ -31,6 +31,7 @@ set_target_properties(cedarlogic PROPERTIES
 	LINK_FLAGS "\
 		--bind \
 		-s MODULARIZE=1 \
+		-s EXPORT_ES6=1 \
 		-s EXPORT_NAME='CedarLogic' \
 		-s ALLOW_MEMORY_GROWTH=1 \
 		-s ENVIRONMENT='web,worker,node' \

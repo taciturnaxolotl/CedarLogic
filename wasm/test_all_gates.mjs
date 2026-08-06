@@ -1,11 +1,7 @@
-// Comprehensive test of all gate types in the WASM module
-import { createRequire } from 'module';
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
-const CedarLogic = require('./build/cedarlogic.js');
+// Comprehensive test of all gate types in the WASM module.
+// The module is an ES6 module (emscripten EXPORT_ES6) exporting a default
+// factory; matches the package's "type": "module" and the README's usage.
+import CedarLogic from './build/cedarlogic.js';
 
 let passed = 0, failed = 0;
 

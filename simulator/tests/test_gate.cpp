@@ -28,4 +28,5 @@ TEST_CASE("process works") {
     delete in_js[i];
     in_js[i] = nullptr;
   }
+  delete out_j;
 }
