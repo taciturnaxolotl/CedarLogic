@@ -1,0 +1,62 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "test",
+      "displayName": "Tests (Debug)",
+      "description": "Debug build with the doctest suites enabled",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
+      "name": "asan",
+      "displayName": "Tests + ASan/UBSan",
+      "description": "Debug build with tests instrumented by AddressSanitizer/UBSan (GCC/Clang)",
+      "inherits": "test",
+      "cacheVariables": {
+        "ENABLE_SANITIZERS": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release (no tests)",
+      "description": "Optimized build of the application without the test suites",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_TESTING": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "test", "configurePreset": "test", "configuration": "Debug" },
+    { "name": "asan", "configurePreset": "asan", "configuration": "Debug" },
+    { "name": "release", "configurePreset": "release", "configuration": "Release" }
+  ],
+  "testPresets": [
+    {
+      "name": "test",
+      "configurePreset": "test",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error", "stopOnFailure": false }
+    },
+    {
+      "name": "asan",
+      "configurePreset": "asan",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error", "stopOnFailure": false }
+    }
+  ]
+}

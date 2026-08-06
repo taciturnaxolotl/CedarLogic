@@ -1,8 +1,8 @@
 #include "junction.hpp"
-#include <catch2/catch_test_macros.hpp>
+#include <doctest/doctest.h>
 #include <stdint.h>
 
-TEST_CASE("to_values works", "[JUNCTION]") {
+TEST_CASE("to_values works") {
   std::vector<Junction *> js;
 
   Input *ptr;

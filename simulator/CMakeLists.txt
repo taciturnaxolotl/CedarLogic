@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.16)
 
 project(Simulator VERSION 0.0.0)
 
@@ -6,46 +6,56 @@ project(Simulator VERSION 0.0.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_library(Simulator STATIC 
-  "${PROJECT_SOURCE_DIR}/circuit.cpp"
-  "${PROJECT_SOURCE_DIR}/circuit.hpp"
-  "${PROJECT_SOURCE_DIR}/event.cpp"
-  "${PROJECT_SOURCE_DIR}/event.hpp"
-  "${PROJECT_SOURCE_DIR}/gate.cpp"
-  "${PROJECT_SOURCE_DIR}/gate.hpp"
-  "${PROJECT_SOURCE_DIR}/junction.cpp"
-  "${PROJECT_SOURCE_DIR}/junction.hpp"
-  "${PROJECT_SOURCE_DIR}/logic.cpp"
-  "${PROJECT_SOURCE_DIR}/logic.hpp"
-  "${PROJECT_SOURCE_DIR}/network.hpp"
-  "${PROJECT_SOURCE_DIR}/wire.hpp"
+# ---------------------------------------------------------------------------
+# NOTE: circuit.cpp / network.hpp currently `#include "entities.hpp"`, a header
+# that does not exist anywhere in the tree (it was never committed -- see the
+# "tests are broken, else good work" commit). Until that header is restored the
+# circuit/network layer cannot compile, which is why nothing has ever built the
+# simulator. The test build below is therefore scoped to the parts that do
+# compile and that the tests actually exercise: the logic primitives, gates,
+# and junctions. Add circuit.cpp/event.cpp/network back here once entities.hpp
+# is restored.
+# ---------------------------------------------------------------------------
+set(SIMULATOR_TESTABLE_SOURCES
+	"${PROJECT_SOURCE_DIR}/logic.cpp"
+	"${PROJECT_SOURCE_DIR}/gate.cpp"
+	"${PROJECT_SOURCE_DIR}/junction.cpp"
 )
 
-# To build this library you must include it's headers
-include_directories(	
-	"${PROJECT_SOURCE_DIR}/"
-)
+option(BUILD_TESTING "Build the test suite" ON)
+option(ENABLE_SANITIZERS "Build tests with ASan/UBSan (GCC/Clang only)" OFF)
 
-# Make it so anyone using this library (and CMake) knows to include the library's headers.
-target_include_directories(Simulator PUBLIC "${PROJECT_SOURCE_DIR}/")
+if(BUILD_TESTING)
+	include(FetchContent)
 
-# Bring in the Catch2 framework
-Include(FetchContent)
+	# Reuse doctest if the top-level build already fetched it.
+	if(NOT TARGET doctest::doctest)
+		FetchContent_Declare(
+			doctest
+			GIT_REPOSITORY https://github.com/doctest/doctest.git
+			GIT_TAG        v2.4.11
+			GIT_SHALLOW    1
+		)
+		# doctest 2.4.x declares an ancient cmake_minimum_required that CMake >= 4.0
+		# refuses; opt back in until doctest ships a release with a newer minimum.
+		set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+		FetchContent_MakeAvailable(doctest)
+	endif()
 
-FetchContent_Declare(
-  Catch2
-  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG        v3.5.2
-)
+	add_executable(test_Simulator
+		tests/test_logic.cpp
+		tests/test_gate.cpp
+		tests/test_junction.cpp
+		${SIMULATOR_TESTABLE_SOURCES}
+	)
+	target_include_directories(test_Simulator PRIVATE "${PROJECT_SOURCE_DIR}/")
+	target_link_libraries(test_Simulator PRIVATE doctest::doctest)
 
-FetchContent_MakeAvailable(Catch2)
+	if(ENABLE_SANITIZERS AND NOT MSVC)
+		target_compile_options(test_Simulator PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+		target_link_options(test_Simulator PRIVATE -fsanitize=address,undefined)
+	endif()
 
-# Add a executable to run the tests
-add_executable(test_Simulator 
-	tests/test_logic.cpp
-  tests/test_gate.cpp
-  tests/test_junction.cpp
-)
-
-# Add the libraries the test executable will need to run
-target_link_libraries(test_Simulator PRIVATE Catch2::Catch2WithMain Simulator)
+	enable_testing()
+	add_test(NAME simulator_tests COMMAND test_Simulator)
+endif()

@@ -1,9 +1,9 @@
 #include "gate.hpp"
-#include <catch2/catch_test_macros.hpp>
+#include <doctest/doctest.h>
 #include <stdint.h>
 
 // Only bother to test out the AND gate since the logic is tested elsewhere.
-TEST_CASE("process works", "[GATE]") {
+TEST_CASE("process works") {
   std::vector<Input *> in_js;
 
   for (int i = 0; i < 4; i++) {

@@ -32,6 +32,16 @@ include(VsSourceGroups)
 include(GNUInstallDirs)
 
 ##
+# Testing options. The logic/ and simulator/ subdirectories build their own
+# doctest suites; enabling BUILD_TESTING here lets `ctest` aggregate them.
+##
+option(BUILD_TESTING "Build the logic/simulator test suites" ON)
+option(ENABLE_SANITIZERS "Instrument tests with ASan/UBSan (GCC/Clang only)" OFF)
+if(BUILD_TESTING)
+    enable_testing()
+endif()
+
+##
 # Connect external libraries
 ##
 
@@ -176,6 +186,11 @@ include_directories(
 add_subdirectory(
     "${PROJECT_SOURCE_DIR}/logic/"
 )
+
+# The simulator is a standalone logic-core rewrite; build it only for its tests.
+if(BUILD_TESTING)
+    add_subdirectory("${PROJECT_SOURCE_DIR}/simulator/")
+endif()
 
 # specify the C++ standard
 set(CMAKE_CXX_STANDARD 11)

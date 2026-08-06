@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast, wxWidgets-free unit tests for both logic cores, instrumented with
+  # AddressSanitizer + UBSan so memory bugs fail the build.
+  unit-tests:
+    name: Unit tests (ASan/UBSan)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ninja-build
+
+      - name: logic/ suite
+        run: |
+          cmake -S logic -B build/logic -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON
+          cmake --build build/logic
+          ctest --test-dir build/logic --output-on-failure
+
+      - name: simulator/ suite
+        run: |
+          cmake -S simulator -B build/simulator -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON
+          cmake --build build/simulator
+          ctest --test-dir build/simulator --output-on-failure
+
+  # Full application build with the system wxWidgets, plus aggregated ctest, to
+  # catch integration/compile regressions in the desktop app.
+  build-linux:
+    name: Full Linux build + ctest
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build \
+            libwxgtk3.2-dev libgtk-3-dev libglu1-mesa-dev ccache
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: ci-linux-gcc
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DBUILD_TESTING=ON
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  # Build the WebAssembly engine and run the behavioral gate truth-table harness
+  # against the real shipping logic core.
+  wasm:
+    name: WASM engine tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+          actions-cache-folder: emsdk-cache
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Build WASM
+        run: |
+          cd wasm
+          emcmake cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+
+      - name: Run behavioral gate tests
+        run: |
+          cd wasm
+          node test_all_gates.mjs

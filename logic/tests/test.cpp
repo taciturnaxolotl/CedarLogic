@@ -1,4 +1,5 @@
-#include <catch2/catch_test_macros.hpp>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include <doctest/doctest.h>
 #include "XMLParser.h"
 #include <iostream>
 #include <sstream>
@@ -10,7 +11,7 @@
 
 TEST_CASE("Logic event, [LogicEvent]") {
 
-    SECTION("Logic event is initialized properly") {
+    SUBCASE("Logic event is initialized properly") {
         Event e1, e2;
         REQUIRE_FALSE(e1.isJunctionEvent);
         REQUIRE_FALSE(e1.newJunctionState);
@@ -24,14 +25,14 @@ TEST_CASE("Logic event, [LogicEvent]") {
         REQUIRE(e2.getCreationTime() == 1);
     }
 
-    SECTION("Logic event comparison when simulation time differs") {
+    SUBCASE("Logic event comparison when simulation time differs") {
         Event e1, e2;
         e1.eventTime = 2;
         e2.eventTime = 1;
         REQUIRE(e1 > e2);
     }
 
-    SECTION("When simulation time is the same then the object created later is greater") {
+    SUBCASE("When simulation time is the same then the object created later is greater") {
         Event e1, e2;
         e1.eventTime = 10;
         e2.eventTime = 10;
@@ -41,12 +42,12 @@ TEST_CASE("Logic event, [LogicEvent]") {
 
 TEST_CASE("Logic junction, [LogicJunction]") {
 
-    SECTION("Logic junction defaults to enabled state") {
+    SUBCASE("Logic junction defaults to enabled state") {
         Junction junc{123};
         REQUIRE(junc.getEnableState());
     }
 
-    SECTION("Setting enable state works") {
+    SUBCASE("Setting enable state works") {
         Junction junc{7};
         REQUIRE(junc.getEnableState());
         junc.setEnableState(false);
@@ -55,13 +56,13 @@ TEST_CASE("Logic junction, [LogicJunction]") {
         REQUIRE(junc.getEnableState());
     }
 
-    SECTION("GetWires returns an empty list for empty junction") {
+    SUBCASE("GetWires returns an empty list for empty junction") {
         Junction junc{123};
         auto wires{junc.getWires()};
         REQUIRE(wires.empty());
     }
 
-    SECTION("ConnectWire connects wire to junction") {
+    SUBCASE("ConnectWire connects wire to junction") {
         Junction junc{123};
         junc.connectWire(17);
         junc.connectWire(42);
@@ -71,7 +72,7 @@ TEST_CASE("Logic junction, [LogicJunction]") {
         REQUIRE(wires.count(42) == 1);
     }
 
-    SECTION("DisconnectWire returns true when the final instance of a wire is removed from the junction") {
+    SUBCASE("DisconnectWire returns true when the final instance of a wire is removed from the junction") {
         Junction junc{7};
         junc.connectWire(17);
         junc.connectWire(42);
@@ -101,12 +102,12 @@ TEST_CASE("Logic junction, [LogicJunction]") {
 
 TEST_CASE("Logic wire, [LogicWire]") {
 
-    SECTION("Wires are created in high-impedance state") {
+    SUBCASE("Wires are created in high-impedance state") {
         Wire w;
         REQUIRE(w.getState() == HI_Z);
     }
 
-    SECTION("WireInput operator < works primarily on gateID, secondarily on gateOutputID") {
+    SUBCASE("WireInput operator < works primarily on gateID, secondarily on gateOutputID") {
         WireInput wi1{2, "a"};
         WireInput wi2{3, "b"};
         WireInput wi3{2, "b"};
@@ -124,7 +125,7 @@ TEST_CASE("Logic wire, [LogicWire]") {
         REQUIRE_FALSE(wi1 < wi1);
     }
 
-    SECTION("WireOutput operator < works primarily on gateID, secondarily on gateInputID") {
+    SUBCASE("WireOutput operator < works primarily on gateID, secondarily on gateInputID") {
         WireOutput wo1{2, "a"};
         WireOutput wo2{3, "b"};
         WireOutput wo3{2, "b"};
@@ -144,7 +145,7 @@ TEST_CASE("Logic wire, [LogicWire]") {
 
     // TODO: WIRE_PTR operator <
 
-    SECTION("Wire can be forced to a given state") {
+    SUBCASE("Wire can be forced to a given state") {
         // !StateType is just unsigned char so values 5->
         // are theoretically possible...
 
@@ -169,7 +170,7 @@ TEST_CASE("Logic wire, [LogicWire]") {
         REQUIRE(w.getState() == HI_Z);
     }
 
-    SECTION("Wire getFirstInput returns first (sorted) non-NONE input or junk") {
+    SUBCASE("Wire getFirstInput returns first (sorted) non-NONE input or junk") {
 
         Wire w, w2;
         REQUIRE(w.getFirstInput().gateID == ID_NONE);
@@ -182,7 +183,7 @@ TEST_CASE("Logic wire, [LogicWire]") {
         REQUIRE(((wi2.gateID == ID_NONE) && (wi2.gateOutputID == "")));
     }
 
-    SECTION("Wire getFirstOutput returns first (sorted) output or junk") {
+    SUBCASE("Wire getFirstOutput returns first (sorted) output or junk") {
         Wire w;
         REQUIRE(w.getFirstOutput().gateID == ID_NONE);
         w.connectOutput(8, "some-gate");
@@ -190,7 +191,7 @@ TEST_CASE("Logic wire, [LogicWire]") {
         REQUIRE(w.getFirstOutput().gateID == 5);
     }
 
-    SECTION("Wire getOutputGates") {
+    SUBCASE("Wire getOutputGates") {
         Wire w;
         REQUIRE(w.getOutputGates().empty());
         w.connectOutput(55, "some-gate");
@@ -204,59 +205,59 @@ TEST_CASE("Logic wire, [LogicWire]") {
 
 TEST_CASE("Logic gate setParameter during construction, [LogicGate]") {
     
-    SECTION("N_INPUT") {
+    SUBCASE("N_INPUT") {
         Gate_N_INPUT ngate;
         REQUIRE(ngate.getParameter("INPUT_BITS") == "0");
     }
 
-    SECTION("COMPARE") {
+    SUBCASE("COMPARE") {
         Gate_COMPARE cgate;
         REQUIRE(cgate.getParameter("INPUT_BITS") == "0");
     }
     
-    SECTION("GATE PASS") {
+    SUBCASE("GATE PASS") {
         Gate_PASS pgate;
         REQUIRE(pgate.getParameter("INPUT_BITS") == "1");
     }
 
-    SECTION("GATE MUX") {
+    SUBCASE("GATE MUX") {
         Gate_MUX mgate;
         REQUIRE(mgate.getParameter("INPUT_BITS") == "0");
     }
 
-    SECTION("GATE DRIVER") {
+    SUBCASE("GATE DRIVER") {
         Gate_DRIVER driver_gate;
         REQUIRE(driver_gate.getParameter("OUTPUT_BITS") == "0");
     }
 
-    SECTION("GATE DECODER") {
+    SUBCASE("GATE DECODER") {
         Gate_DECODER decoder_gate;
         REQUIRE(decoder_gate.getParameter("INPUT_BITS") == "0");
     }
 
-    SECTION("GATE PRI ENCODER") {
+    SUBCASE("GATE PRI ENCODER") {
         Gate_PRI_ENCODER encoder_gate;
         REQUIRE(encoder_gate.getParameter("INPUT_BITS") == "0");
     }
 
-    SECTION("GATE ADDER") {
+    SUBCASE("GATE ADDER") {
         Gate_ADDER adder_gate;
         REQUIRE(adder_gate.getParameter("INPUT_BITS") == "0");
     }
 
-    SECTION("GATE JFKK") {
+    SUBCASE("GATE JFKK") {
         Gate_JKFF JFKK_gate;
         REQUIRE(JFKK_gate.getParameter("SYNC_SET") == "false");
         REQUIRE(JFKK_gate.getParameter("SYNC_CLEAR") == "false");
     }
 
-    SECTION("GATE RAM") {
+    SUBCASE("GATE RAM") {
         Gate_RAM RAM_gate;
         REQUIRE(RAM_gate.getParameter("ADDRESS_BITS") == "0");
         REQUIRE(RAM_gate.getParameter("DATA_BITS") == "0");
     }
 
-    SECTION("GATE Junction") {
+    SUBCASE("GATE Junction") {
         Circuit cir;
         Gate_JUNCTION junction_gate(&cir);
         REQUIRE(junction_gate.getParameter("JUNCTION_ID") == "NONE");
@@ -267,29 +268,29 @@ TEST_CASE("XMLParser writing, [XMLParser]") {
     std::ostringstream oss;
     XMLParser parser(&oss);
 
-    SECTION("OpenTag") {
+    SUBCASE("OpenTag") {
         parser.openTag("myTag");
         REQUIRE(oss.str() == "<myTag>");
     }
 
-    SECTION("When opening more than one tag Then the tags are on separate lines") {
+    SUBCASE("When opening more than one tag Then the tags are on separate lines") {
         parser.openTag("myTag");
         parser.openTag("mySecondTag");
         REQUIRE(oss.str() == "<myTag>\n<mySecondTag>");
     }
 
-    SECTION("Create open tag with empty tag name") {
+    SUBCASE("Create open tag with empty tag name") {
         parser.openTag("");
         REQUIRE(oss.str() == "<>");
     }
 
-    SECTION("Write value for open tag") {
+    SUBCASE("Write value for open tag") {
         parser.openTag("myTag");
         parser.writeTag("myTag", "myVal");
         REQUIRE(oss.str() == "<myTag>myVal");
     }
 
-    SECTION("Write multiple values for open tag") {
+    SUBCASE("Write multiple values for open tag") {
         parser.openTag("myTag");
         parser.writeTag("myTag", "myVal");
         parser.writeTag("myTag", "myOtherVal");
@@ -297,46 +298,46 @@ TEST_CASE("XMLParser writing, [XMLParser]") {
         REQUIRE(oss.str() == "<myTag>myValmyOtherValmyThirdVal");
     }
 
-    SECTION("Write empty value for open tag") {
+    SUBCASE("Write empty value for open tag") {
         parser.openTag("myTag");
         parser.writeTag("myTag", "");
         REQUIRE(oss.str() == "<myTag>");
     }
 
-    SECTION("Write value for open tag that is not the latest writes nothing") {
+    SUBCASE("Write value for open tag that is not the latest writes nothing") {
         parser.openTag("otherTag");
         parser.openTag("myTag");
         parser.writeTag("otherTag", "otherVal");
         REQUIRE(oss.str() == "<otherTag>\n<myTag>");
     }
 
-    SECTION("Write value for open tag that doesn't exist writes nothing") {
+    SUBCASE("Write value for open tag that doesn't exist writes nothing") {
         parser.openTag("myTag");
         parser.writeTag("otherTag", "otherVal");
         REQUIRE(oss.str() == "<myTag>");
     }
 
-    SECTION("Values with < in the beginning get the character replaced with bell") {
+    SUBCASE("Values with < in the beginning get the character replaced with bell") {
         parser.openTag("myTag");
         parser.writeTag("myTag", "<<weirdValue>");
         REQUIRE(oss.str() == "<myTag>\a\aweirdValue>");
     }
 
-    SECTION("closeTag with null string writes nothing") {
+    SUBCASE("closeTag with null string writes nothing") {
         parser.openTag("myTag");
         parser.writeTag("myTag", "myVal");
         parser.closeTag("");
         REQUIRE(oss.str() == "<myTag>myVal");
     }
 
-    SECTION("CloseTag closes latest open tag") {
+    SUBCASE("CloseTag closes latest open tag") {
         parser.openTag("myTag");
         parser.writeTag("myTag", "myVal");
         parser.closeTag("myTag");
         REQUIRE(oss.str() == "<myTag>myVal</myTag>");;
     }
 
-    SECTION("CloseTag with not the latest open tag writes nothing") {
+    SUBCASE("CloseTag with not the latest open tag writes nothing") {
         parser.openTag("firstTag");
         parser.openTag("myTag");
         parser.writeTag("myTag", "myVal");
@@ -344,7 +345,7 @@ TEST_CASE("XMLParser writing, [XMLParser]") {
         REQUIRE(oss.str() == "<firstTag>\n<myTag>myVal");
     }
 
-    SECTION("CloseTag with non-existent tag writes nothing") {
+    SUBCASE("CloseTag with non-existent tag writes nothing") {
         parser.openTag("myTag");
         parser.writeTag("myTag", "myVal");
         parser.closeTag("nonsense");
@@ -353,7 +354,7 @@ TEST_CASE("XMLParser writing, [XMLParser]") {
 }
 
 TEST_CASE("XMLParser reading, [XMLParser]") {
-    std::fstream ifs("../tests/testxml.txt", std::ios::in);  // TODO: get this test file auto-copied over
+    std::fstream ifs(TESTXML_PATH, std::ios::in);  // path injected by CMake (TESTXML_PATH)
     XMLParser parser(&ifs, false);
 
     if (ifs.is_open())
@@ -372,29 +373,29 @@ TEST_CASE("XMLParser reading, [XMLParser]") {
     //# Comment
     //<final>Final</final>
 
-    SECTION("getCurrentIdx returns zero on construction") {
+    SUBCASE("getCurrentIdx returns zero on construction") {
         REQUIRE(parser.getCurrentIndex() == 0);
     }
 
-    SECTION("ReadTag") {
+    SUBCASE("ReadTag") {
         REQUIRE(parser.readTag() == "hello");
     }
 
-    SECTION("ReadTagValue") {
+    SUBCASE("ReadTagValue") {
         REQUIRE(parser.readTag() == "hello");
         REQUIRE(parser.readTagValue("hello") == "HelloValue");
     }
 
-    SECTION("ReadTagValue on non-value token returns empty string") {
+    SUBCASE("ReadTagValue on non-value token returns empty string") {
         REQUIRE(parser.readTagValue("hello") == "");
     }
 
-    SECTION("ReadTagValue with arbitrary tagName returns current tag value") {
+    SUBCASE("ReadTagValue with arbitrary tagName returns current tag value") {
         REQUIRE(parser.readTag() == "hello");
         REQUIRE(parser.readTagValue("nonsense") == "HelloValue");
     }
 
-    SECTION("ReadTag repeatedly returns empty string until readCloseTag is called") {
+    SUBCASE("ReadTag repeatedly returns empty string until readCloseTag is called") {
         REQUIRE(parser.readTag() == "hello");
         REQUIRE(parser.readTag() == "");
         REQUIRE(parser.readTag() == "");
@@ -403,7 +404,7 @@ TEST_CASE("XMLParser reading, [XMLParser]") {
         REQUIRE(parser.readTag() == "port");
     }
 
-    SECTION("ReadCloseTag closes the most open tag") {
+    SUBCASE("ReadCloseTag closes the most open tag") {
         REQUIRE(parser.readTag() == "hello");
         REQUIRE(parser.readCloseTag() == "hello");
         REQUIRE(parser.readTag() == "port");
@@ -412,11 +413,11 @@ TEST_CASE("XMLParser reading, [XMLParser]") {
         REQUIRE(parser.readCloseTag() == "port");
     }
 
-    SECTION("ReadCloseTag reads ahead tokens even if they are not read with readTag") {
+    SUBCASE("ReadCloseTag reads ahead tokens even if they are not read with readTag") {
         REQUIRE(parser.readCloseTag() == "hello");
     }
 
-    SECTION("isTag and isCloseTag check the next token ahead") {
+    SUBCASE("isTag and isCloseTag check the next token ahead") {
         REQUIRE(parser.isTag(parser.getCurrentIndex()) == true);
         REQUIRE(parser.readTag() == "hello");
         REQUIRE(parser.isTag(parser.getCurrentIndex()) == false);
@@ -437,7 +438,7 @@ TEST_CASE("XMLParser reading, [XMLParser]") {
         REQUIRE(parser.readCloseTag() == "port");
     }
 
-    SECTION("ReadTag munches comments and returns next token data") {
+    SUBCASE("ReadTag munches comments and returns next token data") {
         REQUIRE(parser.readTag() == "hello");
         REQUIRE(parser.readCloseTag() == "hello");
         REQUIRE(parser.readTag() == "port");

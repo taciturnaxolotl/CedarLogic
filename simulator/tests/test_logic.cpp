@@ -1,12 +1,13 @@
 #include "logic.hpp"
-#include <catch2/catch_test_macros.hpp>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include <doctest/doctest.h>
 #include <stdint.h>
 
 using namespace logic;
 
 typedef std::vector<Logic_Value> vec;
 
-TEST_CASE("OR 2x logic is sound", "[LOGIC]") {
+TEST_CASE("OR 2x logic is sound") {
   CHECK(OR(vec{Logic_Value::ZERO, Logic_Value::ZERO}) == Logic_Value::ZERO);
   CHECK(OR(vec{Logic_Value::ONE, Logic_Value::ONE}) == Logic_Value::ONE);
   CHECK(OR(vec{Logic_Value::HI_Z, Logic_Value::HI_Z}) == Logic_Value::UNKNOWN);
@@ -51,7 +52,7 @@ TEST_CASE("OR 2x logic is sound", "[LOGIC]") {
         Logic_Value::UNKNOWN);
 }
 
-TEST_CASE("OR 3x logic is sound", "[LOGIC]") {
+TEST_CASE("OR 3x logic is sound") {
   CHECK(OR(vec{Logic_Value::ZERO, Logic_Value::ZERO, Logic_Value::ZERO}) ==
         Logic_Value::ZERO);
   CHECK(OR(vec{Logic_Value::ZERO, Logic_Value::ZERO, Logic_Value::ONE}) ==
@@ -72,7 +73,7 @@ TEST_CASE("OR 3x logic is sound", "[LOGIC]") {
         Logic_Value::ONE);
 }
 
-TEST_CASE("AND 2x logic is sound", "[LOGIC]") {
+TEST_CASE("AND 2x logic is sound") {
   CHECK(AND(vec{Logic_Value::ZERO, Logic_Value::ZERO}) == Logic_Value::ZERO);
   CHECK(AND(vec{Logic_Value::ONE, Logic_Value::ONE}) == Logic_Value::ONE);
   CHECK(AND(vec{Logic_Value::HI_Z, Logic_Value::HI_Z}) == Logic_Value::UNKNOWN);
@@ -119,7 +120,7 @@ TEST_CASE("AND 2x logic is sound", "[LOGIC]") {
         Logic_Value::UNKNOWN);
 }
 
-TEST_CASE("AND 3x logic is sound", "[LOGIC]") {
+TEST_CASE("AND 3x logic is sound") {
   CHECK(AND(vec{Logic_Value::ZERO, Logic_Value::ZERO, Logic_Value::ZERO}) ==
         Logic_Value::ZERO);
   CHECK(AND(vec{Logic_Value::ZERO, Logic_Value::ZERO, Logic_Value::ONE}) ==
@@ -140,7 +141,7 @@ TEST_CASE("AND 3x logic is sound", "[LOGIC]") {
         Logic_Value::ONE);
 }
 
-TEST_CASE("XOR 2x logic is sound", "[LOGIC]") {
+TEST_CASE("XOR 2x logic is sound") {
   CHECK(XOR(vec{Logic_Value::ZERO, Logic_Value::ZERO}) == Logic_Value::ZERO);
   CHECK(XOR(vec{Logic_Value::ONE, Logic_Value::ONE}) == Logic_Value::ZERO);
   CHECK(XOR(vec{Logic_Value::HI_Z, Logic_Value::HI_Z}) == Logic_Value::UNKNOWN);
@@ -189,7 +190,7 @@ TEST_CASE("XOR 2x logic is sound", "[LOGIC]") {
         Logic_Value::UNKNOWN);
 }
 
-TEST_CASE("XOR 3x logic is sound", "[LOGIC]") {
+TEST_CASE("XOR 3x logic is sound") {
 
   CHECK(XOR(vec{Logic_Value::ZERO, Logic_Value::ZERO, Logic_Value::ZERO}) ==
         Logic_Value::ZERO);
@@ -209,7 +210,7 @@ TEST_CASE("XOR 3x logic is sound", "[LOGIC]") {
         Logic_Value::ONE);
 }
 
-TEST_CASE("XOR 4x logic is sound", "[LOGIC]") {
+TEST_CASE("XOR 4x logic is sound") {
 
   CHECK(XOR(vec{Logic_Value::ZERO, Logic_Value::ZERO, Logic_Value::ZERO,
                 Logic_Value::ZERO}) == Logic_Value::ZERO);
@@ -245,7 +246,7 @@ TEST_CASE("XOR 4x logic is sound", "[LOGIC]") {
                 Logic_Value::ONE}) == Logic_Value::ZERO);
 }
 
-TEST_CASE("NOR 2x logic is sound", "[LOGIC]") {
+TEST_CASE("NOR 2x logic is sound") {
   CHECK(NOR(vec{Logic_Value::ZERO, Logic_Value::ZERO}) == Logic_Value::ONE);
   CHECK(NOR(vec{Logic_Value::ONE, Logic_Value::ONE}) == Logic_Value::ZERO);
   CHECK(NOR(vec{Logic_Value::HI_Z, Logic_Value::HI_Z}) == Logic_Value::UNKNOWN);
@@ -290,7 +291,7 @@ TEST_CASE("NOR 2x logic is sound", "[LOGIC]") {
         Logic_Value::UNKNOWN);
 }
 
-TEST_CASE("NAND 2x logic is sound", "[LOGIC]") {
+TEST_CASE("NAND 2x logic is sound") {
   CHECK(NAND(vec{Logic_Value::ZERO, Logic_Value::ZERO}) == Logic_Value::ONE);
   CHECK(NAND(vec{Logic_Value::ONE, Logic_Value::ONE}) == Logic_Value::ZERO);
   CHECK(NAND(vec{Logic_Value::HI_Z, Logic_Value::HI_Z}) ==
@@ -338,7 +339,7 @@ TEST_CASE("NAND 2x logic is sound", "[LOGIC]") {
         Logic_Value::UNKNOWN);
 }
 
-TEST_CASE("Tri-state buffer high-active test", "[LOGIC]") {
+TEST_CASE("Tri-state buffer high-active test") {
   CHECK(tri_state_buffer_high_active(Logic_Value::ZERO, Logic_Value::ZERO) ==
         Logic_Value::HI_Z);
   CHECK(tri_state_buffer_high_active(Logic_Value::ZERO, Logic_Value::ONE) ==
@@ -349,7 +350,7 @@ TEST_CASE("Tri-state buffer high-active test", "[LOGIC]") {
         Logic_Value::ONE);
 }
 
-TEST_CASE("Tri-state buffer low-active test", "[LOGIC]") {
+TEST_CASE("Tri-state buffer low-active test") {
   CHECK(tri_state_buffer_low_active(Logic_Value::ZERO, Logic_Value::ZERO) ==
         Logic_Value::ZERO);
   CHECK(tri_state_buffer_low_active(Logic_Value::ZERO, Logic_Value::ONE) ==
@@ -360,8 +361,7 @@ TEST_CASE("Tri-state buffer low-active test", "[LOGIC]") {
         Logic_Value::HI_Z);
 }
 
-TEST_CASE("Tri-state buffer high-active equivalent to low-active NOT(enable)",
-          "[LOGIC]") {
+TEST_CASE("Tri-state buffer high-active equivalent to low-active NOT(enable)") {
   CHECK(tri_state_buffer_low_active(Logic_Value::ZERO, Logic_Value::ZERO) ==
         tri_state_buffer_high_active(Logic_Value::ZERO, Logic_Value::ONE));
   CHECK(tri_state_buffer_low_active(Logic_Value::ZERO, Logic_Value::ONE) ==
@@ -372,7 +372,7 @@ TEST_CASE("Tri-state buffer high-active equivalent to low-active NOT(enable)",
         tri_state_buffer_high_active(Logic_Value::ONE, Logic_Value::ZERO));
 }
 
-TEST_CASE("JK next Q logic is sound", "[LOGIC]") {
+TEST_CASE("JK next Q logic is sound") {
   CHECK(JK_next_Q(Logic_Value::ZERO, Logic_Value::ZERO, Logic_Value::ZERO) ==
         Logic_Value::ZERO);
   CHECK(JK_next_Q(Logic_Value::ZERO, Logic_Value::ZERO, Logic_Value::ONE) ==
@@ -391,14 +391,14 @@ TEST_CASE("JK next Q logic is sound", "[LOGIC]") {
         Logic_Value::ZERO);
 }
 
-TEST_CASE("MUX 2x1 sets output correctly", "[LOGIC]") {
+TEST_CASE("MUX 2x1 sets output correctly") {
   CHECK(mux(vec{Logic_Value::ONE, Logic_Value::ZERO}, vec{Logic_Value::ZERO}) ==
         Logic_Value::ONE);
   CHECK(mux(vec{Logic_Value::ONE, Logic_Value::ZERO}, vec{Logic_Value::ONE}) ==
         Logic_Value::ZERO);
 }
 
-TEST_CASE("MUX 4x2 sets output correctly", "[LOGIC]") {
+TEST_CASE("MUX 4x2 sets output correctly") {
   vec all_high = {Logic_Value::ONE, Logic_Value::ONE, Logic_Value::ONE,
                   Logic_Value::ONE};
   vec all_low = {Logic_Value::ZERO, Logic_Value::ZERO, Logic_Value::ZERO,
@@ -423,7 +423,7 @@ TEST_CASE("MUX 4x2 sets output correctly", "[LOGIC]") {
   CHECK(mux(all_high, select_3) == Logic_Value::ZERO);
 }
 
-TEST_CASE("MUX 4x2 MSB/LSB is interpreted correctly", "[LOGIC]") {
+TEST_CASE("MUX 4x2 MSB/LSB is interpreted correctly") {
   vec all_low = {Logic_Value::ZERO, Logic_Value::ZERO, Logic_Value::ZERO,
                  Logic_Value::ZERO};
   vec select_1 = {Logic_Value::ONE, Logic_Value::ZERO};
@@ -432,7 +432,7 @@ TEST_CASE("MUX 4x2 MSB/LSB is interpreted correctly", "[LOGIC]") {
   CHECK(mux(all_low, select_1) == Logic_Value::ONE);
 }
 
-TEST_CASE("MUX 16x4 sets output correctly", "[LOGIC]") {
+TEST_CASE("MUX 16x4 sets output correctly") {
   vec all_high = {
       Logic_Value::ONE, Logic_Value::ONE, Logic_Value::ONE, Logic_Value::ONE,
       Logic_Value::ONE, Logic_Value::ONE, Logic_Value::ONE, Logic_Value::ONE,
@@ -476,7 +476,7 @@ TEST_CASE("MUX 16x4 sets output correctly", "[LOGIC]") {
   all_high[15] = Logic_Value::ONE;
 }
 
-TEST_CASE("Decoder lights up the right pin", "[LOGIC]") {
+TEST_CASE("Decoder lights up the right pin") {
   CHECK(decode(vec{Logic_Value::ZERO, Logic_Value::ZERO},
                Logic_Value::ONE)[0] == Logic_Value::ONE);
   CHECK(decode(vec{Logic_Value::ONE, Logic_Value::ZERO}, Logic_Value::ONE)[1] ==
@@ -493,7 +493,7 @@ TEST_CASE("Decoder lights up the right pin", "[LOGIC]") {
                Logic_Value::ZERO)[7] == Logic_Value::ZERO);
 }
 
-TEST_CASE("Decoder enable pin works", "[LOGIC]") {
+TEST_CASE("Decoder enable pin works") {
   CHECK(decode(vec{Logic_Value::ONE, Logic_Value::ONE, Logic_Value::ONE},
                Logic_Value::ONE)[7] == Logic_Value::ONE);
   CHECK(decode(vec{Logic_Value::ONE, Logic_Value::ONE, Logic_Value::ONE},
@@ -506,21 +506,21 @@ TEST_CASE("Decoder enable pin works", "[LOGIC]") {
                Logic_Value::UNKNOWN)[7] == Logic_Value::ZERO);
 }
 
-TEST_CASE("nMOS transistor test", "[LOGIC]") {
+TEST_CASE("nMOS transistor test") {
   CHECK(simple_nMOS(Logic_Value::ZERO, Logic_Value::ZERO) == Logic_Value::HI_Z);
   CHECK(simple_nMOS(Logic_Value::ZERO, Logic_Value::ONE) == Logic_Value::ZERO);
   CHECK(simple_nMOS(Logic_Value::ONE, Logic_Value::ZERO) == Logic_Value::HI_Z);
   CHECK(simple_nMOS(Logic_Value::ONE, Logic_Value::ONE) == Logic_Value::ONE);
 }
 
-TEST_CASE("pMOS transistor test", "[LOGIC]") {
+TEST_CASE("pMOS transistor test") {
   CHECK(simple_pMOS(Logic_Value::ZERO, Logic_Value::ZERO) == Logic_Value::ZERO);
   CHECK(simple_pMOS(Logic_Value::ZERO, Logic_Value::ONE) == Logic_Value::HI_Z);
   CHECK(simple_pMOS(Logic_Value::ONE, Logic_Value::ZERO) == Logic_Value::ONE);
   CHECK(simple_pMOS(Logic_Value::ONE, Logic_Value::ONE) == Logic_Value::HI_Z);
 }
 
-TEST_CASE("increment counts up", "[LOGIC]") {
+TEST_CASE("increment counts up") {
   vec seven = {Logic_Value::ONE, Logic_Value::ONE, Logic_Value::ONE};
   vec six = {Logic_Value::ZERO, Logic_Value::ONE, Logic_Value::ONE};
   vec five = {Logic_Value::ONE, Logic_Value::ZERO, Logic_Value::ONE};
@@ -563,7 +563,7 @@ TEST_CASE("increment counts up", "[LOGIC]") {
   CHECK(ret.second == Logic_Value::ONE);
 }
 
-TEST_CASE("decrement counts down", "[LOGIC]") {
+TEST_CASE("decrement counts down") {
   vec seven = {Logic_Value::ONE, Logic_Value::ONE, Logic_Value::ONE};
   vec six = {Logic_Value::ZERO, Logic_Value::ONE, Logic_Value::ONE};
   vec five = {Logic_Value::ONE, Logic_Value::ZERO, Logic_Value::ONE};
@@ -606,7 +606,7 @@ TEST_CASE("decrement counts down", "[LOGIC]") {
   CHECK(ret.second == Logic_Value::ZERO);
 }
 
-TEST_CASE("Counting Register responds to inputs and controlls", "[LOGIC]") {
+TEST_CASE("Counting Register responds to inputs and controlls") {
   // From increment test we know that the roll-over behavior is correct
   vec seven = {Logic_Value::ONE, Logic_Value::ONE, Logic_Value::ONE};
   vec six = {Logic_Value::ZERO, Logic_Value::ONE, Logic_Value::ONE};
