@@ -26,6 +26,10 @@
 #include "wx/sizer.h"
 #include "wx/dialog.h"
 #include "wx/button.h"
+#include "wx/bmpbndl.h"
+#include "wx/artprov.h"
+#include "wx/settings.h"
+#include "wx/file.h"
 #include "CircuitParse.h"
 #include "OscopeFrame.h"
 #include "SettingsDialog.h"
@@ -231,10 +235,17 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	playIcon = sfSymbol("play.fill");
 	toolBar->AddTool(Tool_Pause, "Pause/Resume", pauseIcon, "Pause/Resume", wxITEM_CHECK);
 	toolBar->AddTool(Tool_Step, "Step", sfSymbol("forward.frame.fill"), "Step");
-	timeStepModSlider = new wxSlider(toolBar, wxID_ANY, wxGetApp().timeStepMod, 1, 500, wxDefaultPosition, wxSize(125,-1), wxSL_HORIZONTAL|wxSL_AUTOTICKS);
+	timeStepModSlider = new wxSlider(toolBar, wxID_ANY, wxGetApp().timeStepMod, 1, 500, wxDefaultPosition, wxSize(125,-1), wxSL_HORIZONTAL);
 	wxString oss;
 	oss << wxGetApp().timeStepMod << "ms";
 	timeStepModVal = new wxStaticText(toolBar, wxID_ANY, oss, wxDefaultPosition, wxSize(45, -1), wxSUNKEN_BORDER | wxALIGN_RIGHT | wxST_NO_AUTORESIZE);
+	// Label + tooltip so it's clear this sets the simulation step size / speed.
+	wxStaticText* timeStepModLabel = new wxStaticText(toolBar, wxID_ANY, "Sim step ");
+	const wxString stepTip = "Simulation time per step (ms). Lower = faster simulation, higher = slower.";
+	timeStepModLabel->SetToolTip(stepTip);
+	timeStepModSlider->SetToolTip(stepTip);
+	timeStepModVal->SetToolTip(stepTip);
+	toolBar->AddControl( timeStepModLabel );
 	toolBar->AddControl( timeStepModSlider );
 	toolBar->AddControl( timeStepModVal );
 	toolBar->AddSeparator();
@@ -247,57 +258,67 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	toolBar->AddTool(Tool_NewTab, "New Tab", sfSymbol("plus.square"), "New Tab");
 	toolBar->AddStretchableSpace();
 #else
-	// On Windows/Linux, use the original BMP icons
-	string bitmaps[] = {"new", "open", "save", "undo", "redo", "copy", "paste", "print", "help", "pause", "step", "zoomin", "zoomout", "locked", "newtab"};
-	wxBitmap *bmp[15];
+	// On Windows/Linux, load modern SVG icons via wxBitmapBundle (crisp at any DPI).
+	// The SVGs are authored with a #333333 stroke/fill; recolor at load time so
+	// the icons stay legible on both a light and a dark toolbar.
+	const wxSize iconSize(24, 24);
+	const bool darkMode = wxSystemSettings::GetAppearance().IsDark();
+	const wxString iconColor = darkMode ? "#E6E6E6" : "#333333";
+	auto svgIcon = [&](const char* name) -> wxBitmapBundle {
+		wxString path = wxGetApp().resourcesDir + "res/icons/" + name + ".svg";
+		wxFile f(path);
+		wxString svg;
+		if (f.IsOpened() && f.ReadAll(&svg)) {
+			svg.Replace("#333333", iconColor);
+			// FromSVG takes a mutable buffer (nanosvg parses it in place).
+			wxScopedCharBuffer buf = svg.utf8_str();
+			wxBitmapBundle b = wxBitmapBundle::FromSVG(buf.data(), iconSize);
+			if (b.IsOk()) return b;
+		}
+		wxBitmapBundle b = wxBitmapBundle::FromSVGFile(path, iconSize);
+		if (b.IsOk()) return b;
+		return wxBitmapBundle(wxArtProvider::GetBitmap(wxART_QUESTION, wxART_TOOLBAR));
+	};
 
-	for (int i = 0; i < 15; i++) {
-		string bmpPath = wxGetApp().resourcesDir + "res/bitmaps/" + bitmaps[i] + ".bmp";
-		wxFileInputStream in(bmpPath);
-		bmp[i] = new wxBitmap(wxImage(in, wxBITMAP_TYPE_BMP));
-	}
-
-	int w = bmp[0]->GetWidth(),
-		h = bmp[0]->GetHeight();
-	toolBar->SetToolBitmapSize(wxSize(w, h));
-	toolBar->AddTool(wxID_NEW, "New", *bmp[0], "New");
-	toolBar->AddTool(wxID_OPEN, "Open", *bmp[1], "Open");
-	toolBar->AddTool(wxID_SAVE, "Save", *bmp[2], "Save");
+	toolBar->SetToolBitmapSize(iconSize);
+	toolBar->AddTool(wxID_NEW, "New", svgIcon("new"), "New");
+	toolBar->AddTool(wxID_OPEN, "Open", svgIcon("open"), "Open");
+	toolBar->AddTool(wxID_SAVE, "Save", svgIcon("save"), "Save");
 	toolBar->AddSeparator();
-	toolBar->AddTool(wxID_UNDO, "Undo", *bmp[3], "Undo");
-	toolBar->AddTool(wxID_REDO, "Redo", *bmp[4], "Redo");
+	toolBar->AddTool(wxID_UNDO, "Undo", svgIcon("undo"), "Undo");
+	toolBar->AddTool(wxID_REDO, "Redo", svgIcon("redo"), "Redo");
 	toolBar->AddSeparator();
-	toolBar->AddTool(wxID_COPY, "Copy", *bmp[5], "Copy");
-	toolBar->AddTool(wxID_PASTE, "Paste", *bmp[6], "Paste");
+	toolBar->AddTool(wxID_COPY, "Copy", svgIcon("copy"), "Copy");
+	toolBar->AddTool(wxID_PASTE, "Paste", svgIcon("paste"), "Paste");
 	toolBar->AddSeparator();
-	toolBar->AddTool(Tool_ZoomIn, "Zoom In", *bmp[11], "Zoom In");
-	toolBar->AddTool(Tool_ZoomOut, "Zoom Out", *bmp[12], "Zoom Out");
+	toolBar->AddTool(Tool_ZoomIn, "Zoom In", svgIcon("zoomin"), "Zoom In");
+	toolBar->AddTool(Tool_ZoomOut, "Zoom Out", svgIcon("zoomout"), "Zoom Out");
 	toolBar->AddSeparator();
-	pauseIcon = *bmp[9];
-	// Load play icon
-	{
-		string playPath = wxGetApp().resourcesDir + "res/bitmaps/play.bmp";
-		wxFileInputStream playIn(playPath);
-		playIcon = wxBitmap(wxImage(playIn, wxBITMAP_TYPE_BMP));
-	}
+	pauseIcon = svgIcon("pause").GetBitmap(iconSize);
+	playIcon = svgIcon("play").GetBitmap(iconSize);
 	toolBar->AddTool(Tool_Pause, "Pause/Resume", pauseIcon, "Pause/Resume", wxITEM_CHECK);
-	toolBar->AddTool(Tool_Step, "Step", *bmp[10], "Step");
-	timeStepModSlider = new wxSlider(toolBar, wxID_ANY, wxGetApp().timeStepMod, 1, 500, wxDefaultPosition, wxSize(125,-1), wxSL_HORIZONTAL|wxSL_AUTOTICKS);
+	toolBar->AddTool(Tool_Step, "Step", svgIcon("step"), "Step");
+	timeStepModSlider = new wxSlider(toolBar, wxID_ANY, wxGetApp().timeStepMod, 1, 500, wxDefaultPosition, wxSize(125,-1), wxSL_HORIZONTAL);
 	wxString oss;
 	oss << wxGetApp().timeStepMod << "ms";
 	timeStepModVal = new wxStaticText(toolBar, wxID_ANY, oss, wxDefaultPosition, wxSize(45, -1), wxSUNKEN_BORDER | wxALIGN_RIGHT | wxST_NO_AUTORESIZE);
+	// Label + tooltip so it's clear this sets the simulation step size / speed.
+	wxStaticText* timeStepModLabel = new wxStaticText(toolBar, wxID_ANY, "Sim step ");
+	const wxString stepTip = "Simulation time per step (ms). Lower = faster simulation, higher = slower.";
+	timeStepModLabel->SetToolTip(stepTip);
+	timeStepModSlider->SetToolTip(stepTip);
+	timeStepModVal->SetToolTip(stepTip);
+	toolBar->AddControl( timeStepModLabel );
 	toolBar->AddControl( timeStepModSlider );
 	toolBar->AddControl( timeStepModVal );
 	toolBar->AddSeparator();
-	toolBar->AddTool(Tool_Lock, "Lock state", *bmp[13], "Lock state", wxITEM_CHECK);
+	lockedIcon = svgIcon("locked").GetBitmap(iconSize);
+	unlockedIcon = svgIcon("unlocked").GetBitmap(iconSize);
+	toolBar->AddTool(Tool_Lock, "Lock state", unlockedIcon, "Lock state", wxITEM_CHECK);
 	toolBar->AddSeparator();
-	toolBar->AddTool(wxID_ABOUT, "About", *bmp[8], "About");
+	toolBar->AddTool(wxID_ABOUT, "About", svgIcon("about"), "About");
 	toolBar->AddSeparator();
-	toolBar->AddTool(Tool_NewTab, "New Tab", *bmp[14], "New Tab");
-
-	for (int i = 0; i < 15; i++) {
-		delete bmp[i];
-	}
+	toolBar->AddTool(Tool_NewTab, "New Tab", svgIcon("newtab"), "New Tab");
 #endif
 	SetToolBar(toolBar);
 	toolBar->Show(true);
@@ -1167,9 +1188,11 @@ void MainFrame::OnHelpContents(wxCommandEvent& event) {
 }
 
 void MainFrame::OnTimeStepModSlider(wxScrollEvent& event) {
+	// Update the value first, then rebuild the label from it -- otherwise the
+	// readout lags one change behind the slider.
+	wxGetApp().timeStepMod = timeStepModSlider->GetValue();
 	wxString oss;
 	oss << wxGetApp().timeStepMod << "ms";
-	wxGetApp().timeStepMod = timeStepModSlider->GetValue();
 	timeStepModVal->SetLabel(oss);
 }
 
