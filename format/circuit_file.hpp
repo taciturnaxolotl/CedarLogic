@@ -39,26 +39,42 @@ struct GateInstance {
 	}
 };
 
-// One endpoint of a wire: a gate (by uuid) and the pin name on it.
+// One endpoint on a wire segment: a gate (by uuid) and the pin (hotspot) on it.
 struct WireConn {
 	std::string gateUuid;
 	std::string pin;
 	bool operator==(const WireConn &o) const { return gateUuid == o.gateUuid && pin == o.pin; }
 };
 
-// A straight segment of a wire's routed path. Wires branch, so routing is a set
-// of segments (matching the legacy h/v segment tree), not a single polyline.
-struct Segment {
-	XY a, b;
-	bool operator==(const Segment &o) const { return a == o.a && b == o.b; }
+// A point where one segment meets another of the same wire — the branch topology.
+// `at` is the coordinate along the segment (x for a horizontal segment, y for a
+// vertical one); `segment` is the id of the segment met there.
+struct Intersection {
+	double at = 0;
+	std::string segment;
+	bool operator==(const Intersection &o) const { return at == o.at && segment == o.segment; }
 };
 
+// One straight run of a wire. Wires are a tree of these, joined at intersections;
+// the whole structure is routing the user drew, so it is preserved verbatim.
+struct WireSegment {
+	std::string id;
+	bool vertical = false;                    // authored orientation, not derived from a/b
+	XY begin, end;                            // legacy invariant: begin <= end
+	std::vector<WireConn> connects;           // gate pins landing on this segment
+	std::vector<Intersection> intersections;  // joins to other segments of this wire
+	bool operator==(const WireSegment &o) const {
+		return id == o.id && vertical == o.vertical && begin == o.begin && end == o.end &&
+		       connects == o.connects && intersections == o.intersections;
+	}
+};
+
+// A wire: one or more IDs (a bus carries several lines) and its segment tree.
 struct WireInstance {
-	std::string uuid;
-	std::vector<WireConn> connects;
-	std::vector<Segment> route;   // the exact routed path, preserved verbatim
+	std::vector<std::string> ids;
+	std::vector<WireSegment> segments;
 	bool operator==(const WireInstance &o) const {
-		return uuid == o.uuid && connects == o.connects && route == o.route;
+		return ids == o.ids && segments == o.segments;
 	}
 };
 

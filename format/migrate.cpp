@@ -102,11 +102,12 @@ void applyDecoderWidth(CircuitFile &cf, std::vector<MigrationNotice> &out) {
 			// Outputs OUT_[fixed .. buggy-1] disappear; collect any that are wired.
 			std::vector<int> dropped;
 			for (const WireInstance &w : pg.wires)
-				for (const WireConn &c : w.connects) {
-					if (c.gateUuid != g.uuid) continue;
-					int idx = outIndex(c.pin);
-					if (idx >= fixed && idx < buggy) dropped.push_back(idx);
-				}
+				for (const WireSegment &s : w.segments)
+					for (const WireConn &c : s.connects) {
+						if (c.gateUuid != g.uuid) continue;
+						int idx = outIndex(c.pin);
+						if (idx >= fixed && idx < buggy) dropped.push_back(idx);
+					}
 			if (dropped.empty()) continue; // corrected silently — nothing was lost
 
 			std::string pins;

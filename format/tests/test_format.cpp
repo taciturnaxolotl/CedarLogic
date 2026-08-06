@@ -52,11 +52,22 @@ TEST_CASE("CircuitFile round-trips through the v3 format") {
 	pg.gates.push_back(andGate);
 
 	WireInstance wire;
-	wire.uuid = "77e0";
-	wire.connects = { { "3f9a", "OUT_0" }, { "b21c", "IN_0" } };
-	wire.route = { { { -5, 0 }, { 3, 0 } },   // hand-shaped path, as segments
-	               { { 3, 0 }, { 3, 1 } },
-	               { { 3, 1 }, { 9, 1 } } };
+	wire.ids = { "77e0" };
+	WireSegment s0;
+	s0.id = "0";
+	s0.vertical = false;
+	s0.begin = { -5, 0 };
+	s0.end = { 3, 0 };
+	s0.connects = { { "3f9a", "OUT_0" } };
+	s0.intersections = { { 3, "1" } }; // meets segment 1 at x=3
+	WireSegment s1;
+	s1.id = "1";
+	s1.vertical = true;
+	s1.begin = { 3, 0 };
+	s1.end = { 3, 1 };
+	s1.connects = { { "b21c", "IN_0" } };
+	s1.intersections = { { 0, "0" } };
+	wire.segments = { s0, s1 };
 	pg.wires.push_back(wire);
 
 	cf.pages.push_back(pg);

@@ -36,18 +36,22 @@ static const char *kV1 = R"CDL(<circuit>
 <ID>100 </ID>
 <shape>
 <hsegment>
+<ID>0</ID>
 <points>-45,10,10,10</points>
 <connection>
 <GID>0</GID>
 <name>OUT_0</name>
 </connection>
+<intersection>10 1</intersection>
 </hsegment>
 <vsegment>
+<ID>1</ID>
 <points>10,10,10,-4</points>
 <connection>
 <GID>1</GID>
 <name>IN_0</name>
 </connection>
+<intersection>10 0</intersection>
 </vsegment>
 </shape>
 </wire>
@@ -116,13 +120,24 @@ TEST_CASE("readLegacyCdl maps a v1 circuit into the model") {
 
 	REQUIRE(p0.wires.size() == 1);
 	const WireInstance &w = p0.wires[0];
-	CHECK(w.uuid == "100");                       // trailing space trimmed
-	REQUIRE(w.route.size() == 2);                 // branching path kept as segments
-	CHECK(w.route[0] == Segment{ { -45, 10 }, { 10, 10 } });
-	CHECK(w.route[1] == Segment{ { 10, 10 }, { 10, -4 } });
-	REQUIRE(w.connects.size() == 2);
-	CHECK(w.connects[0] == WireConn{ "0", "OUT_0" });
-	CHECK(w.connects[1] == WireConn{ "1", "IN_0" });
+	REQUIRE(w.ids.size() == 1);
+	CHECK(w.ids[0] == "100");                      // trailing space trimmed
+	REQUIRE(w.segments.size() == 2);              // one h + one v segment
+	CHECK(w.segments[0].id == "0");
+	CHECK(w.segments[0].vertical == false);
+	CHECK(w.segments[0].begin == XY{ -45, 10 });
+	CHECK(w.segments[0].end == XY{ 10, 10 });
+	REQUIRE(w.segments[0].connects.size() == 1);
+	CHECK(w.segments[0].connects[0] == WireConn{ "0", "OUT_0" });
+	REQUIRE(w.segments[0].intersections.size() == 1);
+	CHECK(w.segments[0].intersections[0] == Intersection{ 10, "1" }); // meets seg 1 at x=10
+	CHECK(w.segments[1].id == "1");
+	CHECK(w.segments[1].vertical == true);
+	CHECK(w.segments[1].end == XY{ 10, -4 });
+	REQUIRE(w.segments[1].connects.size() == 1);
+	CHECK(w.segments[1].connects[0] == WireConn{ "1", "IN_0" });
+	REQUIRE(w.segments[1].intersections.size() == 1);
+	CHECK(w.segments[1].intersections[0] == Intersection{ 10, "0" });
 
 	CHECK(cf.pages[1].index == 1);
 }

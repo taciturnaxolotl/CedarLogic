@@ -13,6 +13,18 @@ static GateInstance gate(const std::string &uuid, const std::string &lib,
 	return g;
 }
 
+// A one-segment wire landing a single pin of a gate — enough to exercise the
+// connection-aware handlers.
+static WireInstance wireOn(const std::string &gateUuid, const std::string &pin) {
+	WireInstance w;
+	w.ids = { "1" };
+	WireSegment s;
+	s.id = "0";
+	s.connects = { { gateUuid, pin } };
+	w.segments = { s };
+	return w;
+}
+
 static const MigrationNotice *noticeFor(const std::vector<MigrationNotice> &ns,
                                         const std::string &uuid) {
 	for (const MigrationNotice &n : ns)
@@ -58,10 +70,7 @@ TEST_CASE("A 3-bit decoder with no wire on the doomed output is corrected silent
 	CircuitFile cf;
 	Page pg;
 	pg.gates = { gate("dec", "BE_DECODER_3x8", { { "INPUT_BITS", "3", false } }) };
-	WireInstance w;               // wired to a surviving output
-	w.uuid = "1";
-	w.connects = { { "dec", "OUT_0" } };
-	pg.wires.push_back(w);
+	pg.wires.push_back(wireOn("dec", "OUT_0")); // wired to a surviving output
 	cf.pages.push_back(pg);
 
 	CHECK(migrate(cf).empty());
@@ -71,10 +80,7 @@ TEST_CASE("A 3-bit decoder with a wire on OUT_8 warns and is not auto-fixed") {
 	CircuitFile cf;
 	Page pg;
 	pg.gates = { gate("dec", "BE_DECODER_3x8", { { "INPUT_BITS", "3", false } }) };
-	WireInstance w;
-	w.uuid = "1";
-	w.connects = { { "dec", "OUT_8" } };   // this output vanishes after the fix
-	pg.wires.push_back(w);
+	pg.wires.push_back(wireOn("dec", "OUT_8")); // this output vanishes after the fix
 	cf.pages.push_back(pg);
 
 	std::vector<MigrationNotice> ns = migrate(cf);

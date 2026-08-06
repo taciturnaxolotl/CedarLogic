@@ -123,22 +123,35 @@ GateInstance readGate(const XmlNode &g) {
 
 WireInstance readWire(const XmlNode &w) {
 	WireInstance wi;
-	wi.uuid = w.childText("ID");
+	// A wire's <ID> holds one or more whitespace-separated IDs (bus lines).
+	std::istringstream ids(w.childText("ID"));
+	std::string id;
+	while (ids >> id) wi.ids.push_back(id);
+
 	const XmlNode *shape = w.find("shape");
-	if (shape) {
-		for (const XmlNode &seg : shape->kids) {
-			if (seg.name != "hsegment" && seg.name != "vsegment") continue;
-			std::vector<double> p = nums(seg.childText("points"));
-			if (p.size() >= 4) wi.route.push_back({ { p[0], p[1] }, { p[2], p[3] } });
-			for (const XmlNode &c : seg.kids) {
-				if (c.name != "connection") continue;
-				WireConn conn{ c.childText("GID"), c.childText("name") };
-				bool seen = false;
-				for (const WireConn &e : wi.connects)
-					if (e == conn) { seen = true; break; }
-				if (!seen) wi.connects.push_back(conn);
+	if (!shape) return wi;
+	for (const XmlNode &seg : shape->kids) {
+		if (seg.name != "hsegment" && seg.name != "vsegment") continue;
+		WireSegment s;
+		s.vertical = (seg.name == "vsegment");
+		s.id = seg.childText("ID");
+		std::vector<double> p = nums(seg.childText("points"));
+		if (p.size() >= 4) {
+			s.begin = { p[0], p[1] };
+			s.end = { p[2], p[3] };
+		}
+		for (const XmlNode &c : seg.kids) {
+			if (c.name == "connection") {
+				s.connects.push_back({ c.childText("GID"), c.childText("name") });
+			} else if (c.name == "intersection") {
+				// "<isectPoint> <isectSegID>"
+				std::istringstream iss(c.text);
+				double at = 0;
+				std::string other;
+				if (iss >> at >> other) s.intersections.push_back({ at, other });
 			}
 		}
+		wi.segments.push_back(std::move(s));
 	}
 	return wi;
 }

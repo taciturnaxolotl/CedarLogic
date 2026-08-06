@@ -54,26 +54,38 @@ static SNode gateNode(const GateInstance &g) {
 static SNode wireNode(const WireInstance &w) {
 	SNode n = SNode::list();
 	n.add(SNode::sym("wire"));
-	n.add(kv("uuid", SNode::str(w.uuid)));
-	for (const WireConn &c : w.connects) {
-		SNode cn = SNode::list();
-		cn.add(SNode::sym("connect"));
-		cn.add(kv("uuid", SNode::str(c.gateUuid)));
-		cn.add(kv("pin", SNode::str(c.pin)));
-		n.add(std::move(cn));
-	}
-	SNode route = SNode::list();
-	route.add(SNode::sym("route"));
-	for (const Segment &s : w.route) {
+	SNode ids = SNode::list();
+	ids.add(SNode::sym("ids"));
+	for (const std::string &id : w.ids) ids.add(SNode::str(id));
+	n.add(std::move(ids));
+	for (const WireSegment &s : w.segments) {
 		SNode seg = SNode::list();
 		seg.add(SNode::sym("seg"));
-		seg.add(num(s.a.x));
-		seg.add(num(s.a.y));
-		seg.add(num(s.b.x));
-		seg.add(num(s.b.y));
-		route.add(std::move(seg));
+		seg.add(SNode::str(s.id));
+		seg.add(SNode::sym(s.vertical ? "v" : "h"));
+		SNode pts = SNode::list();
+		pts.add(SNode::sym("pts"));
+		pts.add(num(s.begin.x));
+		pts.add(num(s.begin.y));
+		pts.add(num(s.end.x));
+		pts.add(num(s.end.y));
+		seg.add(std::move(pts));
+		for (const WireConn &c : s.connects) {
+			SNode cn = SNode::list();
+			cn.add(SNode::sym("connect"));
+			cn.add(SNode::str(c.gateUuid));
+			cn.add(SNode::str(c.pin));
+			seg.add(std::move(cn));
+		}
+		for (const Intersection &x : s.intersections) {
+			SNode xn = SNode::list();
+			xn.add(SNode::sym("cross"));
+			xn.add(num(x.at));
+			xn.add(SNode::str(x.segment));
+			seg.add(std::move(xn));
+		}
+		n.add(std::move(seg));
 	}
-	n.add(std::move(route));
 	return n;
 }
 
@@ -131,17 +143,23 @@ static GateInstance readGate(const SNode &n) {
 
 static WireInstance readWire(const SNode &n) {
 	WireInstance w;
-	w.uuid = kvStr(n, "uuid");
-	for (const SNode &c : n.items) {
-		if (!c.isList()) continue;
-		if (c.head() == "connect")
-			w.connects.push_back({ kvStr(c, "uuid"), kvStr(c, "pin") });
+	if (const SNode *ids = n.child("ids"))
+		for (size_t i = 1; i < ids->items.size(); i++) w.ids.push_back(item(*ids, i));
+	for (const SNode &s : n.items) {
+		if (!s.isList() || s.head() != "seg") continue;
+		WireSegment seg;
+		seg.id = item(s, 1);
+		seg.vertical = (item(s, 2) == "v");
+		const SNode &pts = reqChild(s, "pts");
+		seg.begin = { std::stod(item(pts, 1)), std::stod(item(pts, 2)) };
+		seg.end = { std::stod(item(pts, 3)), std::stod(item(pts, 4)) };
+		for (const SNode &c : s.items) {
+			if (!c.isList()) continue;
+			if (c.head() == "connect") seg.connects.push_back({ item(c, 1), item(c, 2) });
+			else if (c.head() == "cross") seg.intersections.push_back({ std::stod(item(c, 1)), item(c, 2) });
+		}
+		w.segments.push_back(std::move(seg));
 	}
-	if (const SNode *route = n.child("route"))
-		for (const SNode &s : route->items)
-			if (s.isList() && s.head() == "seg")
-				w.route.push_back({ { std::stod(item(s, 1)), std::stod(item(s, 2)) },
-				                    { std::stod(item(s, 3)), std::stod(item(s, 4)) } });
 	return w;
 }
 
