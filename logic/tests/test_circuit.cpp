@@ -253,9 +253,6 @@ TEST_CASE("2-bit COMPARE magnitude comparator") {
 }
 
 TEST_CASE("2-to-4 DECODER activates the addressed output line") {
-	// NOTE: the engine computes output width as inBits^2 (a latent bug in
-	// Gate_DECODER::setParameter); that only equals 2^inBits for INPUT_BITS in
-	// {2, 4}, so we exercise it at 2 where the intended and actual widths agree.
 	// Enable pins (ENABLE/ENABLE_B/ENABLE_C) are left floating = enabled.
 	Circuit c;
 	IDType dec = c.newGate("DECODER");
@@ -276,6 +273,33 @@ TEST_CASE("2-to-4 DECODER activates the addressed output line") {
 	CHECK(c.getWireState(wO0) == ZERO);
 	CHECK(c.getWireState(wO1) == ZERO);
 	CHECK(c.getWireState(wO3) == ZERO);
+}
+
+TEST_CASE("3-to-8 DECODER has exactly 8 outputs and selects the top one") {
+	// Regression for the width fix: INPUT_BITS 3 must give 2^3 = 8 outputs
+	// (OUT_0..OUT_7), not the old inBits^2 = 9. Address 7 (111b) selects OUT_7,
+	// and OUT_8 must not exist.
+	Circuit c;
+	IDType dec = c.newGate("DECODER");
+	c.setGateParameter(dec, "INPUT_BITS", "3");
+	IDType d0 = makeDriver(c, 1), d1 = makeDriver(c, 1), d2 = makeDriver(c, 1); // IN = 111b = 7
+	IDType wIn0 = c.newWire(), wIn1 = c.newWire(), wIn2 = c.newWire();
+	c.connectGateOutput(d0, "OUT_0", wIn0);
+	c.connectGateOutput(d1, "OUT_0", wIn1);
+	c.connectGateOutput(d2, "OUT_0", wIn2);
+	c.connectGateInput(dec, "IN_0", wIn0);
+	c.connectGateInput(dec, "IN_1", wIn1);
+	c.connectGateInput(dec, "IN_2", wIn2);
+	IDType wO7 = c.newWire();
+	c.connectGateOutput(dec, "OUT_7", wO7);
+	stepN(c, 5);
+	CHECK(c.getWireState(wO7) == ONE); // address 7 selected on the last real output
+
+	// OUT_8 was the phantom output; connecting to it now fails (no such hotspot).
+	IDType wO8 = c.newWire();
+	c.connectGateOutput(dec, "OUT_8", wO8);
+	stepN(c, 5);
+	CHECK(c.getWireState(wO8) == HI_Z); // unconnected: never driven
 }
 
 TEST_CASE("PRI_ENCODER outputs the index of the highest set input") {

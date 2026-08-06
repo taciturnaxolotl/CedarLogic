@@ -160,11 +160,12 @@ bool Gate_DECODER::setParameter( string paramName, string value ) {
 	if( paramName == "INPUT_BITS" ) {
 		iss >> inBits;
 
-		// Declare the selection pins!		
+		// Declare the selection pins!
 		if( inBits > 0 ) {
-			// The number of output bits is the power of 2 of the
-			// number of input bits.
-			outBits = (unsigned long)ceil( pow( (double) inBits, 2.0 ) );
+			// One output per input combination: 2^inBits, not inBits^2. (The
+			// old code used pow(inBits, 2), which only coincides at inBits 2 and
+			// 4 and left a 3-bit decoder with a phantom 9th output.)
+			outBits = 1UL << inBits;
 			declareOutputBus( "OUT", outBits );
 		} else {
 			outBits = 0;
