@@ -389,6 +389,16 @@ public:
 	// Get the parameters:
 	string getParameter( string paramName );
 
+	vector<ParamDescriptor> paramSchema() const override {
+		auto s = Gate_N_INPUT::paramSchema();
+		s.push_back({ "SYNC_SET", ParamKind::BOOL });
+		s.push_back({ "SYNC_CLEAR", ParamKind::BOOL });
+		s.push_back({ "UNKNOWN_OUTPUTS", ParamKind::BOOL });
+		s.push_back({ "MAX_COUNT", ParamKind::BITS });
+		s.push_back({ "CURRENT_VALUE", ParamKind::BITS });
+		return s;
+	}
+
 protected:
 	bool syncSet, syncClear, syncLoad, disableHold, unknownOutputs;
 
@@ -424,6 +434,12 @@ public:
 
 	// Get the clock rate:
 	string getParameter( string paramName );
+
+	vector<ParamDescriptor> paramSchema() const override {
+		auto s = Gate::paramSchema();
+		s.push_back({ "HALF_CYCLE", ParamKind::BITS });
+		return s;
+	}
 
 private:
 	TimeType halfCycle;
@@ -517,6 +533,13 @@ public:
 	// Get the current state:
 	string getParameter( string paramName );
 
+	vector<ParamDescriptor> paramSchema() const override {
+		auto s = Gate::paramSchema();
+		s.push_back({ "OUTPUT_BITS", ParamKind::BITS });
+		s.push_back({ "OUTPUT_NUM", ParamKind::INT });
+		return s;
+	}
+
 private:
 	unsigned long output_num;
 	unsigned long outBits;
@@ -580,6 +603,13 @@ public:
 	// Get the parameters:
 	string getParameter( string paramName );
 
+	vector<ParamDescriptor> paramSchema() const override {
+		auto s = Gate::paramSchema();
+		s.push_back({ "SYNC_SET", ParamKind::BOOL });
+		s.push_back({ "SYNC_CLEAR", ParamKind::BOOL });
+		return s;
+	}
+
 protected:
 	StateType currentState;
 	bool syncSet, syncClear;
@@ -601,6 +631,13 @@ public:
 
 	// Get the parameters:
 	string getParameter( string paramName );
+
+	vector<ParamDescriptor> paramSchema() const override {
+		auto s = Gate::paramSchema();
+		s.push_back({ "ADDRESS_BITS", ParamKind::BITS });
+		s.push_back({ "DATA_BITS", ParamKind::BITS });
+		return s;
+	}
 
 	// Write a file containing the memory data:
 	void outputMemoryFile( string fName );
@@ -655,6 +692,12 @@ public:
 
 	// Get the junction's ID:
 	string getParameter( string paramName );
+
+	vector<ParamDescriptor> paramSchema() const override {
+		auto s = Gate::paramSchema();
+		s.push_back({ "JUNCTION_ID", ParamKind::STRING });
+		return s;
+	}
 
 	// Connect a wire to the input of this gate:
 	void connectInput( string inputID, IDType wireID );
@@ -791,6 +834,12 @@ public:
 
 	// Get the parameters:
 	string getParameter(string paramName);
+
+	vector<ParamDescriptor> paramSchema() const override {
+		auto s = Gate::paramSchema();
+		s.push_back({ "INPUT_BITS", ParamKind::BITS });
+		return s;
+	}
 
 private:
 	Circuit * myCircuit;
