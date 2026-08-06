@@ -18,6 +18,7 @@ using namespace std;
 
 class GUICanvas;
 class XMLParser;
+namespace cl { struct CircuitFile; struct WireInstance; }
 
 // used for parsing inputs and outputs
 class gateConnector {
@@ -62,8 +63,10 @@ private:
 
 	// Takes the pieces of gate info found in parseFile and implements them
 	void parseGateToSend(string type, string ID, string position, vector < gateConnector > &inputs, vector < gateConnector > &outputs, vector < parameter > &params);
-	// Parses, builds, and sets a wire's information (shape, id, etc)
-	void parseWireToSend( void );
+	// Build the GUI (gates, wires, routing) from a parsed circuit model.
+	void applyCircuitFile(const cl::CircuitFile &cf);
+	// Rebuild one wire's segment tree from the model and set it on the guiWire.
+	void applyWireShape(const cl::WireInstance &wire);
 };
 
 #endif /*CIRCUITPARSE_H_*/

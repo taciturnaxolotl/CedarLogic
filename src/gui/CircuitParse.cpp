@@ -29,7 +29,9 @@
 #include "GUICircuit.h"
 #include "GUICanvas.h"
 #include <map>
+#include <set>
 #include <unordered_map>
+#include <cstdlib>
 #include "../version.h"
 #include "migrate.hpp"  // cl::loadCircuit: format detection + migration notices
 
@@ -86,20 +88,9 @@ static bool hasBreakingVersion(const string& fileVersion, const string& currentV
 	return fileMajor > currMajor;
 }
 
-// Re-read the file through the format library purely to collect migration
-// notices (gate renames, the decoder-width fix), then present them in one dialog.
-// Best-effort and read-only: it never affects the circuit that was just built,
-// and any failure is swallowed so a report problem can't block a load.
-static void reportMigrationNotices(const string &fileName) {
-	std::vector<cl::MigrationNotice> notices;
-	try {
-		ifstream in(fileName.c_str(), ios::in | ios::binary);
-		ostringstream ss;
-		ss << in.rdbuf();
-		notices = cl::loadCircuit(ss.str()).notices;
-	} catch (...) {
-		return;
-	}
+// Present the migration notices (gate renames, the decoder-width fix) from a
+// load in one dialog, instead of a modal popup per affected gate.
+static void showMigrationNotices(const std::vector<cl::MigrationNotice> &notices) {
 	if (notices.empty()) return;
 
 	bool anyWarning = false;
@@ -116,166 +107,148 @@ static void reportMigrationNotices(const string &fileName) {
 	             wxOK | (anyWarning ? wxICON_EXCLAMATION : wxICON_INFORMATION));
 }
 
+// Pull the <version> value out of a legacy document (if present) for the
+// newer-major-version guard. Returns "" when there is no version tag.
+static string extractVersion(const string &text) {
+	const string open = "<version>", close = "</version>";
+	size_t a = text.find(open);
+	if (a == string::npos) return "";
+	a += open.size();
+	size_t b = text.find(close, a);
+	if (b == string::npos) return "";
+	return text.substr(a, b - a);
+}
+
 vector<GUICanvas*> CircuitParse::parseFile() {
+	// Read the whole file; the format library detects v1/v2/v3, skips the v2
+	// decoy, runs migrations, and hands back a plain circuit model plus notices.
+	ifstream in(fileName.c_str(), ios::in | ios::binary);
+	ostringstream buf;
+	buf << in.rdbuf();
+	string text = buf.str();
 
-	string firstTag = mParse->readTag();
-
-	// Cedar Logic 2.0 and up has version information to keep old versions
-	// of Cedar Logic from opening new, incompatable files.
-	if (firstTag == "version") {
-		std::string versionNumber = mParse->readTagValue("version");
-		if (hasBreakingVersion(versionNumber, VERSION_NUMBER_STRING())) {
-
-			//show error message!!! And quit.
-			wxMessageBox("This file was made with a newer version of Cedar Logic. "
-				"Go to 'Help\\Download Latest Version...' to open this file."
-				"Close CedarLogic without saving to avoid overwriting your work!!!", "Version Error!");
-
-			return gCanvases;
-		}
-		mParse->readCloseTag();
-		firstTag = mParse->readTag();
+	// Keep old builds of Cedar Logic from opening newer, incompatible files.
+	string version = extractVersion(text);
+	if (!version.empty() && hasBreakingVersion(version, VERSION_NUMBER_STRING())) {
+		wxMessageBox("This file was made with a newer version of Cedar Logic. "
+			"Go to 'Help\\Download Latest Version...' to open this file."
+			"Close CedarLogic without saving to avoid overwriting your work!!!", "Version Error!");
+		return gCanvases;
 	}
-	
-	// need to throw exception
-	if (firstTag != "circuit") return gCanvases;
-	
-	// Read the currentPage tag.
-	if( mParse->readTag() == "CurrentPage" ) {
-		string currentPage = mParse->readTagValue( "CurrentPage" );
-		mParse->readCloseTag();
+
+	cl::LoadResult loaded;
+	try {
+		loaded = cl::loadCircuit(text);
+	} catch (const std::exception &e) {
+		wxMessageBox(wxString("Could not read this circuit file:\n") + e.what(),
+		             "Load Error", wxOK | wxICON_ERROR);
+		return gCanvases;
 	}
-	
-	do { // while next tag is not close circuit
-		string temp = mParse->readTag();
-		char pageNum = temp[temp.size()-1] - '0';
-		if ((int)pageNum > (int)(gCanvases.size()-1)) {
-			gCanvas = new GUICanvas(gCanvases[0]->GetParent(), gCanvases[0]->getCircuit(), wxID_ANY, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS);
-			gCanvases.push_back(gCanvas);
-		}
-		else {
-			gCanvas = gCanvases[(int)pageNum];			
-		}
-		
-		string pageTag = temp;
-		// while next tag is not close page
- 		while (!mParse->isCloseTag(mParse->getCurrentIndex())) {
- 			temp = mParse->readTag();
- 			
- 			if( temp == "PageViewport" ) {
-	 			// Read the last page viewport:
-				string pageView = mParse->readTagValue( "PageViewport" );
-				
-				// Set the page viewport:
-				istringstream iss(pageView);
-				GLPoint2f topLeft( 0, 0 );
-				GLPoint2f bottomRight( 50, 50 );
-				char dump;
-				iss >> topLeft.x >> dump >> topLeft.y >> dump >> bottomRight.x >> dump >> bottomRight.y;
-				gCanvas->setViewport(topLeft, bottomRight);
 
-				mParse->readCloseTag();
-			}
-			else if (temp == "gate") {
-				string type, ID, position;
-				vector < gateConnector > inputs, outputs;
-				vector < parameter > params;
-				gateConnector* gc;
-				parameter* pParam;
-				do { // get full gate structure
-					temp = mParse->readTag(); // get tag
-					if (temp == "ID") { // get ID
-						ID = mParse->readTagValue(temp);
-					} else if (temp == "type") { // get type
-						type = mParse->readTagValue(temp);
-						
-						// Swap gate types that were removed in later versions so
-						// construction below succeeds. The user is told what changed
-						// once, via the consolidated migration report (see the
-						// cl::loadCircuit call at the end of parseFile) rather than a
-						// modal popup per gate. Keep this table in sync with the
-						// rename table in format/migrate.cpp.
-						if( type == "AM_RAM_16x16_Single_Port" ){
-							type = "AM_RAM_16x16";
-						}else if( type == "AA_DFF" ){
-							type = "AE_DFF_LOW";
-						}else if( type == "BA_JKFF" ){
-							type = "BE_JKFF_LOW";
-						}else if( type == "BA_JKFF_NT" ){
-							type = "BE_JKFF_LOW_NT";
-						}
-
-					} else if (temp == "position") { // get position
-						position = mParse->readTagValue(temp);
-					} else if (temp == "input") { // get input
-						temp = mParse->readTag(); // get input ID
-						gc = new gateConnector();
-						gc->connectionID = mParse->readTagValue(temp);
-						mParse->readCloseTag();
-
-						istringstream iss(mParse->readTagValue("input"));
-						IDType tempId;
-						while (iss >> tempId) {
-							gc->wireIds.push_back(tempId);
-						}
-						iss.clear();
-
-						inputs.push_back(*gc);
-						delete gc;
-					} else if (temp == "output") { // get output
-						temp = mParse->readTag();
-						gc = new gateConnector();
-						gc->connectionID = mParse->readTagValue(temp);
-						mParse->readCloseTag();
-
-						istringstream iss(mParse->readTagValue("output"));
-						IDType tempId;
-						while (iss >> tempId) {
-							gc->wireIds.push_back(tempId);
-						}
-						iss.clear();
-
-						outputs.push_back(*gc);
-						delete gc;
-					} else if (temp == "gparam" || temp == "lparam") { // get parameter
-						string paramData = mParse->readTagValue(temp);
-						string x, y;
-						istringstream iss(paramData);
-						iss >> x;
-						getline(iss, y, '\n');
-						pParam = new parameter(x, y.substr(1,y.size()-1), (temp == "gparam"));
-						params.push_back(*pParam);
-						delete pParam;
-					}
-					// ADD OTHER TAGS FOR GATE HERE
-						// ALSO MODIFY parseGateToSend
-					mParse->readCloseTag(); // </>
-				} while (!mParse->isCloseTag(mParse->getCurrentIndex()));
-				mParse->readCloseTag(); // >gate
-				parseGateToSend(type, ID, position, inputs, outputs, params);
-			}
-			else if (temp == "wire") {
-				//**********************************
-				parseWireToSend();
-			}
-		}
-		mParse->readTagValue(pageTag);
-		mParse->readCloseTag();
-	} while (!mParse->isCloseTag(mParse->getCurrentIndex()));
-
-	mParse->readCloseTag();
-
-	// This hack works in conjunction with the one at the beginning of saveCircuit.
-	// There is only ever one tab when the dummy circuit is loaded.
-	if (mParse->readTag() == "throw_away") {
-		mParse->readCloseTag();
-		gCanvases[0]->clearCircuit();
-		return parseFile();
-	}
+	applyCircuitFile(loaded.file);
+	showMigrationNotices(loaded.notices);
 
 	gCanvas->getCircuit()->getOscope()->UpdateMenu();
-	reportMigrationNotices(this->fileName);
 	return gCanvases;
+}
+
+// Build the GUI from a parsed circuit model: one canvas per page, every gate
+// (which in turn creates and connects its wires), then each wire's routed shape.
+void CircuitParse::applyCircuitFile(const cl::CircuitFile &cf) {
+	// If no library was loaded, then we can't make gates from one.
+	if (wxGetApp().libraries.size() == 0) return;
+
+	for (const cl::Page &pg : cf.pages) {
+		// Reuse the canvas for this page index, or grow the set to reach it.
+		if (pg.index > (int)(gCanvases.size() - 1)) {
+			gCanvas = new GUICanvas(gCanvases[0]->GetParent(), gCanvases[0]->getCircuit(),
+			                        wxID_ANY, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS);
+			gCanvases.push_back(gCanvas);
+		} else {
+			gCanvas = gCanvases[pg.index];
+		}
+
+		if (pg.hasViewport) {
+			gCanvas->setViewport(GLPoint2f(pg.viewTopLeft.x, pg.viewTopLeft.y),
+			                     GLPoint2f(pg.viewBottomRight.x, pg.viewBottomRight.y));
+		}
+
+		// A gate's pin connections live on the wires; collect them per gate so a
+		// gate is created with the same (pin -> wire ids) list the old gate-side
+		// <input>/<output> blocks carried. Direction is irrelevant here — the old
+		// loader handled inputs and outputs identically.
+		std::unordered_map<string, vector<gateConnector>> connectorsByGate;
+		for (const cl::WireInstance &w : pg.wires) {
+			vector<IDType> wireIds;
+			for (const string &id : w.ids) wireIds.push_back(strtoull(id.c_str(), nullptr, 10));
+			std::set<std::pair<string, string>> seen; // distinct (gate, pin) endpoints
+			for (const cl::WireSegment &s : w.segments) {
+				for (const cl::WireConn &c : s.connects) {
+					if (!seen.insert(std::make_pair(c.gateUuid, c.pin)).second) continue;
+					gateConnector gc;
+					gc.connectionID = c.pin;
+					gc.wireIds = wireIds;
+					connectorsByGate[c.gateUuid].push_back(gc);
+				}
+			}
+		}
+
+		// Create every gate (and, through its connectors, its wires).
+		for (const cl::GateInstance &g : pg.gates) {
+			vector<parameter> params;
+			for (const cl::Param &p : g.params) params.push_back(parameter(p.name, p.value, p.gui));
+			ostringstream angle;
+			angle << g.angle;
+			params.push_back(parameter("angle", angle.str(), true)); // model lifts angle out of params
+
+			ostringstream position;
+			position.precision(12); // don't lose coordinate precision in the double->text hop
+			position << g.at.x << "," << g.at.y;
+
+			vector<gateConnector> outputs; // everything passed as inputs; see note above
+			parseGateToSend(g.libName, g.uuid, position.str(),
+			                connectorsByGate[g.uuid], outputs, params);
+		}
+
+		// Lay in each wire's routed shape now that its gates and wire exist.
+		for (const cl::WireInstance &w : pg.wires) applyWireShape(w);
+	}
+}
+
+// Rebuild one wire's segment tree from the model and set it on the guiWire,
+// mirroring what the old per-wire XML walk did (minus the parsing).
+void CircuitParse::applyWireShape(const cl::WireInstance &w) {
+	vector<IDType> ids;
+	for (const string &id : w.ids) ids.push_back(strtoull(id.c_str(), nullptr, 10));
+	if (ids.empty()) return;
+
+	GUICircuit *gCircuit = gCanvas->getCircuit();
+	// The wire must already exist (it was created while connecting its gates).
+	if (gCircuit->getWires()->find(ids.front()) == gCircuit->getWires()->end()) return;
+
+	map<long, wireSegment> shape;
+	for (const cl::WireSegment &ms : w.segments) {
+		wireSegment seg;
+		seg.verticalSeg = ms.vertical;
+		seg.id = strtol(ms.id.c_str(), nullptr, 10);
+		seg.begin = GLPoint2f(ms.begin.x, ms.begin.y);
+		seg.end = GLPoint2f(ms.end.x, ms.end.y);
+		seg.calcBBox();
+		for (const cl::WireConn &c : ms.connects) {
+			wireConnection nwc;
+			nwc.gid = strtoul(c.gateUuid.c_str(), nullptr, 10);
+			nwc.connection = c.pin;
+			nwc.cGate = (*(gCircuit->getGates()))[nwc.gid];
+			seg.connections.push_back(nwc);
+		}
+		for (const cl::Intersection &x : ms.intersections)
+			seg.intersects[(GLfloat)x.at].push_back(strtol(x.segment.c_str(), nullptr, 10));
+		shape[seg.id] = seg;
+	}
+
+	guiWire *wire = (*(gCircuit->getWires()))[ids.front()];
+	wire->setIDs(ids);
+	wire->setSegmentMap(shape);
 }
 
 void CircuitParse::parseGateToSend(string type, string ID, string position, vector < gateConnector > &inputs, vector < gateConnector > &outputs, vector < parameter > &params) {
@@ -352,97 +325,6 @@ void CircuitParse::parseGateToSend(string type, string ID, string position, vect
 
 		gCanvas->insertWire(wire);
 	}
-}
-
-//********************************
-void CircuitParse::parseWireToSend( void ) {
-	// If no library was loaded, then no gates were made for us
-	if (wxGetApp().libraries.size() == 0) return;
-	// Parse the wire right here, generate its map and set it
-	char dump;
-	// parse the ID
-	string ID; vector<IDType> ids;
-	map < long, wireSegment > wireShape;
-	do { // while next tag is not close wire
-		// tags in wire can be ID or shape
-		string temp = mParse->readTag(); // get tag
-		if (temp == "ID") { // get ID
-			ID = mParse->readTagValue(temp);
-			mParse->readCloseTag(); // >ID
-			ostringstream oss;
-			istringstream iss(ID);
-
-			IDType tempId;
-			while (iss >> tempId) {
-				ids.push_back(tempId);
-			}
-			iss.clear();
-
-		} else if (temp == "shape") { //read tree
-			do {
-				// tags in shape can be hsegment or vsegment; they are identical aside from orientation
-				bool isVertical = false;
-				long headSegmentID = -1; // hold the first segment's id.
-				temp = mParse->readTag();
-				if (temp == "vsegment") isVertical = true;
-				wireSegment newSeg; newSeg.verticalSeg = isVertical;
-				do {
-					// Within segments you have ID, points, connection, and intersection tags
-					temp = mParse->readTag();
-					if (temp == "ID") {					
-						istringstream iss( mParse->readTagValue("ID") );
-						iss >> newSeg.id;
-						if (headSegmentID == -1) headSegmentID = newSeg.id;
-						mParse->readCloseTag();
-					} else if (temp == "points") {
-						// points are begin.x, begin.y, end.x, end.y; comma delimited
-						GLPoint2f begin, end;
-						istringstream iss( mParse->readTagValue("points") );
-						iss >> begin.x >> dump >> begin.y >> dump >> end.x >> dump >> end.y;
-						newSeg.begin = begin;
-						newSeg.end = end;
-						newSeg.calcBBox();
-						mParse->readCloseTag();
-					} else if (temp == "connection") {
-						// connection tags contain GID tag and name tag, one of each
-						unsigned long GID; string hsName;
-						for (int ct = 0; ct < 2; ct++) {
-							temp = mParse->readTag();
-							if (temp == "GID") {
-								istringstream iss( mParse->readTagValue("GID") );
-								iss >> GID;
-								mParse->readCloseTag();
-							} else if (temp == "name") {
-								hsName = mParse->readTagValue("name");
-								mParse->readCloseTag();
-							}
-						}
-						wireConnection nwc; nwc.gid = GID; nwc.connection = hsName;
-						nwc.cGate = (*(gCanvas->getCircuit()->getGates()))[GID];
-						newSeg.connections.push_back( nwc );
-						mParse->readCloseTag();
-					} else if (temp == "intersection") {
-						// intersections have intersection point and id
-						istringstream iss( mParse->readTagValue("intersection") );
-						GLfloat isectPoint; long isectSegID;
-						iss >> isectPoint >> isectSegID;
-						newSeg.intersects[isectPoint].push_back( isectSegID );
-						mParse->readCloseTag();
-					}
-				} while (!mParse->isCloseTag(mParse->getCurrentIndex())); // !closesegment
-				mParse->readCloseTag(); // >segment
-				wireShape[newSeg.id] = newSeg;
-			} while (!mParse->isCloseTag(mParse->getCurrentIndex())); // !closeshape
-			mParse->readCloseTag(); // >shape
-		}
-	} while (!mParse->isCloseTag(mParse->getCurrentIndex())); // !closewire
-	mParse->readCloseTag(); // >wire
-
-	// Check to make sure the wire exists before we do things to it
-	if ((gCanvas->getCircuit()->getWires())->find(ids.front()) == (gCanvas->getCircuit()->getWires())->end()) return;
-
-	(*(gCanvas->getCircuit()->getWires()))[ids.front()]->setIDs(ids);
-	(*(gCanvas->getCircuit()->getWires()))[ids.front()]->setSegmentMap( wireShape );
 }
 
 bool CircuitParse::saveCircuit(string filename, vector< GUICanvas* > glc, unsigned int currPage) {
