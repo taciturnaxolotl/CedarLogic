@@ -424,10 +424,46 @@ TEST_CASE("PULSE holds its output high for a bounded number of steps") {
 	CHECK(returnedLow);      // and then dropped back low
 }
 
-// TODO(behavioral coverage): the following shipping gates still lack C++
-// simulation tests (the gates above show combinational, multi-bit/bus,
-// clocked/sequential, and stateful-memory patterns to follow):
-//   TGATE, NODE, FROM/TO, BUS_END, PASS, T
+TEST_CASE("NODE bridges its connected wires into one net") {
+	// A NODE splices all its inputs onto one always-connected junction, so a
+	// value driven onto one input wire appears on the others.
+	Circuit c;
+	IDType node = c.newGate("NODE");
+	IDType drv = makeDriver(c, 1);
+	IDType wA = c.newWire(), wB = c.newWire();
+	c.connectGateOutput(drv, "OUT_0", wA);
+	c.connectGateInput(node, "N_in0", wA); // driven
+	c.connectGateInput(node, "N_in1", wB); // undriven -> bridged to wA
+	stepN(c, 5);
+	CHECK(c.getWireState(wB) == ONE);
+}
+
+TEST_CASE("TGATE bridges its two data wires only when the control is high") {
+	// Gate_T connects T_in/T_in2 to a junction that is enabled only while
+	// T_ctrl == ONE, so the two data wires are bridged conditionally.
+	auto bridgedState = [](int ctrl) {
+		Circuit c;
+		IDType tg = c.newGate("TGATE");
+		IDType drv = makeDriver(c, 1);
+		IDType dctrl = makeDriver(c, ctrl);
+		IDType wA = c.newWire(), wB = c.newWire(), wC = c.newWire();
+		c.connectGateOutput(drv, "OUT_0", wA);
+		c.connectGateOutput(dctrl, "OUT_0", wC);
+		c.connectGateInput(tg, "T_in", wA);
+		c.connectGateInput(tg, "T_in2", wB);
+		c.connectGateInput(tg, "T_ctrl", wC);
+		stepN(c, 5);
+		return c.getWireState(wB);
+	};
+	CHECK(bridgedState(1) == ONE);  // control high -> wB sees the driven value
+	CHECK(bridgedState(0) == HI_Z); // control low  -> open, wB floats
+}
+
+// TODO(behavioral coverage): FROM/TO (Gate_JUNCTION, named cross-circuit
+// junctions) and BUS_END (per-line bus junctions) remain untested -- both
+// need matched-pair / named-junction setups and have undeclared input pins,
+// so they are awkward to drive in isolation. (BUFFER already exercises
+// Gate_PASS, and TGATE is the "T" gate, so those are covered.)
 // Also worth adding: REGISTER count/shift/clear ops, JKFF SYNC_SET/SYNC_CLEAR
 // and toggle (J=K=1) behavior.
 
