@@ -396,7 +396,7 @@ void klsGLCanvas::wxOnPaint(wxPaintEvent& event) {
 
 	reclaimViewport();
 	klsGLCanvasRender();
-	
+
 	// Show the new buffer:
 	glFlush();
 	SwapBuffers();
@@ -442,6 +442,12 @@ void klsGLCanvas::setPan( GLdouble newX, GLdouble newY ) {
 	updateMiniMap();
 
 	Refresh(); // Obviously it needs refreshed after a pan.
+	// Force an immediate repaint rather than a deferred WM_PAINT. On Windows
+	// WM_PAINT is the lowest-priority message, so during a drag it gets starved
+	// by the flood of mouse-move events the canvas receives (the minimap stays
+	// smooth only because it does not get those events). Painting synchronously
+	// keeps interactive pan/zoom smooth.
+	wxWindow::Update();
 }
 
 
