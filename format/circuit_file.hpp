@@ -42,10 +42,17 @@ struct WireConn {
 	bool operator==(const WireConn &o) const { return gateUuid == o.gateUuid && pin == o.pin; }
 };
 
+// A straight segment of a wire's routed path. Wires branch, so routing is a set
+// of segments (matching the legacy h/v segment tree), not a single polyline.
+struct Segment {
+	XY a, b;
+	bool operator==(const Segment &o) const { return a == o.a && b == o.b; }
+};
+
 struct WireInstance {
 	std::string uuid;
 	std::vector<WireConn> connects;
-	std::vector<XY> route;   // the exact routed path, preserved verbatim
+	std::vector<Segment> route;   // the exact routed path, preserved verbatim
 	bool operator==(const WireInstance &o) const {
 		return uuid == o.uuid && connects == o.connects && route == o.route;
 	}

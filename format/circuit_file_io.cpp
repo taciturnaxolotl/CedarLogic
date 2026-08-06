@@ -30,14 +30,6 @@ static SNode kv(const char *head, SNode value) {
 	return n;
 }
 
-static SNode xyNode(const XY &p) {
-	SNode n = SNode::list();
-	n.add(SNode::sym("xy"));
-	n.add(num(p.x));
-	n.add(num(p.y));
-	return n;
-}
-
 static SNode gateNode(const GateInstance &g) {
 	SNode n = SNode::list();
 	n.add(SNode::sym("gate"));
@@ -72,7 +64,15 @@ static SNode wireNode(const WireInstance &w) {
 	}
 	SNode route = SNode::list();
 	route.add(SNode::sym("route"));
-	for (const XY &p : w.route) route.add(xyNode(p));
+	for (const Segment &s : w.route) {
+		SNode seg = SNode::list();
+		seg.add(SNode::sym("seg"));
+		seg.add(num(s.a.x));
+		seg.add(num(s.a.y));
+		seg.add(num(s.b.x));
+		seg.add(num(s.b.y));
+		route.add(std::move(seg));
+	}
 	n.add(std::move(route));
 	return n;
 }
@@ -138,9 +138,10 @@ static WireInstance readWire(const SNode &n) {
 			w.connects.push_back({ kvStr(c, "uuid"), kvStr(c, "pin") });
 	}
 	if (const SNode *route = n.child("route"))
-		for (const SNode &p : route->items)
-			if (p.isList() && p.head() == "xy")
-				w.route.push_back({ std::stod(item(p, 1)), std::stod(item(p, 2)) });
+		for (const SNode &s : route->items)
+			if (s.isList() && s.head() == "seg")
+				w.route.push_back({ { std::stod(item(s, 1)), std::stod(item(s, 2)) },
+				                    { std::stod(item(s, 3)), std::stod(item(s, 4)) } });
 	return w;
 }
 
