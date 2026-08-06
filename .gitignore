@@ -14,3 +14,8 @@ wasm/dist/
 .crush
 .envrc
 result
+
+# Runtime logs written to the working directory
+corelog.log
+guilog.log
+*.log
