@@ -1,0 +1,3 @@
+# Sample circuit files are byte-exact test fixtures — never normalize their line
+# endings, so every platform's checkout matches what the parser was tested on.
+format/tests/fixtures/*.cdl -text

@@ -50,8 +50,12 @@ if(BUILD_TESTING)
 		FetchContent_MakeAvailable(doctest)
 	endif()
 
-	add_executable(test_format tests/test_format.cpp tests/test_legacy.cpp tests/test_migrate.cpp)
+	add_executable(test_format tests/test_format.cpp tests/test_legacy.cpp
+		tests/test_migrate.cpp tests/test_fixtures.cpp)
 	target_link_libraries(test_format PRIVATE doctest::doctest CircuitFile)
+	# Let the fixture test find the committed real-world .cdl files by absolute path.
+	target_compile_definitions(test_format PRIVATE
+		"FIXTURES_DIR=\"${PROJECT_SOURCE_DIR}/tests/fixtures\"")
 
 	if(ENABLE_SANITIZERS AND NOT MSVC)
 		target_compile_options(test_format PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
