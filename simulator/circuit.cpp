@@ -42,7 +42,7 @@ std::pair<bool, std::vector<uint32_t>> Circuit::delete_gate(uint32_t index) {
 
     /* Delete the input junctions and save IDs of any deleted wires. */
     auto in_js = gates[index]->get_input_j_ids();
-    for (uint i = 0; i < in_js.size(); i++) {
+    for (uint32_t i = 0; i < in_js.size(); i++) {
       auto v = this->delete_junction(in_js[i]).second;
       ret.second.insert(ret.second.end(), v.begin(), v.end());
     }
@@ -70,7 +70,7 @@ Circuit::delete_junction(uint32_t index) {
 
     /* get all wires with only two junctions where this is one of them */
     std::vector<uint32_t> connected_wires_two_js;
-    for (uint i = 0; i < wires.size(); i++) {
+    for (uint32_t i = 0; i < wires.size(); i++) {
       if (wires[i]->has_junction(junctions[index]) &&
           wires[i]->junction_ptrs.size() <= 2) {
         connected_wires_two_js.push_back(i);
@@ -196,7 +196,7 @@ uint32_t Circuit::new_wire(std::vector<uint32_t> junction_indexes) {
 }
 
 void Circuit::process_gates() {
-	for (uint i = 0; i < gates.size(); i++) {
+	for (uint32_t i = 0; i < gates.size(); i++) {
 		if (gates[i] != nullptr) { // filter out the deleted gates
 			gates[i]->process();
 		}
