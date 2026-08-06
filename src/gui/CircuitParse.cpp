@@ -31,6 +31,7 @@
 #include <map>
 #include <unordered_map>
 #include "../version.h"
+#include "migrate.hpp"  // cl::loadCircuit: format detection + migration notices
 
 DECLARE_APP(MainApp)
 
@@ -83,6 +84,36 @@ static bool hasBreakingVersion(const string& fileVersion, const string& currentV
 
 	// Only block if major version is newer (breaking changes)
 	return fileMajor > currMajor;
+}
+
+// Re-read the file through the format library purely to collect migration
+// notices (gate renames, the decoder-width fix), then present them in one dialog.
+// Best-effort and read-only: it never affects the circuit that was just built,
+// and any failure is swallowed so a report problem can't block a load.
+static void reportMigrationNotices(const string &fileName) {
+	std::vector<cl::MigrationNotice> notices;
+	try {
+		ifstream in(fileName.c_str(), ios::in | ios::binary);
+		ostringstream ss;
+		ss << in.rdbuf();
+		notices = cl::loadCircuit(ss.str()).notices;
+	} catch (...) {
+		return;
+	}
+	if (notices.empty()) return;
+
+	bool anyWarning = false;
+	wxString msg;
+	for (const cl::MigrationNotice &n : notices) {
+		if (n.severity == cl::Severity::Warning) anyWarning = true;
+		msg << (n.severity == cl::Severity::Warning ? wxT("[!] ") : wxT("- "))
+		    << wxString::FromUTF8(n.summary.c_str()) << wxT("\n");
+		if (!n.detail.empty())
+			msg << wxT("    ") << wxString::FromUTF8(n.detail.c_str()) << wxT("\n");
+		msg << wxT("\n");
+	}
+	wxMessageBox(msg, wxT("This circuit was updated as it loaded"),
+	             wxOK | (anyWarning ? wxICON_EXCLAMATION : wxICON_INFORMATION));
 }
 
 vector<GUICanvas*> CircuitParse::parseFile() {
@@ -158,36 +189,22 @@ vector<GUICanvas*> CircuitParse::parseFile() {
 					} else if (temp == "type") { // get type
 						type = mParse->readTagValue(temp);
 						
-						//***********************************
-						//Edit by Joshua Lansford 4/4/07
-						//We have eliminated a couple of gate
-						//types.
-						//Opening a file with an outdated
-						//ram file will crash the system.
-						//I don't think it does so with
-						//the outdated flip-flops, anyways,
-						//this bit of code will change the
-						//gate type of the outdated gate
-						//to a new gate type that is supported
-						//without crashing the program.
+						// Swap gate types that were removed in later versions so
+						// construction below succeeds. The user is told what changed
+						// once, via the consolidated migration report (see the
+						// cl::loadCircuit call at the end of parseFile) rather than a
+						// modal popup per gate. Keep this table in sync with the
+						// rename table in format/migrate.cpp.
 						if( type == "AM_RAM_16x16_Single_Port" ){
-							//there is no different between these two types.
-							//the AM_RAM_16x16_Single_Port was an experiment
-							//before we converted all the gates.
-							//Thus no warning needs to be given.
 							type = "AM_RAM_16x16";
 						}else if( type == "AA_DFF" ){
-							wxMessageBox("The High Active Reset D flip flop has been deprecated.  Automatically replacing with a Low active version", "Old gate", wxOK | wxICON_ASTERISK, NULL);
 							type = "AE_DFF_LOW";
 						}else if( type == "BA_JKFF" ){
-							wxMessageBox("The High Active Reset JK flip flop has been deprecated.  Automatically replacing with a Low active version", "Old gate", wxOK | wxICON_ASTERISK, NULL);
 							type = "BE_JKFF_LOW";
 						}else if( type == "BA_JKFF_NT" ){
-							wxMessageBox("The High Active Reset negitive triggered JK flip flop has been deprecated.  Automatically replacing with a Low active version", "Old gate", wxOK | wxICON_ASTERISK, NULL);
 							type = "BE_JKFF_LOW_NT";
 						}
-						//**********************************
-						
+
 					} else if (temp == "position") { // get position
 						position = mParse->readTagValue(temp);
 					} else if (temp == "input") { // get input
@@ -257,6 +274,7 @@ vector<GUICanvas*> CircuitParse::parseFile() {
 	}
 
 	gCanvas->getCircuit()->getOscope()->UpdateMenu();
+	reportMigrationNotices(this->fileName);
 	return gCanvases;
 }
 

@@ -152,6 +152,7 @@ endif()
 # Add the external libraries for CedarLogic
 target_link_libraries(CedarLogic PRIVATE
     Logic
+    CircuitFile
     ${OPENGL_opengl_LIBRARY}
     ${OPENGL_glu_LIBRARY}
     ${wxWidgets_LIBRARIES}
@@ -180,6 +181,7 @@ include_directories(
 	"${PROJECT_SOURCE_DIR}/include/logic/"
 	"${PROJECT_SOURCE_DIR}/include/gui/command/"
 	"${PROJECT_SOURCE_DIR}/include/gui/GLFont/"
+	"${PROJECT_SOURCE_DIR}/format/"
 	"${CMAKE_CURRENT_BINARY_DIR}"
 )
 
@@ -187,11 +189,14 @@ add_subdirectory(
     "${PROJECT_SOURCE_DIR}/logic/"
 )
 
+# format/ is the wx-free v3 .cdl model, legacy reader, and migration layer; the
+# app links it to load circuits and surface migration notices. It also builds its
+# own doctest suite under BUILD_TESTING.
+add_subdirectory("${PROJECT_SOURCE_DIR}/format/")
+
 # The simulator is a standalone logic-core rewrite; build it only for its tests.
-# format/ is the wx-free v3 .cdl model + serializer; likewise test-only for now.
 if(BUILD_TESTING)
     add_subdirectory("${PROJECT_SOURCE_DIR}/simulator/")
-    add_subdirectory("${PROJECT_SOURCE_DIR}/format/")
 endif()
 
 # specify the C++ standard
