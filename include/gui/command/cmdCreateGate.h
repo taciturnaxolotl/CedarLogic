@@ -11,6 +11,8 @@ public:
 
 	cmdCreateGate(std::string def);
 
+	~cmdCreateGate();
+
 	bool Do();
 
 	bool Undo();

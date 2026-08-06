@@ -26,6 +26,12 @@ cmdMoveSelection::cmdMoveSelection(GUICircuit* gCircuit,
 	wireMove = 1;
 }
 
+cmdMoveSelection::~cmdMoveSelection() {
+	// Owns the proximity-connection sub-commands pushed via getConnections();
+	// free them so they don't leak with the undo history.
+	for (klsCommand *cmd : proxconnects) delete cmd;
+}
+
 bool cmdMoveSelection::Do() {
 
 	for (unsigned int i = 0; i < gateList.size(); i++) {

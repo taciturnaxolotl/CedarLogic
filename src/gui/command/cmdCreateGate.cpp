@@ -25,6 +25,12 @@ cmdCreateGate::cmdCreateGate(string def) : klsCommand(true, "Create Gate") {
 	this->fromString = true;
 }
 
+cmdCreateGate::~cmdCreateGate() {
+	// Owns the proximity-connection sub-commands pushed via getConnections();
+	// free them so they don't leak with the undo history.
+	for (klsCommand *cmd : proxconnects) delete cmd;
+}
+
 bool cmdCreateGate::Do() {
 	if (wxGetApp().libraries.size() == 0) return false; // No library loaded, so can't create gate
 

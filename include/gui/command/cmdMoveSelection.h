@@ -16,6 +16,8 @@ public:
 		vector<WireState> &preMoveWire, float startX, float startY,
 		float endX, float endY);
 
+	~cmdMoveSelection();
+
 	bool Do();
 
 	bool Undo();

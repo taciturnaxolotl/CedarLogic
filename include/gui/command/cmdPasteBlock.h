@@ -8,6 +8,8 @@ class cmdPasteBlock : public klsCommand {
 public:
 	cmdPasteBlock(std::vector<klsCommand*> &cmdList);
 
+	~cmdPasteBlock();
+
 	bool Do();
 
 	bool Undo();
