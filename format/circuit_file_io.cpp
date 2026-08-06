@@ -98,6 +98,15 @@ std::string writeCircuitFile(const CircuitFile &cf) {
 		SNode pn = SNode::list();
 		pn.add(SNode::sym("page"));
 		pn.add(num(pg.index));
+		if (pg.hasViewport) {
+			SNode vp = SNode::list();
+			vp.add(SNode::sym("viewport"));
+			vp.add(num(pg.viewTopLeft.x));
+			vp.add(num(pg.viewTopLeft.y));
+			vp.add(num(pg.viewBottomRight.x));
+			vp.add(num(pg.viewBottomRight.y));
+			pn.add(std::move(vp));
+		}
 		for (const GateInstance &g : pg.gates) pn.add(gateNode(g));
 		for (const WireInstance &w : pg.wires) pn.add(wireNode(w));
 		root.add(std::move(pn));
@@ -179,6 +188,11 @@ CircuitFile readCircuitFile(const std::string &text) {
 		if (!c.isList() || c.head() != "page") continue;
 		Page pg;
 		pg.index = std::stoi(item(c, 1));
+		if (const SNode *vp = c.child("viewport")) {
+			pg.hasViewport = true;
+			pg.viewTopLeft = { std::stod(item(*vp, 1)), std::stod(item(*vp, 2)) };
+			pg.viewBottomRight = { std::stod(item(*vp, 3)), std::stod(item(*vp, 4)) };
+		}
 		for (const SNode &e : c.items) {
 			if (!e.isList()) continue;
 			if (e.head() == "gate") pg.gates.push_back(readGate(e));

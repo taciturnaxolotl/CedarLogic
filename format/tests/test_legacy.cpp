@@ -10,6 +10,7 @@ using namespace cl;
 // <shape> branches across h/v segments each carrying points and a connection.
 static const char *kV1 = R"CDL(<circuit>
 <page 0>
+<PageViewport>-113.179,16.25,-24.4457,-30.3</PageViewport>
 <gate>
 <ID>0</ID>
 <type>AA_TOGGLE</type>
@@ -102,6 +103,9 @@ TEST_CASE("readLegacyCdl maps a v1 circuit into the model") {
 
 	const Page &p0 = cf.pages[0];
 	CHECK(p0.index == 0);
+	CHECK(p0.hasViewport == true);
+	CHECK(p0.viewTopLeft == XY{ -113.179, 16.25 });
+	CHECK(p0.viewBottomRight == XY{ -24.4457, -30.3 });
 	REQUIRE(p0.gates.size() == 2);
 
 	const GateInstance &toggle = p0.gates[0];
