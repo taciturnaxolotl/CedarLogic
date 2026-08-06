@@ -19,6 +19,9 @@
 #endif
 #ifdef _WIN32
 #include "WinSparkleUpdater.h"
+#include <windows.h>
+#include <mmsystem.h>
+#pragma comment(lib, "winmm.lib")
 #endif
 
 IMPLEMENT_APP(MainApp)
@@ -46,6 +49,15 @@ MainApp::MainApp()
 
 bool MainApp::OnInit()
 {
+#ifdef _WIN32
+    // Windows' default timer resolution (~15.6 ms) rounds wxTimer waits up to
+    // the next system tick, so the 20 ms render/sim timers actually fire at
+    // ~31 ms -- capping the render loop near 32 fps with visible jitter (and
+    // making animation feel choppy compared to macOS, whose timers are ~1 ms).
+    // Request 1 ms timer resolution for smooth, accurate timers. Released in
+    // OnExit via timeEndPeriod(1).
+    timeBeginPeriod(1);
+#endif
 #ifndef _PRODUCTION_
     logfile.open( "guilog.log" );
 #endif
@@ -188,6 +200,9 @@ void MainApp::loadSettings() {
 int MainApp::OnExit() {
 	delete glContext;
 	glContext = NULL;
+#ifdef _WIN32
+	timeEndPeriod(1);
+#endif
 	return wxApp::OnExit();
 }
 
