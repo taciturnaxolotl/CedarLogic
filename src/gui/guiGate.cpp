@@ -71,21 +71,35 @@ void guiGate::updateBBoxes( bool noUpdateWires ) {
 	GLfloat angle;
 	iss >> angle;
 
-	glMatrixMode(GL_MODELVIEW);
+	// Build the gate's model matrix directly (column-major) instead of
+	// round-tripping through the GL matrix stack. The old code did this by
+	// pushing glTranslate/glRotate onto GL_MODELVIEW and reading it back with
+	// glGetDoublev(GL_MODELVIEW_MATRIX, ...). That silently returns a zero
+	// matrix when no GL context is current -- e.g. when a circuit is parsed at
+	// startup (opened via a command-line argument) before any canvas has
+	// painted. The result was that every gate on a not-yet-shown page got a
+	// zero transform and collapsed to the origin (gates vanished; their wires
+	// fanned out from 0,0). Computing the matrix on the CPU makes gate
+	// placement independent of GL/context state, so it is correct on every
+	// page and every platform.
+	double rad = angle * DEG2RAD;
+	double c = cos(rad);
+	double s = sin(rad);
 
-	// Set up the forward matrix:
-	glLoadIdentity();
-	glTranslatef(x, y, 0);
-	glRotatef( angle, 0.0, 0.0, 1.0);
+	// M = Translate(x, y) * RotateZ(angle), stored column-major.
+	mModel[0] = c;    mModel[4] = -s;   mModel[8]  = 0.0; mModel[12] = x;
+	mModel[1] = s;    mModel[5] = c;    mModel[9]  = 0.0; mModel[13] = y;
+	mModel[2] = 0.0;  mModel[6] = 0.0;  mModel[10] = 1.0; mModel[14] = 0.0;
+	mModel[3] = 0.0;  mModel[7] = 0.0;  mModel[11] = 0.0; mModel[15] = 1.0;
 
-	// Modified by Colin 1/16/17 to allow for mirroring of bus ends
+	// Modified by Colin 1/16/17 to allow for mirroring of bus ends.
+	// Post-multiplying by Scale(1, -1, 1) negates column 1.
 	if ((angle == 180 || angle == 270) && this->getGUIType() == "BUSEND") {
-		glScalef(1, -1, 1);
+		mModel[4] = -mModel[4];
+		mModel[5] = -mModel[5];
+		mModel[6] = -mModel[6];
+		mModel[7] = -mModel[7];
 	}
-	
-	// Read the forward matrix into the member variable:
-	glGetDoublev( GL_MODELVIEW_MATRIX, mModel );
-	glLoadIdentity();
 
 	// Update all of the hotspots' world coordinates:
 	map< string, gateHotspot* >::iterator hs = hotspots.begin();
