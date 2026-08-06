@@ -188,8 +188,10 @@ add_subdirectory(
 )
 
 # The simulator is a standalone logic-core rewrite; build it only for its tests.
+# format/ is the wx-free v3 .cdl model + serializer; likewise test-only for now.
 if(BUILD_TESTING)
     add_subdirectory("${PROJECT_SOURCE_DIR}/simulator/")
+    add_subdirectory("${PROJECT_SOURCE_DIR}/format/")
 endif()
 
 # specify the C++ standard

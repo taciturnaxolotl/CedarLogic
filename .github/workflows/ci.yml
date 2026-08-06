@@ -36,6 +36,12 @@ jobs:
           cmake --build build/simulator
           ctest --test-dir build/simulator --output-on-failure
 
+      - name: format/ suite
+        run: |
+          cmake -S format -B build/format -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON
+          cmake --build build/format
+          ctest --test-dir build/format --output-on-failure
+
   # Coverage of the shipping logic engine, from the wx-free suite.
   coverage:
     name: Coverage (logic engine)
