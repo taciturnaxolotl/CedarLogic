@@ -311,7 +311,7 @@ CollisionGroup klsCollisionChecker::checkGroupCollisions( CollisionGroup groupA,
 
 void klsCollisionChecker::addObject(klsCollisionObject* newObj) {
 	collisionObjects.insert(newObj);
-	newObj->bboxHasChanged();
+	newObj->setBBoxChanged();
 	newObj->clearOverlaps();
 	newObj->clearSubsOverlaps();
 };
