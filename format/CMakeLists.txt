@@ -14,6 +14,10 @@ add_library(CircuitFile STATIC
 	"${PROJECT_SOURCE_DIR}/circuit_file.hpp"
 	"${PROJECT_SOURCE_DIR}/circuit_file_io.cpp"
 	"${PROJECT_SOURCE_DIR}/circuit_file_io.hpp"
+	"${PROJECT_SOURCE_DIR}/legacy_cdl.cpp"
+	"${PROJECT_SOURCE_DIR}/legacy_cdl.hpp"
+	"${PROJECT_SOURCE_DIR}/migrate.cpp"
+	"${PROJECT_SOURCE_DIR}/migrate.hpp"
 )
 target_include_directories(CircuitFile PUBLIC "${PROJECT_SOURCE_DIR}")
 
@@ -46,7 +50,7 @@ if(BUILD_TESTING)
 		FetchContent_MakeAvailable(doctest)
 	endif()
 
-	add_executable(test_format tests/test_format.cpp)
+	add_executable(test_format tests/test_format.cpp tests/test_legacy.cpp tests/test_migrate.cpp)
 	target_link_libraries(test_format PRIVATE doctest::doctest CircuitFile)
 
 	if(ENABLE_SANITIZERS AND NOT MSVC)

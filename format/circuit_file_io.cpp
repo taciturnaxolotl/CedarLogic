@@ -43,7 +43,7 @@ static SNode gateNode(const GateInstance &g) {
 	n.add(kv("angle", num(g.angle)));
 	for (const Param &p : g.params) {
 		SNode pn = SNode::list();
-		pn.add(SNode::sym("param"));
+		pn.add(SNode::sym(p.gui ? "gparam" : "lparam"));
 		pn.add(SNode::str(p.name));
 		pn.add(SNode::str(p.value));
 		n.add(std::move(pn));
@@ -124,8 +124,8 @@ static GateInstance readGate(const SNode &n) {
 	g.at = { std::stod(item(at, 1)), std::stod(item(at, 2)) };
 	g.angle = kvNum(n, "angle");
 	for (const SNode &c : n.items)
-		if (c.isList() && c.head() == "param")
-			g.params.push_back({ item(c, 1), item(c, 2) });
+		if (c.isList() && (c.head() == "gparam" || c.head() == "lparam"))
+			g.params.push_back({ item(c, 1), item(c, 2), c.head() == "gparam" });
 	return g;
 }
 

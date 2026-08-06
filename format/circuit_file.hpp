@@ -16,11 +16,15 @@ struct XY {
 };
 
 // A parameter is a name/value pair; values are strings at the file edge and
-// parse into typed values (see the gate paramSchema) when applied.
+// parse into typed values (see the gate paramSchema) when applied. `gui`
+// distinguishes a GUI param (legacy <gparam>) from a logic param (<lparam>).
 struct Param {
 	std::string name;
 	std::string value;
-	bool operator==(const Param &o) const { return name == o.name && value == o.value; }
+	bool gui = false;
+	bool operator==(const Param &o) const {
+		return name == o.name && value == o.value && gui == o.gui;
+	}
 };
 
 struct GateInstance {
