@@ -43,7 +43,17 @@ struct GateOutput {
 };
 
 
-class Gate  
+// A gate parameter's type, for typed validation.
+enum class ParamKind { INT, BITS, BOOL, STRING, FILE };
+
+// One parameter a gate accepts; each gate declares its set via paramSchema().
+struct ParamDescriptor {
+	string    name;
+	ParamKind kind;
+};
+
+
+class Gate
 {
 public:
 
@@ -62,6 +72,9 @@ public:
 
 	// Get the value of a gate parameter:
 	virtual string getParameter( string paramName );
+
+	// The parameters this gate accepts, for typed validation.
+	virtual vector<ParamDescriptor> paramSchema() const;
 
 	// ********* Standard Gate mutator functions ************
 
@@ -289,6 +302,8 @@ public:
 
 	// Get the parameters:
 	string getParameter( string paramName );
+
+	vector<ParamDescriptor> paramSchema() const override;
 
 protected:
 	// The number of input bits:
@@ -803,6 +818,9 @@ public:
 	bool setParameter( string paramName, string value );
 
 	string getParameter( string paramName );
+
+	// No settable params (setParameter is a no-op; getParameter is a signal).
+	vector<ParamDescriptor> paramSchema() const override { return {}; }
 };
 //End of edit****************************************************
 

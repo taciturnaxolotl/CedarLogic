@@ -294,6 +294,11 @@ string Gate::getParameter( string paramName ) {
 }
 
 
+vector<ParamDescriptor> Gate::paramSchema() const {
+	return { { "DEFAULT_DELAY", ParamKind::INT } };
+}
+
+
 // ******************** Gate Subclass Use Methods **********************************
 // These are used by the subclassed gate types to define what interface and
 // process each gate posesses.
@@ -632,6 +637,12 @@ string Gate_N_INPUT::getParameter( string paramName ) {
 	}
 }
 
+
+vector<ParamDescriptor> Gate_N_INPUT::paramSchema() const {
+	auto schema = Gate::paramSchema();
+	schema.push_back( { "INPUT_BITS", ParamKind::BITS } );
+	return schema;
+}
 
 // **************************** END Gate_N_INPUT GATE ***********************************
 

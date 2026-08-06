@@ -494,3 +494,23 @@ TEST_CASE("Deleting a gate mid-circuit is safe and stops driving") {
 	stepN(c, 5);
 	CHECK(c.getWireState(wOut) == HI_Z); // no driver left on the output wire
 }
+
+TEST_CASE("Every declared gate param round-trips through set/getParameter") {
+	// Each gate's paramSchema() must match its real setParameter/getParameter.
+	Circuit c;
+	for (const auto &entry : gateRegistry()) {
+		GATE_PTR g = entry.second.create(&c);
+		for (const ParamDescriptor &p : g->paramSchema()) {
+			std::string v;
+			switch (p.kind) {
+			case ParamKind::INT:  v = "5"; break;
+			case ParamKind::BITS: v = "3"; break;
+			case ParamKind::BOOL: v = "true"; break;
+			default:              v = "x"; break;
+			}
+			g->setParameter(p.name, v);
+			INFO("gate " << entry.first << " param " << p.name);
+			CHECK(g->getParameter(p.name) == v);
+		}
+	}
+}
