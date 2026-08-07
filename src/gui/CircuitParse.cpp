@@ -168,9 +168,11 @@ void CircuitParse::applyCircuitFile(const cl::CircuitFile &cf) {
 	// If no library was loaded, then we can't make gates from one.
 	if (wxGetApp().libraries.size() == 0) return;
 
-	// Register any gate the current library is missing from the copy embedded in
-	// the file, so a circuit using a since-changed/removed gate still loads
-	// (with its shape and pins) instead of falling back to a blank gate.
+	// For any gate the current library no longer has, rebuild it from the copy
+	// embedded in the file so the circuit still loads with its shape and pins
+	// instead of a blank gate. A gate still present in the library is left
+	// untouched (the `continue`) -- the live library wins, so this only fills in
+	// removed gates, it does not override a changed one.
 	for (const cl::GateDef &d : cf.usedGates) {
 		if (wxGetApp().gateNameToLibrary.find(d.name) != wxGetApp().gateNameToLibrary.end()) continue;
 		LibraryGate lg = fromGateDef(d);
@@ -408,7 +410,8 @@ static cl::WireInstance buildWire(guiWire *w) {
 }
 
 // LibraryGate <-> the format's embedded GateDef. Lets a saved circuit carry a
-// copy of every gate it uses, so it still opens if the library later changes.
+// copy of every gate it uses, so it still opens if a gate is later removed from
+// the library.
 static cl::GateDef toGateDef(const LibraryGate &lg) {
 	cl::GateDef d;
 	d.name = lg.gateName;
@@ -420,7 +423,7 @@ static cl::GateDef toGateDef(const LibraryGate &lg) {
 	for (const lgLine &l : lg.shape)
 		d.shape.push_back({ l.x1, l.y1, l.x2, l.y2, l.isLabel });
 	for (const lgDlgParam &p : lg.dlgParams)
-		d.dlgParams.push_back({ p.textLabel, p.name, p.type, p.isGui });
+		d.dlgParams.push_back({ p.textLabel, p.name, p.type, p.isGui, p.Rmin, p.Rmax });
 	for (const auto &kv : lg.guiParams) d.params.push_back({ kv.first, kv.second, true });
 	for (const auto &kv : lg.logicParams) d.params.push_back({ kv.first, kv.second, false });
 	return d;
@@ -437,7 +440,7 @@ static LibraryGate fromGateDef(const cl::GateDef &d) {
 	for (const cl::LineDef &l : d.shape)
 		lg.shape.push_back(lgLine((float)l.x1, (float)l.y1, (float)l.x2, (float)l.y2, l.isLabel));
 	for (const cl::DlgParamDef &p : d.dlgParams)
-		lg.dlgParams.push_back(lgDlgParam(p.label, p.name, p.type, p.isGui));
+		lg.dlgParams.push_back(lgDlgParam(p.label, p.name, p.type, p.isGui, p.rMin, p.rMax));
 	for (const cl::Param &p : d.params) {
 		if (p.gui) lg.guiParams[p.name] = p.value;
 		else lg.logicParams[p.name] = p.value;
