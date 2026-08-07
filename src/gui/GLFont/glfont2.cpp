@@ -82,8 +82,12 @@ bool GLFont::Create (const char *file_name, int tex)
 	glBindTexture(GL_TEXTURE_2D, tex);  
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_LINEAR);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	// Magnification (zoomed in) uses NEAREST so glyph edges stay sharp instead of
+	// blurring. A mipmap filter here is invalid for MAG_FILTER anyway — GL rejects
+	// it and falls back to LINEAR, which is what made zoomed-in labels fuzzy.
+	// Minification (zoomed out) uses LINEAR to smooth text below its native size.
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	glTexImage2D(GL_TEXTURE_2D, 0, 2, header.tex_width,
 		header.tex_height, 0, GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE,
