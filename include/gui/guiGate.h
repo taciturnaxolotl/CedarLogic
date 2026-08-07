@@ -141,6 +141,11 @@ public:
 	virtual string getLogicParam( string paramName ) { return lparams[paramName]; };
 	map < string, string >* getAllLogicParams() { return &lparams; };
 
+	// Extra (name, value) params a gate type persists beyond its gparams/lparams
+	// -- the model-serialization counterpart of saveGateTypeSpecifics(). The base
+	// gate has none; guiGateRAM returns its memory contents.
+	virtual void getTypeSpecificParams(vector< pair<string, string> > &out) const {}
+
 	void declareInput(string name) { isInput[name] = true; };
 	void declareOutput(string name) { isInput[name] = false; };
 	virtual void draw(bool color = true);
@@ -432,6 +437,9 @@ public:
 	//Saves the ram contents to the circuit file
 	//when the circuit saves
 	virtual void saveGateTypeSpecifics( XMLParser* xparse );
+
+	//Model-serialization counterpart: emit RAM memory as (Address:<n>, <data>).
+	virtual void getTypeSpecificParams(vector< pair<string, string> > &out) const;
 	
 	//Because the ram gui will be passed lots of data
 	//from the ram logic, we don't want it all going

@@ -48,6 +48,8 @@ public:
 	//JV - Changed to return new canvases
 	vector<GUICanvas*> parseFile();
 	bool saveCircuit(string, vector< GUICanvas* >, unsigned int currPage = 0);
+	// Save the v3 S-expression format (built from the GUI via the format model).
+	bool saveCircuitV3(string, vector< GUICanvas* >, unsigned int currPage = 0);
 	// Save in v1.x compatible format (no version tag, no sentinel, single wire IDs)
 	bool saveCircuitLegacy(string, vector< GUICanvas* >, unsigned int currPage = 0);
 	// Get detailed error message from last save operation
@@ -67,6 +69,8 @@ private:
 	void applyCircuitFile(const cl::CircuitFile &cf);
 	// Rebuild one wire's segment tree from the model and set it on the guiWire.
 	void applyWireShape(const cl::WireInstance &wire);
+	// Write text to a file, setting lastError and returning false on failure.
+	bool writeToFile(const string &filename, const string &text);
 };
 
 #endif /*CIRCUITPARSE_H_*/

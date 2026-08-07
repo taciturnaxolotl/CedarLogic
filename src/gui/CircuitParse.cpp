@@ -33,7 +33,8 @@
 #include <unordered_map>
 #include <cstdlib>
 #include "../version.h"
-#include "migrate.hpp"  // cl::loadCircuit: format detection + migration notices
+#include "migrate.hpp"          // cl::loadCircuit: format detection + migration notices
+#include "circuit_file_io.hpp"  // cl::writeCircuitFile: the v3 serializer
 
 DECLARE_APP(MainApp)
 
@@ -325,6 +326,87 @@ void CircuitParse::parseGateToSend(string type, string ID, string position, vect
 
 		gCanvas->insertWire(wire);
 	}
+}
+
+// ----------------------------------------------------------- v3 writer ------
+// The inverse of applyCircuitFile: read the GUI back into a plain circuit model
+// so the format library can serialize it. Mirrors what saveGate/saveWire persist.
+
+static cl::GateInstance buildGate(guiGate *g) {
+	cl::GateInstance gi;
+	gi.uuid = to_string(g->getID());
+	gi.libName = g->getLibraryGateName();
+	float x, y;
+	g->getGLcoords(x, y);
+	gi.at = { x, y };
+
+	// angle is a first-class field in the model, not a GUI param.
+	for (const auto &p : *g->getAllGUIParams()) {
+		if (p.first == "angle") { gi.angle = atof(p.second.c_str()); continue; }
+		gi.params.push_back({ p.first, p.second, true });
+	}
+	// Logic params, skipping FILE_IN/FILE_OUT (runtime paths, as saveGate does).
+	LibraryGate lg = wxGetApp().libraries[g->getLibraryName()][g->getLibraryGateName()];
+	for (const auto &p : *g->getAllLogicParams()) {
+		bool isFile = false;
+		for (size_t i = 0; i < lg.dlgParams.size() && !isFile; i++)
+			if (!lg.dlgParams[i].isGui &&
+			    (lg.dlgParams[i].type == "FILE_IN" || lg.dlgParams[i].type == "FILE_OUT") &&
+			    lg.dlgParams[i].name == p.first)
+				isFile = true;
+		if (!isFile) gi.params.push_back({ p.first, p.second, false });
+	}
+	// Gate-type-specific params (e.g. RAM memory contents).
+	vector< pair<string, string> > extra;
+	g->getTypeSpecificParams(extra);
+	for (const auto &p : extra) gi.params.push_back({ p.first, p.second, false });
+	return gi;
+}
+
+static cl::WireInstance buildWire(guiWire *w) {
+	cl::WireInstance wi;
+	for (IDType id : w->getIDs()) wi.ids.push_back(to_string(id));
+	map<long, wireSegment> segMap = w->getSegmentMap();
+	for (const auto &entry : segMap) {
+		const wireSegment &s = entry.second;
+		cl::WireSegment ws;
+		ws.id = to_string(s.id);
+		ws.vertical = s.verticalSeg;
+		ws.begin = { s.begin.x, s.begin.y };
+		ws.end = { s.end.x, s.end.y };
+		for (const wireConnection &c : s.connections)
+			ws.connects.push_back({ to_string(c.gid), c.connection });
+		for (const auto &isect : s.intersects)
+			for (long segId : isect.second)
+				ws.intersections.push_back({ (double)isect.first, to_string(segId) });
+		wi.segments.push_back(ws);
+	}
+	return wi;
+}
+
+static cl::CircuitFile buildCircuitFile(vector<GUICanvas*> &glc) {
+	cl::CircuitFile cf;
+	cf.formatVersion = 3;
+	cf.generator = string("CedarLogic ") + VERSION_NUMBER_STRING();
+	for (unsigned int i = 0; i < glc.size(); i++) {
+		cl::Page pg;
+		pg.index = (int)i;
+		GLPoint2f topLeft, bottomRight;
+		glc[i]->getViewport(topLeft, bottomRight);
+		pg.hasViewport = true;
+		pg.viewTopLeft = { topLeft.x, topLeft.y };
+		pg.viewBottomRight = { bottomRight.x, bottomRight.y };
+		for (const auto &entry : *glc[i]->getGateList())
+			pg.gates.push_back(buildGate(entry.second));
+		for (const auto &entry : *glc[i]->getWireList())
+			if (entry.second != nullptr) pg.wires.push_back(buildWire(entry.second));
+		cf.pages.push_back(std::move(pg));
+	}
+	return cf;
+}
+
+bool CircuitParse::saveCircuitV3(string filename, vector< GUICanvas* > glc, unsigned int currPage) {
+	return writeToFile(filename, cl::writeCircuitFile(buildCircuitFile(glc)));
 }
 
 bool CircuitParse::saveCircuit(string filename, vector< GUICanvas* > glc, unsigned int currPage) {
@@ -632,4 +714,66 @@ bool CircuitParse::saveCircuitLegacy(string filename, vector< GUICanvas* > glc, 
 		lastError = "Warning: Circuit uses bus features that cannot be represented in v1.x format.";
 	}
 	return !hasBusFeatures;
+}
+
+// Write text to disk, translating errno into a friendly lastError on failure.
+bool CircuitParse::writeToFile(const string &filename, const string &text) {
+	lastError = "";
+
+	errno = 0;
+	ofstream outfile(filename.c_str());
+	if (!outfile.good()) {
+		int errnum = errno;
+		if (errnum == EACCES || errnum == EPERM) {
+			lastError = "Permission denied. You don't have write access to this location.";
+		} else if (errnum == ENOSPC) {
+			lastError = "Disk full. Free up space and try again.";
+		} else if (errnum == EROFS) {
+			lastError = "Read-only filesystem. Choose a different location.";
+		} else if (errnum == ENOENT) {
+			lastError = "Directory doesn't exist. Check the file path.";
+		} else if (errnum != 0) {
+			lastError = string("Cannot open file: ") + strerror(errnum);
+		} else {
+			lastError = "Cannot open file for writing.";
+		}
+		return false;
+	}
+
+	errno = 0;
+	outfile << text;
+	if (outfile.fail()) {
+		int errnum = errno;
+		outfile.close();
+		if (errnum == ENOSPC) {
+			lastError = "Disk full while writing. The file may be incomplete.";
+		} else if (errnum == EIO) {
+			lastError = "I/O error while writing. Check your disk or network connection.";
+		} else if (errnum != 0) {
+			lastError = string("Write failed: ") + strerror(errnum);
+		} else {
+			lastError = "Write operation failed.";
+		}
+		return false;
+	}
+
+	errno = 0;
+	outfile.close();
+	if (outfile.fail()) {
+		int errnum = errno;
+		if (errnum == ENOSPC) {
+			lastError = "Disk full while closing file. The file may be incomplete.";
+		} else if (errnum == EIO) {
+			lastError = "I/O error while closing file. Data may not be saved correctly.";
+		} else if (errnum == EDQUOT) {
+			lastError = "Disk quota exceeded. Free up space or request more quota.";
+		} else if (errnum != 0) {
+			lastError = string("Error closing file: ") + strerror(errnum);
+		} else {
+			lastError = "Failed to close file properly. Data may not be saved.";
+		}
+		return false;
+	}
+
+	return true;
 }

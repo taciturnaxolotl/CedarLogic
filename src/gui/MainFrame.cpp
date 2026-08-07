@@ -1306,7 +1306,7 @@ bool MainFrame::save(string filename) {
 
 	//Save file
 	CircuitParse cirp(currentCanvas);
-	bool success = cirp.saveCircuit(filename, canvases);
+	bool success = cirp.saveCircuitV3(filename, canvases);
 
 	// Store the error message for the caller
 	if (!success) {

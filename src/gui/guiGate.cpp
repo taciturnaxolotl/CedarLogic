@@ -1177,10 +1177,21 @@ void guiGateRAM::saveGateTypeSpecifics( XMLParser* xparse ){
 	     if( I->second != 0 ){
 			xparse->openTag("lparam");
 		    ostringstream memoryValue;
-			memoryValue << "Address:" << I->first << " " << I->second; 
+			memoryValue << "Address:" << I->first << " " << I->second;
 			xparse->writeTag("lparam", memoryValue.str());
 			xparse->closeTag("lparam");
 	     }
+	}
+}
+
+// Same non-zero memory cells as saveGateTypeSpecifics, but as model params:
+// name "Address:<n>", value "<data>". setLogicParam parses them back on load.
+void guiGateRAM::getTypeSpecificParams(vector< pair<string, string> > &out) const {
+	for( map< unsigned long, unsigned long >::const_iterator I = memory.begin();
+	     I != memory.end(); ++I ){
+		if( I->second != 0 ){
+			out.push_back(make_pair("Address:" + to_string(I->first), to_string(I->second)));
+		}
 	}
 }
 
