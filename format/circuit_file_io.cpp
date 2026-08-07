@@ -124,6 +124,14 @@ static SNode gateDefNode(const GateDef &g) {
 		dn.add(SNode::str(d.name));
 		dn.add(SNode::str(d.type));
 		dn.add(SNode::sym(d.isGui ? "gui" : "logic"));
+		// Emit range bounds only when the param actually constrains a number, so
+		// the common unbounded case stays free of noisy sentinel tokens (and old
+		// readers that stop at the gui/logic symbol still load it).
+		if (d.rMin != std::numeric_limits<float>::lowest() ||
+		    d.rMax != std::numeric_limits<float>::max()) {
+			dn.add(num(d.rMin));
+			dn.add(num(d.rMax));
+		}
 		n.add(std::move(dn));
 	}
 	for (const Param &p : g.params) {
@@ -261,6 +269,9 @@ static GateDef readGateDef(const SNode &n) {
 			d.name = item(c, 2);
 			d.type = item(c, 3);
 			d.isGui = (item(c, 4) == "gui");
+			// Optional range bounds; absent means unbounded (keep the defaults).
+			if (c.items.size() > 5) d.rMin = std::stof(item(c, 5));
+			if (c.items.size() > 6) d.rMax = std::stof(item(c, 6));
 			g.dlgParams.push_back(std::move(d));
 		} else if (head == "gparam" || head == "lparam") {
 			g.params.push_back({ item(c, 1), item(c, 2), head == "gparam" });

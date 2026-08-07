@@ -1,5 +1,6 @@
 #pragma once
 
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -92,8 +93,10 @@ struct Page {
 };
 
 // A gate's definition, embedded in the file so a circuit stays self-contained:
-// it opens correctly even if the library that defined the gate later changed or
-// is gone. Mirrors the GUI's LibraryGate, kept GUI/core-independent.
+// if the gate is missing from the user's library at load time it is rebuilt from
+// this copy. A gate still present in the library is used as-is -- the live
+// library wins, so this is a fallback for gone gates, not a version override.
+// Mirrors the GUI's LibraryGate, kept GUI/core-independent.
 
 struct HotspotDef {
 	std::string name;
@@ -121,8 +124,13 @@ struct DlgParamDef {
 	std::string name;
 	std::string type = "STRING";
 	bool isGui = true;
+	// Range bounds for INT/FLOAT params; the sentinels mean "unbounded" and match
+	// the library's lgDlgParam defaults. Serialized only when set to a real bound.
+	float rMin = std::numeric_limits<float>::lowest();
+	float rMax = std::numeric_limits<float>::max();
 	bool operator==(const DlgParamDef &o) const {
-		return label == o.label && name == o.name && type == o.type && isGui == o.isGui;
+		return label == o.label && name == o.name && type == o.type &&
+		       isGui == o.isGui && rMin == o.rMin && rMax == o.rMax;
 	}
 };
 

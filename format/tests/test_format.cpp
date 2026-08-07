@@ -110,7 +110,8 @@ TEST_CASE("Embedded gate definitions round-trip through the v3 format") {
 	               { "IN_1", true, -3, -1, true, "", 1 },      // inverted
 	               { "OUT_0", false, 3, 0, false, "TRUE", 2 } }; // eInput + busLines
 	g.shape = { { -3, -3, 3, 3, false }, { 0, 0, 1, 1, true } }; // a line + a label line
-	g.dlgParams = { { "Input Bits", "INPUT_BITS", "INT", false } };
+	g.dlgParams = { { "Input Bits", "INPUT_BITS", "INT", false },        // unbounded
+	                { "Bit Width", "WIDTH", "INT", true, 1.0f, 32.0f } }; // ranged
 	g.params = { { "angle", "0", true }, { "INPUT_BITS", "2", false } };
 	cf.usedGates.push_back(g);
 	cf.pages.push_back(Page{});
@@ -126,6 +127,8 @@ TEST_CASE("Embedded gate definitions round-trip through the v3 format") {
 	CHECK(r.hotspots[2].eInput == "TRUE");
 	CHECK(r.shape[1].isLabel == true);
 	CHECK(r.dlgParams[0].isGui == false);
+	CHECK(r.dlgParams[1].rMin == 1.0f);  // INT/FLOAT range bounds survive the round trip
+	CHECK(r.dlgParams[1].rMax == 32.0f);
 }
 
 TEST_CASE("Reading rejects an unsupported format version") {
