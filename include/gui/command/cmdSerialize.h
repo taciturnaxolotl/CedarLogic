@@ -8,12 +8,13 @@
 // plus emit()/parse() own that format for the commands migrated so far, so it
 // can be round-trip tested headless; keyword() owns the leading token the paste
 // dispatcher switches on (replacing hand-counted substr offsets). The migrated
-// commands delegate here, so the on-the-wire bytes are unchanged. More commands
-// still serialize inline -- this is the first slice of moving them over.
+// commands delegate here, so the on-the-wire bytes are unchanged. The gnarlier
+// movewire and setparams formats still serialize inline, pending migration.
 #ifndef CMD_SERIALIZE_H
 #define CMD_SERIALIZE_H
 
 #include <string>
+#include <vector>
 #include "logic_values.h" // IDType
 
 namespace cmdser {
@@ -42,9 +43,27 @@ struct MoveGate {
 	float endY = 0.0f;
 };
 
+// "disconnectwire <wireId> <gateId> <hotspot>" (emit-only, like MoveGate).
+struct DisconnectWire {
+	IDType wireId = 0;
+	IDType gateId = 0;
+	std::string hotspot;
+};
+
+// "createwire <id>... connectwire <...> connectwire <...>": a variable-length
+// list of wire ids followed by the two endpoint connections. The id list ends
+// where the first "connectwire" keyword begins.
+struct CreateWire {
+	std::vector<IDType> wireIds;
+	ConnectWire conn1;
+	ConnectWire conn2;
+};
+
 std::string emit(const CreateGate &c);
 std::string emit(const ConnectWire &c);
 std::string emit(const MoveGate &c);
+std::string emit(const DisconnectWire &c);
+std::string emit(const CreateWire &c);
 
 // The leading keyword of a command line, e.g. "creategate 5 AND 1 2" -> "creategate".
 // This is what the paste dispatcher matches on to pick a command.
@@ -57,6 +76,7 @@ std::string keyword(const std::string &line);
 // round-trip tests check it. (MoveGate is emit-only -- nothing parses it.)
 bool parse(const std::string &line, CreateGate &out);
 bool parse(const std::string &line, ConnectWire &out);
+bool parse(const std::string &line, CreateWire &out);
 
 } // namespace cmdser
 
