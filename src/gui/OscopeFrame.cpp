@@ -23,8 +23,6 @@
 #include "NativeIcons.h"
 #endif
 
-DECLARE_APP(MainApp)
-
 OscopeFrame::OscopeFrame(wxWindow *parent, GUICircuit* gCircuit)
        : wxPanel(parent, wxID_ANY)
 {

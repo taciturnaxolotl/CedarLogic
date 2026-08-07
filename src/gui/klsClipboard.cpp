@@ -23,8 +23,6 @@
 #include "wx/clipbrd.h"
 #include "wx/dataobj.h"
 
-DECLARE_APP(MainApp)
-
 class clipboardCtx {
 public:
 	bool valid;
