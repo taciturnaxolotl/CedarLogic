@@ -98,13 +98,13 @@ static void showMigrationNotices(const std::vector<cl::MigrationNotice> &notices
 	wxString msg;
 	for (const cl::MigrationNotice &n : notices) {
 		if (n.severity == cl::Severity::Warning) anyWarning = true;
-		msg << (n.severity == cl::Severity::Warning ? wxT("[!] ") : wxT("- "))
-		    << wxString::FromUTF8(n.summary.c_str()) << wxT("\n");
+		if (n.severity == cl::Severity::Warning) msg << wxT("Warning: ");
+		msg << wxString::FromUTF8(n.summary.c_str()) << wxT("\n");
 		if (!n.detail.empty())
 			msg << wxT("    ") << wxString::FromUTF8(n.detail.c_str()) << wxT("\n");
 		msg << wxT("\n");
 	}
-	wxMessageBox(msg, wxT("This circuit was updated as it loaded"),
+	wxMessageBox(msg, wxT("Circuit Updated"),
 	             wxOK | (anyWarning ? wxICON_EXCLAMATION : wxICON_INFORMATION));
 }
 

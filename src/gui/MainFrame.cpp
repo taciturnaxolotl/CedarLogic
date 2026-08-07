@@ -717,10 +717,9 @@ void MainFrame::loadCircuitFile( string fileName ){
 	// convert it (see chooseSaveFormat). Skip the crash-recovery file.
 	if ((loadedFileFormat == 1 || loadedFileFormat == 2) && fileName != CRASH_FILENAME) {
 		wxString v = (loadedFileFormat == 1) ? "v1.x" : "v2";
-		wxMessageBox("This circuit was saved in an older CedarLogic format (" + v + ").\n\n"
-			"It opened fine. When you save, you'll be asked whether to keep the "
-			"original format or upgrade it to the new v3 format.",
-			"Older file format", wxOK | wxICON_INFORMATION, this);
+		wxMessageBox("This circuit was saved in an older file format (" + v + "). "
+			"When you save, you can keep this format or convert it to the current format.",
+			"Older File Format", wxOK | wxICON_INFORMATION, this);
 	}
 
 	//JV - Put pages back into canvas book
@@ -750,7 +749,7 @@ void MainFrame::OnSave(wxCommandEvent& event) {
 		} else if (lastSaveError.rfind("Warning:", 0) == 0) {
 			// The file was written, but with a caveat (e.g. bus features can't be
 			// represented in v1.x). Treat it as saved.
-			wxMessageBox(lastSaveError, "Saved with a warning", wxOK | wxICON_WARNING, this);
+			wxMessageBox(lastSaveError, "Save Warning", wxOK | wxICON_WARNING, this);
 			commandProcessor->MarkAsSaved();
 		} else {
 			wxString errorMsg = "Failed to save file:\n\n" + lastSaveError;
@@ -767,12 +766,11 @@ int MainFrame::chooseSaveFormat() {
 
 	wxString v = (loadedFileFormat == 1) ? "v1.x" : "v2";
 	wxMessageDialog dialog(this,
-		"This circuit was opened from an older CedarLogic format (" + v + ").\n\n"
-		"Keep it in " + v + " (older CedarLogic can still open it), or migrate it to "
-		"the new v3 format?\n\n"
-		"v3 files cannot be opened by CedarLogic versions older than this one.",
-		"Save — choose a format", wxYES_NO | wxCANCEL | wxICON_QUESTION);
-	dialog.SetYesNoCancelLabels("Migrate to v3", "Keep " + v, "Cancel");
+		"This circuit was opened in an older file format (" + v + ").\n\n"
+		"Convert it to the current format, or keep " + v + "?\n\n"
+		"The current format cannot be opened by older versions of CedarLogic.",
+		"Save Circuit", wxYES_NO | wxCANCEL | wxICON_QUESTION);
+	dialog.SetYesNoCancelLabels("Convert", "Keep " + v, "Cancel");
 
 	int result = dialog.ShowModal();
 	if (result == wxID_CANCEL) return -1;
@@ -796,7 +794,7 @@ void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) {
 		bool success = save((string)path, format);
 		if (success || lastSaveError.rfind("Warning:", 0) == 0) {
 			if (!success)
-				wxMessageBox(lastSaveError, "Saved with a warning", wxOK | wxICON_WARNING, this);
+				wxMessageBox(lastSaveError, "Save Warning", wxOK | wxICON_WARNING, this);
 			removeTempFile();
 			openedFilename = path;
 			this->SetTitle(VERSION_TITLE() + " - " + path );
