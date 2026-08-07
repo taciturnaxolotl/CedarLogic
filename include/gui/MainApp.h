@@ -77,9 +77,8 @@ public:
     // (wxMutexLocker / wxCriticalSectionLocker), but threadLogic.cpp still
     // hand-rolls a `while (mexMessages.TryLock()==wxMUTEX_BUSY) wxYield();`
     // spin on the same mutex, which is NOT equivalent to a blocking lock (it
-    // pumps the GUI event loop while waiting). See
-    // docs/modernization/remaining-workstreams.md (Workstream E) before
-    // changing any of this.
+    // pumps the GUI event loop while waiting). Audit this carefully before
+    // changing any of it.
 
     // Guards the message-passing bookkeeping used while marshalling work to the
     // logic thread. (Held briefly around enqueue/handshake in threadLogic.)
