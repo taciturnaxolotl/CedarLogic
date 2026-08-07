@@ -12,6 +12,7 @@
 #include "MainFrame.h"
 #include "wx/cmdline.h"
 #include "../version.h"
+#include <cstdlib>   // std::_Exit for the headless --render one-shot
 #include "wx/stdpaths.h"
 #include "wx/fileconf.h"
 #ifdef __APPLE__
@@ -96,8 +97,17 @@ bool MainApp::OnInit()
 	//	fName.Normalize(wxPATH_NORM_LONG|wxPATH_NORM_DOTS|wxPATH_NORM_TILDE|wxPATH_NORM_ABSOLUTE);
 	//	cmdFilename = fName.GetFullPath();
     //}	
+    // Headless render mode: `--render <input.cdl> <output.png> [width height]`.
+    // Loads the circuit, writes a PNG of it, and exits without a main loop.
     string cmdFilename;
-	if( argc >= 2 ){
+    string renderOutput;
+    int renderW = 1600, renderH = 1000;
+    if (argc >= 4 && wxString(argv[1]) == "--render") {
+        headlessRender = true;
+        cmdFilename = argv[2].ToStdString();
+        renderOutput = argv[3].ToStdString();
+        if (argc >= 6) { renderW = wxAtoi(argv[4]); renderH = wxAtoi(argv[5]); }
+    } else if( argc >= 2 ){
 		cmdFilename = argv[1].ToStdString();
 //		logfile << "cmdFilename = " << cmdFilename << endl;
 	}
@@ -114,6 +124,21 @@ bool MainApp::OnInit()
 
     // create the main application window
     MainFrame *frame = new MainFrame(VERSION_TITLE(), cmdFilename);
+
+    if (headlessRender) {
+        // Realize + size the window so the canvas has a client size, load the
+        // circuit synchronously, render it offscreen, and exit.
+        frame->SetSize(renderW + 220, renderH + 140);
+        frame->Show(true);
+        wxYield();
+        frame->load(cmdFilename);
+        wxYield();
+        bool ok = frame->renderToPng(renderOutput, renderW, renderH);
+        // The PNG is written; exit immediately rather than tear down the (shown)
+        // frame + autosave thread, which otherwise hangs this one-shot process.
+        fflush(nullptr);
+        std::_Exit(ok ? 0 : 1);
+    }
 
     //**********************************************************
     //Edit by Joshua Lansford 12/31/06

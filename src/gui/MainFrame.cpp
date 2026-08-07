@@ -731,7 +731,8 @@ void MainFrame::loadCircuitFile( string fileName ){
 	// Offer to migrate an older file to the latest format up front. Declining
 	// leaves it undecided, so the same choice is offered again when they save.
 	// Skip the crash-recovery file.
-	if ((loadedFileFormat == 1 || loadedFileFormat == 2) && fileName != CRASH_FILENAME) {
+	if ((loadedFileFormat == 1 || loadedFileFormat == 2) && fileName != CRASH_FILENAME
+	    && !wxGetApp().headlessRender) {
 		wxString v = (loadedFileFormat == 1) ? "V1" : "V2";
 		wxMessageDialog dialog(this,
 			"This circuit was saved in an older file format (" + v + ").\n\n"
@@ -1443,6 +1444,13 @@ void MainFrame::unlock() {
 
 void MainFrame::load(string filename) {
 	loadCircuitFile(filename);
+}
+
+bool MainFrame::renderToPng(const wxString &path, int width, int height) {
+	if (currentCanvas == NULL) return false;
+	wxImage img = currentCanvas->renderToImage((unsigned long)width, (unsigned long)height, 32, false);
+	if (!img.IsOk()) return false;
+	return img.SaveFile(path, wxBITMAP_TYPE_PNG);
 }
 
 void MainFrame::openFileFromFinder(const wxString& fileName) {

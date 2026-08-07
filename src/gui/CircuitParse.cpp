@@ -130,7 +130,8 @@ vector<GUICanvas*> CircuitParse::parseFile() {
 
 	// Keep old builds of Cedar Logic from opening newer, incompatible files.
 	string version = extractVersion(text);
-	if (!version.empty() && hasBreakingVersion(version, VERSION_NUMBER_STRING())) {
+	if (!version.empty() && hasBreakingVersion(version, VERSION_NUMBER_STRING()) &&
+	    !wxGetApp().headlessRender) {
 		wxMessageBox("This file was made with a newer version of Cedar Logic. "
 			"Go to 'Help\\Download Latest Version...' to open this file."
 			"Close CedarLogic without saving to avoid overwriting your work!!!", "Version Error!");
@@ -153,7 +154,7 @@ vector<GUICanvas*> CircuitParse::parseFile() {
 	}
 
 	applyCircuitFile(loaded.file);
-	showMigrationNotices(loaded.notices);
+	if (!wxGetApp().headlessRender) showMigrationNotices(loaded.notices);
 
 	gCanvas->getCircuit()->getOscope()->UpdateMenu();
 	return gCanvases;

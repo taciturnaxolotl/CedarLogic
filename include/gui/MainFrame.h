@@ -144,6 +144,8 @@ public:
 	// format: 1 = v1 XML, 2 = v2 XML, 3 = v3 S-expression (the default).
 	bool save(string filename, int format = 3);
 	void load(string filename);
+	// Render the current canvas to a PNG (headless --render mode + tests).
+	bool renderToPng(const wxString &path, int width, int height);
 	// Ask which format to save an old-format file in. Returns 1/2/3, or -1 to
 	// cancel. New/v3 circuits return 3 without prompting.
 	int chooseSaveFormat();
