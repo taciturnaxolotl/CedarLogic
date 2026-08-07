@@ -70,6 +70,7 @@ BEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(wxID_SAVEAS, MainFrame::OnSaveAs)
 	EVT_MENU(File_Export, MainFrame::OnExportBitmap)
 	EVT_MENU(File_ExportLegacy, MainFrame::OnExportLegacy)
+	EVT_MENU(File_ExportV2, MainFrame::OnExportV2)
 	EVT_MENU(File_ClipCopy, MainFrame::OnCopyToClipboard)
 	
 	EVT_MENU(wxID_UNDO, MainFrame::OnUndo)
@@ -136,7 +137,8 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	fileMenu->Append(wxID_SAVEAS, "Save &As\tCtrl+Shift+S", "Save circuit");
 	fileMenu->AppendSeparator();
 	fileMenu->Append(File_Export, "Export as Image...\tCtrl+E", "Export or copy circuit image");
-	fileMenu->Append(File_ExportLegacy, "Export v1.x Compatible...", "Save in legacy format");
+	fileMenu->Append(File_ExportV2, "Export as v2 (legacy XML)...", "Save a copy in the pre-v3 XML format");
+	fileMenu->Append(File_ExportLegacy, "Export as v1.x Compatible...", "Save a copy in the oldest format");
 	fileMenu->AppendSeparator();
 	fileMenu->Append(wxID_EXIT, "E&xit\tAlt+X", "Quit this program");
 
@@ -636,6 +638,8 @@ void MainFrame::OnNew(wxCommandEvent& event) {
 	removeTempFile();
 	currentTempNum++;
     openedFilename = "";
+	loadedFileFormat = 3;  // a fresh circuit saves as v3
+	saveFormatDecided = false;
 
 	resumeTimers(TIMER_POLL_MS);
 
@@ -706,7 +710,19 @@ void MainFrame::loadCircuitFile( string fileName ){
 	
     CircuitParse cirp(path.ToStdString(), canvases);
 	canvases = cirp.parseFile();
-	
+	loadedFileFormat = cirp.getLoadedFormatCode();
+	saveFormatDecided = false;  // a freshly opened file hasn't been answered yet
+
+	// Let the user know they opened an older format; saving won't silently
+	// convert it (see chooseSaveFormat). Skip the crash-recovery file.
+	if ((loadedFileFormat == 1 || loadedFileFormat == 2) && fileName != CRASH_FILENAME) {
+		wxString v = (loadedFileFormat == 1) ? "v1.x" : "v2";
+		wxMessageBox("This circuit was saved in an older CedarLogic format (" + v + ").\n\n"
+			"It opened fine. When you save, you'll be asked whether to keep the "
+			"original format or upgrade it to the new v3 format.",
+			"Older file format", wxOK | wxICON_INFORMATION, this);
+	}
+
 	//JV - Put pages back into canvas book
 	for (unsigned int i = 1; i < canvases.size(); i++) 
 	{
@@ -726,14 +742,43 @@ void MainFrame::loadCircuitFile( string fileName ){
 void MainFrame::OnSave(wxCommandEvent& event) {
 	if (openedFilename == "") OnSaveAs(event);
 	else {
-		bool success = save((string)openedFilename);
+		int format = chooseSaveFormat();
+		if (format == -1) return;  // user cancelled
+		bool success = save((string)openedFilename, format);
 		if (success) {
+			commandProcessor->MarkAsSaved();
+		} else if (lastSaveError.rfind("Warning:", 0) == 0) {
+			// The file was written, but with a caveat (e.g. bus features can't be
+			// represented in v1.x). Treat it as saved.
+			wxMessageBox(lastSaveError, "Saved with a warning", wxOK | wxICON_WARNING, this);
 			commandProcessor->MarkAsSaved();
 		} else {
 			wxString errorMsg = "Failed to save file:\n\n" + lastSaveError;
 			wxMessageBox(errorMsg, "Save Error", wxOK | wxICON_ERROR, this);
 		}
 	}
+}
+
+// Ask which format to write an old-format file in. v3/new circuits save as v3
+// with no prompt; v1/v2 files prompt so opening one never silently upgrades it.
+int MainFrame::chooseSaveFormat() {
+	if (loadedFileFormat != 1 && loadedFileFormat != 2) return 3;
+	if (saveFormatDecided) return loadedFileFormat;  // already answered for this file
+
+	wxString v = (loadedFileFormat == 1) ? "v1.x" : "v2";
+	wxMessageDialog dialog(this,
+		"This circuit was opened from an older CedarLogic format (" + v + ").\n\n"
+		"Keep it in " + v + " (older CedarLogic can still open it), or migrate it to "
+		"the new v3 format?\n\n"
+		"v3 files cannot be opened by CedarLogic versions older than this one.",
+		"Save — choose a format", wxYES_NO | wxCANCEL | wxICON_QUESTION);
+	dialog.SetYesNoCancelLabels("Migrate to v3", "Keep " + v, "Cancel");
+
+	int result = dialog.ShowModal();
+	if (result == wxID_CANCEL) return -1;
+	saveFormatDecided = true;  // don't ask again for this file
+	if (result == wxID_YES) { loadedFileFormat = 3; return 3; }  // future saves stay v3
+	return loadedFileFormat;  // keep the original format
 }
 
 void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) {
@@ -746,8 +791,12 @@ void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) {
 	dialog.SetDirectory(lastDirectory);
 	if (dialog.ShowModal() == wxID_OK) {
 		wxString path = dialog.GetPath();
-		bool success = save((string)path);
-		if (success) {
+		int format = chooseSaveFormat();
+		if (format == -1) { handlingEvent = false; return; }  // user cancelled
+		bool success = save((string)path, format);
+		if (success || lastSaveError.rfind("Warning:", 0) == 0) {
+			if (!success)
+				wxMessageBox(lastSaveError, "Saved with a warning", wxOK | wxICON_WARNING, this);
 			removeTempFile();
 			openedFilename = path;
 			this->SetTitle(VERSION_TITLE() + " - " + path );
@@ -1120,6 +1169,34 @@ void MainFrame::OnExportLegacy(wxCommandEvent& event) {
 	handlingEvent = false;
 }
 
+// Export a copy in the v2 (pre-v3 XML) format without changing the open file.
+void MainFrame::OnExportV2(wxCommandEvent& event) {
+	handlingEvent = true;
+
+	wxString wildcard = "Circuit files (*.cdl)|*.cdl";
+	wxFileDialog dialog(this, "Export v2 (legacy XML) Circuit", wxEmptyString, "",
+	                    wildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+	dialog.SetDirectory(lastDirectory);
+	if (dialog.ShowModal() == wxID_OK) {
+		wxString path = dialog.GetPath();
+
+		lock();
+		gCircuit->setSimulate(false);
+
+		CircuitParse cirp(currentCanvas);
+		bool success = cirp.saveCircuit((string)path, canvases);
+
+		gCircuit->setSimulate(true);
+		if (!(toolBar->GetToolState(Tool_Lock))) unlock();
+
+		if (!success) {
+			wxMessageBox("Failed to export file:\n\n" + cirp.getLastError(),
+			             "Export Error", wxOK | wxICON_ERROR);
+		}
+	}
+	handlingEvent = false;
+}
+
 void MainFrame::OnCopyToClipboard(wxCommandEvent& event) {
 	// Redirect to unified export dialog
 	OnExportBitmap(event);
@@ -1296,7 +1373,7 @@ void MainFrame::autosave() {
 	save(CRASH_FILENAME);
 }
 
-bool MainFrame::save(string filename) {
+bool MainFrame::save(string filename, int format) {
 	//Pause system so that user can't modify during save
 	lock();
 	gCircuit->setSimulate(false);
@@ -1304,9 +1381,12 @@ bool MainFrame::save(string filename) {
 	// Disabling timers from autosave thread caused an assertion fail.
 	//pauseTimers();
 
-	//Save file
+	//Save file in the requested format (v3 by default).
 	CircuitParse cirp(currentCanvas);
-	bool success = cirp.saveCircuitV3(filename, canvases);
+	bool success;
+	if (format == 1) success = cirp.saveCircuitLegacy(filename, canvases);
+	else if (format == 2) success = cirp.saveCircuit(filename, canvases);
+	else success = cirp.saveCircuitV3(filename, canvases);
 
 	// Store the error message for the caller
 	if (!success) {

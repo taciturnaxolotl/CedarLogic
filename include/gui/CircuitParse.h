@@ -54,11 +54,15 @@ public:
 	bool saveCircuitLegacy(string, vector< GUICanvas* >, unsigned int currPage = 0);
 	// Get detailed error message from last save operation
 	string getLastError() const { return lastError; }
+	// Format the last parseFile() detected: 1 = v1 XML, 2 = v2 XML, 3 = v3
+	// S-expression, 0 = unknown. Lets callers offer format-preserving saves.
+	int getLoadedFormatCode() const { return loadedFormatCode; }
 
 private:
 	XMLParser* mParse;
 	string fileName;
 	string lastError;  // Detailed error message from last save operation
+	int loadedFormatCode = 3;  // set by parseFile(); see getLoadedFormatCode()
 
 	vector< GUICanvas* > gCanvases;
 	GUICanvas* gCanvas;

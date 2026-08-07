@@ -37,6 +37,7 @@ enum
 	File_Export = 5901, // out of range of wxWidgets constants
 	File_ClipCopy,
 	File_ExportLegacy,
+	File_ExportV2,
 	
 	View_Oscope,
 	View_Gridline,
@@ -81,6 +82,7 @@ public:
     void OnSaveAs(wxCommandEvent& event);
 	void OnExportBitmap(wxCommandEvent& event);
 	void OnExportLegacy(wxCommandEvent& event);
+	void OnExportV2(wxCommandEvent& event);
 	void OnCopyToClipboard(wxCommandEvent& event);
 	void OnTimer(wxTimerEvent& event);
 	void OnIdle(wxTimerEvent& event);
@@ -139,8 +141,12 @@ public:
 	bool isHandlingEvent();
 	void lock();
 	void unlock();
-	bool save(string filename);
+	// format: 1 = v1 XML, 2 = v2 XML, 3 = v3 S-expression (the default).
+	bool save(string filename, int format = 3);
 	void load(string filename);
+	// Ask which format to save an old-format file in. Returns 1/2/3, or -1 to
+	// cancel. New/v3 circuits return 3 without prompting.
+	int chooseSaveFormat();
 
 	void PreGateDrag();
 
@@ -183,6 +189,8 @@ private:
 	bool doOpenFile;
 	wxString lastDirectory;
 	wxString openedFilename;
+	int loadedFileFormat = 3;  // format the current circuit was opened from (1/2/3); 3 for new
+	bool saveFormatDecided = false;  // user has answered the keep-or-migrate prompt for this file
 	unsigned int currentTempNum;
 
 	bool handlingEvent; //Julian: Prevents autosaving from occuring during an open/new/saveas/etc...

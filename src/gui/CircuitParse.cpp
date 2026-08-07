@@ -145,6 +145,12 @@ vector<GUICanvas*> CircuitParse::parseFile() {
 		             "Load Error", wxOK | wxICON_ERROR);
 		return gCanvases;
 	}
+	switch (loaded.source) {
+	case cl::SourceFormat::XmlV1: loadedFormatCode = 1; break;
+	case cl::SourceFormat::XmlV2: loadedFormatCode = 2; break;
+	case cl::SourceFormat::SexprV3: loadedFormatCode = 3; break;
+	default: loadedFormatCode = 0; break;
+	}
 
 	applyCircuitFile(loaded.file);
 	showMigrationNotices(loaded.notices);
