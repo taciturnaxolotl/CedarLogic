@@ -1,9 +1,9 @@
 
 #include "cmdDisconnectWire.h"
-#include <sstream>
 #include "../GUICircuit.h"
 #include "../guiGate.h"
 #include "cmdConnectWire.h"
+#include "cmdSerialize.h"
 
 cmdDisconnectWire::cmdDisconnectWire(GUICircuit* gCircuit, IDType wireId,
 		IDType gateId, const std::string &hotspot, bool noCalcShape) :
@@ -50,8 +50,5 @@ bool cmdDisconnectWire::Undo() {
 }
 
 std::string cmdDisconnectWire::toString() const {
-
-	std::ostringstream oss;
-	oss << "disconnectwire " << wireId << " " << gateId << " " << hotspot;
-	return oss.str();
+	return cmdser::emit(cmdser::DisconnectWire{ wireId, gateId, hotspot });
 }

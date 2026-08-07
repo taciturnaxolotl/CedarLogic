@@ -1,8 +1,9 @@
 
 #include "cmdCreateWire.h"
-#include <sstream>
 #include "../GUICanvas.h"
 #include "../guiGate.h"
+#include "cmdConnectWire.h"
+#include "cmdSerialize.h"
 
 cmdCreateWire::cmdCreateWire(GUICanvas* gCanvas, GUICircuit* gCircuit,
 		const std::vector<IDType> &wireIds, cmdConnectWire* conn1,
@@ -19,23 +20,11 @@ cmdCreateWire::cmdCreateWire(GUICanvas* gCanvas, GUICircuit* gCircuit,
 cmdCreateWire::cmdCreateWire(const std::string &def) :
 		klsCommand(true, "Create Wire") {
 
-	std::istringstream iss(def);
-	std::string dump;
-	iss >> dump;
-
-	// The list of id's is followed by a non-integer.
-	// So we can just read until we can't get an integer.
-	IDType tempId;
-	while (iss >> tempId) {
-		wireIds.push_back(tempId);
-	}
-	iss.clear();
-
-	std::string wireid, gateid, hotspot;
-	iss >> dump >> wireid >> gateid >> hotspot;
-	conn1 = new cmdConnectWire(dump + " " + wireid + " " + gateid + " " + hotspot);
-	iss >> dump >> wireid >> gateid >> hotspot;
-	conn2 = new cmdConnectWire(dump + " " + wireid + " " + gateid + " " + hotspot);
+	cmdser::CreateWire cw;
+	cmdser::parse(def, cw);
+	wireIds = cw.wireIds;
+	conn1 = new cmdConnectWire(cmdser::emit(cw.conn1));
+	conn2 = new cmdConnectWire(cmdser::emit(cw.conn2));
 }
 
 cmdCreateWire::~cmdCreateWire() {
@@ -97,16 +86,11 @@ const vector<IDType> & cmdCreateWire::getWireIds() const {
 }
 
 std::string cmdCreateWire::toString() const {
-	std::ostringstream oss;
-	oss << "createwire ";
-
-	// No need to put a count because thing after ids is a non-int.
-	for (IDType id : wireIds) {
-		oss << id << ' ';
-	}
-
-	oss << conn1->toString() << ' ' << conn2->toString();
-	return oss.str();
+	cmdser::CreateWire cw;
+	cw.wireIds = wireIds;
+	cw.conn1 = { conn1->getWireId(), conn1->getGateId(), conn1->getHotspot() };
+	cw.conn2 = { conn2->getWireId(), conn2->getGateId(), conn2->getHotspot() };
+	return cmdser::emit(cw);
 }
 
 void cmdCreateWire::setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,

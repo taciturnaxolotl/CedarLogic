@@ -23,6 +23,8 @@ public:
 
 	IDType getGateId() const;
 
+	IDType getWireId() const;
+
 	const std::string & getHotspot() const;
 
 	static void sendMessagesToConnect(GUICircuit *gCircuit, IDType wireId,
