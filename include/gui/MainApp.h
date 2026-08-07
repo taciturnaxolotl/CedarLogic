@@ -66,17 +66,39 @@ public:
 #endif
 
 public:
-    // crit section protects access to all of the arrays below
+    // ---- Threading model ------------------------------------------------
+    // Two background threads run alongside the wx GUI thread: threadLogic (the
+    // simulation) and autoSaveThread. They coordinate through the shared state
+    // below, each member guarded by a specific primitive. Lock only what a
+    // comment names, and hold one lock at a time -- there is no established
+    // lock ordering, so nesting these risks deadlock.
+    //
+    // NOTE: locking is not yet consistent -- most sites use RAII lockers
+    // (wxMutexLocker / wxCriticalSectionLocker), but threadLogic.cpp still
+    // hand-rolls a `while (mexMessages.TryLock()==wxMUTEX_BUSY) wxYield();`
+    // spin on the same mutex, which is NOT equivalent to a blocking lock (it
+    // pumps the GUI event loop while waiting). See
+    // docs/modernization/remaining-workstreams.md (Workstream E) before
+    // changing any of this.
+
+    // Guards the message-passing bookkeeping used while marshalling work to the
+    // logic thread. (Held briefly around enqueue/handshake in threadLogic.)
     wxCriticalSection m_critsect;
 
-    // semaphore used to wait for the threads to exit, see MainFrame::OnQuit()
+    // Posted by the last background thread as it exits so MainFrame::OnQuit()
+    // can block until both threads have finished.
     wxSemaphore m_semAllDone;
+	// Step handshake between the GUI and the logic thread: `simulate` releases
+	// the logic thread to run a step; `readyToSend` reports the results are back.
 	wxSemaphore simulate;
 	wxSemaphore readyToSend;
 
+	// Guards the two message queues below (both directions of GUI <-> logic).
 	wxMutex mexMessages;
 	deque< klsMessage::Message > dGUItoLOGIC;
 	deque< klsMessage::Message > dLOGICtoGUI;
+	// Guards wireStateBuffer, the batch of wire-state updates the logic thread
+	// produces for the GUI to drain.
 	wxMutex wireStateMutex;
 	unordered_map<IDType, StateType> wireStateBuffer;
 	// Use a stopwatch for timing between step calls
