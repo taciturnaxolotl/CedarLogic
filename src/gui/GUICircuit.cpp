@@ -202,18 +202,17 @@ void GUICircuit::parseMessage(klsMessage::Message message) {
 	switch (message.mType) {
 		case klsMessage::MT_SET_GATE_PARAM: {
 			// SET GATE id PARAMETER name val
-			klsMessage::Message_SET_GATE_PARAM* msgSetGateParam = (klsMessage::Message_SET_GATE_PARAM*)(message.mStruct);
-			if (gateList.find(msgSetGateParam->gateId) != gateList.end()) gateList[msgSetGateParam->gateId]->setLogicParam(msgSetGateParam->paramName, msgSetGateParam->paramValue);
-			if( msgSetGateParam->paramName == "PAUSE_SIM" ){
+			const klsMessage::Message_SET_GATE_PARAM& msg = message.as<klsMessage::Message_SET_GATE_PARAM>();
+			if (gateList.find(msg.gateId) != gateList.end()) gateList[msg.gateId]->setLogicParam(msg.paramName, msg.paramValue);
+			if( msg.paramName == "PAUSE_SIM" ){
 				pausing = true;
 				panic = true;
 			}
-			delete msgSetGateParam;
 			break;
 		}
 		case klsMessage::MT_DONESTEP: { // DONESTEP
 			simulate = true;
-			int logicTime = ((klsMessage::Message_DONESTEP*)(message.mStruct))->logicTime;
+			int logicTime = message.as<klsMessage::Message_DONESTEP>().logicTime;
 			// Panic if core isn't keeping up, keep a 3ms buffer...
 			panic = (logicTime > lastTime+3) || panic;
 			// Now we can send the waiting messages
@@ -222,7 +221,6 @@ void GUICircuit::parseMessage(klsMessage::Message message) {
 			// Sync wire states and always refresh
 			syncWireStates();
 			gCanvas->Refresh();
-			delete ((klsMessage::Message_DONESTEP*)(message.mStruct));
 			break;
 		}
 		case klsMessage::MT_COMPLETE_INTERIM_STEP: {// COMPLETE INTERIM STEP - UPDATE OSCOPE

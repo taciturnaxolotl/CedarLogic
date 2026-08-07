@@ -74,101 +74,92 @@ bool threadLogic::parseMessage(klsMessage::Message input) {
 	}
 	case klsMessage::MT_CREATE_GATE: {
 		// CREATE GATE TYPE type ID id
-		klsMessage::Message_CREATE_GATE* msgCreateGate = (klsMessage::Message_CREATE_GATE*)(input.mStruct);
+		const klsMessage::Message_CREATE_GATE& msg = input.as<klsMessage::Message_CREATE_GATE>();
 
 		// tell logic core to create a gate id of type OR
-		cir->newGate( msgCreateGate->gateType, msgCreateGate->gateId );
-		delete msgCreateGate;
+		cir->newGate( msg.gateType, msg.gateId );
 		break;
 	}
 	case klsMessage::MT_CREATE_WIRE: {
 		// CREATE WIRE ID id
-		id = ((klsMessage::Message_CREATE_WIRE*)(input.mStruct))->wireId;
+		id = input.as<klsMessage::Message_CREATE_WIRE>().wireId;
 		// tell logic core to create wire id
 		(*logicIDs)[id] = cir->newWire( id );
-		delete ((klsMessage::Message_CREATE_WIRE*)(input.mStruct));
 		break;
 	}
 	case klsMessage::MT_DELETE_GATE: {
 		// DELETE GATE id
-		id = ((klsMessage::Message_DELETE_GATE*)(input.mStruct))->gateId;
+		id = input.as<klsMessage::Message_DELETE_GATE>().gateId;
 		cir->deleteGate(id);
-		delete ((klsMessage::Message_DELETE_GATE*)(input.mStruct));
 		break;
 	}
 	case klsMessage::MT_DELETE_WIRE: {
 		// DELETE WIRE id
-		id = ((klsMessage::Message_DELETE_WIRE*)(input.mStruct))->wireId;
+		id = input.as<klsMessage::Message_DELETE_WIRE>().wireId;
 		cir->deleteWire((*logicIDs)[id]);
-		delete ((klsMessage::Message_DELETE_WIRE*)(input.mStruct));
 		break;
 	}
 	case klsMessage::MT_SET_GATE_INPUT: {
 		// SET GATE ID id INPUT ID id TO DISCONNECT/wid
-		id = ((klsMessage::Message_SET_GATE_INPUT*)(input.mStruct))->gateId;
-		pinID = ((klsMessage::Message_SET_GATE_INPUT*)(input.mStruct))->inputId;
+		const klsMessage::Message_SET_GATE_INPUT& msg = input.as<klsMessage::Message_SET_GATE_INPUT>();
+		id = msg.gateId;
+		pinID = msg.inputId;
 		// tell logic core to set gate id's input id to connect with wireID
-		if (((klsMessage::Message_SET_GATE_INPUT*)(input.mStruct))->disconnect) {
+		if (msg.disconnect) {
 			cir->disconnectGateInput( id, pinID );
 		} else {
-			wireID = ((klsMessage::Message_SET_GATE_INPUT*)(input.mStruct))->wireId;
+			wireID = msg.wireId;
 			if (logicIDs->find(wireID) == logicIDs->end()) {
 				(*logicIDs)[wireID] = cir->connectGateInput( id, pinID, wireID );
 			} else {
 				cir->connectGateInput( id, pinID, (*logicIDs)[wireID] );
 			}
 		}
-		delete ((klsMessage::Message_SET_GATE_INPUT*)(input.mStruct));
 		break;
 	}
 	case klsMessage::MT_SET_GATE_INPUT_PARAM: {
 		// SET GATE ID id INPUT ID id PARAM name value
-		klsMessage::Message_SET_GATE_INPUT_PARAM* msgSetGateInputParam = (klsMessage::Message_SET_GATE_INPUT_PARAM*)(input.mStruct);
-		// Now input holds the pValue
+		const klsMessage::Message_SET_GATE_INPUT_PARAM& msg = input.as<klsMessage::Message_SET_GATE_INPUT_PARAM>();
 		// Send name "pName" and value "input" to gate for input pin settings
-		cir->setGateInputParameter( msgSetGateInputParam->gateId, msgSetGateInputParam->inputId, msgSetGateInputParam->paramName, msgSetGateInputParam->paramValue );
-		delete msgSetGateInputParam;
+		cir->setGateInputParameter( msg.gateId, msg.inputId, msg.paramName, msg.paramValue );
 		break;
 	}
 	case klsMessage::MT_SET_GATE_OUTPUT: {
 		// SET GATE ID id OUTPUT ID id TO DISCONNECT/wid
-		id = ((klsMessage::Message_SET_GATE_OUTPUT*)(input.mStruct))->gateId;
-		pinID = ((klsMessage::Message_SET_GATE_OUTPUT*)(input.mStruct))->outputId;
+		const klsMessage::Message_SET_GATE_OUTPUT& msg = input.as<klsMessage::Message_SET_GATE_OUTPUT>();
+		id = msg.gateId;
+		pinID = msg.outputId;
 		// tell logic core to set gate id's output id to connect with wireID
-		if (((klsMessage::Message_SET_GATE_OUTPUT*)(input.mStruct))->disconnect) {
+		if (msg.disconnect) {
 			cir->disconnectGateOutput( id, pinID );
 		} else {
-			wireID = ((klsMessage::Message_SET_GATE_OUTPUT*)(input.mStruct))->wireId;
+			wireID = msg.wireId;
 			if (logicIDs->find(wireID) == logicIDs->end()) {
 				(*logicIDs)[wireID] = cir->connectGateOutput( id, pinID, wireID );
 			} else {
 				cir->connectGateOutput( id, pinID, (*logicIDs)[wireID] );
 			}
 		}
-		delete ((klsMessage::Message_SET_GATE_OUTPUT*)(input.mStruct));
 		break;
 	}
 
 	case klsMessage::MT_SET_GATE_OUTPUT_PARAM: {
 		// SET GATE ID id OUTPUT ID id PARAM name value
-		klsMessage::Message_SET_GATE_OUTPUT_PARAM* msgSetGateOutputParam = (klsMessage::Message_SET_GATE_OUTPUT_PARAM*)(input.mStruct);
-		// Now input holds the pValue
-		// Send name "pName" and value "input" to gate for input pin settings
-		cir->setGateOutputParameter( msgSetGateOutputParam->gateId, msgSetGateOutputParam->outputId, msgSetGateOutputParam->paramName, msgSetGateOutputParam->paramValue );
-		delete msgSetGateOutputParam;
+		const klsMessage::Message_SET_GATE_OUTPUT_PARAM& msg = input.as<klsMessage::Message_SET_GATE_OUTPUT_PARAM>();
+		// Send name "pName" and value "input" to gate for output pin settings
+		cir->setGateOutputParameter( msg.gateId, msg.outputId, msg.paramName, msg.paramValue );
 		break;
 	}
 	case klsMessage::MT_SET_GATE_PARAM: {
 		// SET GATE ID id PARAMETER paramname paramval
-		klsMessage::Message_SET_GATE_PARAM* msgSetGateParam = (klsMessage::Message_SET_GATE_PARAM*)(input.mStruct);
-		cir->setGateParameter(msgSetGateParam->gateId, msgSetGateParam->paramName, msgSetGateParam->paramValue);
-		delete msgSetGateParam;
+		const klsMessage::Message_SET_GATE_PARAM& msg = input.as<klsMessage::Message_SET_GATE_PARAM>();
+		cir->setGateParameter(msg.gateId, msg.paramName, msg.paramValue);
 		break;
 	}
 	case klsMessage::MT_STEPSIM: {
 		// STEPSIM numSteps
 		wxStopWatch simTime;
-		int numSteps = ((klsMessage::Message_STEPSIM*)(input.mStruct))->numSteps;
+		int numSteps = input.as<klsMessage::Message_STEPSIM>().numSteps;
 		bool pauseingSim = false;
 		// Do that many steps and then notify GUI that we're done
 		for (int i = 0; i < numSteps && !pauseingSim; i++) {
@@ -220,7 +211,6 @@ bool threadLogic::parseMessage(klsMessage::Message input) {
 			sendMessage(klsMessage::Message(klsMessage::MT_COMPLETE_INTERIM_STEP));
 		}
 		sendMessage(klsMessage::Message(klsMessage::MT_DONESTEP, new klsMessage::Message_DONESTEP(simTime.Time())));
-		delete ((klsMessage::Message_STEPSIM*)(input.mStruct));
 		break;
 	}
 	case klsMessage::MT_UPDATE_GATES: {
