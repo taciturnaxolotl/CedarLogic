@@ -960,12 +960,25 @@ void MainFrame::OnNotebookPage(wxAuiNotebookEvent& event) {
 }
 
 void MainFrame::OnUndo(wxCommandEvent& event) {
+	// Quiesce the sim timers while the command re-runs its structural edits -- the
+	// same guard the New/Open/Close handlers use. Undo/redo mutate the gate/wire
+	// lists and fire core messages; with a running simulation the step timer is
+	// concurrently syncing wire state and repainting (MT_DONESTEP), and the two
+	// race and crash. Pausing the sim by hand avoids it, and so does this.
+	handlingEvent = true;
+	pauseTimers();
 	commandProcessor->Undo();
+	resumeTimers(TIMER_POLL_MS);
+	handlingEvent = false;
 	currentCanvas->Update();
 }
 
 void MainFrame::OnRedo(wxCommandEvent& event) {
+	handlingEvent = true;
+	pauseTimers();
 	commandProcessor->Redo();
+	resumeTimers(TIMER_POLL_MS);
+	handlingEvent = false;
 	currentCanvas->Update();
 }
 
