@@ -150,8 +150,9 @@ public:
 	// Select a tab by index (safe, event-free), for undo/redo of tab commands
 	// whose canvas pointer can't be followed. Updates currentCanvas + minimap.
 	void showCanvasIndex(int idx);
-	// Render the current canvas to a PNG (headless --render mode + tests).
-	bool renderToPng(const wxString &path, int width, int height);
+	// Render the current canvas to a PNG (headless --render mode). Output size
+	// follows the canvas client area, which the caller sizes before calling.
+	bool renderToPng(const wxString &path);
 	// Ask which format to save an old-format file in. Returns 1/2/3, or -1 to
 	// cancel. New/v3 circuits return 3 without prompting.
 	int chooseSaveFormat();
