@@ -18,6 +18,9 @@ TEST_CASE("emit matches the historical hand-written formats (golden)") {
 	CHECK(emit(MoveGate{2, 1.0f, 2.0f, 3.0f, 4.0f}) == "movegate 2 1 2 3 4");
 	CHECK(emit(MoveGate{9, -1.5f, 0.0f, 2.25f, -4.0f}) ==
 	      "movegate 9 -1.5 0 2.25 -4");
+	CHECK(emit(DisconnectWire{5, 9, "IN_0"}) == "disconnectwire 5 9 IN_0");
+	CHECK(emit(CreateWire{{3, 4}, {3, 10, "OUT_0"}, {4, 11, "IN_1"}}) ==
+	      "createwire 3 4 connectwire 3 10 OUT_0 connectwire 4 11 IN_1");
 }
 
 TEST_CASE("parse consumes the leading keyword and fields") {
@@ -64,4 +67,18 @@ TEST_CASE("round trip is stable for exactly-representable values") {
 	CHECK(cw2.wireId == cw.wireId);
 	CHECK(cw2.gateId == cw.gateId);
 	CHECK(cw2.hotspot == cw.hotspot);
+}
+
+TEST_CASE("createwire round-trips its id list and both connections") {
+	// The id list is variable length and ends where the first connectwire begins.
+	CreateWire cw{{7, 8, 9}, {7, 20, "OUT_0"}, {9, 21, "IN_3"}};
+	CreateWire out;
+	REQUIRE(parse(emit(cw), out));
+	CHECK(out.wireIds == cw.wireIds);
+	CHECK(out.conn1.wireId == cw.conn1.wireId);
+	CHECK(out.conn1.gateId == cw.conn1.gateId);
+	CHECK(out.conn1.hotspot == cw.conn1.hotspot);
+	CHECK(out.conn2.wireId == cw.conn2.wireId);
+	CHECK(out.conn2.gateId == cw.conn2.gateId);
+	CHECK(out.conn2.hotspot == cw.conn2.hotspot);
 }

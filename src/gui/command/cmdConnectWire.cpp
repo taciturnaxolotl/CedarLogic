@@ -92,6 +92,10 @@ IDType cmdConnectWire::getGateId() const {
 	return gateId;
 }
 
+IDType cmdConnectWire::getWireId() const {
+	return wireId;
+}
+
 const std::string & cmdConnectWire::getHotspot() const {
 	return hotspot;
 }
