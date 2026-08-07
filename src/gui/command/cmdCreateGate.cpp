@@ -5,6 +5,7 @@
 #include "../guiGate.h"
 #include "../MainApp.h"
 #include "cmdSetParams.h"
+#include "cmdSerialize.h"
 
 DECLARE_APP(MainApp)
 
@@ -19,9 +20,12 @@ cmdCreateGate::cmdCreateGate(GUICanvas* gCanvas, GUICircuit* gCircuit, unsigned 
 }
 
 cmdCreateGate::cmdCreateGate(string def) : klsCommand(true, "Create Gate") {
-	istringstream iss(def);
-	string dump;
-	iss >> dump >> gid >> gateType >> x >> y;
+	cmdser::CreateGate d;
+	cmdser::parse(def, d);
+	gid = d.gid;
+	gateType = d.gateType;
+	x = d.x;
+	y = d.y;
 	this->fromString = true;
 }
 
@@ -97,10 +101,7 @@ bool cmdCreateGate::Undo() {
 }
 
 std::string cmdCreateGate::toString() const {
-
-	ostringstream oss;
-	oss << "creategate " << gid << " " << gateType << " " << x << " " << y;
-	return oss.str();
+	return cmdser::emit(cmdser::CreateGate{gid, gateType, x, y});
 }
 
 void cmdCreateGate::setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
