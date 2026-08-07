@@ -147,7 +147,11 @@ public:
 	//	Basically exporting bitmaps doesn't like GL display
 	//	lists, so we flag them
 	bool doingBitmapExport;
-	
+
+	// Headless --render mode: load a circuit, dump a PNG, exit. Suppresses the
+	// modal load dialogs (version / migration / convert) so nothing blocks.
+	bool headlessRender = false;
+
 private:
 	void loadSettings( void );
 
