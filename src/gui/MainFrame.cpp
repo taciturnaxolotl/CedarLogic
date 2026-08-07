@@ -137,8 +137,8 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	fileMenu->Append(wxID_SAVEAS, "Save &As\tCtrl+Shift+S", "Save circuit");
 	fileMenu->AppendSeparator();
 	fileMenu->Append(File_Export, "Export as Image...\tCtrl+E", "Export or copy circuit image");
-	fileMenu->Append(File_ExportV2, "Export as v2 (legacy XML)...", "Save a copy in the pre-v3 XML format");
-	fileMenu->Append(File_ExportLegacy, "Export as v1.x Compatible...", "Save a copy in the oldest format");
+	fileMenu->Append(File_ExportV2, "Export as V2 (legacy XML)...", "Save a copy in the pre-V3 XML format");
+	fileMenu->Append(File_ExportLegacy, "Export as V1.x Compatible...", "Save a copy in the oldest format");
 	fileMenu->AppendSeparator();
 	fileMenu->Append(wxID_EXIT, "E&xit\tAlt+X", "Quit this program");
 
@@ -713,15 +713,6 @@ void MainFrame::loadCircuitFile( string fileName ){
 	loadedFileFormat = cirp.getLoadedFormatCode();
 	saveFormatDecided = false;  // a freshly opened file hasn't been answered yet
 
-	// Let the user know they opened an older format; saving won't silently
-	// convert it (see chooseSaveFormat). Skip the crash-recovery file.
-	if ((loadedFileFormat == 1 || loadedFileFormat == 2) && fileName != CRASH_FILENAME) {
-		wxString v = (loadedFileFormat == 1) ? "v1.x" : "v2";
-		wxMessageBox("This circuit was saved in an older file format (" + v + "). "
-			"When you save, you can keep this format or convert it to the current format.",
-			"Older File Format", wxOK | wxICON_INFORMATION, this);
-	}
-
 	//JV - Put pages back into canvas book
 	for (unsigned int i = 1; i < canvases.size(); i++) 
 	{
@@ -736,6 +727,29 @@ void MainFrame::loadCircuitFile( string fileName ){
 	currentCanvas->SetFocus();
 
 	removeTempFile();
+
+	// Offer to migrate an older file to the latest format up front. Declining
+	// leaves it undecided, so the same choice is offered again when they save.
+	// Skip the crash-recovery file.
+	if ((loadedFileFormat == 1 || loadedFileFormat == 2) && fileName != CRASH_FILENAME) {
+		wxString v = (loadedFileFormat == 1) ? "V1" : "V2";
+		wxMessageDialog dialog(this,
+			"This circuit was saved in an older file format (" + v + ").\n\n"
+			"Convert it to V3 now? If not, you can convert it later when you save.",
+			"Older File Format", wxYES_NO | wxICON_QUESTION);
+		dialog.SetYesNoLabels("Convert to V3", "Not Now");
+		if (dialog.ShowModal() == wxID_YES) {
+			CircuitParse saver(currentCanvas);
+			if (saver.saveCircuitV3(fileName, canvases)) {
+				loadedFileFormat = 3;
+				saveFormatDecided = true;
+				commandProcessor->MarkAsSaved();
+			} else {
+				wxMessageBox("Could not convert the file:\n\n" + saver.getLastError(),
+					"Save Error", wxOK | wxICON_ERROR, this);
+			}
+		}
+	}
 }
 
 void MainFrame::OnSave(wxCommandEvent& event) {
@@ -764,13 +778,13 @@ int MainFrame::chooseSaveFormat() {
 	if (loadedFileFormat != 1 && loadedFileFormat != 2) return 3;
 	if (saveFormatDecided) return loadedFileFormat;  // already answered for this file
 
-	wxString v = (loadedFileFormat == 1) ? "v1.x" : "v2";
+	wxString v = (loadedFileFormat == 1) ? "V1" : "V2";
 	wxMessageDialog dialog(this,
 		"This circuit was opened in an older file format (" + v + ").\n\n"
-		"Convert it to the current format, or keep " + v + "?\n\n"
-		"The current format cannot be opened by older versions of CedarLogic.",
+		"Convert it to V3, or keep " + v + "?\n\n"
+		"V3 files cannot be opened by older versions of CedarLogic.",
 		"Save Circuit", wxYES_NO | wxCANCEL | wxICON_QUESTION);
-	dialog.SetYesNoCancelLabels("Convert", "Keep " + v, "Cancel");
+	dialog.SetYesNoCancelLabels("Convert to V3", "Keep " + v, "Cancel");
 
 	int result = dialog.ShowModal();
 	if (result == wxID_CANCEL) return -1;
