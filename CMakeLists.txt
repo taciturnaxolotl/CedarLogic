@@ -115,6 +115,18 @@ if(WIN32)
     )
     FetchContent_MakeAvailable(WinSparkle)
     set(WINSPARKLE_DIR "${winsparkle_SOURCE_DIR}")
+
+    # The WinSparkle zip ships a separate import lib + DLL per architecture:
+    # Release/ is x86, x64/Release/ is x64, ARM64/Release/ is ARM64. Pick the one
+    # matching the target, or the link fails with LNK4272 (machine-type conflict)
+    # on any non-x86 build.
+    if(CMAKE_GENERATOR_PLATFORM MATCHES "[Aa][Rr][Mm]64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "[Aa][Rr][Mm]64")
+        set(WINSPARKLE_ARCH_DIR "ARM64/Release")
+    elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(WINSPARKLE_ARCH_DIR "x64/Release")
+    else()
+        set(WINSPARKLE_ARCH_DIR "Release")
+    endif()
 endif()
 
 ###
@@ -171,7 +183,7 @@ endif()
 # Windows: Link WinSparkle
 if(WIN32)
     target_include_directories(CedarLogic PRIVATE "${WINSPARKLE_DIR}/include")
-    target_link_libraries(CedarLogic PRIVATE "${WINSPARKLE_DIR}/Release/WinSparkle.lib")
+    target_link_libraries(CedarLogic PRIVATE "${WINSPARKLE_DIR}/${WINSPARKLE_ARCH_DIR}/WinSparkle.lib")
 endif()
 
 # This is for internal headers
@@ -285,7 +297,7 @@ vs_source_groups(src ${Sources})
 
 if (WIN32)
     install(TARGETS CedarLogic RUNTIME DESTINATION ".")
-    install(FILES "${WINSPARKLE_DIR}/Release/WinSparkle.dll" DESTINATION ".")
+    install(FILES "${WINSPARKLE_DIR}/${WINSPARKLE_ARCH_DIR}/WinSparkle.dll" DESTINATION ".")
     install_resources(res)
 elseif(APPLE)
     install(TARGETS CedarLogic BUNDLE DESTINATION ".")
