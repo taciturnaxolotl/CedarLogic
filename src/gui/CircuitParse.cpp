@@ -161,9 +161,26 @@ vector<GUICanvas*> CircuitParse::parseFile() {
 
 // Build the GUI from a parsed circuit model: one canvas per page, every gate
 // (which in turn creates and connects its wires), then each wire's routed shape.
+static cl::GateDef toGateDef(const LibraryGate &lg);
+static LibraryGate fromGateDef(const cl::GateDef &d);
+
 void CircuitParse::applyCircuitFile(const cl::CircuitFile &cf) {
 	// If no library was loaded, then we can't make gates from one.
 	if (wxGetApp().libraries.size() == 0) return;
+
+	// Register any gate the current library is missing from the copy embedded in
+	// the file, so a circuit using a since-changed/removed gate still loads
+	// (with its shape and pins) instead of falling back to a blank gate.
+	for (const cl::GateDef &d : cf.usedGates) {
+		if (wxGetApp().gateNameToLibrary.find(d.name) != wxGetApp().gateNameToLibrary.end()) continue;
+		LibraryGate lg = fromGateDef(d);
+		wxGetApp().libraries["embedded"][d.name] = lg;
+		wxGetApp().gateNameToLibrary[d.name] = "embedded";
+		// Also register with libParser, which parseGateToSend queries for the gate's
+		// logic type + hotspots. Without this the core gate is never created and the
+		// wires that connect to it crash.
+		wxGetApp().libParser.addGate("embedded", lg);
+	}
 
 	for (const cl::Page &pg : cf.pages) {
 		// Reuse the canvas for this page index, or grow the set to reach it.
@@ -390,6 +407,44 @@ static cl::WireInstance buildWire(guiWire *w) {
 	return wi;
 }
 
+// LibraryGate <-> the format's embedded GateDef. Lets a saved circuit carry a
+// copy of every gate it uses, so it still opens if the library later changes.
+static cl::GateDef toGateDef(const LibraryGate &lg) {
+	cl::GateDef d;
+	d.name = lg.gateName;
+	d.caption = lg.caption;
+	d.guiType = lg.guiType;
+	d.logicType = lg.logicType;
+	for (const lgHotspot &h : lg.hotspots)
+		d.hotspots.push_back({ h.name, h.isInput, h.x, h.y, h.isInverted, h.logicEInput, h.busLines });
+	for (const lgLine &l : lg.shape)
+		d.shape.push_back({ l.x1, l.y1, l.x2, l.y2, l.isLabel });
+	for (const lgDlgParam &p : lg.dlgParams)
+		d.dlgParams.push_back({ p.textLabel, p.name, p.type, p.isGui });
+	for (const auto &kv : lg.guiParams) d.params.push_back({ kv.first, kv.second, true });
+	for (const auto &kv : lg.logicParams) d.params.push_back({ kv.first, kv.second, false });
+	return d;
+}
+
+static LibraryGate fromGateDef(const cl::GateDef &d) {
+	LibraryGate lg;
+	lg.gateName = d.name;
+	lg.caption = d.caption;
+	lg.guiType = d.guiType;
+	lg.logicType = d.logicType;
+	for (const cl::HotspotDef &h : d.hotspots)
+		lg.hotspots.push_back(lgHotspot(h.name, h.isInput, (float)h.x, (float)h.y, h.inverted, h.eInput, h.busLines));
+	for (const cl::LineDef &l : d.shape)
+		lg.shape.push_back(lgLine((float)l.x1, (float)l.y1, (float)l.x2, (float)l.y2, l.isLabel));
+	for (const cl::DlgParamDef &p : d.dlgParams)
+		lg.dlgParams.push_back(lgDlgParam(p.label, p.name, p.type, p.isGui));
+	for (const cl::Param &p : d.params) {
+		if (p.gui) lg.guiParams[p.name] = p.value;
+		else lg.logicParams[p.name] = p.value;
+	}
+	return lg;
+}
+
 static cl::CircuitFile buildCircuitFile(vector<GUICanvas*> &glc) {
 	cl::CircuitFile cf;
 	cf.formatVersion = 3;
@@ -408,6 +463,19 @@ static cl::CircuitFile buildCircuitFile(vector<GUICanvas*> &glc) {
 			if (entry.second != nullptr) pg.wires.push_back(buildWire(entry.second));
 		cf.pages.push_back(std::move(pg));
 	}
+
+	// Embed a copy of every gate definition the circuit uses.
+	std::set<string> embedded;
+	for (const cl::Page &pg : cf.pages)
+		for (const cl::GateInstance &g : pg.gates) {
+			if (!embedded.insert(g.libName).second) continue;
+			auto nameIt = wxGetApp().gateNameToLibrary.find(g.libName);
+			if (nameIt == wxGetApp().gateNameToLibrary.end()) continue;
+			auto libIt = wxGetApp().libraries.find(nameIt->second);
+			if (libIt == wxGetApp().libraries.end()) continue;
+			auto defIt = libIt->second.find(g.libName);
+			if (defIt != libIt->second.end()) cf.usedGates.push_back(toGateDef(defIt->second));
+		}
 	return cf;
 }
 
