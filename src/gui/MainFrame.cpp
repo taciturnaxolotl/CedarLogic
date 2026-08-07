@@ -1446,11 +1446,15 @@ void MainFrame::load(string filename) {
 	loadCircuitFile(filename);
 }
 
-bool MainFrame::renderToPng(const wxString &path, int width, int height) {
+bool MainFrame::renderToPng(const wxString &path) {
 	if (currentCanvas == NULL) return false;
-	wxImage img = currentCanvas->renderToImage((unsigned long)width, (unsigned long)height, 32, false);
-	if (!img.IsOk()) return false;
-	return img.SaveFile(path, wxBITMAP_TYPE_PNG);
+	// Go through the canonical export path. getBitmap brackets the render with
+	// doingBitmapExport, which is load-bearing: the offscreen GL context is
+	// unshared on Windows, so without it the connection-point display list is a
+	// no-op and wires lose their dots. It also handles the grid-visibility state.
+	wxBitmap bmp = getBitmap(wxGetApp().appSettings.gridlineVisible, false, 1);
+	if (!bmp.IsOk()) return false;
+	return bmp.ConvertToImage().SaveFile(path, wxBITMAP_TYPE_PNG);
 }
 
 void MainFrame::openFileFromFinder(const wxString& fileName) {

@@ -13,6 +13,9 @@
 #include "wx/cmdline.h"
 #include "../version.h"
 #include <cstdlib>   // std::_Exit for the headless --render one-shot
+#include <fstream>
+#include <sstream>
+#include "migrate.hpp"   // cl::loadCircuit, to validate a file before the GUI load
 #include "wx/stdpaths.h"
 #include "wx/fileconf.h"
 #ifdef __APPLE__
@@ -126,6 +129,19 @@ bool MainApp::OnInit()
     MainFrame *frame = new MainFrame(VERSION_TITLE(), cmdFilename);
 
     if (headlessRender) {
+        // Validate the file up front. A missing or malformed file would otherwise
+        // pop a modal error in the load path -- which hangs this windowless
+        // one-shot -- so parse it here first and exit cleanly if it won't load.
+        {
+            std::ifstream in(cmdFilename.c_str(), std::ios::binary);
+            std::ostringstream ss;
+            ss << in.rdbuf();
+            try {
+                cl::loadCircuit(ss.str());
+            } catch (const std::exception &) {
+                std::_Exit(1);
+            }
+        }
         // Realize + size the window so the canvas has a client size, load the
         // circuit synchronously, render it offscreen, and exit.
         frame->SetSize(renderW + 220, renderH + 140);
@@ -133,7 +149,7 @@ bool MainApp::OnInit()
         wxYield();
         frame->load(cmdFilename);
         wxYield();
-        bool ok = frame->renderToPng(renderOutput, renderW, renderH);
+        bool ok = frame->renderToPng(renderOutput);
         // The PNG is written; exit immediately rather than tear down the (shown)
         // frame + autosave thread, which otherwise hangs this one-shot process.
         fflush(nullptr);
