@@ -89,11 +89,59 @@ static SNode wireNode(const WireInstance &w) {
 	return n;
 }
 
+static SNode gateDefNode(const GateDef &g) {
+	SNode n = SNode::list();
+	n.add(SNode::sym("gatedef"));
+	n.add(SNode::str(g.name));
+	n.add(kv("caption", SNode::str(g.caption)));
+	n.add(kv("gui", SNode::str(g.guiType)));
+	n.add(kv("logic", SNode::str(g.logicType)));
+	for (const HotspotDef &h : g.hotspots) {
+		SNode hn = SNode::list();
+		hn.add(SNode::sym("hotspot"));
+		hn.add(SNode::str(h.name));
+		hn.add(SNode::sym(h.isInput ? "in" : "out"));
+		hn.add(num(h.x));
+		hn.add(num(h.y));
+		if (h.inverted) hn.add(SNode::sym("inv"));
+		if (h.busLines != 1) hn.add(kv("bus", num(h.busLines)));
+		if (!h.eInput.empty()) hn.add(kv("e", SNode::str(h.eInput)));
+		n.add(std::move(hn));
+	}
+	for (const LineDef &l : g.shape) {
+		SNode ln = SNode::list();
+		ln.add(SNode::sym(l.isLabel ? "labelline" : "line"));
+		ln.add(num(l.x1));
+		ln.add(num(l.y1));
+		ln.add(num(l.x2));
+		ln.add(num(l.y2));
+		n.add(std::move(ln));
+	}
+	for (const DlgParamDef &d : g.dlgParams) {
+		SNode dn = SNode::list();
+		dn.add(SNode::sym("dlgparam"));
+		dn.add(SNode::str(d.label));
+		dn.add(SNode::str(d.name));
+		dn.add(SNode::str(d.type));
+		dn.add(SNode::sym(d.isGui ? "gui" : "logic"));
+		n.add(std::move(dn));
+	}
+	for (const Param &p : g.params) {
+		SNode pn = SNode::list();
+		pn.add(SNode::sym(p.gui ? "gparam" : "lparam"));
+		pn.add(SNode::str(p.name));
+		pn.add(SNode::str(p.value));
+		n.add(std::move(pn));
+	}
+	return n;
+}
+
 std::string writeCircuitFile(const CircuitFile &cf) {
 	SNode root = SNode::list();
 	root.add(SNode::sym("cedarlogic"));
 	root.add(kv("version", num(cf.formatVersion)));
 	root.add(kv("generator", SNode::str(cf.generator)));
+	for (const GateDef &g : cf.usedGates) root.add(gateDefNode(g));
 	for (const Page &pg : cf.pages) {
 		SNode pn = SNode::list();
 		pn.add(SNode::sym("page"));
@@ -172,6 +220,55 @@ static WireInstance readWire(const SNode &n) {
 	return w;
 }
 
+static std::string optStr(const SNode &n, const std::string &name) {
+	const SNode *c = n.child(name);
+	return c ? item(*c, 1) : std::string();
+}
+
+static GateDef readGateDef(const SNode &n) {
+	GateDef g;
+	g.name = item(n, 1);
+	g.caption = optStr(n, "caption");
+	g.guiType = optStr(n, "gui");
+	g.logicType = optStr(n, "logic");
+	for (const SNode &c : n.items) {
+		if (!c.isList()) continue;
+		const std::string &head = c.head();
+		if (head == "hotspot") {
+			HotspotDef h;
+			h.name = item(c, 1);
+			h.isInput = (item(c, 2) == "in");
+			h.x = std::stod(item(c, 3));
+			h.y = std::stod(item(c, 4));
+			for (size_t i = 5; i < c.items.size(); i++) {
+				const SNode &f = c.items[i];
+				if (!f.isList()) { if (f.text == "inv") h.inverted = true; }
+				else if (f.head() == "bus") h.busLines = static_cast<int>(std::stod(item(f, 1)));
+				else if (f.head() == "e") h.eInput = item(f, 1);
+			}
+			g.hotspots.push_back(std::move(h));
+		} else if (head == "line" || head == "labelline") {
+			LineDef l;
+			l.x1 = std::stod(item(c, 1));
+			l.y1 = std::stod(item(c, 2));
+			l.x2 = std::stod(item(c, 3));
+			l.y2 = std::stod(item(c, 4));
+			l.isLabel = (head == "labelline");
+			g.shape.push_back(l);
+		} else if (head == "dlgparam") {
+			DlgParamDef d;
+			d.label = item(c, 1);
+			d.name = item(c, 2);
+			d.type = item(c, 3);
+			d.isGui = (item(c, 4) == "gui");
+			g.dlgParams.push_back(std::move(d));
+		} else if (head == "gparam" || head == "lparam") {
+			g.params.push_back({ item(c, 1), item(c, 2), head == "gparam" });
+		}
+	}
+	return g;
+}
+
 CircuitFile readCircuitFile(const std::string &text) {
 	SNode root = parseSexpr(text);
 	if (!root.isList() || root.head() != "cedarlogic")
@@ -183,6 +280,9 @@ CircuitFile readCircuitFile(const std::string &text) {
 		throw std::runtime_error("circuit file: unsupported formatVersion " +
 		                         std::to_string(cf.formatVersion));
 	cf.generator = kvStr(root, "generator");
+
+	for (const SNode &c : root.items)
+		if (c.isList() && c.head() == "gatedef") cf.usedGates.push_back(readGateDef(c));
 
 	for (const SNode &c : root.items) {
 		if (!c.isList() || c.head() != "page") continue;

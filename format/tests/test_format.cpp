@@ -98,6 +98,36 @@ TEST_CASE("A param value with special characters round-trips through the file") 
 	CHECK(back.pages[0].gates[0].params[0].value == "R1 & C2 (#3) \"load\"");
 }
 
+TEST_CASE("Embedded gate definitions round-trip through the v3 format") {
+	CircuitFile cf;
+	cf.generator = "t";
+
+	GateDef g;
+	g.name = "AA_AND2";
+	g.caption = "2-input AND";
+	g.logicType = "AND";
+	g.hotspots = { { "IN_0", true, -3, 1, false, "", 1 },
+	               { "IN_1", true, -3, -1, true, "", 1 },      // inverted
+	               { "OUT_0", false, 3, 0, false, "TRUE", 2 } }; // eInput + busLines
+	g.shape = { { -3, -3, 3, 3, false }, { 0, 0, 1, 1, true } }; // a line + a label line
+	g.dlgParams = { { "Input Bits", "INPUT_BITS", "INT", false } };
+	g.params = { { "angle", "0", true }, { "INPUT_BITS", "2", false } };
+	cf.usedGates.push_back(g);
+	cf.pages.push_back(Page{});
+
+	CircuitFile back = readCircuitFile(writeCircuitFile(cf));
+	CHECK(back == cf);                                    // full structural round trip
+	CHECK(writeCircuitFile(back) == writeCircuitFile(cf)); // and the text is stable
+	REQUIRE(back.usedGates.size() == 1);
+	const GateDef &r = back.usedGates[0];
+	CHECK(r.logicType == "AND");
+	CHECK(r.hotspots[1].inverted == true);
+	CHECK(r.hotspots[2].busLines == 2);
+	CHECK(r.hotspots[2].eInput == "TRUE");
+	CHECK(r.shape[1].isLabel == true);
+	CHECK(r.dlgParams[0].isGui == false);
+}
+
 TEST_CASE("Reading rejects an unsupported format version") {
 	CHECK_THROWS(readCircuitFile("(cedarlogic (version 2) (generator \"old\"))"));
 }

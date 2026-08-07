@@ -91,12 +91,65 @@ struct Page {
 	}
 };
 
+// A gate's definition, embedded in the file so a circuit stays self-contained:
+// it opens correctly even if the library that defined the gate later changed or
+// is gone. Mirrors the GUI's LibraryGate, kept GUI/core-independent.
+
+struct HotspotDef {
+	std::string name;
+	bool isInput = true;
+	double x = 0, y = 0;
+	bool inverted = false;
+	std::string eInput;
+	int busLines = 1;
+	bool operator==(const HotspotDef &o) const {
+		return name == o.name && isInput == o.isInput && x == o.x && y == o.y &&
+		       inverted == o.inverted && eInput == o.eInput && busLines == o.busLines;
+	}
+};
+
+struct LineDef {
+	double x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+	bool isLabel = false;
+	bool operator==(const LineDef &o) const {
+		return x1 == o.x1 && y1 == o.y1 && x2 == o.x2 && y2 == o.y2 && isLabel == o.isLabel;
+	}
+};
+
+struct DlgParamDef {
+	std::string label;
+	std::string name;
+	std::string type = "STRING";
+	bool isGui = true;
+	bool operator==(const DlgParamDef &o) const {
+		return label == o.label && name == o.name && type == o.type && isGui == o.isGui;
+	}
+};
+
+struct GateDef {
+	std::string name;
+	std::string caption;
+	std::string guiType;
+	std::string logicType;
+	std::vector<HotspotDef> hotspots;
+	std::vector<LineDef> shape;
+	std::vector<DlgParamDef> dlgParams;
+	std::vector<Param> params;   // gui vs logic distinguished by Param::gui
+	bool operator==(const GateDef &o) const {
+		return name == o.name && caption == o.caption && guiType == o.guiType &&
+		       logicType == o.logicType && hotspots == o.hotspots && shape == o.shape &&
+		       dlgParams == o.dlgParams && params == o.params;
+	}
+};
+
 struct CircuitFile {
 	int formatVersion = 3;
 	std::string generator;
+	std::vector<GateDef> usedGates;   // every gate the circuit uses, embedded
 	std::vector<Page> pages;
 	bool operator==(const CircuitFile &o) const {
-		return formatVersion == o.formatVersion && generator == o.generator && pages == o.pages;
+		return formatVersion == o.formatVersion && generator == o.generator &&
+		       usedGates == o.usedGates && pages == o.pages;
 	}
 };
 
