@@ -731,7 +731,8 @@ void MainFrame::loadCircuitFile( string fileName ){
 	// Offer to migrate an older file to the latest format up front. Declining
 	// leaves it undecided, so the same choice is offered again when they save.
 	// Skip the crash-recovery file.
-	if ((loadedFileFormat == 1 || loadedFileFormat == 2) && fileName != CRASH_FILENAME) {
+	if ((loadedFileFormat == 1 || loadedFileFormat == 2) && fileName != CRASH_FILENAME
+	    && !wxGetApp().headlessRender) {
 		wxString v = (loadedFileFormat == 1) ? "V1" : "V2";
 		wxMessageDialog dialog(this,
 			"This circuit was saved in an older file format (" + v + ").\n\n"
@@ -1443,6 +1444,17 @@ void MainFrame::unlock() {
 
 void MainFrame::load(string filename) {
 	loadCircuitFile(filename);
+}
+
+bool MainFrame::renderToPng(const wxString &path) {
+	if (currentCanvas == NULL) return false;
+	// Go through the canonical export path. getBitmap brackets the render with
+	// doingBitmapExport, which is load-bearing: the offscreen GL context is
+	// unshared on Windows, so without it the connection-point display list is a
+	// no-op and wires lose their dots. It also handles the grid-visibility state.
+	wxBitmap bmp = getBitmap(wxGetApp().appSettings.gridlineVisible, false, 1);
+	if (!bmp.IsOk()) return false;
+	return bmp.ConvertToImage().SaveFile(path, wxBITMAP_TYPE_PNG);
 }
 
 void MainFrame::openFileFromFinder(const wxString& fileName) {
