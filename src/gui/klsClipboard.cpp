@@ -16,6 +16,7 @@
 
 #include "MainApp.h"
 #include "commands.h"
+#include "cmdSerialize.h"
 #include "GUICanvas.h"
 #include "GUICircuit.h"
 #include "guiGate.h"
@@ -54,8 +55,9 @@ cmdPasteBlock* klsClipboard::pasteBlock( GUICircuit* gCircuit, GUICanvas* gCanva
 		TranslationMap wireids;
     	while (getline( iss, temp, '\n' )) {
     		klsCommand* cg = NULL;
-    		if (temp.substr(0,10) == "creategate") cg = new cmdCreateGate(temp);
-			else if (temp.substr(0, 9) == "setparams") {
+    		std::string kw = cmdser::keyword(temp);
+    		if (kw == "creategate") cg = new cmdCreateGate(temp);
+			else if (kw == "setparams") {
 
 				/* EDIT by Colin Broberg, 10/6/16
 				   logic to increment number on end of TO/FROM tag */
@@ -100,9 +102,9 @@ cmdPasteBlock* klsClipboard::pasteBlock( GUICircuit* gCircuit, GUICanvas* gCanva
 				}
 				cg = new cmdSetParams(temp);
 			}
-    		else if (temp.substr(0,10) == "createwire") cg = new cmdCreateWire(temp);
-    		else if (temp.substr(0,11) == "connectwire") cg = new cmdConnectWire(temp);
-    		else if (temp.substr(0,8) == "movewire") cg = new cmdMoveWire(temp);
+    		else if (kw == "createwire") cg = new cmdCreateWire(temp);
+    		else if (kw == "connectwire") cg = new cmdConnectWire(temp);
+    		else if (kw == "movewire") cg = new cmdMoveWire(temp);
     		else break;
     		cmdList.push_back( cg );
     		cg->setPointers( gCircuit, gCanvas, gateids, wireids );

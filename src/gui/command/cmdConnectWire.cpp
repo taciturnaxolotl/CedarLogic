@@ -4,6 +4,7 @@
 #include "../GUICircuit.h"
 #include "../guiWire.h"
 #include "../guiGate.h"
+#include "cmdSerialize.h"
 
 cmdConnectWire::cmdConnectWire(GUICircuit* gCircuit, IDType wid, IDType gid,
 		const std::string &hotspot, bool noCalcShape) :
@@ -19,9 +20,11 @@ cmdConnectWire::cmdConnectWire(GUICircuit* gCircuit, IDType wid, IDType gid,
 cmdConnectWire::cmdConnectWire(const std::string &def) :
 		klsCommand(true, "Connection") {
 
-	std::istringstream iss(def);
-	std::string dump;
-	iss >> dump >> wireId >> gateId >> hotspot;
+	cmdser::ConnectWire d;
+	cmdser::parse(def, d);
+	wireId = d.wireId;
+	gateId = d.gateId;
+	hotspot = d.hotspot;
 	noCalcShape = true;
 }
 
@@ -73,10 +76,7 @@ bool cmdConnectWire::validateBusLines() const {
 }
 
 std::string cmdConnectWire::toString() const {
-
-	std::ostringstream oss;
-	oss << "connectwire " << wireId << ' ' << gateId << ' ' << hotspot;
-	return oss.str();
+	return cmdser::emit(cmdser::ConnectWire{wireId, gateId, hotspot});
 }
 
 void cmdConnectWire::setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
