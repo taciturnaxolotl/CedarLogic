@@ -30,6 +30,13 @@ IDType makeDriver(Circuit &c, int value) {
 	return drv;
 }
 
+// Pulse a DRIVER-driven clock line 0->1->0, settling `settle` steps per phase,
+// so an edge-triggered gate sees exactly one deterministic rising edge.
+void pulseClock(Circuit &c, IDType clockDriver, int settle = 3) {
+	c.setGateParameter(clockDriver, "OUTPUT_NUM", "1"); stepN(c, settle);
+	c.setGateParameter(clockDriver, "OUTPUT_NUM", "0"); stepN(c, settle);
+}
+
 // Build `type`(a, b) as a 2-input, 1-bit gate driven by two DRIVERs, settle the
 // circuit, and return the output wire's state.
 StateType eval2(const std::string &type, int a, int b) {
@@ -483,6 +490,96 @@ TEST_CASE("TGATE bridges its two data wires only when the control is high") {
 	CHECK(bridgedState(0) == HI_Z); // control low  -> open, wB floats
 }
 
+TEST_CASE("JKFF toggles Q on each clock edge when J=K=1") {
+	// Drive the clock by hand so edges are deterministic; J=K=1 flips Q on every
+	// rising edge, starting from Q=0.
+	Circuit c;
+	IDType jk = c.newGate("JKFF");
+	IDType dJ = makeDriver(c, 1), dK = makeDriver(c, 1), dClk = makeDriver(c, 0);
+	IDType wJ = c.newWire(), wK = c.newWire(), wClk = c.newWire(), wQ = c.newWire();
+	c.connectGateOutput(dJ, "OUT_0", wJ);
+	c.connectGateOutput(dK, "OUT_0", wK);
+	c.connectGateOutput(dClk, "OUT_0", wClk);
+	c.connectGateInput(jk, "J", wJ);
+	c.connectGateInput(jk, "K", wK);
+	c.connectGateInput(jk, "clock", wClk);
+	c.connectGateOutput(jk, "Q", wQ);
+
+	stepN(c, 3);
+	REQUIRE(c.getWireState(wQ) == ZERO); // starts reset
+	pulseClock(c, dClk);
+	CHECK(c.getWireState(wQ) == ONE);    // first edge: 0 -> 1
+	pulseClock(c, dClk);
+	CHECK(c.getWireState(wQ) == ZERO);   // second edge: 1 -> 0
+	pulseClock(c, dClk);
+	CHECK(c.getWireState(wQ) == ONE);    // third edge: 0 -> 1
+}
+
+TEST_CASE("JKFF async clear overrides set and forces Q low") {
+	// clear and set default to asynchronous (no clock needed), and clear wins when
+	// both are asserted.
+	Circuit c;
+	IDType jk = c.newGate("JKFF");
+	IDType dSet = makeDriver(c, 1), dClear = makeDriver(c, 1);
+	IDType wSet = c.newWire(), wClear = c.newWire(), wQ = c.newWire();
+	c.connectGateOutput(dSet, "OUT_0", wSet);
+	c.connectGateOutput(dClear, "OUT_0", wClear);
+	c.connectGateInput(jk, "set", wSet);
+	c.connectGateInput(jk, "clear", wClear);
+	c.connectGateOutput(jk, "Q", wQ);
+	stepN(c, 5);
+	CHECK(c.getWireState(wQ) == ZERO); // clear beats set
+
+	// Release clear: the still-asserted set now drives Q high, still async.
+	c.setGateParameter(dClear, "OUTPUT_NUM", "0");
+	stepN(c, 5);
+	CHECK(c.getWireState(wQ) == ONE);
+}
+
+TEST_CASE("REGISTER counts up on clock edges when count_enable is high") {
+	// count_enable routes rising edges to an increment; count_up floats high so it
+	// favors counting up. MAX_COUNT sets the wrap point (15 for 4 bits).
+	Circuit c;
+	IDType reg = c.newGate("REGISTER");
+	c.setGateParameter(reg, "INPUT_BITS", "4");
+	c.setGateParameter(reg, "MAX_COUNT", "15");
+
+	auto drive = [&](const char *pin, int v) {
+		IDType d = makeDriver(c, v), w = c.newWire();
+		c.connectGateOutput(d, "OUT_0", w);
+		c.connectGateInput(reg, pin, w);
+	};
+	drive("clear", 0);
+	drive("set", 0);
+	drive("load", 0);
+	drive("count_enable", 1);
+	drive("shift_enable", 0);
+	drive("clock_enable", 1);
+
+	IDType dClk = makeDriver(c, 0), wClk = c.newWire();
+	c.connectGateOutput(dClk, "OUT_0", wClk);
+	c.connectGateInput(reg, "clock", wClk);
+
+	IDType o0 = c.newWire(), o1 = c.newWire(), o2 = c.newWire(), o3 = c.newWire();
+	c.connectGateOutput(reg, "OUT_0", o0);
+	c.connectGateOutput(reg, "OUT_1", o1);
+	c.connectGateOutput(reg, "OUT_2", o2);
+	c.connectGateOutput(reg, "OUT_3", o3);
+
+	// Read the 4-bit output as an integer.
+	auto value = [&]() {
+		return (c.getWireState(o0) == ONE ? 1 : 0) +
+		       (c.getWireState(o1) == ONE ? 2 : 0) +
+		       (c.getWireState(o2) == ONE ? 4 : 0) +
+		       (c.getWireState(o3) == ONE ? 8 : 0);
+	};
+	stepN(c, 3);
+	REQUIRE(value() == 0);
+	pulseClock(c, dClk); CHECK(value() == 1);
+	pulseClock(c, dClk); CHECK(value() == 2);
+	pulseClock(c, dClk); CHECK(value() == 3);
+}
+
 TEST_CASE("FROM/TO named junctions bridge only wires that share an ID") {
 	// A FROM on "netA" is driven high; a TO tagged `toId` reads the result. When
 	// the IDs match, the two wires splice onto one net (this is how cross-circuit
@@ -527,8 +624,132 @@ TEST_CASE("BUS_END bridges each bus line independently") {
 	CHECK(c.getWireState(out1) == ZERO); // line 1 independent of line 0
 }
 
-// TODO(behavioral coverage): still worth adding -- REGISTER count/shift/clear
-// ops, and JKFF SYNC_SET/SYNC_CLEAR + toggle (J=K=1) behavior.
+TEST_CASE("REGISTER shifts its value right on a clock edge") {
+	// Preset the register and shift right one bit per edge: 0100 -> 0010 -> 0001.
+	// shift_left driven low selects a right shift; carry_in low shifts in zeros.
+	Circuit c;
+	IDType reg = c.newGate("REGISTER");
+	c.setGateParameter(reg, "INPUT_BITS", "4");
+	c.setGateParameter(reg, "CURRENT_VALUE", "4"); // 0100b
+
+	auto drive = [&](const char *pin, int v) {
+		IDType d = makeDriver(c, v), w = c.newWire();
+		c.connectGateOutput(d, "OUT_0", w);
+		c.connectGateInput(reg, pin, w);
+	};
+	drive("clear", 0);
+	drive("set", 0);
+	drive("load", 0);
+	drive("count_enable", 0);
+	drive("shift_enable", 1);
+	drive("shift_left", 0); // 0 -> shift right
+	drive("carry_in", 0);
+	drive("clock_enable", 1);
+
+	IDType dClk = makeDriver(c, 0), wClk = c.newWire();
+	c.connectGateOutput(dClk, "OUT_0", wClk);
+	c.connectGateInput(reg, "clock", wClk);
+
+	IDType o0 = c.newWire(), o1 = c.newWire(), o2 = c.newWire(), o3 = c.newWire();
+	c.connectGateOutput(reg, "OUT_0", o0);
+	c.connectGateOutput(reg, "OUT_1", o1);
+	c.connectGateOutput(reg, "OUT_2", o2);
+	c.connectGateOutput(reg, "OUT_3", o3);
+	auto value = [&]() {
+		return (c.getWireState(o0) == ONE ? 1 : 0) + (c.getWireState(o1) == ONE ? 2 : 0) +
+		       (c.getWireState(o2) == ONE ? 4 : 0) + (c.getWireState(o3) == ONE ? 8 : 0);
+	};
+	stepN(c, 3);
+	REQUIRE(value() == 4);
+	pulseClock(c, dClk); CHECK(value() == 2);
+	pulseClock(c, dClk); CHECK(value() == 1);
+	pulseClock(c, dClk); CHECK(value() == 0);
+}
+
+TEST_CASE("REGISTER synchronous clear zeroes the value on a clock edge") {
+	// clear defaults to synchronous, so a preset value survives until the next
+	// rising edge, then goes to 0.
+	Circuit c;
+	IDType reg = c.newGate("REGISTER");
+	c.setGateParameter(reg, "INPUT_BITS", "4");
+	c.setGateParameter(reg, "CURRENT_VALUE", "5"); // 0101b
+
+	auto drive = [&](const char *pin, int v) {
+		IDType d = makeDriver(c, v), w = c.newWire();
+		c.connectGateOutput(d, "OUT_0", w);
+		c.connectGateInput(reg, pin, w);
+	};
+	drive("clear", 1);
+	drive("set", 0);
+	drive("load", 0);
+	drive("count_enable", 0);
+	drive("shift_enable", 0);
+	drive("clock_enable", 1);
+
+	IDType dClk = makeDriver(c, 0), wClk = c.newWire();
+	c.connectGateOutput(dClk, "OUT_0", wClk);
+	c.connectGateInput(reg, "clock", wClk);
+
+	IDType o0 = c.newWire(), o1 = c.newWire(), o2 = c.newWire(), o3 = c.newWire();
+	c.connectGateOutput(reg, "OUT_0", o0);
+	c.connectGateOutput(reg, "OUT_1", o1);
+	c.connectGateOutput(reg, "OUT_2", o2);
+	c.connectGateOutput(reg, "OUT_3", o3);
+	auto value = [&]() {
+		return (c.getWireState(o0) == ONE ? 1 : 0) + (c.getWireState(o1) == ONE ? 2 : 0) +
+		       (c.getWireState(o2) == ONE ? 4 : 0) + (c.getWireState(o3) == ONE ? 8 : 0);
+	};
+	stepN(c, 3);
+	REQUIRE(value() == 5); // clear asserted but no edge yet -> value holds
+	pulseClock(c, dClk);
+	CHECK(value() == 0);   // edge applies the clear
+}
+
+TEST_CASE("JKFF synchronous clear waits for a clock edge") {
+	// With SYNC_CLEAR, asserting clear does nothing until the next rising edge.
+	Circuit c;
+	IDType jk = c.newGate("JKFF");
+	c.setGateParameter(jk, "SYNC_CLEAR", "true");
+
+	IDType dJ = makeDriver(c, 1), dK = makeDriver(c, 0), dClk = makeDriver(c, 0), dClear = makeDriver(c, 0);
+	IDType wJ = c.newWire(), wK = c.newWire(), wClk = c.newWire(), wClear = c.newWire(), wQ = c.newWire();
+	c.connectGateOutput(dJ, "OUT_0", wJ);       c.connectGateInput(jk, "J", wJ);
+	c.connectGateOutput(dK, "OUT_0", wK);       c.connectGateInput(jk, "K", wK);
+	c.connectGateOutput(dClk, "OUT_0", wClk);   c.connectGateInput(jk, "clock", wClk);
+	c.connectGateOutput(dClear, "OUT_0", wClear); c.connectGateInput(jk, "clear", wClear);
+	c.connectGateOutput(jk, "Q", wQ);
+
+	stepN(c, 3);
+	pulseClock(c, dClk);
+	REQUIRE(c.getWireState(wQ) == ONE); // J=1,K=0 set Q on the edge
+
+	c.setGateParameter(dClear, "OUTPUT_NUM", "1");
+	stepN(c, 5);
+	CHECK(c.getWireState(wQ) == ONE);   // clear asserted, but no edge -> Q holds
+	pulseClock(c, dClk);
+	CHECK(c.getWireState(wQ) == ZERO);  // edge applies the sync clear
+}
+
+TEST_CASE("JKFF synchronous set waits for a clock edge") {
+	// With SYNC_SET, asserting set does nothing until the next rising edge.
+	Circuit c;
+	IDType jk = c.newGate("JKFF");
+	c.setGateParameter(jk, "SYNC_SET", "true");
+
+	IDType dSet = makeDriver(c, 0), dClk = makeDriver(c, 0);
+	IDType wSet = c.newWire(), wClk = c.newWire(), wQ = c.newWire();
+	c.connectGateOutput(dSet, "OUT_0", wSet); c.connectGateInput(jk, "set", wSet);
+	c.connectGateOutput(dClk, "OUT_0", wClk); c.connectGateInput(jk, "clock", wClk);
+	c.connectGateOutput(jk, "Q", wQ);
+
+	stepN(c, 3);
+	REQUIRE(c.getWireState(wQ) == ZERO); // starts reset
+	c.setGateParameter(dSet, "OUTPUT_NUM", "1");
+	stepN(c, 5);
+	CHECK(c.getWireState(wQ) == ZERO);   // set asserted, but no edge -> Q holds
+	pulseClock(c, dClk);
+	CHECK(c.getWireState(wQ) == ONE);    // edge applies the sync set
+}
 
 TEST_CASE("System time advances one unit per step") {
 	Circuit c;
