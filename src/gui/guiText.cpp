@@ -19,8 +19,6 @@
 #define TEXT_SCALE_FACTOR 0.050
 #define FONT_TEXTURE_ID 255
 
-DECLARE_APP(MainApp)
-
 static glfont::GLFont fontFace;
 
 guiText::guiText() {

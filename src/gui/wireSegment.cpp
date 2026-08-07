@@ -1,8 +1,5 @@
 #include "wireSegment.h"
 
-#include "MainApp.h"
-DECLARE_APP(MainApp)
-
 void wireSegment::calcBBox() {
 	klsBBox newBBox;
 	newBBox.addPoint(begin);
