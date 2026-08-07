@@ -69,9 +69,10 @@ public:
     // ---- Threading model ------------------------------------------------
     // Two background threads run alongside the wx GUI thread: threadLogic (the
     // simulation) and autoSaveThread. They coordinate through the shared state
-    // below, each member guarded by a specific primitive. Lock only what a
-    // comment names, and hold one lock at a time -- there is no established
-    // lock ordering, so nesting these risks deadlock.
+    // below. Two locks nest in a fixed order: take m_critsect first, then
+    // mexMessages -- both message-drain sites (threadLogic::checkMessages and
+    // MainFrame::OnIdle) do exactly that. Preserve that order; taking them the
+    // other way round risks deadlock.
     //
     // NOTE: locking is not yet consistent -- most sites use RAII lockers
     // (wxMutexLocker / wxCriticalSectionLocker), but threadLogic.cpp still
@@ -80,19 +81,20 @@ public:
     // pumps the GUI event loop while waiting). Audit this carefully before
     // changing any of it.
 
-    // Guards the message-passing bookkeeping used while marshalling work to the
-    // logic thread. (Held briefly around enqueue/handshake in threadLogic.)
+    // Coarse lock for the background-thread lifecycle: guards the logicThread /
+    // saveThread pointers (install in MainFrame, teardown in threadLogic::OnExit)
+    // and wraps the message-drain sections below (held while mexMessages is taken).
     wxCriticalSection m_critsect;
 
-    // Posted by the last background thread as it exits so MainFrame::OnQuit()
-    // can block until both threads have finished.
+    // Posted by a background thread as it exits so MainFrame::OnQuit() can block
+    // until teardown has finished.
     wxSemaphore m_semAllDone;
-	// Step handshake between the GUI and the logic thread: `simulate` releases
-	// the logic thread to run a step; `readyToSend` reports the results are back.
+	// GUI <-> logic run/step signaling semaphores.
 	wxSemaphore simulate;
 	wxSemaphore readyToSend;
 
 	// Guards the two message queues below (both directions of GUI <-> logic).
+	// Always taken while already holding m_critsect (see the drain sites).
 	wxMutex mexMessages;
 	deque< klsMessage::Message > dGUItoLOGIC;
 	deque< klsMessage::Message > dLOGICtoGUI;
