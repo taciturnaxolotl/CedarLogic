@@ -483,13 +483,52 @@ TEST_CASE("TGATE bridges its two data wires only when the control is high") {
 	CHECK(bridgedState(0) == HI_Z); // control low  -> open, wB floats
 }
 
-// TODO(behavioral coverage): FROM/TO (Gate_JUNCTION, named cross-circuit
-// junctions) and BUS_END (per-line bus junctions) remain untested -- both
-// need matched-pair / named-junction setups and have undeclared input pins,
-// so they are awkward to drive in isolation. (BUFFER already exercises
-// Gate_PASS, and TGATE is the "T" gate, so those are covered.)
-// Also worth adding: REGISTER count/shift/clear ops, JKFF SYNC_SET/SYNC_CLEAR
-// and toggle (J=K=1) behavior.
+TEST_CASE("FROM/TO named junctions bridge only wires that share an ID") {
+	// A FROM on "netA" is driven high; a TO tagged `toId` reads the result. When
+	// the IDs match, the two wires splice onto one net (this is how cross-circuit
+	// labels teleport a signal); when they differ, the TO stays isolated and its
+	// wire floats. Both register as the "JUNCTION" logic gate, and the pin name
+	// is irrelevant -- the junction, not the input, carries the value.
+	auto toWireState = [](const char *toId) {
+		Circuit c;
+		IDType from = c.newGate("FROM"), to = c.newGate("TO");
+		c.setGateParameter(from, "JUNCTION_ID", "netA");
+		c.setGateParameter(to, "JUNCTION_ID", toId);
+
+		IDType drv = makeDriver(c, 1);
+		IDType wSrc = c.newWire(), wDst = c.newWire();
+		c.connectGateOutput(drv, "OUT_0", wSrc);
+		c.connectGateInput(from, "IN", wSrc); // driven side
+		c.connectGateInput(to, "IN", wDst);   // reads the bridged value (or not)
+		stepN(c, 5);
+		return c.getWireState(wDst);
+	};
+	CHECK(toWireState("netA") == ONE);  // same ID -> bridged
+	CHECK(toWireState("netB") == HI_Z); // different ID -> isolated, floats
+}
+
+TEST_CASE("BUS_END bridges each bus line independently") {
+	// BUS_END owns one internal junction per bus line, bridging IN_i to OUT_i.
+	// Lines are independent: driving line 0 must not leak onto line 1.
+	Circuit c;
+	IDType bus = c.newGate("BUS_END");
+	c.setGateParameter(bus, "INPUT_BITS", "2");
+
+	IDType d0 = makeDriver(c, 1), d1 = makeDriver(c, 0);
+	IDType in0 = c.newWire(), in1 = c.newWire(), out0 = c.newWire(), out1 = c.newWire();
+	c.connectGateOutput(d0, "OUT_0", in0);
+	c.connectGateOutput(d1, "OUT_0", in1);
+	c.connectGateInput(bus, "IN_0", in0);
+	c.connectGateInput(bus, "IN_1", in1);
+	c.connectGateInput(bus, "OUT_0", out0);
+	c.connectGateInput(bus, "OUT_1", out1);
+	stepN(c, 5);
+	CHECK(c.getWireState(out0) == ONE);  // line 0: IN_0 -> OUT_0
+	CHECK(c.getWireState(out1) == ZERO); // line 1 independent of line 0
+}
+
+// TODO(behavioral coverage): still worth adding -- REGISTER count/shift/clear
+// ops, and JKFF SYNC_SET/SYNC_CLEAR + toggle (J=K=1) behavior.
 
 TEST_CASE("System time advances one unit per step") {
 	Circuit c;
