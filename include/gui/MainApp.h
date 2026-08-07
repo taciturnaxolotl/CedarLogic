@@ -66,17 +66,40 @@ public:
 #endif
 
 public:
-    // crit section protects access to all of the arrays below
+    // ---- Threading model ------------------------------------------------
+    // Two background threads run alongside the wx GUI thread: threadLogic (the
+    // simulation) and autoSaveThread. They coordinate through the shared state
+    // below. Two locks nest in a fixed order: take m_critsect first, then
+    // mexMessages -- both message-drain sites (threadLogic::checkMessages and
+    // MainFrame::OnIdle) do exactly that. Preserve that order; taking them the
+    // other way round risks deadlock.
+    //
+    // NOTE: locking is not yet consistent -- most sites use RAII lockers
+    // (wxMutexLocker / wxCriticalSectionLocker), but threadLogic.cpp still
+    // hand-rolls a `while (mexMessages.TryLock()==wxMUTEX_BUSY) wxYield();`
+    // spin on the same mutex, which is NOT equivalent to a blocking lock (it
+    // pumps the GUI event loop while waiting). Audit this carefully before
+    // changing any of it.
+
+    // Coarse lock for the background-thread lifecycle: guards the logicThread /
+    // saveThread pointers (install in MainFrame, teardown in threadLogic::OnExit)
+    // and wraps the message-drain sections below (held while mexMessages is taken).
     wxCriticalSection m_critsect;
 
-    // semaphore used to wait for the threads to exit, see MainFrame::OnQuit()
+    // Posted by a background thread as it exits so MainFrame::OnQuit() can block
+    // until teardown has finished.
     wxSemaphore m_semAllDone;
+	// GUI <-> logic run/step signaling semaphores.
 	wxSemaphore simulate;
 	wxSemaphore readyToSend;
 
+	// Guards the two message queues below (both directions of GUI <-> logic).
+	// Always taken while already holding m_critsect (see the drain sites).
 	wxMutex mexMessages;
 	deque< klsMessage::Message > dGUItoLOGIC;
 	deque< klsMessage::Message > dLOGICtoGUI;
+	// Guards wireStateBuffer, the batch of wire-state updates the logic thread
+	// produces for the GUI to drain.
 	wxMutex wireStateMutex;
 	unordered_map<IDType, StateType> wireStateBuffer;
 	// Use a stopwatch for timing between step calls
