@@ -78,6 +78,7 @@ public:
 	void setOscope(OscopeFrame* of) { myOscope = of; };
 	
 	void setCurrentCanvas(GUICanvas* gc) { gCanvas = gc; };
+	GUICanvas* getCurrentCanvas() { return gCanvas; };
 	
 	bool panic;
 	bool pausing;

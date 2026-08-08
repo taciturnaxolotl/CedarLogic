@@ -230,7 +230,13 @@ void paramDialog::OnOK( wxCommandEvent &evt ) {
 		allParamsSame = (gGate->getLogicParam(paramWalk->first) == paramWalk->second);
 		paramWalk++;
 	}
-	if (!allParamsSame) wxcmd->Submit( new cmdSetParams( gCircuit, gGate->getID(), paramSet(&gParamList, &lParamList) ) );
+	if (!allParamsSame) {
+		// Stamp the page the gate is on (the current canvas) so undo/redo of a
+		// dialog param edit follows to that tab, like canvas-submitted commands.
+		cmdSetParams *cmd = new cmdSetParams( gCircuit, gGate->getID(), paramSet(&gParamList, &lParamList) );
+		cmd->setCanvas( gCircuit->getCurrentCanvas() );
+		wxcmd->Submit( cmd );
+	}
 	// Make me go away forever!
 	this->EndModal(wxID_OK);
 }
