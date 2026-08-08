@@ -48,16 +48,46 @@ static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
     SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME);
     SymInitialize(proc, NULL, TRUE);
 
-    fprintf(f, "Unhandled exception 0x%08lX at %p\n\n",
+    fprintf(f, "Unhandled exception 0x%08lX at %p\n",
             ep->ExceptionRecord->ExceptionCode, ep->ExceptionRecord->ExceptionAddress);
+
+    // For an access violation, ExceptionInformation[0] is 0=read/1=write/8=DEP
+    // and [1] is the faulting address -- the actual bad pointer we dereferenced.
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
+        ep->ExceptionRecord->NumberParameters >= 2) {
+        ULONG_PTR kind = ep->ExceptionRecord->ExceptionInformation[0];
+        fprintf(f, "  %s address 0x%p\n",
+                kind == 1 ? "write to" : kind == 8 ? "execute at" : "read from",
+                (void *)ep->ExceptionRecord->ExceptionInformation[1]);
+    }
+
+    // Faulting instruction as module+RVA, which is stable across ASLR runs and
+    // can be mapped back to a source line with the .pdb offline.
+    DWORD64 faultBase = SymGetModuleBase64(proc, (DWORD64)ep->ExceptionRecord->ExceptionAddress);
+    if (faultBase) {
+        char mod[MAX_PATH] = {};
+        GetModuleFileNameA((HMODULE)faultBase, mod, MAX_PATH);
+        fprintf(f, "  fault at %s +0x%llx (base 0x%llx)\n", mod,
+                (unsigned long long)((DWORD64)ep->ExceptionRecord->ExceptionAddress - faultBase),
+                (unsigned long long)faultBase);
+    }
+    fprintf(f, "\n");
 
     CONTEXT *ctx = ep->ContextRecord;
     STACKFRAME64 frame = {};
-    DWORD machine = IMAGE_FILE_MACHINE_AMD64;
+    DWORD machine;
 #if defined(_M_X64)
+    machine = IMAGE_FILE_MACHINE_AMD64;
     frame.AddrPC.Offset = ctx->Rip;    frame.AddrPC.Mode = AddrModeFlat;
     frame.AddrFrame.Offset = ctx->Rbp; frame.AddrFrame.Mode = AddrModeFlat;
     frame.AddrStack.Offset = ctx->Rsp; frame.AddrStack.Mode = AddrModeFlat;
+#elif defined(_M_IX86)
+    machine = IMAGE_FILE_MACHINE_I386;
+    frame.AddrPC.Offset = ctx->Eip;    frame.AddrPC.Mode = AddrModeFlat;
+    frame.AddrFrame.Offset = ctx->Ebp; frame.AddrFrame.Mode = AddrModeFlat;
+    frame.AddrStack.Offset = ctx->Esp; frame.AddrStack.Mode = AddrModeFlat;
+#else
+    machine = IMAGE_FILE_MACHINE_UNKNOWN;
 #endif
     for (int i = 0; i < 96; i++) {
         if (!StackWalk64(machine, proc, GetCurrentThread(), &frame, ctx, NULL,
@@ -80,7 +110,16 @@ static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
             else
                 fprintf(f, "  %s +0x%llx\n", sym->Name, (unsigned long long)disp);
         } else {
-            fprintf(f, "  0x%llx\n", (unsigned long long)addr);
+            DWORD64 base = SymGetModuleBase64(proc, addr);
+            if (base) {
+                char mod[MAX_PATH] = {};
+                GetModuleFileNameA((HMODULE)base, mod, MAX_PATH);
+                const char *slash = strrchr(mod, '\\');
+                fprintf(f, "  %s +0x%llx\n", slash ? slash + 1 : mod,
+                        (unsigned long long)(addr - base));
+            } else {
+                fprintf(f, "  0x%llx\n", (unsigned long long)addr);
+            }
         }
     }
     fflush(f);
