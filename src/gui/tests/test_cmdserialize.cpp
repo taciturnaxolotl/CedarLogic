@@ -23,6 +23,27 @@ TEST_CASE("emit matches the historical hand-written formats (golden)") {
 	      "createwire 3 4 connectwire 3 10 OUT_0 connectwire 4 11 IN_1");
 }
 
+TEST_CASE("SetParams: sorted keys, per-entry tabs, space-bearing values") {
+	// gid, "<#gui>,<#logic>", then "<name> <value>\t" per entry (GUI first). The
+	// maps are std::map, so entries emit in sorted-key order (MIRROR < angle).
+	SetParams sp{7, {{"angle", "90"}, {"MIRROR", "false"}}, {{"INPUT_BITS", "3"}}};
+	CHECK(emit(sp) == "setparams 7 2,1 MIRROR false\tangle 90\tINPUT_BITS 3\t");
+
+	SetParams back;
+	REQUIRE(parse(emit(sp), back));
+	CHECK(back.gid == 7);
+	CHECK(back.guiParams == sp.guiParams);
+	CHECK(back.logicParams == sp.logicParams);
+
+	// A value with spaces (e.g. a label) survives: a param ends at its tab, not
+	// the first space.
+	SetParams label{3, {{"text", "R1 & C2 (load)"}}, {}};
+	CHECK(emit(label) == "setparams 3 1,0 text R1 & C2 (load)\t");
+	SetParams label2;
+	REQUIRE(parse(emit(label), label2));
+	CHECK(label2.guiParams["text"] == "R1 & C2 (load)");
+}
+
 TEST_CASE("parse consumes the leading keyword and fields") {
 	CreateGate cg;
 	REQUIRE(parse("creategate 12 OR 3.5 -1", cg));
