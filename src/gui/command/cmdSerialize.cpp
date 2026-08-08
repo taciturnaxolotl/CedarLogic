@@ -115,4 +115,51 @@ bool parse(const std::string &line, SetParams &out) {
 	return true;
 }
 
+std::string emit(const MoveWire &c) {
+	std::ostringstream oss;
+	oss << "movewire " << c.wid << " ";
+	for (const MoveWireSeg &s : c.segments) {
+		oss << (s.vertical ? "vsegment " : "hsegment ");
+		oss << s.id << " ";
+		oss << s.bx << "," << s.by << "," << s.ex << "," << s.ey << " ";
+		for (const auto &conn : s.connections)
+			oss << "connection " << conn.first << " " << conn.second << " ";
+		for (const auto &isect : s.intersects)
+			oss << "isect " << isect.first << " " << isect.second << " ";
+	}
+	oss << " done ";
+	return oss.str();
+}
+
+bool parse(const std::string &line, MoveWire &out) {
+	std::istringstream iss(line);
+	std::string temp;
+	char dump;
+	iss >> temp;
+	if (temp != "movewire") return false;
+	iss >> out.wid >> temp;
+	while (temp == "vsegment" || temp == "hsegment") {
+		MoveWireSeg s;
+		s.vertical = (temp == "vsegment");
+		iss >> s.id >> s.bx >> dump >> s.by >> dump >> s.ex >> dump >> s.ey;
+		iss >> temp;
+		while (temp == "connection") {
+			unsigned long gid;
+			std::string name;
+			iss >> gid >> name;
+			s.connections.push_back({ gid, name });
+			iss >> temp;
+		}
+		while (temp == "isect") {
+			float key;
+			long sid;
+			iss >> key >> sid;
+			s.intersects.push_back({ key, sid });
+			iss >> temp;
+		}
+		out.segments.push_back(s);
+	}
+	return true;
+}
+
 } // namespace cmdser
