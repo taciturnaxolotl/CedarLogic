@@ -4,6 +4,7 @@
 #include "../guiGate.h"
 #include "../OscopeFrame.h"
 #include "../MainApp.h"
+#include "cmdSerialize.h"
 
 DECLARE_APP(MainApp);
 
@@ -51,24 +52,14 @@ cmdSetParams::cmdSetParams(GUICircuit* gCircuit, unsigned long gid,
 cmdSetParams::cmdSetParams(string def) : klsCommand(true, "Set Parameter") {
 
 	this->fromString = true;
-	istringstream iss(def);
-	string dump; char comma;
-	unsigned long numgParams, numlParams;
-	iss >> dump >> gid >> numgParams >> comma >> numlParams;
-	for (unsigned int i = 0; i < numgParams; i++) {
-		string paramName, paramVal;
-		iss >> paramName;
-		getline(iss, paramVal, '\t');
-		newGUIParamList[paramName] = paramVal.substr(1, paramVal.size() - 1);
-		oldGUIParamList[paramName] = newGUIParamList[paramName];
-	}
-	for (unsigned int i = 0; i < numlParams; i++) {
-		string paramName, paramVal;
-		iss >> paramName;
-		getline(iss, paramVal, '\t');
-		newLogicParamList[paramName] = paramVal.substr(1, paramVal.size() - 1);
-		oldLogicParamList[paramName] = newLogicParamList[paramName];
-	}
+	cmdser::SetParams d;
+	cmdser::parse(def, d);
+	gid = d.gid;
+	// The string form only carries the "new" values; old == new, as before.
+	newGUIParamList = d.guiParams;
+	oldGUIParamList = d.guiParams;
+	newLogicParamList = d.logicParams;
+	oldLogicParamList = d.logicParams;
 }
 
 bool cmdSetParams::Do() {
@@ -129,19 +120,7 @@ bool cmdSetParams::Undo() {
 
 string cmdSetParams::toString() const {
 
-	ostringstream oss;
-	oss << "setparams " << gid << " " << newGUIParamList.size() << "," << newLogicParamList.size() << " ";
-	map < string, string >::const_iterator paramWalk = newGUIParamList.cbegin();
-	while (paramWalk != newGUIParamList.cend()) {
-		oss << paramWalk->first << " " << paramWalk->second << "\t";
-		paramWalk++;
-	}
-	paramWalk = newLogicParamList.begin();
-	while (paramWalk != newLogicParamList.end()) {
-		oss << paramWalk->first << " " << paramWalk->second << "\t";
-		paramWalk++;
-	}
-	return oss.str();
+	return cmdser::emit(cmdser::SetParams{ gid, newGUIParamList, newLogicParamList });
 }
 
 void cmdSetParams::setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,

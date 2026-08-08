@@ -80,4 +80,39 @@ bool parse(const std::string &line, CreateWire &out) {
 	return true;
 }
 
+std::string emit(const SetParams &c) {
+	std::ostringstream oss;
+	oss << "setparams " << c.gid << " " << c.guiParams.size() << ","
+	    << c.logicParams.size() << " ";
+	for (const auto &p : c.guiParams) oss << p.first << " " << p.second << "\t";
+	for (const auto &p : c.logicParams) oss << p.first << " " << p.second << "\t";
+	return oss.str();
+}
+
+bool parse(const std::string &line, SetParams &out) {
+	std::istringstream iss(line);
+	std::string kw;
+	char comma;
+	unsigned long numGui, numLogic;
+	iss >> kw;
+	if (kw != "setparams") return false;
+	iss >> out.gid >> numGui >> comma >> numLogic;
+	// A value can contain spaces, so read the name with >> but the value up to
+	// its tab; the value carries a leading space from the "name value" join,
+	// which substr(1) drops -- exactly as the original inline parse did.
+	for (unsigned long i = 0; i < numGui; i++) {
+		std::string name, val;
+		iss >> name;
+		std::getline(iss, val, '\t');
+		out.guiParams[name] = val.substr(1, val.size() - 1);
+	}
+	for (unsigned long i = 0; i < numLogic; i++) {
+		std::string name, val;
+		iss >> name;
+		std::getline(iss, val, '\t');
+		out.logicParams[name] = val.substr(1, val.size() - 1);
+	}
+	return true;
+}
+
 } // namespace cmdser
