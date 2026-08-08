@@ -620,8 +620,14 @@ void MainFrame::OnNew(wxCommandEvent& event) {
 
 	pauseTimers();
 
-	wxGetApp().dGUItoLOGIC.clear();
-	wxGetApp().dLOGICtoGUI.clear();
+	// Clear the message queues under the lock -- the logic thread pops
+	// dGUItoLOGIC every 1ms and pauseTimers() only stops the GUI timers, not
+	// that thread, so an unlocked clear() races it.
+	{
+		wxMutexLocker lock(wxGetApp().mexMessages);
+		wxGetApp().dGUItoLOGIC.clear();
+		wxGetApp().dLOGICtoGUI.clear();
+	}
 
 	for (unsigned int i = 0; i < canvases.size(); i++) canvases[i]->clearCircuit();
 	gCircuit->reInitializeLogicCircuit();
@@ -696,8 +702,13 @@ void MainFrame::loadCircuitFile( string fileName ){
 	
 	openedFilename = path;
 	this->SetTitle(VERSION_TITLE() + " - " + path );
-	while (!(wxGetApp().dGUItoLOGIC.empty())) wxGetApp().dGUItoLOGIC.pop_front();
-	while (!(wxGetApp().dLOGICtoGUI.empty())) wxGetApp().dLOGICtoGUI.pop_front();
+	// Clear the queues under the lock -- the logic thread drains dGUItoLOGIC
+	// concurrently, so an unlocked flush races it.
+	{
+		wxMutexLocker lock(wxGetApp().mexMessages);
+		wxGetApp().dGUItoLOGIC.clear();
+		wxGetApp().dLOGICtoGUI.clear();
+	}
 	for (unsigned int i = 0; i < canvases.size(); i++) canvases[i]->clearCircuit();
 	gCircuit->reInitializeLogicCircuit();
 	commandProcessor->ClearCommands();
@@ -881,12 +892,20 @@ void MainFrame::OnTimer(wxTimerEvent& event) {
 
 void MainFrame::OnIdle(wxTimerEvent& event) {
 	wxCriticalSectionLocker locker(wxGetApp().m_critsect);
-	while (wxGetApp().mexMessages.TryLock() == wxMUTEX_BUSY) wxYield();
-	while (wxGetApp().dLOGICtoGUI.size() > 0) {
-		gCircuit->parseMessage(wxGetApp().dLOGICtoGUI.front());
-		wxGetApp().dLOGICtoGUI.pop_front();
+	// Take the whole pending batch under the lock, then process it with the lock
+	// released. The old TryLock+wxYield spin pumped the GUI event loop while
+	// waiting on the logic thread, letting a menu action (undo/redo/paste)
+	// re-enter mid-drain -- the crash class #32 worked around. Holding
+	// mexMessages only for the O(1) swap removes the spin and the reentrancy.
+	deque< klsMessage::Message > batch;
+	{
+		wxMutexLocker lock(wxGetApp().mexMessages);
+		batch.swap(wxGetApp().dLOGICtoGUI);
 	}
-	wxGetApp().mexMessages.Unlock();
+	while (!batch.empty()) {
+		gCircuit->parseMessage(batch.front());
+		batch.pop_front();
+	}
 
 	if (mainSizer == NULL) return;
 	
