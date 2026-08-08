@@ -27,6 +27,11 @@ public:
 	virtual void setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
 		TranslationMap &gateids, TranslationMap &wireids);
 
+	// The canvas (page) this command acts on, so undo/redo can switch to it.
+	// May be null for commands not bound to a specific page.
+	GUICanvas *getCanvas() const { return gCanvas; }
+	void setCanvas(GUICanvas *canvas) { gCanvas = canvas; }
+
 protected:
 	GUICircuit *gCircuit;
 	GUICanvas *gCanvas;

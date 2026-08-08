@@ -144,6 +144,9 @@ public:
 	// format: 1 = v1 XML, 2 = v2 XML, 3 = v3 S-expression (the default).
 	bool save(string filename, int format = 3);
 	void load(string filename);
+	// Make `canvas` the active page (selecting its tab) so an undo/redo that
+	// affects another page is shown where it happens. No-op if null or current.
+	void switchToCanvas(GUICanvas *canvas);
 	// Ask which format to save an old-format file in. Returns 1/2/3, or -1 to
 	// cancel. New/v3 circuits return 3 without prompting.
 	int chooseSaveFormat();

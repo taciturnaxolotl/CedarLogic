@@ -180,6 +180,13 @@ void GUICanvas::removeWire(unsigned long wireId) {
 	}
 }
 
+// Tag a command with this canvas, then submit it, so undo/redo can return to
+// the page the edit happened on.
+void GUICanvas::submitCommand(klsCommand *cmd) {
+	cmd->setCanvas(this);
+	gCircuit->GetCommandProcessor()->Submit((wxCommand *)cmd);
+}
+
 // Render the page
 void GUICanvas::OnRender( bool noColor ) {
 	glColor4f( 0.0, 0.0, 0.0, 1.0 );
@@ -524,8 +531,8 @@ void GUICanvas::mouseRightDown(wxMouseEvent& event) {
 		if (gateList[hotspotGate]->isConnected(hotspotHighlight)) {
 			// disconnect this wire
 			if (gateList[hotspotGate]->getConnection(hotspotHighlight)->numConnections() > 2)
-				gCircuit->GetCommandProcessor()->Submit( (wxCommand*)(new cmdDisconnectWire( gCircuit, gateList[hotspotGate]->getConnection(hotspotHighlight)->getID(), hotspotGate, hotspotHighlight )) );
-			else gCircuit->GetCommandProcessor()->Submit( (wxCommand*)(new cmdDeleteWire( gCircuit, this, gateList[hotspotGate]->getConnection(hotspotHighlight)->getID() )) );
+				submitCommand( new cmdDisconnectWire( gCircuit, gateList[hotspotGate]->getConnection(hotspotHighlight)->getID(), hotspotGate, hotspotHighlight ) );
+			else submitCommand( new cmdDeleteWire( gCircuit, this, gateList[hotspotGate]->getConnection(hotspotHighlight)->getID() ) );
 		}
 		currentDragState = DRAG_NONE;
 	} else if (currentDragState == DRAG_NONE && wxGetApp().appSettings.rightClickRotate) {
@@ -561,7 +568,7 @@ void GUICanvas::mouseRightDown(wxMouseEvent& event) {
 				ostringstream ossAngle;
 				ossAngle << angle;
 				newParams["angle"] = ossAngle.str();
-				gCircuit->GetCommandProcessor()->Submit( (wxCommand*)(new cmdSetParams(gCircuit, hitGate->getID(), paramSet(&newParams, NULL) )) );
+				submitCommand( new cmdSetParams(gCircuit, hitGate->getID(), paramSet(&newParams, NULL) ) );
 			}
 			hit++;
 		}				
@@ -782,7 +789,7 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 			gateList[preMove[0].id]->getGLcoords(gX, gY);
 			movecommand = new cmdMoveSelection( gCircuit, preMove, preMoveWire, preMove[0].x, preMove[0].y, gX, gY );
 			for (unsigned int i = 0; i < preMove.size(); i++) gateList[preMove[i].id]->updateConnectionMerges();
-			if (!isWithinPaste) gCircuit->GetCommandProcessor()->Submit( (wxCommand*)movecommand );
+			if (!isWithinPaste) submitCommand( movecommand );
 			if (!isWithinPaste) movecommand->Undo();
 		}
 		if (preMove.size() > 1) preMove.clear();
@@ -814,7 +821,7 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 	if (currentDragState == DRAG_WIRESEG) {
 		wireList[wireHoverID]->endSegDrag();
 		wireList[wireHoverID]->select();
-		gCircuit->GetCommandProcessor()->Submit( new cmdWireSegDrag( gCircuit, this, wireHoverID ) );
+		submitCommand( new cmdWireSegDrag( gCircuit, this, wireHoverID ) );
 	}
 
 	// If dragging a new gate then 
@@ -904,7 +911,7 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 				}
 
 				if (command != nullptr) {
-					gCircuit->GetCommandProcessor()->Submit(command);
+					submitCommand((klsCommand *)command);
 				}
 			}
 		}
@@ -944,7 +951,7 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 								if (currentDragState == DRAG_SELECTION) {
 									if (movecommand == NULL) {
 										movecommand = new cmdMoveSelection(gCircuit, preMove, preMoveWire, 0, 0, 0, 0);
-										if (!isWithinPaste) gCircuit->GetCommandProcessor()->Submit((wxCommand*)movecommand);
+										if (!isWithinPaste) submitCommand(movecommand);
 									}
 									movecommand->getConnections()->push_back(createwire);
 								}
@@ -965,7 +972,7 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 	// Drop a paste block with the proper move coords
 	if (isWithinPaste) {
 		pasteCommand->addCommand( movecommand );
-		gCircuit->GetCommandProcessor()->Submit( pasteCommand );
+		submitCommand( pasteCommand );
 		isWithinPaste = false;
 		autoScrollEnable(); // Re-enable auto scrolling
 	}
@@ -1129,7 +1136,7 @@ void GUICanvas::OnKeyDown(wxKeyEvent& event) {
 
 void GUICanvas::deleteSelection() {
 	// whatever is in the selected vectors goes
-	if (selectedWires.size() > 0 || selectedGates.size() > 0) gCircuit->GetCommandProcessor()->Submit( (wxCommand*)(new cmdDeleteSelection( gCircuit, this, selectedGates, selectedWires )) );
+	if (selectedWires.size() > 0 || selectedGates.size() > 0) submitCommand( new cmdDeleteSelection( gCircuit, this, selectedGates, selectedWires ) );
 	selectedWires.clear();
 	selectedGates.clear();
 	preMove.clear();
