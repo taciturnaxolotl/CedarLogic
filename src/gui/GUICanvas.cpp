@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "GUICanvas.h"
+#include "GateLibrary.h"
 #include "MainApp.h"
 #include "paramDialog.h"
 #include "QuickAddDialog.h"
@@ -37,7 +38,7 @@ public:
 		string gateName = text.ToStdString();
 
 		// Make sure the gate exists
-		if (wxGetApp().gateNameToLibrary.count(gateName) == 0) {
+		if (gateLibrary().gateNameToLibrary.count(gateName) == 0) {
 			return false;
 		}
 

@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "GUICircuit.h"
+#include "GateLibrary.h"
 #include "MainApp.h"
 #include "GUICanvas.h"
 #include "OscopeFrame.h"
@@ -56,12 +57,12 @@ void GUICircuit::reInitializeLogicCircuit() {
 }
 
 guiGate* GUICircuit::createGate(string gateName, long id, bool noOscope) {
-	string libName = wxGetApp().gateNameToLibrary[gateName];
+	string libName = gateLibrary().gateNameToLibrary[gateName];
 	
 	if (id == -1) id = getNextAvailableGateID();
 	guiGate* newGate = NULL;
-	LibraryGate gateDef = wxGetApp().libraries[libName][gateName];
-	//wxGetApp().libraries[libName].getGate(gateName, gateDef);
+	LibraryGate gateDef = gateLibrary().libraries[libName][gateName];
+	//gateLibrary().libraries[libName].getGate(gateName, gateDef);
 	
 
 	string ggt = gateDef.guiType;

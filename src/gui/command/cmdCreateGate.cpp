@@ -1,5 +1,6 @@
 
 #include "cmdCreateGate.h"
+#include "../GateLibrary.h"
 #include "../GUICircuit.h"
 #include "../GUICanvas.h"
 #include "../guiGate.h"
@@ -36,12 +37,12 @@ cmdCreateGate::~cmdCreateGate() {
 }
 
 bool cmdCreateGate::Do() {
-	if (wxGetApp().libraries.size() == 0) return false; // No library loaded, so can't create gate
+	if (gateLibrary().libraries.size() == 0) return false; // No library loaded, so can't create gate
 
 	gCircuit->createGate(gateType, gid, fromString);
 	gCanvas->insertGate(gid, (*(gCircuit->getGates()))[gid], x, y);
 
-	string logicType = wxGetApp().libParser.getGateLogicType(gateType);
+	string logicType = gateLibrary().libParser.getGateLogicType(gateType);
 	if (logicType.size() > 0) {
 		ostringstream oss;
 		gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_CREATE_GATE, new klsMessage::Message_CREATE_GATE(logicType, gid)));
@@ -55,7 +56,7 @@ bool cmdCreateGate::Do() {
 	if (logicType.size() > 0) {
 		// Loop through the hotspots and pass logic core hotspot settings:
 		LibraryGate libGate;
-		wxGetApp().libParser.getGate(gateType, libGate);
+		gateLibrary().libParser.getGate(gateType, libGate);
 		for (unsigned int i = 0; i < libGate.hotspots.size(); i++) {
 
 			// Send the isInverted message:
@@ -93,7 +94,7 @@ bool cmdCreateGate::Undo() {
 	}
 	gCanvas->removeGate(gid);
 	gCircuit->deleteGate(gid);
-	string logicType = wxGetApp().libParser.getGateLogicType(gateType);
+	string logicType = gateLibrary().libParser.getGateLogicType(gateType);
 	if (logicType.size() > 0) {
 		gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_DELETE_GATE, new klsMessage::Message_DELETE_GATE(gid)));
 	}

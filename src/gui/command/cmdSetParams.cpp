@@ -1,5 +1,6 @@
 
 #include "cmdSetParams.h"
+#include "../GateLibrary.h"
 #include "../GUICircuit.h"
 #include "../guiGate.h"
 #include "../OscopeFrame.h"
@@ -67,7 +68,7 @@ bool cmdSetParams::Do() {
 	if ((gCircuit->getGates())->find(gid) == (gCircuit->getGates())->end()) return false; // error: gate not found
 	map < string, string >::iterator paramWalk = newLogicParamList.begin();
 	vector < string > dontSendMessages;
-	LibraryGate lg = wxGetApp().libraries[(*(gCircuit->getGates()))[gid]->getLibraryName()][(*(gCircuit->getGates()))[gid]->getLibraryGateName()];
+	LibraryGate lg = gateLibrary().libraries[(*(gCircuit->getGates()))[gid]->getLibraryName()][(*(gCircuit->getGates()))[gid]->getLibraryGateName()];
 	for (unsigned int i = 0; i < lg.dlgParams.size(); i++) {
 		if (lg.dlgParams[i].isGui) continue;
 		if (lg.dlgParams[i].type == "FILE_IN" || lg.dlgParams[i].type == "FILE_OUT") dontSendMessages.push_back(lg.dlgParams[i].name);
@@ -95,7 +96,7 @@ bool cmdSetParams::Undo() {
 	if ((gCircuit->getGates())->find(gid) == (gCircuit->getGates())->end()) return false; // error: gate not found
 	map < string, string >::iterator paramWalk = oldLogicParamList.begin();
 	vector < string > dontSendMessages;
-	LibraryGate lg = wxGetApp().libraries[(*(gCircuit->getGates()))[gid]->getLibraryName()][(*(gCircuit->getGates()))[gid]->getLibraryGateName()];
+	LibraryGate lg = gateLibrary().libraries[(*(gCircuit->getGates()))[gid]->getLibraryName()][(*(gCircuit->getGates()))[gid]->getLibraryGateName()];
 	for (unsigned int i = 0; i < lg.dlgParams.size(); i++) {
 		if (lg.dlgParams[i].isGui) continue;
 		if (lg.dlgParams[i].type == "FILE_IN" || lg.dlgParams[i].type == "FILE_OUT") dontSendMessages.push_back(lg.dlgParams[i].name);

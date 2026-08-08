@@ -1,4 +1,5 @@
 #include "QuickAddDialog.h"
+#include "GateLibrary.h"
 #include "wx/listbox.h"
 #include "wx/textctrl.h"
 #include "wx/statbmp.h"
@@ -20,7 +21,7 @@ QuickAddDialog::QuickAddDialog(wxWindow* parent)
 		wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
 
 	// Collect all gates from all libraries
-	auto& libraries = wxGetApp().libraries;
+	auto& libraries = gateLibrary().libraries;
 	for (auto& libPair : libraries) {
 		for (auto& gatePair : libPair.second) {
 			GateEntry entry;
@@ -68,10 +69,10 @@ QuickAddDialog::QuickAddDialog(wxWindow* parent)
 }
 
 wxBitmap QuickAddDialog::renderGatePreview(const string& gateName, int width, int height) {
-	string libName = wxGetApp().gateNameToLibrary[gateName];
+	string libName = gateLibrary().gateNameToLibrary[gateName];
 	if (libName.empty()) return wxBitmap(width, height);
 
-	LibraryGate& gateDef = wxGetApp().libraries[libName][gateName];
+	LibraryGate& gateDef = gateLibrary().libraries[libName][gateName];
 	if (gateDef.shape.empty()) return wxBitmap(width, height);
 
 	// Find bounding box of all lines

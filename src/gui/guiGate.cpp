@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "guiGate.h"
+#include "GateLibrary.h"
 #include <iomanip>
 #include <cmath>
 #include "wx/wx.h"
@@ -49,11 +50,11 @@ void guiGate::updateConnectionMerges() {
 }
 
 string guiGate::getLogicType() {
-	return wxGetApp().libParser.getGateLogicType( libGateName );
+	return gateLibrary().libParser.getGateLogicType( libGateName );
 };
 
 string guiGate::getGUIType() {
-	return wxGetApp().libParser.getGateGUIType( libGateName );
+	return gateLibrary().libParser.getGateGUIType( libGateName );
 };
 
 
@@ -416,7 +417,7 @@ void guiGate::saveGate(XMLParser* xparse) {
 		pParams++;
 	}
 	pParams = lparams.begin();
-	LibraryGate lg = wxGetApp().libraries[getLibraryName()][getLibraryGateName()];
+	LibraryGate lg = gateLibrary().libraries[getLibraryName()][getLibraryGateName()];
 	while (pParams != lparams.end()) {
 		bool found = false;
 		for (unsigned int i = 0; i < lg.dlgParams.size() && !found; i++) {
@@ -491,7 +492,7 @@ void guiGate::saveGateLegacy(XMLParser* xparse) {
 		pParams++;
 	}
 	pParams = lparams.begin();
-	LibraryGate lg = wxGetApp().libraries[getLibraryName()][getLibraryGateName()];
+	LibraryGate lg = gateLibrary().libraries[getLibraryName()][getLibraryGateName()];
 	while (pParams != lparams.end()) {
 		bool found = false;
 		for (unsigned int i = 0; i < lg.dlgParams.size() && !found; i++) {
@@ -512,7 +513,7 @@ void guiGate::saveGateLegacy(XMLParser* xparse) {
 }
 
 void guiGate::doParamsDialog( void* gc, wxCommandProcessor* wxcmd ) {
-	if (wxGetApp().libraries[libName][libGateName].dlgParams.size() == 0) return;
+	if (gateLibrary().libraries[libName][libGateName].dlgParams.size() == 0) return;
 #ifdef __WXOSX__
 	paramDialog* myDialog = new paramDialog("Parameters", gc, this, wxcmd);
 	myDialog->Bind(wxEVT_WINDOW_MODAL_DIALOG_CLOSED, [myDialog](wxWindowModalDialogEvent&) {
