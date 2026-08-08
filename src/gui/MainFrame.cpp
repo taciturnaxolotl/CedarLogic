@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "MainApp.h"
+#include "Settings.h"
 #include "GateLibrary.h"
 #include "MainFrame.h"
 #include "wx/filedlg.h"
@@ -125,8 +126,8 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	currentCanvas = nullptr;
 
 	// Set default locations
-	if (wxGetApp().appSettings.lastDir == "") lastDirectory = wxGetHomeDir();
-	else lastDirectory = wxGetApp().appSettings.lastDir;  // added cast KAS
+	if (appConfig().appSettings.lastDir == "") lastDirectory = wxGetHomeDir();
+	else lastDirectory = appConfig().appSettings.lastDir;  // added cast KAS
 
 	//////////////////////////////////////////////////////////////////////////
     // create a menu bar
@@ -188,9 +189,9 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
     menuBar->Append(helpMenu, "&Help");
 
     // set checkmarks on settings menu
-    menuBar->Check(View_Gridline, wxGetApp().appSettings.gridlineVisible);
-    menuBar->Check(View_WireConn, wxGetApp().appSettings.wireConnVisible);
-    menuBar->Check(View_RightClickRotate, wxGetApp().appSettings.rightClickRotate);
+    menuBar->Check(View_Gridline, appConfig().appSettings.gridlineVisible);
+    menuBar->Check(View_WireConn, appConfig().appSettings.wireConnVisible);
+    menuBar->Check(View_RightClickRotate, appConfig().appSettings.rightClickRotate);
     
     // ... and attach this menu bar to the frame
     SetMenuBar(menuBar);
@@ -203,7 +204,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	//WARNING( "just so you know argv[0] == " );
 	//WARNING( wxString(wxGetApp().argv[0]) );
 #else
-	string libPath = wxGetApp().appSettings.gateLibFile;
+	string libPath = appConfig().appSettings.gateLibFile;
 #endif
 	LibraryParse newLib(libPath);
 	gateLibrary().libParser = newLib;
@@ -238,9 +239,9 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	playIcon = sfSymbol("play.fill");
 	toolBar->AddTool(Tool_Pause, "Pause/Resume", pauseIcon, "Pause/Resume", wxITEM_CHECK);
 	toolBar->AddTool(Tool_Step, "Step", sfSymbol("forward.frame.fill"), "Step");
-	timeStepModSlider = new wxSlider(toolBar, wxID_ANY, wxGetApp().timeStepMod, 1, 500, wxDefaultPosition, wxSize(125,-1), wxSL_HORIZONTAL);
+	timeStepModSlider = new wxSlider(toolBar, wxID_ANY, appConfig().timeStepMod, 1, 500, wxDefaultPosition, wxSize(125,-1), wxSL_HORIZONTAL);
 	wxString oss;
-	oss << wxGetApp().timeStepMod << "ms";
+	oss << appConfig().timeStepMod << "ms";
 	timeStepModVal = new wxStaticText(toolBar, wxID_ANY, oss, wxDefaultPosition, wxSize(45, -1), wxSUNKEN_BORDER | wxALIGN_RIGHT | wxST_NO_AUTORESIZE);
 	// Label + tooltip so it's clear this sets the simulation step size / speed.
 	wxStaticText* timeStepModLabel = new wxStaticText(toolBar, wxID_ANY, "Sim step ");
@@ -268,7 +269,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	const bool darkMode = wxSystemSettings::GetAppearance().IsDark();
 	const wxString iconColor = darkMode ? "#E6E6E6" : "#333333";
 	auto svgIcon = [&](const char* name) -> wxBitmapBundle {
-		wxString path = wxGetApp().resourcesDir + "res/icons/" + name + ".svg";
+		wxString path = appConfig().resourcesDir + "res/icons/" + name + ".svg";
 		wxFile f(path);
 		wxString svg;
 		if (f.IsOpened() && f.ReadAll(&svg)) {
@@ -301,9 +302,9 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	playIcon = svgIcon("play").GetBitmap(iconSize);
 	toolBar->AddTool(Tool_Pause, "Pause/Resume", pauseIcon, "Pause/Resume", wxITEM_CHECK);
 	toolBar->AddTool(Tool_Step, "Step", svgIcon("step"), "Step");
-	timeStepModSlider = new wxSlider(toolBar, wxID_ANY, wxGetApp().timeStepMod, 1, 500, wxDefaultPosition, wxSize(125,-1), wxSL_HORIZONTAL);
+	timeStepModSlider = new wxSlider(toolBar, wxID_ANY, appConfig().timeStepMod, 1, 500, wxDefaultPosition, wxSize(125,-1), wxSL_HORIZONTAL);
 	wxString oss;
-	oss << wxGetApp().timeStepMod << "ms";
+	oss << appConfig().timeStepMod << "ms";
 	timeStepModVal = new wxStaticText(toolBar, wxID_ANY, oss, wxDefaultPosition, wxSize(45, -1), wxSUNKEN_BORDER | wxALIGN_RIGHT | wxST_NO_AUTORESIZE);
 	// Label + tooltip so it's clear this sets the simulation step size / speed.
 	wxStaticText* timeStepModLabel = new wxStaticText(toolBar, wxID_ANY, "Sim step ");
@@ -403,7 +404,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	g_printData = new wxPrintData;
 	g_printData->SetOrientation(wxLANDSCAPE);
 	
-	this->SetSize( wxGetApp().appSettings.mainFrameLeft, wxGetApp().appSettings.mainFrameTop, wxGetApp().appSettings.mainFrameWidth, wxGetApp().appSettings.mainFrameHeight );
+	this->SetSize( appConfig().appSettings.mainFrameLeft, appConfig().appSettings.mainFrameTop, appConfig().appSettings.mainFrameWidth, appConfig().appSettings.mainFrameHeight );
 
 #ifdef __WXOSX__
 	canvasBook->Bind(wxEVT_NOTEBOOK_PAGE_CHANGED, &MainFrame::OnNotebookPage, this);
@@ -844,31 +845,31 @@ void MainFrame::OnOscope(wxCommandEvent& WXUNUSED(event)) {
 }
 
 void MainFrame::OnViewGridline(wxCommandEvent& event) {
-	wxGetApp().appSettings.gridlineVisible = event.IsChecked();
+	appConfig().appSettings.gridlineVisible = event.IsChecked();
 	if (currentCanvas != NULL) currentCanvas->Update();
 }
 
 void MainFrame::OnViewWireConn(wxCommandEvent& event) {
-	wxGetApp().appSettings.wireConnVisible = event.IsChecked();
+	appConfig().appSettings.wireConnVisible = event.IsChecked();
 	if (currentCanvas != NULL) currentCanvas->Update();
 }
 
 void MainFrame::OnViewRightClickRotate(wxCommandEvent& event) {
-	wxGetApp().appSettings.rightClickRotate = event.IsChecked();
+	appConfig().appSettings.rightClickRotate = event.IsChecked();
 }
 
 void MainFrame::OnPreferences(wxCommandEvent& event) {
 	SettingsDialog dlg(this);
 	if (dlg.ShowModal() == wxID_OK) {
-		wxGetApp().appSettings.wireConnVisible = dlg.getWireConnVisible();
-		wxGetApp().appSettings.wireConnRadius = (float)dlg.getWireConnRadius();
-		wxGetApp().appSettings.gridlineVisible = dlg.getGridlineVisible();
-		wxGetApp().appSettings.refreshRate = dlg.getRefreshRate();
+		appConfig().appSettings.wireConnVisible = dlg.getWireConnVisible();
+		appConfig().appSettings.wireConnRadius = (float)dlg.getWireConnRadius();
+		appConfig().appSettings.gridlineVisible = dlg.getGridlineVisible();
+		appConfig().appSettings.refreshRate = dlg.getRefreshRate();
 
 		// Sync menu checkmarks
-		GetMenuBar()->Check(View_Gridline, wxGetApp().appSettings.gridlineVisible);
-		GetMenuBar()->Check(View_WireConn, wxGetApp().appSettings.wireConnVisible);
-		GetMenuBar()->Check(View_RightClickRotate, wxGetApp().appSettings.rightClickRotate);
+		GetMenuBar()->Check(View_Gridline, appConfig().appSettings.gridlineVisible);
+		GetMenuBar()->Check(View_WireConn, appConfig().appSettings.wireConnVisible);
+		GetMenuBar()->Check(View_RightClickRotate, appConfig().appSettings.rightClickRotate);
 
 		if (currentCanvas != NULL) currentCanvas->Update();
 	}
@@ -879,16 +880,16 @@ void MainFrame::OnTimer(wxTimerEvent& event) {
 	if (!(currentCanvas->getCircuit()->getSimulate())) {
 		return;
 	}
-	if (wxGetApp().appSystemTime.Time() < wxGetApp().appSettings.refreshRate) return;
+	if (wxGetApp().appSystemTime.Time() < appConfig().appSettings.refreshRate) return;
 	wxGetApp().appSystemTime.Pause();
 	if (gCircuit->panic) return;
 	// Do function of number of milliseconds that passed since last step
 	gCircuit->lastTime = wxGetApp().appSystemTime.Time();
-	gCircuit->lastTimeMod = wxGetApp().timeStepMod;
-	gCircuit->lastNumSteps = wxGetApp().appSystemTime.Time() / wxGetApp().timeStepMod;
-	gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_STEPSIM, new klsMessage::Message_STEPSIM(wxGetApp().appSystemTime.Time() / wxGetApp().timeStepMod)));
+	gCircuit->lastTimeMod = appConfig().timeStepMod;
+	gCircuit->lastNumSteps = wxGetApp().appSystemTime.Time() / appConfig().timeStepMod;
+	gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_STEPSIM, new klsMessage::Message_STEPSIM(wxGetApp().appSystemTime.Time() / appConfig().timeStepMod)));
 	currentCanvas->getCircuit()->setSimulate(false);
-	wxGetApp().appSystemTime.Start(wxGetApp().appSystemTime.Time() % wxGetApp().timeStepMod);
+	wxGetApp().appSystemTime.Start(wxGetApp().appSystemTime.Time() % appConfig().timeStepMod);
 }
 
 void MainFrame::OnIdle(wxTimerEvent& event) {
@@ -1298,8 +1299,8 @@ void MainFrame::OnCopyToClipboard(wxCommandEvent& event) {
 }
 
 wxBitmap MainFrame::getBitmap(bool withGrid, bool noColor, int multiplier) {
-	bool gridlineVisible = wxGetApp().appSettings.gridlineVisible;
-	wxGetApp().appSettings.gridlineVisible = withGrid;
+	bool gridlineVisible = appConfig().appSettings.gridlineVisible;
+	appConfig().appSettings.gridlineVisible = withGrid;
 	wxGetApp().doingBitmapExport = true;
 
 	// render the image
@@ -1309,7 +1310,7 @@ wxBitmap MainFrame::getBitmap(bool withGrid, bool noColor, int multiplier) {
 	wxBitmap circuitBitmap(circuitImage);
 
 	// restore grid display setting
-	wxGetApp().appSettings.gridlineVisible = gridlineVisible;
+	appConfig().appSettings.gridlineVisible = gridlineVisible;
 	wxGetApp().doingBitmapExport = false;
 
 	return circuitBitmap;
@@ -1362,9 +1363,9 @@ void MainFrame::OnHelpContents(wxCommandEvent& event) {
 void MainFrame::OnTimeStepModSlider(wxScrollEvent& event) {
 	// Update the value first, then rebuild the label from it -- otherwise the
 	// readout lags one change behind the slider.
-	wxGetApp().timeStepMod = timeStepModSlider->GetValue();
+	appConfig().timeStepMod = timeStepModSlider->GetValue();
 	wxString oss;
-	oss << wxGetApp().timeStepMod << "ms";
+	oss << appConfig().timeStepMod << "ms";
 	timeStepModVal->SetLabel(oss);
 }
 
@@ -1376,9 +1377,9 @@ void MainFrame::saveSettings() {
 	//needs to be relative.
 	//adding substring on the end of the relative paths to knock
 	//of the part I put on.
-	int numCharAbsolute = wxGetApp().resourcesDir.length();
+	int numCharAbsolute = appConfig().resourcesDir.length();
 	wxConfigBase *conf = wxConfigBase::Get();
-	auto settings = wxGetApp().appSettings;
+	auto settings = appConfig().appSettings;
 	
 	wxString str = settings.gateLibFile.substr(numCharAbsolute);
 	conf->Write("GateLib", str);
@@ -1393,7 +1394,7 @@ void MainFrame::saveSettings() {
 	conf->Write("FrameHeight", GetSize().GetHeight());
 	conf->Write("FrameLeft", GetPosition().x);
 	conf->Write("FrameTop", GetPosition().y);
-	conf->Write("TimeStep", wxGetApp().timeStepMod);
+	conf->Write("TimeStep", appConfig().timeStepMod);
 	conf->Write("RefreshRate", settings.refreshRate);
 	conf->Write("LastDirectory", lastDirectory);
 	conf->Write("WireConnRadius", settings.wireConnRadius);
@@ -1534,7 +1535,7 @@ bool MainFrame::renderToPng(const wxString &path) {
 	// doingBitmapExport, which is load-bearing: the offscreen GL context is
 	// unshared on Windows, so without it the connection-point display list is a
 	// no-op and wires lose their dots. It also handles the grid-visibility state.
-	wxBitmap bmp = getBitmap(wxGetApp().appSettings.gridlineVisible, false, 1);
+	wxBitmap bmp = getBitmap(appConfig().appSettings.gridlineVisible, false, 1);
 	if (!bmp.IsOk()) return false;
 	return bmp.ConvertToImage().SaveFile(path, wxBITMAP_TYPE_PNG);
 }

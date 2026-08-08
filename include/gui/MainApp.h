@@ -33,26 +33,13 @@
 #include <sstream>
 #include <cmath>
 
+#include "Settings.h"
+
 class MainFrame;
 
 using namespace std;
 
-struct ApplicationSettings {
-	string gateLibFile;
-	string textFontFile;
-	string helpFile;
-	string lastDir;
-	int mainFrameWidth;
-	int mainFrameHeight;
-	int mainFrameLeft;
-	int mainFrameTop;
-	int timePerStep;
-	int refreshRate;
-    float wireConnRadius;
-    bool wireConnVisible;
-    bool gridlineVisible;
-    bool rightClickRotate;
-};
+// ApplicationSettings moved to Settings.h with the Settings service (WS C).
 
 class MainApp : public wxApp {
 public:
@@ -106,8 +93,7 @@ public:
 	unordered_map<IDType, StateType> wireStateBuffer;
 	// Use a stopwatch for timing between step calls
 	wxStopWatch appSystemTime;
-	unsigned long timeStepMod;
-	
+
 	// The gate libraries moved to the GateLibrary service (Workstream C);
 	// reach them via gateLibrary() (see GateLibrary.h).
 
@@ -124,9 +110,9 @@ public:
     
     bool showDragImage;
 	string newGateToDrag;
-	
-	ApplicationSettings appSettings;
-	
+	// appSettings / timeStepMod / resourcesDir moved to the Settings service
+	// (Workstream C); reach them via settings() (see Settings.h).
+
 	threadLogic* logicThread;
 	autoSaveThread* saveThread;
 	
@@ -135,10 +121,6 @@ public:
 	//this pointer is added so that pop-ups can
 	//resume simulation
 	MainFrame* mainframe;
-	
-	//this string is necisary when the working directory
-	//is not were the executeable is.
-	string resourcesDir;
 
 	// OK, honestly, this shouldn't be here
 	//	Basically exporting bitmaps doesn't like GL display

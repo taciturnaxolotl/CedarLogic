@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "klsGLCanvas.h"
+#include "Settings.h"
 #include "MainApp.h"
 #include "paramDialog.h"
 #include "GLFont/glfont2.h"
@@ -129,7 +130,7 @@ wxImage klsGLCanvas::renderToImage( unsigned long width, unsigned long height, u
 	glColor3b(0, 0, 0);
 
   // Load the font texture
-  guiText::loadFont(wxGetApp().appSettings.textFontFile);
+  guiText::loadFont(appConfig().appSettings.textFontFile);
     
 		
 	//TODO: Check if alpha is hardware supported, and
@@ -252,7 +253,7 @@ void klsGLCanvas::klsGLCanvasRender( bool noColor ) {
 	glColor4f( 0, 0, 0, 1 );
 
 	// Render the background grid:
-	if( (horizOn || vertOn) && wxGetApp().appSettings.gridlineVisible ) {
+	if( (horizOn || vertOn) && appConfig().appSettings.gridlineVisible ) {
 		// Note: since adding a very few line primitives is a small price to pay,
 		//	we not only draw the grid for the visible area, but also (PAN_STEP*viewZoom)
 		//	around the visible area.  This is so when the user pans, there will be no
@@ -386,7 +387,7 @@ void klsGLCanvas::wxOnPaint(wxPaintEvent& event) {
 		//End of edit
 		
 		// Load the font texture
-		guiText::loadFont(wxGetApp().appSettings.textFontFile);
+		guiText::loadFont(appConfig().appSettings.textFontFile);
 
 		// Connection point list
 		defineGLLists();
