@@ -395,9 +395,9 @@ static const wxCmdLineEntryDesc g_cmdLineDesc[] =
 
 MainApp::MainApp()
 {
-    showDragImage = false;
+    paletteDrag().showDragImage = false;
     mainframe = NULL;
-    doingBitmapExport = false;
+    renderMode().doingBitmapExport = false;
 	glContext = NULL;
 #ifdef __WXGTK__
 	// On Linux with wayland, wxGTK doesn't position glCanvas frames correctly.
@@ -462,7 +462,7 @@ bool MainApp::OnInit()
     string renderOutput;
     int renderW = 1600, renderH = 1000;
     if (argc >= 4 && wxString(argv[1]) == "--render") {
-        headlessRender = true;
+        renderMode().headlessRender = true;
         cmdFilename = argv[2].ToStdString();
         renderOutput = argv[3].ToStdString();
         if (argc >= 6) { renderW = wxAtoi(argv[4]); renderH = wxAtoi(argv[5]); }
@@ -484,7 +484,7 @@ bool MainApp::OnInit()
     // create the main application window
     MainFrame *frame = new MainFrame(VERSION_TITLE(), cmdFilename);
 
-    if (headlessRender) {
+    if (renderMode().headlessRender) {
         // Validate the file up front. A missing or malformed file would otherwise
         // pop a modal error in the load path -- which hangs this windowless
         // one-shot -- so parse it here first and exit cleanly if it won't load.

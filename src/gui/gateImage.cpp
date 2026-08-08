@@ -9,6 +9,8 @@
 *****************************************************************************/
 
 #include "gateImage.h"
+#include "PaletteDrag.h"
+#include "RenderMode.h"
 #include "Settings.h"
 #include "GateLibrary.h"
 #include "wx/image.h"
@@ -69,7 +71,7 @@ void gateImage::OnPaint(wxPaintEvent &event) {
 void gateImage::mouseCallback( wxMouseEvent& event) {
 	if (event.LeftDown()) {
 #ifndef USE_WX_DRAGDROP
-		wxGetApp().newGateToDrag = gateName;
+		paletteDrag().newGateToDrag = gateName;
 
 #if defined(__WXGTK__) || defined(__WXOSX__)
 		// On GTK and macOS the canvas doesn't get mouse events when dragging over
@@ -92,7 +94,7 @@ void gateImage::mouseCallback( wxMouseEvent& event) {
 		source.DoDragDrop(flags);
 #endif
 	} else if (event.LeftUp()) {
-		wxGetApp().newGateToDrag = "";
+		paletteDrag().newGateToDrag = "";
 	} else {
 		// This is required to pass scroll events through
 		event.Skip();

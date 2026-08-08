@@ -9,6 +9,8 @@
 *****************************************************************************/
 
 #include "MainApp.h"
+#include "PaletteDrag.h"
+#include "RenderMode.h"
 #include "SimBridge.h"
 #include "Settings.h"
 #include "GateLibrary.h"
@@ -746,7 +748,7 @@ void MainFrame::loadCircuitFile( string fileName ){
 	// leaves it undecided, so the same choice is offered again when they save.
 	// Skip the crash-recovery file.
 	if ((loadedFileFormat == 1 || loadedFileFormat == 2) && fileName != CRASH_FILENAME
-	    && !wxGetApp().headlessRender) {
+	    && !renderMode().headlessRender) {
 		wxString v = (loadedFileFormat == 1) ? "V1" : "V2";
 		wxMessageDialog dialog(this,
 			"This circuit was saved in an older file format (" + v + ").\n\n"
@@ -1302,7 +1304,7 @@ void MainFrame::OnCopyToClipboard(wxCommandEvent& event) {
 wxBitmap MainFrame::getBitmap(bool withGrid, bool noColor, int multiplier) {
 	bool gridlineVisible = appConfig().appSettings.gridlineVisible;
 	appConfig().appSettings.gridlineVisible = withGrid;
-	wxGetApp().doingBitmapExport = true;
+	renderMode().doingBitmapExport = true;
 
 	// render the image
 	// When noColor is true, it renders gates/wires as black line drawings (perfect for printing)
@@ -1312,7 +1314,7 @@ wxBitmap MainFrame::getBitmap(bool withGrid, bool noColor, int multiplier) {
 
 	// restore grid display setting
 	appConfig().appSettings.gridlineVisible = gridlineVisible;
-	wxGetApp().doingBitmapExport = false;
+	renderMode().doingBitmapExport = false;
 
 	return circuitBitmap;
 }

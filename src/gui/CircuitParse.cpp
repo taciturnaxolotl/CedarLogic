@@ -9,6 +9,8 @@
 *****************************************************************************/
 
 #include "CircuitParse.h"
+#include "PaletteDrag.h"
+#include "RenderMode.h"
 #include "GateLibrary.h"
 #include "OscopeFrame.h"
 #include "MainApp.h"
@@ -132,7 +134,7 @@ vector<GUICanvas*> CircuitParse::parseFile() {
 	// Keep old builds of Cedar Logic from opening newer, incompatible files.
 	string version = extractVersion(text);
 	if (!version.empty() && hasBreakingVersion(version, VERSION_NUMBER_STRING()) &&
-	    !wxGetApp().headlessRender) {
+	    !renderMode().headlessRender) {
 		wxMessageBox("This file was made with a newer version of Cedar Logic. "
 			"Go to 'Help\\Download Latest Version...' to open this file."
 			"Close CedarLogic without saving to avoid overwriting your work!!!", "Version Error!");
@@ -155,7 +157,7 @@ vector<GUICanvas*> CircuitParse::parseFile() {
 	}
 
 	applyCircuitFile(loaded.file);
-	if (!wxGetApp().headlessRender) showMigrationNotices(loaded.notices);
+	if (!renderMode().headlessRender) showMigrationNotices(loaded.notices);
 
 	gCanvas->getCircuit()->getOscope()->UpdateMenu();
 	return gCanvases;

@@ -9,6 +9,8 @@
 *****************************************************************************/
 
 #include "guiWire.h"
+#include "PaletteDrag.h"
+#include "RenderMode.h"
 #include "Settings.h"
 #include <cmath>
 #include <stack>
@@ -270,7 +272,7 @@ void guiWire::draw(bool color) {
 	for (unsigned int i = 0; i < isectPoints->size(); i++) {
 		// Draw the connection point:
 		glTranslatef((*isectPoints)[i].x, (*isectPoints)[i].y, 0.0);
-		if (!wxGetApp().doingBitmapExport)
+		if (!renderMode().doingBitmapExport)
 			glCallList(CEDAR_GLLIST_CONNECTPOINT);
 		else {
 			glBegin(GL_TRIANGLE_FAN);
@@ -290,7 +292,7 @@ void guiWire::draw(bool color) {
 		for (unsigned int i = 0; i < vertexPoints->size(); i++) {
 			// Draw the connection point:
 			glTranslatef((*vertexPoints)[i].x, (*vertexPoints)[i].y, 0.0);
-			if (!wxGetApp().doingBitmapExport)
+			if (!renderMode().doingBitmapExport)
 				glCallList(CEDAR_GLLIST_CONNECTPOINT);
 			else {
 				glBegin(GL_TRIANGLE_FAN);
