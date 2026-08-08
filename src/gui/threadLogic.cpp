@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "threadLogic.h"
+#include "SimBridge.h"
 #include "MainApp.h"
 #include <sstream>
 #include "wx/timer.h"
@@ -44,15 +45,15 @@ void *threadLogic::Entry() {
 }
 
 void threadLogic::checkMessages() {
-	wxCriticalSectionLocker locker(wxGetApp().m_critsect);
+	wxCriticalSectionLocker locker(simBridge().m_critsect);
 	// Take the whole pending batch under the lock, then process it with the lock
 	// released. Holding mexMessages only for the O(1) swap avoids the old
 	// TryLock+wxYield busy-spin, and lets parseMessage's STEPSIM path re-take
 	// mexMessages (via sendMessage) without relying on the mutex being recursive.
 	deque< klsMessage::Message > batch;
 	{
-		wxMutexLocker lock(wxGetApp().mexMessages);
-		batch.swap(wxGetApp().dGUItoLOGIC);
+		wxMutexLocker lock(simBridge().mexMessages);
+		batch.swap(simBridge().dGUItoLOGIC);
 	}
 	while (!batch.empty()) {
 		parseMessage(batch.front());
@@ -61,11 +62,11 @@ void threadLogic::checkMessages() {
 }
 
 void threadLogic::OnExit() {
-	wxCriticalSectionLocker locker(wxGetApp().m_critsect);
+	wxCriticalSectionLocker locker(simBridge().m_critsect);
 	delete cir;
 	delete logicIDs;
 	// Tell the main thread we can exit now
-	wxGetApp().m_semAllDone.Post();
+	simBridge().m_semAllDone.Post();
 }
 
 bool threadLogic::parseMessage(klsMessage::Message input) {
@@ -174,10 +175,10 @@ bool threadLogic::parseMessage(klsMessage::Message input) {
 			
 			cir->step(&changedWires);
 			{
-				wxMutexLocker lock(wxGetApp().wireStateMutex);
+				wxMutexLocker lock(simBridge().wireStateMutex);
 				ID_SET< IDType >::iterator cw = changedWires.begin();
 				while (cw != changedWires.end()) {
-					wxGetApp().wireStateBuffer[*cw] = (StateType)cir->getWireState(*cw);
+					simBridge().wireStateBuffer[*cw] = (StateType)cir->getWireState(*cw);
 					cw++;
 				}
 			}
@@ -255,6 +256,6 @@ bool threadLogic::parseMessage(klsMessage::Message input) {
 }
 
 void threadLogic::sendMessage(klsMessage::Message message) {
-	wxMutexLocker lock(wxGetApp().mexMessages);
-	wxGetApp().dLOGICtoGUI.push_back(message);
+	wxMutexLocker lock(simBridge().mexMessages);
+	simBridge().dLOGICtoGUI.push_back(message);
 }

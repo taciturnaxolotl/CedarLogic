@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "GUICircuit.h"
+#include "SimBridge.h"
 #include "GateLibrary.h"
 #include "MainApp.h"
 #include "GUICanvas.h"
@@ -190,8 +191,8 @@ void GUICircuit::Render() {
 }
 
 void GUICircuit::syncWireStates() {
-	wxMutexLocker lock(wxGetApp().wireStateMutex);
-	for (auto& entry : wxGetApp().wireStateBuffer) {
+	wxMutexLocker lock(simBridge().wireStateMutex);
+	for (auto& entry : simBridge().wireStateBuffer) {
 		if (buslineToWire.find(entry.first) != buslineToWire.end()) {
 			buslineToWire[entry.first]->setSubState(entry.first, entry.second);
 		}
@@ -235,17 +236,17 @@ void GUICircuit::parseMessage(klsMessage::Message message) {
 }
 
 void GUICircuit::sendMessageToCore(klsMessage::Message message) {
-	wxMutexLocker lock(wxGetApp().mexMessages);
+	wxMutexLocker lock(simBridge().mexMessages);
 
 	if (waitToSendMessage) {
 		
 		if (simulate) {
-			wxGetApp().dGUItoLOGIC.push_back(message);
+			simBridge().dGUItoLOGIC.push_back(message);
 		} else{
 			messageQueue.push_back(message);
 		}
 	} else{
-		wxGetApp().dGUItoLOGIC.push_back(message);
+		simBridge().dGUItoLOGIC.push_back(message);
 	}	
 }
 

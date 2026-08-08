@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "MainApp.h"
+#include "SimBridge.h"
 #include "Settings.h"
 #include "GateLibrary.h"
 #include "MainFrame.h"
@@ -452,11 +453,11 @@ MainFrame::~MainFrame() {
 	stopTimers();
 
 	// Shut down the detached thread and wait for it to exit
-	wxGetApp().logicThread->Delete();
-	wxGetApp().saveThread->Delete();
+	simBridge().logicThread->Delete();
+	simBridge().saveThread->Delete();
 
 	
-	wxGetApp().m_semAllDone.Wait();
+	simBridge().m_semAllDone.Wait();
 	
 	
 	
@@ -497,8 +498,8 @@ threadLogic *MainFrame::CreateThread()
         wxLogError("Can't create thread!");
     }
 
-    wxCriticalSectionLocker enter(wxGetApp().m_critsect);
-	wxGetApp().logicThread = thread;
+    wxCriticalSectionLocker enter(simBridge().m_critsect);
+	simBridge().logicThread = thread;
 	
     return thread;
 }
@@ -511,8 +512,8 @@ autoSaveThread *MainFrame::CreateSaveThread()
 		wxLogError("Can't create autosave thread!");
 	}
 
-	wxCriticalSectionLocker enter(wxGetApp().m_critsect);
-	wxGetApp().saveThread = thread;
+	wxCriticalSectionLocker enter(simBridge().m_critsect);
+	simBridge().saveThread = thread;
 
 	return thread;
 }
@@ -523,7 +524,7 @@ autoSaveThread *MainFrame::CreateSaveThread()
 void MainFrame::OnClose(wxCloseEvent& event) {
 	//Edit by Joshua Lansford 10/18/07
 	//Calling Destroy is not what was crashing the system.
-	//Deleting wxGetApp().appSystemTime in MainFrame::~MainFrame
+	//Deleting simBridge().appSystemTime in MainFrame::~MainFrame
 	//was crashing the system.  This problem was solved by
 	//replaceing the pointer appSystemTime with the non pointer
 	//appSystemTime.  Now it doesn't need to be deleted, and
@@ -626,9 +627,9 @@ void MainFrame::OnNew(wxCommandEvent& event) {
 	// dGUItoLOGIC every 1ms and pauseTimers() only stops the GUI timers, not
 	// that thread, so an unlocked clear() races it.
 	{
-		wxMutexLocker lock(wxGetApp().mexMessages);
-		wxGetApp().dGUItoLOGIC.clear();
-		wxGetApp().dLOGICtoGUI.clear();
+		wxMutexLocker lock(simBridge().mexMessages);
+		simBridge().dGUItoLOGIC.clear();
+		simBridge().dLOGICtoGUI.clear();
 	}
 
 	for (unsigned int i = 0; i < canvases.size(); i++) canvases[i]->clearCircuit();
@@ -707,9 +708,9 @@ void MainFrame::loadCircuitFile( string fileName ){
 	// Clear the queues under the lock -- the logic thread drains dGUItoLOGIC
 	// concurrently, so an unlocked flush races it.
 	{
-		wxMutexLocker lock(wxGetApp().mexMessages);
-		wxGetApp().dGUItoLOGIC.clear();
-		wxGetApp().dLOGICtoGUI.clear();
+		wxMutexLocker lock(simBridge().mexMessages);
+		simBridge().dGUItoLOGIC.clear();
+		simBridge().dLOGICtoGUI.clear();
 	}
 	for (unsigned int i = 0; i < canvases.size(); i++) canvases[i]->clearCircuit();
 	gCircuit->reInitializeLogicCircuit();
@@ -880,20 +881,20 @@ void MainFrame::OnTimer(wxTimerEvent& event) {
 	if (!(currentCanvas->getCircuit()->getSimulate())) {
 		return;
 	}
-	if (wxGetApp().appSystemTime.Time() < appConfig().appSettings.refreshRate) return;
-	wxGetApp().appSystemTime.Pause();
+	if (simBridge().appSystemTime.Time() < appConfig().appSettings.refreshRate) return;
+	simBridge().appSystemTime.Pause();
 	if (gCircuit->panic) return;
 	// Do function of number of milliseconds that passed since last step
-	gCircuit->lastTime = wxGetApp().appSystemTime.Time();
+	gCircuit->lastTime = simBridge().appSystemTime.Time();
 	gCircuit->lastTimeMod = appConfig().timeStepMod;
-	gCircuit->lastNumSteps = wxGetApp().appSystemTime.Time() / appConfig().timeStepMod;
-	gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_STEPSIM, new klsMessage::Message_STEPSIM(wxGetApp().appSystemTime.Time() / appConfig().timeStepMod)));
+	gCircuit->lastNumSteps = simBridge().appSystemTime.Time() / appConfig().timeStepMod;
+	gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_STEPSIM, new klsMessage::Message_STEPSIM(simBridge().appSystemTime.Time() / appConfig().timeStepMod)));
 	currentCanvas->getCircuit()->setSimulate(false);
-	wxGetApp().appSystemTime.Start(wxGetApp().appSystemTime.Time() % appConfig().timeStepMod);
+	simBridge().appSystemTime.Start(simBridge().appSystemTime.Time() % appConfig().timeStepMod);
 }
 
 void MainFrame::OnIdle(wxTimerEvent& event) {
-	wxCriticalSectionLocker locker(wxGetApp().m_critsect);
+	wxCriticalSectionLocker locker(simBridge().m_critsect);
 	// Take the whole pending batch under the lock, then process it with the lock
 	// released. The old TryLock+wxYield spin pumped the GUI event loop while
 	// waiting on the logic thread, letting a menu action (undo/redo/paste)
@@ -901,8 +902,8 @@ void MainFrame::OnIdle(wxTimerEvent& event) {
 	// mexMessages only for the O(1) swap removes the spin and the reentrancy.
 	deque< klsMessage::Message > batch;
 	{
-		wxMutexLocker lock(wxGetApp().mexMessages);
-		batch.swap(wxGetApp().dLOGICtoGUI);
+		wxMutexLocker lock(simBridge().mexMessages);
+		batch.swap(simBridge().dLOGICtoGUI);
 	}
 	while (!batch.empty()) {
 		gCircuit->parseMessage(batch.front());
@@ -926,8 +927,8 @@ void MainFrame::OnIdle(wxTimerEvent& event) {
 		toolBar->SetToolNormalBitmap(Tool_Pause, playIcon);
 #endif
 		simTimer->Stop();
-		wxGetApp().appSystemTime.Start(0);
-		wxGetApp().appSystemTime.Pause();
+		simBridge().appSystemTime.Start(0);
+		simBridge().appSystemTime.Pause();
 		//Edit by Joshua Lansford 11/24/06
 		//I have overloaded the meaning of panic
 		//panic is now also used to pause the system.
@@ -1416,8 +1417,8 @@ void MainFrame::ResumeExecution() {
 void MainFrame::PauseSim() {
 	if (toolBar->GetToolState(Tool_Pause)) {
 		simTimer->Stop();
-		wxGetApp().appSystemTime.Start(0);
-		wxGetApp().appSystemTime.Pause();
+		simBridge().appSystemTime.Start(0);
+		simBridge().appSystemTime.Pause();
 #ifdef __WXOSX__
 		NativeIcon_SetToolbarSFSymbol(toolBar, Tool_Pause, "play.fill", 18);
 #else
@@ -1425,7 +1426,7 @@ void MainFrame::PauseSim() {
 #endif
 	}
 	else {
-		wxGetApp().appSystemTime.Start(0);
+		simBridge().appSystemTime.Start(0);
 		simTimer->Start(TIMER_POLL_MS);
 #ifdef __WXOSX__
 		NativeIcon_SetToolbarSFSymbol(toolBar, Tool_Pause, "pause.fill", 18);
@@ -1450,13 +1451,13 @@ void MainFrame::startTimers(int at) {
 }
 
 void MainFrame::pauseTimers() {
-	wxGetApp().appSystemTime.Pause();
+	simBridge().appSystemTime.Pause();
 	stopTimers();
 }
 void MainFrame::resumeTimers(int at) {
 	if (!(toolBar->GetToolState(Tool_Pause)))
 	{
-		wxGetApp().appSystemTime.Start(0);
+		simBridge().appSystemTime.Start(0);
 		simTimer->Start(at);
 	}
 	idleTimer->Start(at);
