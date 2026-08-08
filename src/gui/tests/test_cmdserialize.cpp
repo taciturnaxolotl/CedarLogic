@@ -44,6 +44,39 @@ TEST_CASE("SetParams: sorted keys, per-entry tabs, space-bearing values") {
 	CHECK(label2.guiParams["text"] == "R1 & C2 (load)");
 }
 
+TEST_CASE("MoveWire: nested per-segment records round-trip") {
+	// A vertical segment with a connection and an intersection, then a plain
+	// horizontal segment. Segments emit in order; the format ends with " done ".
+	MoveWire mw;
+	mw.wid = 5;
+	MoveWireSeg s0;
+	s0.id = 0; s0.vertical = true; s0.bx = 1; s0.by = 2; s0.ex = 1; s0.ey = 4;
+	s0.connections = { { 10, "OUT_0" } };
+	s0.intersects = { { 3.0f, 1 } };
+	MoveWireSeg s1;
+	s1.id = 1; s1.vertical = false; s1.bx = 1; s1.by = 4; s1.ex = 5; s1.ey = 4;
+	mw.segments = { s0, s1 };
+
+	CHECK(emit(mw) ==
+	      "movewire 5 vsegment 0 1,2,1,4 connection 10 OUT_0 isect 3 1 hsegment 1 1,4,5,4  done ");
+
+	MoveWire back;
+	REQUIRE(parse(emit(mw), back));
+	CHECK(back.wid == 5);
+	REQUIRE(back.segments.size() == 2);
+	CHECK(back.segments[0].id == 0);
+	CHECK(back.segments[0].vertical == true);
+	CHECK(back.segments[0].ey == doctest::Approx(4));
+	REQUIRE(back.segments[0].connections.size() == 1);
+	CHECK(back.segments[0].connections[0].first == 10);
+	CHECK(back.segments[0].connections[0].second == "OUT_0");
+	REQUIRE(back.segments[0].intersects.size() == 1);
+	CHECK(back.segments[0].intersects[0].first == doctest::Approx(3));
+	CHECK(back.segments[0].intersects[0].second == 1);
+	CHECK(back.segments[1].id == 1);
+	CHECK(back.segments[1].vertical == false);
+}
+
 TEST_CASE("parse consumes the leading keyword and fields") {
 	CreateGate cg;
 	REQUIRE(parse("creategate 12 OR 3.5 -1", cg));

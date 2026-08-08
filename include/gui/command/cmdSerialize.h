@@ -8,8 +8,8 @@
 // plus emit()/parse() own that format for the commands migrated so far, so it
 // can be round-trip tested headless; keyword() owns the leading token the paste
 // dispatcher switches on (replacing hand-counted substr offsets). The migrated
-// commands delegate here, so the on-the-wire bytes are unchanged. Only the
-// gnarly movewire format (nested segment records) still serializes inline.
+// commands delegate here, so the on-the-wire bytes are unchanged. Every command
+// that carries a wire format now lives here; nothing serializes inline anymore.
 #ifndef CMD_SERIALIZE_H
 #define CMD_SERIALIZE_H
 
@@ -70,12 +70,33 @@ struct SetParams {
 	std::map<std::string, std::string> logicParams;
 };
 
+// One segment of a wire's routed shape, GUI/GL-free: orientation, id, its two
+// endpoints, the gate connections landing on it (gid + hotspot name), and the
+// intersections with other segments (key coordinate + segment id).
+struct MoveWireSeg {
+	long id = 0;
+	bool vertical = false;
+	float bx = 0, by = 0, ex = 0, ey = 0;
+	std::vector<std::pair<unsigned long, std::string>> connections;
+	std::vector<std::pair<float, long>> intersects;
+};
+
+// "movewire <wid> [vsegment|hsegment <id> <bx>,<by>,<ex>,<ey>
+//   [connection <gid> <name>]* [isect <key> <segid>]*]* done"
+// The nested per-segment records the GUI wrote by hand; segments emit in the
+// wire's sorted segment-map order.
+struct MoveWire {
+	IDType wid = 0;
+	std::vector<MoveWireSeg> segments;
+};
+
 std::string emit(const CreateGate &c);
 std::string emit(const ConnectWire &c);
 std::string emit(const MoveGate &c);
 std::string emit(const DisconnectWire &c);
 std::string emit(const CreateWire &c);
 std::string emit(const SetParams &c);
+std::string emit(const MoveWire &c);
 
 // The leading keyword of a command line, e.g. "creategate 5 AND 1 2" -> "creategate".
 // This is what the paste dispatcher matches on to pick a command.
@@ -90,6 +111,7 @@ bool parse(const std::string &line, CreateGate &out);
 bool parse(const std::string &line, ConnectWire &out);
 bool parse(const std::string &line, CreateWire &out);
 bool parse(const std::string &line, SetParams &out);
+bool parse(const std::string &line, MoveWire &out);
 
 } // namespace cmdser
 
