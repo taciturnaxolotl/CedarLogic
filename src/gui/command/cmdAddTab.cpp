@@ -35,3 +35,9 @@ bool cmdAddTab::Undo() {
 	canvasBook->DeletePage(canvasBook->GetPageCount() - 1);
 	return true;
 }
+
+int cmdAddTab::pageToShow(bool /*isUndo*/) const {
+	// Redo shows the newly added (now last) tab; undo shows the new last tab
+	// after the added one is removed. Both are the last existing page.
+	return (int)canvases->size() - 1;
+}

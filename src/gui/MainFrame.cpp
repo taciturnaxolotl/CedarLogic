@@ -972,6 +972,8 @@ void MainFrame::OnUndo(wxCommandEvent& event) {
 	klsCommand *cmd = (klsCommand *)commandProcessor->GetCurrentCommand();
 	if (cmd != NULL) switchToCanvas(cmd->getCanvas());
 	commandProcessor->Undo();
+	// Tab commands can't be followed by pointer; they name a page to show after.
+	if (cmd != NULL) { int p = cmd->pageToShow(true); if (p >= 0) showCanvasIndex(p); }
 	resumeTimers(TIMER_POLL_MS);
 	handlingEvent = false;
 	currentCanvas->Update();
@@ -993,9 +995,23 @@ void MainFrame::OnRedo(wxCommandEvent& event) {
 	}
 	if (cmd != NULL) switchToCanvas(cmd->getCanvas());
 	commandProcessor->Redo();
+	if (cmd != NULL) { int p = cmd->pageToShow(false); if (p >= 0) showCanvasIndex(p); }
 	resumeTimers(TIMER_POLL_MS);
 	handlingEvent = false;
 	currentCanvas->Update();
+}
+
+void MainFrame::showCanvasIndex(int idx) {
+	if (idx < 0 || idx >= (int)canvases.size()) return;
+	GUICanvas *target = canvases[idx];
+	// ChangeSelection switches without firing a page-changed event (which would
+	// re-enter mid-undo); mirror the state OnNotebookPage would set, by hand.
+	// currentCanvas may be a just-removed (hidden) page here, so guard it.
+	canvasBook->ChangeSelection(idx);
+	if (currentCanvas != NULL && currentCanvas != target) currentCanvas->setMinimap(NULL);
+	currentCanvas = target;
+	gCircuit->setCurrentCanvas(currentCanvas);
+	currentCanvas->setMinimap(miniMap);
 }
 
 void MainFrame::switchToCanvas(GUICanvas *canvas) {

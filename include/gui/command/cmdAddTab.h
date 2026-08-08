@@ -24,6 +24,8 @@ public:
 
 	bool Undo();
 
+	int pageToShow(bool isUndo) const override;
+
 private:
 #ifdef __WXOSX__
 	wxNotebook* canvasBook;

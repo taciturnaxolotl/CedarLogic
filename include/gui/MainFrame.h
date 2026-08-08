@@ -147,6 +147,9 @@ public:
 	// Make `canvas` the active page (selecting its tab) so an undo/redo that
 	// affects another page is shown where it happens. No-op if null or current.
 	void switchToCanvas(GUICanvas *canvas);
+	// Select a tab by index (safe, event-free), for undo/redo of tab commands
+	// whose canvas pointer can't be followed. Updates currentCanvas + minimap.
+	void showCanvasIndex(int idx);
 	// Ask which format to save an old-format file in. Returns 1/2/3, or -1 to
 	// cancel. New/v3 circuits return 3 without prompting.
 	int chooseSaveFormat();

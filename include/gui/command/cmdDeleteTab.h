@@ -27,6 +27,8 @@ public:
 
 	bool Undo();
 
+	int pageToShow(bool isUndo) const override;
+
 protected:
 	std::vector < unsigned long > gates;
 	std::vector < unsigned long > wires;

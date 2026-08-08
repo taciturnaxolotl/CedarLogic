@@ -87,3 +87,11 @@ bool cmdDeleteTab::Undo() {
 	}
 	return true;
 }
+
+int cmdDeleteTab::pageToShow(bool isUndo) const {
+	// Undo re-inserts the tab at canvasID -- show the restored tab. Redo deletes
+	// it -- show the tab that shifted into its slot, or the last if it was last.
+	if (isUndo) return (int)canvasID;
+	int last = (int)canvases->size() - 1;
+	return (int)canvasID <= last ? (int)canvasID : last;
+}

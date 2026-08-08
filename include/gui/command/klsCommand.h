@@ -32,6 +32,13 @@ public:
 	GUICanvas *getCanvas() const { return gCanvas; }
 	void setCanvas(GUICanvas *canvas) { gCanvas = canvas; }
 
+	// Commands that create/destroy tabs can't be page-followed by canvas pointer
+	// (the pointer isn't stable, or isn't in the tab list when the switch fires),
+	// so instead they name the page index to select AFTER the command runs.
+	// -1 (the default) means "not a tab command": use getCanvas() before it runs.
+	// isUndo distinguishes the undo and redo directions.
+	virtual int pageToShow(bool isUndo) const { return -1; }
+
 protected:
 	GUICircuit *gCircuit;
 	GUICanvas *gCanvas;
