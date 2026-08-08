@@ -35,6 +35,8 @@
 
 #include "Settings.h"
 #include "SimBridge.h"
+#include "PaletteDrag.h"
+#include "RenderMode.h"
 
 class MainFrame;
 
@@ -66,23 +68,15 @@ public:
     wxHelpController* helpController;
 #endif
     
-    bool showDragImage;
-	string newGateToDrag;
+	// Palette drag state (newGateToDrag / showDragImage) moved to the PaletteDrag
+	// service, and the render-mode flags (doingBitmapExport / headlessRender) to
+	// the RenderMode service (Workstream C); via paletteDrag()/renderMode().
 
 	ofstream logfile;
-	
+
 	//this pointer is added so that pop-ups can
 	//resume simulation
 	MainFrame* mainframe;
-
-	// OK, honestly, this shouldn't be here
-	//	Basically exporting bitmaps doesn't like GL display
-	//	lists, so we flag them
-	bool doingBitmapExport;
-
-	// Headless --render mode: load a circuit, dump a PNG, exit. Suppresses the
-	// modal load dialogs (version / migration / convert) so nothing blocks.
-	bool headlessRender = false;
 
 private:
 	void loadSettings( void );

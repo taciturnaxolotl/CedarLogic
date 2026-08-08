@@ -9,6 +9,8 @@
 *****************************************************************************/
 
 #include "GUICanvas.h"
+#include "PaletteDrag.h"
+#include "RenderMode.h"
 #include "Settings.h"
 #include "GateLibrary.h"
 #include "MainApp.h"
@@ -581,19 +583,19 @@ void GUICanvas::mouseRightDown(wxMouseEvent& event) {
 void GUICanvas::OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool CtrlDown ) {
 	// Handle gate dragging from palette (especially needed for macOS where OnMouseEnter
 	// may not fire correctly when mouse is captured)
-	if (wxGetApp().newGateToDrag.size() > 0 && currentDragState == DRAG_NONE && !(this->isLocked())) {
+	if (paletteDrag().newGateToDrag.size() > 0 && currentDragState == DRAG_NONE && !(this->isLocked())) {
 		GLPoint2f m = getMouseCoords();
-		newDragGate = gCircuit->createGate(wxGetApp().newGateToDrag, -1);
+		newDragGate = gCircuit->createGate(paletteDrag().newGateToDrag, -1);
 		if (newDragGate != NULL) {
 			newDragGate->setGLcoords(m.x, m.y);
 			currentDragState = DRAG_NEWGATE;
-			wxGetApp().newGateToDrag = "";
+			paletteDrag().newGateToDrag = "";
 			beginDrag( BUTTON_LEFT );
 			unselectAllGates();
 			newDragGate->select();
 			collisionChecker.addObject( newDragGate );
 		} else {
-			wxGetApp().newGateToDrag = "";
+			paletteDrag().newGateToDrag = "";
 		}
 	}
 
@@ -1014,13 +1016,13 @@ void GUICanvas::OnMouseEnter(wxMouseEvent& event) {
 	// all of the objects involved in any collisions.
 	//collisionChecker.update();
 
-	wxGetApp().showDragImage = false;
-	if (event.LeftIsDown() && wxGetApp().newGateToDrag.size() > 0 && currentDragState == DRAG_NONE && !(this->isLocked())) {
-		newDragGate = gCircuit->createGate(wxGetApp().newGateToDrag, -1);
-		if (newDragGate == NULL) { wxGetApp().newGateToDrag = ""; return; }
+	paletteDrag().showDragImage = false;
+	if (event.LeftIsDown() && paletteDrag().newGateToDrag.size() > 0 && currentDragState == DRAG_NONE && !(this->isLocked())) {
+		newDragGate = gCircuit->createGate(paletteDrag().newGateToDrag, -1);
+		if (newDragGate == NULL) { paletteDrag().newGateToDrag = ""; return; }
 		newDragGate->setGLcoords(m.x, m.y);
 		currentDragState = DRAG_NEWGATE;
-		wxGetApp().newGateToDrag = "";
+		paletteDrag().newGateToDrag = "";
 		beginDrag( BUTTON_LEFT );
 		unselectAllGates();
 		newDragGate->select();
@@ -1045,7 +1047,7 @@ void GUICanvas::OnKeyDown(wxKeyEvent& event) {
 			collisionChecker.removeObject( newDragGate );
 			delete newDragGate;
 			collisionChecker.update();
-			wxGetApp().newGateToDrag = "";
+			paletteDrag().newGateToDrag = "";
 		} else if (isWithinPaste) {
 			// Cancel paste operation: undo all pasted gates/wires
 			pasteCommand->Undo();
@@ -1112,7 +1114,7 @@ void GUICanvas::OnKeyDown(wxKeyEvent& event) {
 			QuickAddDialog* dlg = new QuickAddDialog(wxTheApp->GetTopWindow());
 			dlg->Bind(wxEVT_WINDOW_MODAL_DIALOG_CLOSED, [dlg](wxWindowModalDialogEvent& evt) {
 				if (evt.GetReturnCode() == wxID_OK && !dlg->getSelectedGate().empty()) {
-					wxGetApp().newGateToDrag = dlg->getSelectedGate();
+					paletteDrag().newGateToDrag = dlg->getSelectedGate();
 				}
 				dlg->Destroy();
 			});
@@ -1120,7 +1122,7 @@ void GUICanvas::OnKeyDown(wxKeyEvent& event) {
 #else
 			QuickAddDialog dlg(wxGetTopLevelParent(this));
 			if (dlg.ShowModal() == wxID_OK && !dlg.getSelectedGate().empty()) {
-				wxGetApp().newGateToDrag = dlg.getSelectedGate();
+				paletteDrag().newGateToDrag = dlg.getSelectedGate();
 				CallAfter([this]() { SetFocus(); });
 			}
 #endif
