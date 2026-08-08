@@ -394,9 +394,7 @@ static const wxCmdLineEntryDesc g_cmdLineDesc[] =
 };
 
 MainApp::MainApp()
-     : m_semAllDone(), simulate(), readyToSend()
 {
-    m_waitingUntilAllDone = false;
     showDragImage = false;
     mainframe = NULL;
     doingBitmapExport = false;

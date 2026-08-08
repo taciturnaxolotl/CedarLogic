@@ -34,6 +34,7 @@
 #include <cmath>
 
 #include "Settings.h"
+#include "SimBridge.h"
 
 class MainFrame;
 
@@ -53,54 +54,11 @@ public:
 #endif
 
 public:
-    // ---- Threading model ------------------------------------------------
-    // Two background threads run alongside the wx GUI thread: threadLogic (the
-    // simulation) and autoSaveThread. They coordinate through the shared state
-    // below. Two locks nest in a fixed order: take m_critsect first, then
-    // mexMessages -- both message-drain sites (threadLogic::checkMessages and
-    // MainFrame::OnIdle) do exactly that. Preserve that order; taking them the
-    // other way round risks deadlock.
-    //
-    // Message-drain protocol: each drain site takes mexMessages only long
-    // enough to swap the pending deque into a local, then processes the local
-    // with the lock released (so parseMessage may freely re-take mexMessages to
-    // send a reply). This replaced an older TryLock+wxYield busy-spin that held
-    // mexMessages across parseMessage -- which pumped the GUI event loop while
-    // waiting (reentrancy) and only worked because the mutex was recursive.
-    // Anything that clears these queues (New/Open) must also hold mexMessages;
-    // the logic thread drains dGUItoLOGIC independently of the GUI timers.
+    // The GUI<->logic threading state (locks, message queues, semaphores,
+    // sim timer, thread pointers) moved to the SimBridge service (Workstream C);
+    // reach it via simBridge() (see SimBridge.h). The gate libraries and app
+    // settings likewise moved to gateLibrary() and appConfig().
 
-    // Coarse lock for the background-thread lifecycle: guards the logicThread /
-    // saveThread pointers (install in MainFrame, teardown in threadLogic::OnExit)
-    // and wraps the message-drain sections below (held while mexMessages is taken).
-    wxCriticalSection m_critsect;
-
-    // Posted by a background thread as it exits so MainFrame::OnQuit() can block
-    // until teardown has finished.
-    wxSemaphore m_semAllDone;
-	// GUI <-> logic run/step signaling semaphores.
-	wxSemaphore simulate;
-	wxSemaphore readyToSend;
-
-	// Guards the two message queues below (both directions of GUI <-> logic).
-	// Always taken while already holding m_critsect (see the drain sites).
-	wxMutex mexMessages;
-	deque< klsMessage::Message > dGUItoLOGIC;
-	deque< klsMessage::Message > dLOGICtoGUI;
-	// Guards wireStateBuffer, the batch of wire-state updates the logic thread
-	// produces for the GUI to drain.
-	wxMutex wireStateMutex;
-	unordered_map<IDType, StateType> wireStateBuffer;
-	// Use a stopwatch for timing between step calls
-	wxStopWatch appSystemTime;
-
-	// The gate libraries moved to the GateLibrary service (Workstream C);
-	// reach them via gateLibrary() (see GateLibrary.h).
-
-    // the last exiting thread should post to m_semAllDone if this is true
-    // (protected by the same m_critsect)
-    bool m_waitingUntilAllDone;
-    
     // Help system
 #ifdef __APPLE__
     wxHtmlHelpController* helpController;
@@ -110,12 +68,7 @@ public:
     
     bool showDragImage;
 	string newGateToDrag;
-	// appSettings / timeStepMod / resourcesDir moved to the Settings service
-	// (Workstream C); reach them via settings() (see Settings.h).
 
-	threadLogic* logicThread;
-	autoSaveThread* saveThread;
-	
 	ofstream logfile;
 	
 	//this pointer is added so that pop-ups can
