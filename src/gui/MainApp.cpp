@@ -86,16 +86,41 @@ static std::string urlEncode(const std::string &s) {
     return out;
 }
 
-// Build a "new issue" URL for the repo with the title and body prefilled. The
-// body is capped so the URL stays within what browsers/GitHub accept; the full
-// trace always goes on the clipboard as well, so nothing is lost.
+// The trace's first line is the version/OS header; the exception and stack
+// follow it. Split them so each lands under its own heading in the issue body.
+static std::string crashTraceBody(const std::string &trace) {
+    size_t nl = trace.find('\n');
+    if (nl == std::string::npos) return trace;
+    std::string rest = trace.substr(nl + 1);
+    size_t start = rest.find_first_not_of('\n');
+    return start == std::string::npos ? std::string() : rest.substr(start);
+}
+
+static std::string crashVersionLine(const std::string &trace) {
+    return trace.substr(0, trace.find('\n'));
+}
+
+// The filled-in issue template. Kept as the whole markdown body (headings +
+// guiding comments) so it is exactly what we put on the clipboard: if the
+// prefilled URL is truncated, the reporter can select-all and paste this.
+static std::string crashIssueBody(const std::string &trace) {
+    return
+        "### Steps to Reproduce\n\n"
+        "<!-- Describe what you were doing when it crashed -->\n\n\n\n"
+        "### Crash trace\n"
+        "<!-- This template was also copied to your clipboard if the trace appears cut off -->\n"
+        "<!-- Ctrl+A (or Cmd+A if you are on Mac) and then paste the full trace -->\n\n"
+        "```\n" + crashTraceBody(trace) + "\n```\n\n"
+        "### Version\n\n" + crashVersionLine(trace) + "\n";
+}
+
+// Prefilled "new issue" URL. The full body always goes on the clipboard too;
+// the copy in the URL is capped so it stays within what browsers/GitHub accept.
 static std::string crashIssueUrl(const std::string &trace) {
-    std::string firstLine = trace.substr(0, trace.find('\n'));
-    std::string title = "Crash: " + firstLine;
-    std::string body = "Describe what you were doing when it crashed:\n\n\n"
-                       "Crash trace (full trace is on your clipboard):\n\n```\n";
-    body += trace.substr(0, 4000);
-    body += "\n```\n";
+    std::string body = crashIssueBody(trace);
+    std::string firstFrame = crashTraceBody(trace);
+    std::string title = "Crash: " + firstFrame.substr(0, firstFrame.find('\n'));
+    if (body.size() > 6000) body.resize(6000);
     return "https://github.com/taciturnaxolotl/CedarLogic/issues/new?title=" +
            urlEncode(title) + "&body=" + urlEncode(body);
 }
@@ -121,7 +146,7 @@ static void nativeSetClipboard(const std::string &text) {
 static void offerCrashReportNative(const std::string &logPath) {
     std::string trace = readFile(logPath);
     if (trace.empty()) return;
-    nativeSetClipboard(trace);
+    nativeSetClipboard(crashIssueBody(trace));
     int r = MessageBoxW(NULL,
         L"CedarLogic closed unexpectedly.\n\n"
         L"A crash report was saved and copied to your clipboard. "
@@ -134,6 +159,19 @@ static void offerCrashReportNative(const std::string &logPath) {
     }
 }
 
+// Shorten a compiler-emitted absolute source path to a repo-relative one with
+// forward slashes (C:\...\CedarLogic\src\gui\guiGate.cpp -> src/gui/guiGate.cpp)
+// so the trace's file column stays short and consistent. Writes into buf.
+static const char *shortSourcePath(const char *full, char *buf, size_t bufLen) {
+    const char *p = strstr(full, "src\\");
+    if (!p) p = strstr(full, "src/");
+    if (!p) { const char *s = strrchr(full, '\\'); p = s ? s + 1 : full; }
+    size_t i = 0;
+    for (; p[i] && i + 1 < bufLen; i++) buf[i] = (p[i] == '\\') ? '/' : p[i];
+    buf[i] = '\0';
+    return buf;
+}
+
 // On an otherwise-unhandled crash, walk the faulting thread's stack, symbolize
 // it against the .pdb shipped next to the exe, and write a readable trace to
 // %TEMP%\CedarLogic_crashtrace.log. Turns "it just crashed" into an actual
@@ -141,7 +179,7 @@ static void offerCrashReportNative(const std::string &logPath) {
 // only surface through live interaction and can't be caught under a debugger.
 static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
     const std::string &logPath = g_crashLogPath;
-    FILE *f = fopen(logPath.c_str(), "w");
+    FILE *f = fopen(logPath.c_str(), "wb"); // binary: clean '\n', no '\r\n'
     if (f == NULL) return EXCEPTION_CONTINUE_SEARCH;
 
     HANDLE proc = GetCurrentProcess();
@@ -206,10 +244,13 @@ static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
             IMAGEHLP_LINE64 line = {};
             line.SizeOfStruct = sizeof(line);
             DWORD lineDisp = 0;
-            if (SymGetLineFromAddr64(proc, addr, &lineDisp, &line))
-                fprintf(f, "  %-40s %s:%lu\n", sym->Name, line.FileName, line.LineNumber);
-            else
+            if (SymGetLineFromAddr64(proc, addr, &lineDisp, &line)) {
+                char rel[MAX_PATH];
+                fprintf(f, "  %-42s %s:%lu\n", sym->Name,
+                        shortSourcePath(line.FileName, rel, sizeof(rel)), line.LineNumber);
+            } else {
                 fprintf(f, "  %s +0x%llx\n", sym->Name, (unsigned long long)disp);
+            }
         } else {
             DWORD64 base = SymGetModuleBase64(proc, addr);
             if (base) {
@@ -272,7 +313,8 @@ static void installCrashHandler() {
     wxFileName fn(wxStandardPaths::Get().GetTempDir(), "CedarLogic_crashtrace.log");
     g_crashLogPath = fn.GetFullPath().ToStdString();
     g_crashHeader = "CedarLogic " + VERSION_NUMBER() + " (" +
-                    std::to_string((int)(sizeof(void *) * 8)) + "-bit)\n\n";
+                    std::to_string((int)(sizeof(void *) * 8)) + "-bit) on " +
+                    wxGetOsDescription().ToStdString() + "\n\n";
 #ifdef _WIN32
     SetUnhandledExceptionFilter(writeCrashTrace);
 #else
@@ -324,15 +366,16 @@ static void showPendingCrashReport(wxWindow *parent) {
     root->Add(btns, 0, wxEXPAND | wxALL, 6);
     dlg.SetSizer(root);
 
-    auto copyTrace = [trace]() {
+    std::string report = crashIssueBody(trace);
+    auto copyReport = [report]() {
         if (wxTheClipboard->Open()) {
-            wxTheClipboard->SetData(new wxTextDataObject(wxString::FromUTF8(trace)));
+            wxTheClipboard->SetData(new wxTextDataObject(wxString::FromUTF8(report)));
             wxTheClipboard->Close();
         }
     };
-    copyBtn->Bind(wxEVT_BUTTON, [copyTrace](wxCommandEvent &) { copyTrace(); });
-    issueBtn->Bind(wxEVT_BUTTON, [trace, copyTrace](wxCommandEvent &) {
-        copyTrace();
+    copyBtn->Bind(wxEVT_BUTTON, [copyReport](wxCommandEvent &) { copyReport(); });
+    issueBtn->Bind(wxEVT_BUTTON, [trace, copyReport](wxCommandEvent &) {
+        copyReport();
         wxLaunchDefaultBrowser(wxString::FromUTF8(crashIssueUrl(trace)));
     });
 
