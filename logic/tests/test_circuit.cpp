@@ -779,6 +779,104 @@ TEST_CASE("Deleting a gate mid-circuit is safe and stops driving") {
 	CHECK(c.getWireState(wOut) == HI_Z); // no driver left on the output wire
 }
 
+TEST_CASE("Deleting a wire mid-circuit is safe") {
+	// Tear a bridged wire out the way the GUI does (disconnect its endpoint,
+	// then delete it) and keep stepping -- nothing may touch the freed wire.
+	Circuit c;
+	IDType node = c.newGate("NODE");
+	IDType drv = makeDriver(c, 1);
+	IDType wA = c.newWire(), wB = c.newWire();
+	c.connectGateOutput(drv, "OUT_0", wA);
+	c.connectGateInput(node, "N_in0", wA);
+	c.connectGateInput(node, "N_in1", wB);
+	stepN(c, 5);
+	REQUIRE(c.getWireState(wB) == ONE);
+
+	c.disconnectGateInput(node, "N_in1");
+	c.deleteWire(wB);
+	stepN(c, 5);
+	CHECK(c.getWireState(wA) == ONE); // surviving driven wire unaffected, no crash
+}
+
+TEST_CASE("Deleting a NODE mid-circuit is safe and stops bridging") {
+	// Gate_NODE owns a junction it creates in its ctor and frees in its dtor;
+	// deleting the gate must tear that junction down cleanly and drop the bridge.
+	Circuit c;
+	IDType node = c.newGate("NODE");
+	IDType drv = makeDriver(c, 1);
+	IDType wA = c.newWire(), wB = c.newWire();
+	c.connectGateOutput(drv, "OUT_0", wA);
+	c.connectGateInput(node, "N_in0", wA);
+	c.connectGateInput(node, "N_in1", wB);
+	stepN(c, 5);
+	REQUIRE(c.getWireState(wB) == ONE);
+
+	c.deleteGate(node);
+	stepN(c, 5);
+	CHECK(c.getWireState(wB) == HI_Z); // bridge gone -> wB floats, no crash
+}
+
+TEST_CASE("Deleting a BUS_END mid-circuit is safe") {
+	// BUS_END creates one junction per bus line; deleting it must free all of
+	// them without leaving a dangling junction the next step would touch.
+	Circuit c;
+	IDType bus = c.newGate("BUS_END");
+	c.setGateParameter(bus, "INPUT_BITS", "2");
+	IDType d0 = makeDriver(c, 1), d1 = makeDriver(c, 1);
+	IDType in0 = c.newWire(), in1 = c.newWire(), out0 = c.newWire(), out1 = c.newWire();
+	c.connectGateOutput(d0, "OUT_0", in0);
+	c.connectGateOutput(d1, "OUT_0", in1);
+	c.connectGateInput(bus, "IN_0", in0);
+	c.connectGateInput(bus, "IN_1", in1);
+	c.connectGateInput(bus, "OUT_0", out0);
+	c.connectGateInput(bus, "OUT_1", out1);
+	stepN(c, 5);
+	REQUIRE(c.getWireState(out0) == ONE);
+
+	c.deleteGate(bus);
+	stepN(c, 5);
+	CHECK(c.getWireState(out0) == HI_Z); // both lines' junctions gone, no crash
+}
+
+TEST_CASE("A junction ref-counts duplicate wire connections") {
+	// wireList is a multiset: a wire joined twice must be disconnected twice
+	// before it truly leaves the junction's net.
+	Circuit c;
+	IDType j = c.newJunction(); // enabled by default
+	IDType drv = makeDriver(c, 1);
+	IDType wA = c.newWire(), wB = c.newWire();
+	c.connectGateOutput(drv, "OUT_0", wA);
+	c.connectJunction(j, wA);
+	c.connectJunction(j, wB);
+	c.connectJunction(j, wB); // wB joined twice
+	stepN(c, 5);
+	REQUIRE(c.getWireState(wB) == ONE); // bridged to the driven wire
+
+	c.disconnectJunction(j, wB); // one ref dropped -> still connected
+	stepN(c, 5);
+	CHECK(c.getWireState(wB) == ONE);
+
+	c.disconnectJunction(j, wB); // second ref dropped -> off the net
+	stepN(c, 5);
+	CHECK(c.getWireState(wB) == HI_Z);
+}
+
+TEST_CASE("Deleting a junction directly is safe and unbridges its wires") {
+	Circuit c;
+	IDType j = c.newJunction();
+	IDType drv = makeDriver(c, 1);
+	IDType wA = c.newWire(), wB = c.newWire();
+	c.connectGateOutput(drv, "OUT_0", wA);
+	c.connectJunction(j, wA);
+	c.connectJunction(j, wB);
+	stepN(c, 5);
+	REQUIRE(c.getWireState(wB) == ONE);
+
+	c.deleteJunction(j);
+	stepN(c, 5);
+	CHECK(c.getWireState(wB) == HI_Z); // bridge removed, no crash
+}
+
 TEST_CASE("Every declared gate param round-trips through set/getParameter") {
 	// Each gate's paramSchema() must match its real setParameter/getParameter.
 	Circuit c;
