@@ -2,6 +2,7 @@
 #include "cmdMoveGate.h"
 #include "../GUICircuit.h"
 #include "../guiGate.h"
+#include "cmdSerialize.h"
 
 cmdMoveGate::cmdMoveGate(GUICircuit* gCircuit, unsigned long gid,
 		float startX, float startY, float endX, float endY, bool uW) :
@@ -36,7 +37,5 @@ std::string cmdMoveGate::toString() const {
 
 	if ((gCircuit->getGates())->find(gid) == (gCircuit->getGates())->end()) return ""; // error, gate not found
 
-	ostringstream oss;
-	oss << "movegate " << gid << " " << startX << " " << startY << " " << endX << " " << endY;
-	return oss.str();
+	return cmdser::emit(cmdser::MoveGate{gid, startX, startY, endX, endY});
 }

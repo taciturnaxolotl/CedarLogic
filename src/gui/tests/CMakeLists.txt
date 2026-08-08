@@ -44,3 +44,22 @@ if(ENABLE_SANITIZERS AND NOT MSVC)
 endif()
 
 add_test(NAME collision_tests COMMAND test_collision)
+
+# Typed command serialization (Workstream D). Free of wxWidgets and OpenGL, so
+# it just needs the command header and IDType -- no gl_shim.
+add_executable(test_cmdserialize
+	"${CMAKE_CURRENT_SOURCE_DIR}/test_cmdserialize.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/command/cmdSerialize.cpp"
+)
+target_include_directories(test_cmdserialize PRIVATE
+	"${PROJECT_SOURCE_DIR}/include/gui/command"
+	"${PROJECT_SOURCE_DIR}/logic/include"
+)
+target_link_libraries(test_cmdserialize PRIVATE doctest::doctest)
+
+if(ENABLE_SANITIZERS AND NOT MSVC)
+	target_compile_options(test_cmdserialize PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+	target_link_options(test_cmdserialize PRIVATE -fsanitize=address,undefined)
+endif()
+
+add_test(NAME cmdserialize_tests COMMAND test_cmdserialize)
