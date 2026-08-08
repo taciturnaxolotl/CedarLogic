@@ -21,10 +21,73 @@
 #include "WinSparkleUpdater.h"
 #include <windows.h>
 #include <mmsystem.h>
+#include <dbghelp.h>
+#include <cstdio>
 #pragma comment(lib, "winmm.lib")
+#pragma comment(lib, "dbghelp.lib")
 #endif
 
 IMPLEMENT_APP(MainApp)
+
+#ifdef _WIN32
+// On an otherwise-unhandled crash, walk the faulting thread's stack, symbolize
+// it against the .pdb shipped next to the exe, and write a readable trace to
+// %TEMP%\CedarLogic_crashtrace.log. Turns "it just crashed" into an actual
+// function + file:line, which matters for a GUI app where the nastiest bugs
+// only surface through live interaction and can't be caught under a debugger.
+static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
+    char path[MAX_PATH];
+    DWORD n = GetTempPathA(MAX_PATH, path);
+    if (n == 0 || n > MAX_PATH) path[0] = '\0';
+    strncat(path, "CedarLogic_crashtrace.log", MAX_PATH - strlen(path) - 1);
+
+    FILE *f = fopen(path, "w");
+    if (f == NULL) return EXCEPTION_CONTINUE_SEARCH;
+
+    HANDLE proc = GetCurrentProcess();
+    SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME);
+    SymInitialize(proc, NULL, TRUE);
+
+    fprintf(f, "Unhandled exception 0x%08lX at %p\n\n",
+            ep->ExceptionRecord->ExceptionCode, ep->ExceptionRecord->ExceptionAddress);
+
+    CONTEXT *ctx = ep->ContextRecord;
+    STACKFRAME64 frame = {};
+    DWORD machine = IMAGE_FILE_MACHINE_AMD64;
+#if defined(_M_X64)
+    frame.AddrPC.Offset = ctx->Rip;    frame.AddrPC.Mode = AddrModeFlat;
+    frame.AddrFrame.Offset = ctx->Rbp; frame.AddrFrame.Mode = AddrModeFlat;
+    frame.AddrStack.Offset = ctx->Rsp; frame.AddrStack.Mode = AddrModeFlat;
+#endif
+    for (int i = 0; i < 96; i++) {
+        if (!StackWalk64(machine, proc, GetCurrentThread(), &frame, ctx, NULL,
+                         SymFunctionTableAccess64, SymGetModuleBase64, NULL))
+            break;
+        if (frame.AddrPC.Offset == 0) break;
+        DWORD64 addr = frame.AddrPC.Offset;
+
+        char symBuf[sizeof(SYMBOL_INFO) + 512] = {};
+        SYMBOL_INFO *sym = (SYMBOL_INFO *)symBuf;
+        sym->SizeOfStruct = sizeof(SYMBOL_INFO);
+        sym->MaxNameLen = 511;
+        DWORD64 disp = 0;
+        if (SymFromAddr(proc, addr, &disp, sym)) {
+            IMAGEHLP_LINE64 line = {};
+            line.SizeOfStruct = sizeof(line);
+            DWORD lineDisp = 0;
+            if (SymGetLineFromAddr64(proc, addr, &lineDisp, &line))
+                fprintf(f, "  %-40s %s:%lu\n", sym->Name, line.FileName, line.LineNumber);
+            else
+                fprintf(f, "  %s +0x%llx\n", sym->Name, (unsigned long long)disp);
+        } else {
+            fprintf(f, "  0x%llx\n", (unsigned long long)addr);
+        }
+    }
+    fflush(f);
+    fclose(f);
+    return EXCEPTION_CONTINUE_SEARCH; // let the OS still report/terminate as usual
+}
+#endif
 
 static const wxCmdLineEntryDesc g_cmdLineDesc[] =
 {
@@ -50,6 +113,7 @@ MainApp::MainApp()
 bool MainApp::OnInit()
 {
 #ifdef _WIN32
+    SetUnhandledExceptionFilter(writeCrashTrace);
     // Windows' default timer resolution (~15.6 ms) rounds wxTimer waits up to
     // the next system tick, so the 20 ms render/sim timers actually fire at
     // ~31 ms -- capping the render loop near 32 fps with visible jitter (and
