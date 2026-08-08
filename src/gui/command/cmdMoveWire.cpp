@@ -3,6 +3,7 @@
 #include <sstream>
 #include "../GUICircuit.h"
 #include "../guiWire.h"
+#include "cmdSerialize.h"
 
 cmdMoveWire::cmdMoveWire(GUICircuit* gCircuit, unsigned long wid,
 		const SegmentMap &oldList, const SegmentMap &newList) :
@@ -27,38 +28,20 @@ cmdMoveWire::cmdMoveWire(GUICircuit* gCircuit, unsigned long wid,
 
 cmdMoveWire::cmdMoveWire(string def) : klsCommand(true, "Move Wire") {
 
-	istringstream iss(def);
-	// wire looks like "movewire wid" then series of segments
-	string temp; char dump;
-	iss >> temp >> wid >> temp;
-	bool doneFirstSeg = false;
-	long firstSegID = 0;
-	// seg looks like "segment id bx,by,ex,ey {connection gid name} {isect key id}"
-	while (temp == "vsegment" || temp == "hsegment") {
-		bool isVertical = (temp == "vsegment");
-		int segID;
-		GLPoint2f begin, end;
-		iss >> segID >> begin.x >> dump >> begin.y >> dump >> end.x >> dump >> end.y;
-		newSegList[segID] = wireSegment(begin, end, isVertical, segID);
-		if (!doneFirstSeg) {
-			firstSegID = segID;
+	cmdser::MoveWire m;
+	cmdser::parse(def, m);
+	wid = m.wid;
+	for (const cmdser::MoveWireSeg &s : m.segments) {
+		wireSegment seg(GLPoint2f(s.bx, s.by), GLPoint2f(s.ex, s.ey), s.vertical, s.id);
+		for (const auto &conn : s.connections) {
+			wireConnection wc;
+			wc.gid = conn.first;
+			wc.connection = conn.second;
+			seg.connections.push_back(wc);
 		}
-		iss >> temp;
-		while (temp == "connection") {
-			int gid; string name; wireConnection wc;
-			iss >> gid >> name;
-			wc.gid = gid; wc.connection = name;
-			//wc.cGate = (*(gCircuit->getGates()))[gid];
-			newSegList[segID].connections.push_back(wc);
-			iss >> temp;
-		}
-		while (temp == "isect") {
-			GLfloat key; long sid;
-			iss >> key >> sid;
-			newSegList[segID].intersects[key].push_back(sid);
-			iss >> temp;
-		}
-		doneFirstSeg = true;
+		for (const auto &isect : s.intersects)
+			seg.intersects[isect.first].push_back(isect.second);
+		newSegList[s.id] = seg;
 	}
 	oldSegList = newSegList;
 	delta = GLPoint2f(0, 0);
@@ -121,36 +104,24 @@ string cmdMoveWire::toString() const {
 
 	if ((gCircuit->getWires())->find(wid) == (gCircuit->getWires())->end()) return ""; // error, wire not found
 
-	ostringstream oss;
-	oss << "movewire " << wid << " ";
-	// Step through the map, save each seg's info
-	map < long, wireSegment >::const_iterator segWalk = newSegList.cbegin();
-	while (segWalk != newSegList.cend()) {
-		// seg looks like "segment id bx,by,ex,ey connection gid,name isect key,id"
-		if ((segWalk->second).isVertical()) oss << "vsegment ";
-		else oss << "hsegment ";
-		// ID
-		oss << (segWalk->second).id << " ";
-		// position - begin/end points
-		oss << (segWalk->second).begin.x << "," << (segWalk->second).begin.y << "," << (segWalk->second).end.x << "," << (segWalk->second).end.y << " ";
-		// connections - gid and connection string
-		for (unsigned int i = 0; i < (segWalk->second).connections.size(); i++) {
-			oss << "connection ";
-			oss << (segWalk->second).connections[i].gid << " " << (segWalk->second).connections[i].connection << " ";
-		}
-		// intersections - must store the intersection map
-		map < GLfloat, vector < long > >::const_iterator isectWalk = (segWalk->second).intersects.cbegin();
-		while (isectWalk != (segWalk->second).intersects.cend()) {
-			for (unsigned int j = 0; j < (isectWalk->second).size(); j++) {
-				oss << "isect ";
-				oss << isectWalk->first << " " << (isectWalk->second)[j] << " ";
-			}
-			isectWalk++;
-		}
-		segWalk++;
+	// Mirror the segment map into the GUI-free struct, preserving map (sorted)
+	// order, then let cmdser emit the exact byte format.
+	cmdser::MoveWire m;
+	m.wid = wid;
+	for (const auto &kv : newSegList) {
+		const wireSegment &seg = kv.second;
+		cmdser::MoveWireSeg s;
+		s.id = seg.id;
+		s.vertical = seg.isVertical();
+		s.bx = seg.begin.x; s.by = seg.begin.y; s.ex = seg.end.x; s.ey = seg.end.y;
+		for (unsigned int i = 0; i < seg.connections.size(); i++)
+			s.connections.push_back({ seg.connections[i].gid, seg.connections[i].connection });
+		for (const auto &isect : seg.intersects)
+			for (long sid : isect.second)
+				s.intersects.push_back({ isect.first, sid });
+		m.segments.push_back(s);
 	}
-	oss << " done ";
-	return oss.str();
+	return cmdser::emit(m);
 }
 
 void cmdMoveWire::setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
