@@ -10,8 +10,101 @@
 
 #include "klsCollisionChecker.h"
 
-#include "MainApp.h"
-DECLARE_APP(MainApp)
+#include <cmath>
+#include <unordered_map>
+
+namespace {
+
+// A uniform-grid broad phase for update(). It buckets objects by the cells their
+// bounding box spans, so a query only returns objects sharing a cell with the
+// query box -- a superset of the true overlaps. The caller still runs the exact
+// same bbox test on each candidate, so the set of reported collisions is
+// identical to the old all-against-all scan; the grid only skips pairs that
+// could never touch.
+//
+// Correctness rests on one invariant: any two boxes that overlap share at least
+// one cell, so no real collision is ever pruned. An object whose box spans an
+// impractical number of cells (a viewport or selection box covering the whole
+// world) is parked in an "oversized" list that every query includes, which keeps
+// the invariant while avoiding a blow-up in cell count.
+class UniformGrid {
+public:
+	explicit UniformGrid(float cellSize) : cellSize(cellSize) {}
+
+	void insert(klsCollisionObject *obj) {
+		klsBBox box = obj->getBBox();
+		if (box.empty()) return; // empty boxes never overlap anything
+
+		CellSpan s = cellsOf(box);
+		if (s.tooMany) { // don't bucket a box that would touch a huge number of cells
+			oversized.push_back(obj);
+			return;
+		}
+		for (int cy = s.y0; cy <= s.y1; cy++) {
+			for (int cx = s.x0; cx <= s.x1; cx++) {
+				cells[key(cx, cy)].push_back(obj);
+			}
+		}
+	}
+
+	// Collect every object that shares a cell with box (plus all oversized
+	// objects) into out. Duplicates are fine: out is a set.
+	void query(const klsBBox &box, CollisionGroup &out) const {
+		klsBBox b = box; // getters are non-const on klsBBox
+		if (!b.empty()) {
+			CellSpan s = cellsOf(b);
+			if (!s.tooMany) {
+				for (int cy = s.y0; cy <= s.y1; cy++) {
+					for (int cx = s.x0; cx <= s.x1; cx++) {
+						auto it = cells.find(key(cx, cy));
+						if (it != cells.end())
+							out.insert(it->second.begin(), it->second.end());
+					}
+				}
+			} else {
+				// A giant query box: fall back to every gridded object.
+				for (const auto &cell : cells)
+					out.insert(cell.second.begin(), cell.second.end());
+			}
+		}
+		out.insert(oversized.begin(), oversized.end());
+	}
+
+private:
+	static const long long MAX_CELLS_PER_OBJECT = 1024;
+
+	// The inclusive cell range a box spans, plus whether that is too many cells to
+	// bucket individually -- the one place the threshold is applied.
+	struct CellSpan { int x0, y0, x1, y1; bool tooMany; };
+
+	static unsigned long long key(int cx, int cy) {
+		// Pack two 32-bit cell coords into one 64-bit map key.
+		return ((unsigned long long)(unsigned int)cx << 32) |
+		       (unsigned int)cy;
+	}
+
+	// klsBBox getters are non-const, so take the box by value.
+	CellSpan cellsOf(klsBBox box) const {
+		CellSpan s;
+		s.x0 = (int)std::floor(box.getLeft() / cellSize);
+		s.y0 = (int)std::floor(box.getBottom() / cellSize);
+		s.x1 = (int)std::floor(box.getRight() / cellSize);
+		s.y1 = (int)std::floor(box.getTop() / cellSize);
+		s.tooMany = (long long)(s.x1 - s.x0 + 1) * (s.y1 - s.y0 + 1) > MAX_CELLS_PER_OBJECT;
+		return s;
+	}
+
+	float cellSize;
+	std::unordered_map<unsigned long long, std::vector<klsCollisionObject *>> cells;
+	std::vector<klsCollisionObject *> oversized;
+};
+
+// Cell size in world units. Gates and hotspots are on the order of one unit, so
+// this keeps most objects to a handful of cells. It only affects speed; any
+// positive value yields identical collision results.
+const float GRID_CELL_SIZE = 2.0f;
+
+} // namespace
 
 // ************************* klsCollisionObject *****************************
 
@@ -225,25 +318,27 @@ void klsCollisionChecker::update( void ) {
 	CollisionGroup* relChanged = &(changedObjs.size() < stationaryObjs.size() ? changedObjs : stationaryObjs);
 	CollisionGroup* relStatic = &(changedObjs.size() >= stationaryObjs.size() ? changedObjs : stationaryObjs);
 
-	// With the objects that have changed their bounding boxes, update their
-	// collision information:
-	unsigned long long numCompares = 0;
+	// Index the larger group in a spatial grid once, then only test each object
+	// of the smaller group against the grid candidates near it. The grid returns
+	// a superset of the true overlaps, and checkGroupCollisions still runs the
+	// exact same bbox test, so the reported collisions match the old all-against-
+	// all scan -- this just skips pairs that are too far apart to touch.
+	UniformGrid grid(GRID_CELL_SIZE);
+	for (klsCollisionObject *obj : *relStatic)
+		grid.insert(obj);
+
 	CollisionGroup::iterator changedObj = relChanged->begin();
 	while( changedObj != relChanged->end() ) {
-		// Check this object against all of the other objects, to add potential
-		// new overlaps:
-//* Slow collision checking system:
+		// Gather only the static objects sharing a cell with this one:
 		CollisionGroup groupA, groupB;
 		groupA.insert( *changedObj );
-		groupB.insert( relStatic->begin(), relStatic->end() );
+		grid.query( (*changedObj)->getBBox(), groupB );
 		groupB.erase( *changedObj );
 
 		// Check the collisions of object A with the rest of the group,
 		// while not resetting the other object's overlap information:
 		CollisionGroup hits;
 		hits = checkGroupCollisions( groupA, groupB, false );
-		numCompares += groupB.size();
-/**/
 
 		// Sort the hits into the main map object:
 		CollisionGroup::iterator thisHit = hits.begin();

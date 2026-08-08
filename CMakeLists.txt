@@ -209,6 +209,8 @@ add_subdirectory("${PROJECT_SOURCE_DIR}/format/")
 # The simulator is a standalone logic-core rewrite; build it only for its tests.
 if(BUILD_TESTING)
     add_subdirectory("${PROJECT_SOURCE_DIR}/simulator/")
+    # Headless differential test for the collision checker's spatial grid.
+    add_subdirectory("${PROJECT_SOURCE_DIR}/src/gui/tests/")
 endif()
 
 # specify the C++ standard
