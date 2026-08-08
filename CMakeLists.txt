@@ -161,6 +161,15 @@ else()
     add_executable(CedarLogic WIN32 "${SRC_FILES}")
 endif()
 
+# Keep debug symbols on the app in Release so the in-app crash handler
+# (writeCrashTrace in MainApp.cpp) can symbolize stack traces to file:line.
+# App target only -- does not touch wxWidgets, so no dependency rebuild. The
+# code stays optimized; this only emits a .pdb and links it.
+if(MSVC)
+    target_compile_options(CedarLogic PRIVATE $<$<CONFIG:Release>:/Zi>)
+    target_link_options(CedarLogic PRIVATE $<$<CONFIG:Release>:/DEBUG>)
+endif()
+
 # Add the external libraries for CedarLogic
 target_link_libraries(CedarLogic PRIVATE
     Logic
