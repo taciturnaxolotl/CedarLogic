@@ -967,6 +967,10 @@ void MainFrame::OnUndo(wxCommandEvent& event) {
 	// race and crash. Pausing the sim by hand avoids it, and so does this.
 	handlingEvent = true;
 	pauseTimers();
+	// Switch to the page this command affects, so an undo on another tab is shown
+	// where it happens instead of silently changing an off-screen page.
+	klsCommand *cmd = (klsCommand *)commandProcessor->GetCurrentCommand();
+	if (cmd != NULL) switchToCanvas(cmd->getCanvas());
 	commandProcessor->Undo();
 	resumeTimers(TIMER_POLL_MS);
 	handlingEvent = false;
@@ -976,10 +980,39 @@ void MainFrame::OnUndo(wxCommandEvent& event) {
 void MainFrame::OnRedo(wxCommandEvent& event) {
 	handlingEvent = true;
 	pauseTimers();
+	// The redo target is the command just after the current position; switch to
+	// its page before re-doing it (see OnUndo).
+	wxList &cmds = commandProcessor->GetCommands();
+	wxCommand *current = commandProcessor->GetCurrentCommand();
+	klsCommand *cmd = NULL;
+	if (current == NULL) {
+		if (!cmds.IsEmpty()) cmd = (klsCommand *)cmds.GetFirst()->GetData();
+	} else {
+		wxList::compatibility_iterator node = cmds.Find(current);
+		if (node && node->GetNext()) cmd = (klsCommand *)node->GetNext()->GetData();
+	}
+	if (cmd != NULL) switchToCanvas(cmd->getCanvas());
 	commandProcessor->Redo();
 	resumeTimers(TIMER_POLL_MS);
 	handlingEvent = false;
 	currentCanvas->Update();
+}
+
+void MainFrame::switchToCanvas(GUICanvas *canvas) {
+	if (canvas == NULL || canvas == currentCanvas) return;
+	for (size_t i = 0; i < canvases.size(); i++) {
+		if (canvases[i] == canvas) {
+			// ChangeSelection switches the tab WITHOUT firing a page-changed
+			// event -- SetSelection would, re-entering the GUI mid-undo. Mirror
+			// the parts of OnNotebookPage we actually need, by hand.
+			canvasBook->ChangeSelection(i);
+			currentCanvas->setMinimap(NULL);
+			currentCanvas = canvas;
+			gCircuit->setCurrentCanvas(currentCanvas);
+			currentCanvas->setMinimap(miniMap);
+			break;
+		}
+	}
 }
 
 void MainFrame::OnCopy(wxCommandEvent& event) {
