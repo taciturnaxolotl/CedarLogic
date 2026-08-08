@@ -201,6 +201,10 @@ public:
 	// Create a command to connect a gate to a gate.
 	klsCommand * createGateConnectionCommand(IDType gate1Id, const string &hotspot1, IDType gate2Id, const string &hotspot2);
 
+	// Tag a command with this canvas as its page, then submit it to the undo
+	// history. Stamping the page lets undo/redo switch to it (see MainFrame).
+	void submitCommand(klsCommand *cmd);
+
 private:
 
 	// Contains all collision information for the page
