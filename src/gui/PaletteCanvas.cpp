@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "PaletteCanvas.h"
+#include "GateLibrary.h"
 #include "logic_values.h"
 
 using namespace std;
@@ -42,11 +43,11 @@ PaletteCanvas::~PaletteCanvas() {
 void PaletteCanvas::OnPaint( wxPaintEvent &event ) {
 	wxPaintDC dc(this);
 	if (!init) {
-	   	map < string, LibraryGate >::iterator gateWalk = wxGetApp().libraries[libraryName].begin();
+	   	map < string, LibraryGate >::iterator gateWalk = gateLibrary().libraries[libraryName].begin();
 		int counter = 0;
 		wxBoxSizer* lineSizer = NULL;
 		gateSizer = new wxBoxSizer( wxVERTICAL );
-		while (gateWalk != wxGetApp().libraries[libraryName].end()) {
+		while (gateWalk != gateLibrary().libraries[libraryName].end()) {
 			if (!(counter%3)) {
 				lineSizer = new wxBoxSizer( wxHORIZONTAL );
 				gateSizer->Add( lineSizer, wxSizerFlags(0).Border(wxALL, 1) );			

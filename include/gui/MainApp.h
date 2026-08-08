@@ -108,14 +108,9 @@ public:
 	wxStopWatch appSystemTime;
 	unsigned long timeStepMod;
 	
-	// We need to have a map of libraries for palette organization, and knowledge
-	//	of which one we are currently displaying.  We also have a map of which gate
-	//	belongs to which library (child to parent)
-	string currentLibrary;
-	LibraryParse libParser;
-	map < string, map < string, LibraryGate > > libraries;
-	map < string, string > gateNameToLibrary;
-		
+	// The gate libraries moved to the GateLibrary service (Workstream C);
+	// reach them via gateLibrary() (see GateLibrary.h).
+
     // the last exiting thread should post to m_semAllDone if this is true
     // (protected by the same m_critsect)
     bool m_waitingUntilAllDone;

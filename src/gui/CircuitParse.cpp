@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "CircuitParse.h"
+#include "GateLibrary.h"
 #include "OscopeFrame.h"
 #include "MainApp.h"
 #include <fstream>
@@ -167,7 +168,7 @@ static LibraryGate fromGateDef(const cl::GateDef &d);
 
 void CircuitParse::applyCircuitFile(const cl::CircuitFile &cf) {
 	// If no library was loaded, then we can't make gates from one.
-	if (wxGetApp().libraries.size() == 0) return;
+	if (gateLibrary().libraries.size() == 0) return;
 
 	// For any gate the current library no longer has, rebuild it from the copy
 	// embedded in the file so the circuit still loads with its shape and pins
@@ -175,14 +176,14 @@ void CircuitParse::applyCircuitFile(const cl::CircuitFile &cf) {
 	// untouched (the `continue`) -- the live library wins, so this only fills in
 	// removed gates, it does not override a changed one.
 	for (const cl::GateDef &d : cf.usedGates) {
-		if (wxGetApp().gateNameToLibrary.find(d.name) != wxGetApp().gateNameToLibrary.end()) continue;
+		if (gateLibrary().gateNameToLibrary.find(d.name) != gateLibrary().gateNameToLibrary.end()) continue;
 		LibraryGate lg = fromGateDef(d);
-		wxGetApp().libraries["embedded"][d.name] = lg;
-		wxGetApp().gateNameToLibrary[d.name] = "embedded";
+		gateLibrary().libraries["embedded"][d.name] = lg;
+		gateLibrary().gateNameToLibrary[d.name] = "embedded";
 		// Also register with libParser, which parseGateToSend queries for the gate's
 		// logic type + hotspots. Without this the core gate is never created and the
 		// wires that connect to it crash.
-		wxGetApp().libParser.addGate("embedded", lg);
+		gateLibrary().libParser.addGate("embedded", lg);
 	}
 
 	for (const cl::Page &pg : cf.pages) {
@@ -280,7 +281,7 @@ void CircuitParse::applyWireShape(const cl::WireInstance &w) {
 
 void CircuitParse::parseGateToSend(string type, string ID, string position, vector < gateConnector > &inputs, vector < gateConnector > &outputs, vector < parameter > &params) {
 	// If no library was loaded, then don't try to make a gate from one
-	if (wxGetApp().libraries.size() == 0) return;
+	if (gateLibrary().libraries.size() == 0) return;
 	ostringstream oss;
 	// Check the gate ID to see if it is taken
 	long id;
@@ -288,9 +289,9 @@ void CircuitParse::parseGateToSend(string type, string ID, string position, vect
 	istringstream issb(ID);
 	issb >> id;
 	
-	string logicType = wxGetApp().libParser.getGateLogicType( type );
+	string logicType = gateLibrary().libParser.getGateLogicType( type );
 	if ( logicType.size() > 0 )
-		gCanvas->getCircuit()->sendMessageToCore(klsMessage::Message(klsMessage::MT_CREATE_GATE, new klsMessage::Message_CREATE_GATE(wxGetApp().libraries[wxGetApp().gateNameToLibrary[type]][type].logicType, id)));
+		gCanvas->getCircuit()->sendMessageToCore(klsMessage::Message(klsMessage::MT_CREATE_GATE, new klsMessage::Message_CREATE_GATE(gateLibrary().libraries[gateLibrary().gateNameToLibrary[type]][type].logicType, id)));
 	// Create gate for GUI
 	istringstream issa(position.substr(0,position.find(",")+1));
 	issa >> x;
@@ -308,7 +309,7 @@ void CircuitParse::parseGateToSend(string type, string ID, string position, vect
 	if( logicType.size() > 0 ) {
 		// Loop through the hotspots and pass logic core hotspot settings:
 		LibraryGate libGate;
-		wxGetApp().libParser.getGate(type, libGate);
+		gateLibrary().libParser.getGate(type, libGate);
 		for( unsigned int i = 0; i < libGate.hotspots.size(); i++ ) {
 
 			// Send the isInverted message:
@@ -372,7 +373,7 @@ static cl::GateInstance buildGate(guiGate *g) {
 		gi.params.push_back({ p.first, p.second, true });
 	}
 	// Logic params, skipping FILE_IN/FILE_OUT (runtime paths, as saveGate does).
-	LibraryGate lg = wxGetApp().libraries[g->getLibraryName()][g->getLibraryGateName()];
+	LibraryGate lg = gateLibrary().libraries[g->getLibraryName()][g->getLibraryGateName()];
 	for (const auto &p : *g->getAllLogicParams()) {
 		bool isFile = false;
 		for (size_t i = 0; i < lg.dlgParams.size() && !isFile; i++)
@@ -473,10 +474,10 @@ static cl::CircuitFile buildCircuitFile(vector<GUICanvas*> &glc) {
 	for (const cl::Page &pg : cf.pages)
 		for (const cl::GateInstance &g : pg.gates) {
 			if (!embedded.insert(g.libName).second) continue;
-			auto nameIt = wxGetApp().gateNameToLibrary.find(g.libName);
-			if (nameIt == wxGetApp().gateNameToLibrary.end()) continue;
-			auto libIt = wxGetApp().libraries.find(nameIt->second);
-			if (libIt == wxGetApp().libraries.end()) continue;
+			auto nameIt = gateLibrary().gateNameToLibrary.find(g.libName);
+			if (nameIt == gateLibrary().gateNameToLibrary.end()) continue;
+			auto libIt = gateLibrary().libraries.find(nameIt->second);
+			if (libIt == gateLibrary().libraries.end()) continue;
 			auto defIt = libIt->second.find(g.libName);
 			if (defIt != libIt->second.end()) cf.usedGates.push_back(toGateDef(defIt->second));
 		}

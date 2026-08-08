@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "gateImage.h"
+#include "GateLibrary.h"
 #include "wx/image.h"
 #include "wx/wx.h"
 #include "klsGLCanvas.h"
@@ -44,7 +45,7 @@ gateImage::gateImage( string gateName, wxWindow *parent, wxWindowID id,
 	update();
 
 	delete m_gate;
-	SetToolTip(wxGetApp().libraries[wxGetApp().gateNameToLibrary[gateName]][gateName].caption);
+	SetToolTip(gateLibrary().libraries[gateLibrary().gateNameToLibrary[gateName]][gateName].caption);
 }
 
 gateImage::~gateImage() {

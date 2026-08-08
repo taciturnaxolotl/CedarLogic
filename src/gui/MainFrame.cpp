@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "MainApp.h"
+#include "GateLibrary.h"
 #include "MainFrame.h"
 #include "wx/filedlg.h"
 #include "wx/timer.h"
@@ -205,7 +206,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	string libPath = wxGetApp().appSettings.gateLibFile;
 #endif
 	LibraryParse newLib(libPath);
-	wxGetApp().libParser = newLib;
+	gateLibrary().libParser = newLib;
 	
 	//////////////////////////////////////////////////////////////////////////
     // create a toolbar

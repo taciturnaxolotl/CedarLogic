@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "MainApp.h"
+#include "GateLibrary.h"
 #include "paramDialog.h"
 #include "wx/filedlg.h"
 #include "wx/spinctrl.h"
@@ -45,7 +46,7 @@ paramDialog::paramDialog(const wxString& title, void* gCircuit, guiGate* gGate, 
 	this->gGate = gGate;
 	this->wxcmd = wxcmd;
 	
-	LibraryGate* gateDef = &(wxGetApp().libraries[gGate->getLibraryName()][gGate->getLibraryGateName()]);
+	LibraryGate* gateDef = &(gateLibrary().libraries[gGate->getLibraryName()][gGate->getLibraryGateName()]);
 	unsigned int numParams = gateDef->dlgParams.size();
 
 #ifdef __WXOSX__
@@ -141,7 +142,7 @@ void paramDialog::OnLoad( wxCommandEvent &evt ) {
 	wxString defaultFilename = "";
 	wxFileDialog dialog(this, caption, wxEmptyString, defaultFilename, wildcard, wxFD_OPEN | wxFD_FILE_MUST_EXIST);
 	
-	LibraryGate* gateDef = &(wxGetApp().libraries[gGate->getLibraryName()][gGate->getLibraryGateName()]);
+	LibraryGate* gateDef = &(gateLibrary().libraries[gGate->getLibraryName()][gGate->getLibraryGateName()]);
 	if (dialog.ShowModal() == wxID_OK) {
 		wxString path = dialog.GetPath();
 		string mempath = path.ToStdString();
@@ -166,7 +167,7 @@ void paramDialog::OnSave( wxCommandEvent &evt ) {
 	wxString defaultFilename = "";
 	wxFileDialog dialog(this, caption, wxEmptyString, defaultFilename, wildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 	
-	LibraryGate* gateDef = &(wxGetApp().libraries[gGate->getLibraryName()][gGate->getLibraryGateName()]);
+	LibraryGate* gateDef = &(gateLibrary().libraries[gGate->getLibraryName()][gGate->getLibraryGateName()]);
 	if (dialog.ShowModal() == wxID_OK) {
 		wxString path = dialog.GetPath();
 		string mempath = path.ToStdString();
@@ -181,7 +182,7 @@ void paramDialog::OnOK( wxCommandEvent &evt ) {
 	// Set up a params map and send it off to cmdSetParams
 	map < string, string > lParamList;
 	map < string, string > gParamList;
-	LibraryGate* gateDef = &(wxGetApp().libraries[gGate->getLibraryName()][gGate->getLibraryGateName()]);
+	LibraryGate* gateDef = &(gateLibrary().libraries[gGate->getLibraryName()][gGate->getLibraryGateName()]);
 	for (unsigned int i = 0; i < gateDef->dlgParams.size(); i++) {
 		string pValue;
 		if ( gateDef->dlgParams[i].type == "INT" ) {
@@ -244,7 +245,7 @@ void paramDialog::OnOK( wxCommandEvent &evt ) {
 bool paramDialog::validateData() {
 	bool retVal = true;
 	// Go through and validate the items we need to validate
-	LibraryGate* gateDef = &(wxGetApp().libraries[gGate->getLibraryName()][gGate->getLibraryGateName()]);
+	LibraryGate* gateDef = &(gateLibrary().libraries[gGate->getLibraryName()][gGate->getLibraryGateName()]);
 	for (unsigned int i = 0; i < gateDef->dlgParams.size(); i++) {
 		if (gateDef->dlgParams[i].type == "FLOAT") {
 			

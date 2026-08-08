@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "PaletteFrame.h"
+#include "GateLibrary.h"
 #include "wx/choice.h"
 
 using namespace std;
@@ -24,8 +25,8 @@ END_EVENT_TABLE()
 PaletteFrame::PaletteFrame( wxWindow *parent, wxWindowID id, const wxPoint &pos, const wxSize &size )
 	: wxPanel( parent, id, pos, size, wxNO_BORDER ) {
 	paletteSizer = new wxBoxSizer( wxVERTICAL );
-	map < string, map < string, LibraryGate > >::iterator libWalk = wxGetApp().libraries.begin();
-	while (libWalk != wxGetApp().libraries.end()) {
+	map < string, map < string, LibraryGate > >::iterator libWalk = gateLibrary().libraries.begin();
+	while (libWalk != gateLibrary().libraries.end()) {
 		strings.Add(libWalk->first);
 		libWalk++;
 	}

@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "LibraryParse.h"
+#include "GateLibrary.h"
 #include "wx/msgdlg.h"
 #include "MainApp.h"
 
@@ -205,8 +206,8 @@ void LibraryParse::parseFile() {
 					mParse->readCloseTag();
 				}
 			} while (!mParse->isCloseTag(mParse->getCurrentIndex())); // end gate
-			wxGetApp().gateNameToLibrary[newGate.gateName] = libName;
-			wxGetApp().libraries[libName][newGate.gateName] = newGate;
+			gateLibrary().gateNameToLibrary[newGate.gateName] = libName;
+			gateLibrary().libraries[libName][newGate.gateName] = newGate;
 			gates[libName][newGate.gateName] = newGate;
 			mParse->readCloseTag(); //gate
 		} while (!mParse->isCloseTag(mParse->getCurrentIndex())); // end library
@@ -265,8 +266,8 @@ bool LibraryParse::parseShapeObject( string type, LibraryGate* newGate, double o
 }
 
 bool LibraryParse::getGate(string gateName, LibraryGate &lgGate) {
-	map < string, string >::iterator findGate = wxGetApp().gateNameToLibrary.find(gateName);
-	if (findGate == wxGetApp().gateNameToLibrary.end()) return false;
+	map < string, string >::iterator findGate = gateLibrary().gateNameToLibrary.find(gateName);
+	if (findGate == gateLibrary().gateNameToLibrary.end()) return false;
 	map < string, LibraryGate >::iterator findVal = gates[findGate->second].find(gateName);
 	if (findVal != gates[findGate->second].end()) lgGate = (findVal->second);
 	return (findVal != gates[findGate->second].end());
@@ -274,16 +275,16 @@ bool LibraryParse::getGate(string gateName, LibraryGate &lgGate) {
 
 // Return the logic type of a particular gate:
 string LibraryParse::getGateLogicType( string gateName ) {
-	map < string, string >::iterator findGate = wxGetApp().gateNameToLibrary.find(gateName);
-	if (findGate == wxGetApp().gateNameToLibrary.end()) return "";
+	map < string, string >::iterator findGate = gateLibrary().gateNameToLibrary.find(gateName);
+	if (findGate == gateLibrary().gateNameToLibrary.end()) return "";
 	if ( gates[findGate->second].find(gateName) == gates[findGate->second].end() ) return "";
 	return gates[findGate->second][gateName].logicType;
 }
 
 // Return the gui type of a particular gate type:
 string LibraryParse::getGateGUIType( string gateName ) {
-	map < string, string >::iterator findGate = wxGetApp().gateNameToLibrary.find(gateName);
-	if (findGate == wxGetApp().gateNameToLibrary.end()) return "";
+	map < string, string >::iterator findGate = gateLibrary().gateNameToLibrary.find(gateName);
+	if (findGate == gateLibrary().gateNameToLibrary.end()) return "";
 	if ( gates[findGate->second].find(gateName) == gates[findGate->second].end() ) return "";
 	return gates[findGate->second][gateName].guiType;
 }
