@@ -429,14 +429,14 @@ bool MainApp::OnInit()
 #ifdef __APPLE__
 	helpController = new wxHtmlHelpController(wxHF_DEFAULT_STYLE | wxHF_OPEN_FILES);
 	// Only load help if the file exists to avoid blocking
-	if (wxFileExists(appSettings.helpFile)) {
-		if (!helpController->AddBook(appSettings.helpFile)) {
-			wxLogWarning("Failed to load help file: %s", appSettings.helpFile);
+	if (wxFileExists(appConfig().appSettings.helpFile)) {
+		if (!helpController->AddBook(appConfig().appSettings.helpFile)) {
+			wxLogWarning("Failed to load help file: %s", appConfig().appSettings.helpFile);
 		}
 	}
 #else
 	helpController = new wxHelpController;
-	helpController->Initialize(appSettings.helpFile);
+	helpController->Initialize(appConfig().appSettings.helpFile);
 #endif
 
 
@@ -549,12 +549,12 @@ void MainApp::loadSettings() {
 	stdp.SetFileLayout(wxStandardPaths::FileLayout_XDG);
 
 	if (const char* r_dir = getenv("CEDARLOGIC_RESOURCES_DIR")) {
-		resourcesDir = r_dir;
-		if (!resourcesDir.empty()) {
-			resourcesDir += "/";
+		appConfig().resourcesDir = r_dir;
+		if (!appConfig().resourcesDir.empty()) {
+			appConfig().resourcesDir += "/";
 		}
 	} else {
-		resourcesDir = stdp.GetResourcesDir() + "/";
+		appConfig().resourcesDir = stdp.GetResourcesDir() + "/";
 	}
 
 	wxFileConfig *conf = new wxFileConfig("CedarLogic");
@@ -563,40 +563,40 @@ void MainApp::loadSettings() {
 
 	wxString str;
 	conf->Read("GateLib", &str, "res/cl_gatedefs.xml");
-	appSettings.gateLibFile = resourcesDir + str;
+	appConfig().appSettings.gateLibFile = appConfig().resourcesDir + str;
 
 	#ifdef __APPLE__
 	conf->Read("HelpFile", &str, "res/help/KLS_Logic.hhp");
 #else
 	conf->Read("HelpFile", &str, "res/KLS_Logic.chm");
 #endif
-	appSettings.helpFile = resourcesDir + str;
+	appConfig().appSettings.helpFile = appConfig().resourcesDir + str;
 
 	conf->Read("TextFont", &str, "res/arial.glf");
-	appSettings.textFontFile = resourcesDir + str;
+	appConfig().appSettings.textFontFile = appConfig().resourcesDir + str;
 
 	conf->Read("LastDirectory", &str, "");
-	appSettings.lastDir = str;
+	appConfig().appSettings.lastDir = str;
 
-	conf->Read("FrameWidth", &appSettings.mainFrameWidth, 600);
-	conf->Read("FrameHeight", &appSettings.mainFrameHeight, 600);
-	conf->Read("FrameLeft", &appSettings.mainFrameLeft, 20);
-	conf->Read("FrameTop", &appSettings.mainFrameTop, 20);
-	conf->Read("RefreshRate", &appSettings.refreshRate, 16); // ms (~60 FPS)
-	conf->Read("TimeStep", &appSettings.timePerStep, 25); // ms
-	timeStepMod = appSettings.timePerStep;
-	conf->Read("WireConnRadius", &appSettings.wireConnRadius, 0.18f);
-	conf->Read("WireConnVisible", &appSettings.wireConnVisible, true);
-	conf->Read("GridlineVisible", &appSettings.gridlineVisible, true);
-	conf->Read("RightClickRotate", &appSettings.rightClickRotate, true);
+	conf->Read("FrameWidth", &appConfig().appSettings.mainFrameWidth, 600);
+	conf->Read("FrameHeight", &appConfig().appSettings.mainFrameHeight, 600);
+	conf->Read("FrameLeft", &appConfig().appSettings.mainFrameLeft, 20);
+	conf->Read("FrameTop", &appConfig().appSettings.mainFrameTop, 20);
+	conf->Read("RefreshRate", &appConfig().appSettings.refreshRate, 16); // ms (~60 FPS)
+	conf->Read("TimeStep", &appConfig().appSettings.timePerStep, 25); // ms
+	appConfig().timeStepMod = appConfig().appSettings.timePerStep;
+	conf->Read("WireConnRadius", &appConfig().appSettings.wireConnRadius, 0.18f);
+	conf->Read("WireConnVisible", &appConfig().appSettings.wireConnVisible, true);
+	conf->Read("GridlineVisible", &appConfig().appSettings.gridlineVisible, true);
+	conf->Read("RightClickRotate", &appConfig().appSettings.rightClickRotate, true);
 
 	// check screen coords
 	wxScreenDC sdc;
-	if ( appSettings.mainFrameLeft + appSettings.mainFrameWidth > sdc.GetSize().GetWidth() ||
-		appSettings.mainFrameTop + appSettings.mainFrameHeight > sdc.GetSize().GetHeight() ) {
+	if ( appConfig().appSettings.mainFrameLeft + appConfig().appSettings.mainFrameWidth > sdc.GetSize().GetWidth() ||
+		appConfig().appSettings.mainFrameTop + appConfig().appSettings.mainFrameHeight > sdc.GetSize().GetHeight() ) {
 
-		appSettings.mainFrameWidth = appSettings.mainFrameHeight = 600;
-		appSettings.mainFrameLeft = appSettings.mainFrameTop = 20;
+		appConfig().appSettings.mainFrameWidth = appConfig().appSettings.mainFrameHeight = 600;
+		appConfig().appSettings.mainFrameLeft = appConfig().appSettings.mainFrameTop = 20;
 	}
 }
 

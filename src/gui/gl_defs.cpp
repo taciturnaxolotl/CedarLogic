@@ -1,4 +1,5 @@
 #include <cmath>
+#include "Settings.h"
 #include "gl_defs.h"
 
 #include "MainApp.h"
@@ -43,7 +44,7 @@ void defineGLLists() {
  		for (int z=0; z <= 360; z += 360/POINTS_PER_VERTEX)
 		{
 			degInRad = z*DEG2RAD;
-			glVertex2f(cos(degInRad)*wxGetApp().appSettings.wireConnRadius, sin(degInRad)*wxGetApp().appSettings.wireConnRadius);
+			glVertex2f(cos(degInRad)*appConfig().appSettings.wireConnRadius, sin(degInRad)*appConfig().appSettings.wireConnRadius);
 		}
 		glEnd();
 	glEndList();

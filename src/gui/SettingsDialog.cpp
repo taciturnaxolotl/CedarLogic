@@ -1,4 +1,5 @@
 #include "SettingsDialog.h"
+#include "Settings.h"
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 
@@ -8,7 +9,7 @@ SettingsDialog::SettingsDialog(wxWindow* parent)
 	: wxDialog(parent, wxID_ANY, "Preferences", wxDefaultPosition, wxDefaultSize,
 		wxDEFAULT_DIALOG_STYLE) {
 
-	auto& settings = wxGetApp().appSettings;
+	auto& settings = appConfig().appSettings;
 
 	wxFlexGridSizer* grid = new wxFlexGridSizer(4, 2, 8, 12);
 	grid->AddGrowableCol(1, 1);

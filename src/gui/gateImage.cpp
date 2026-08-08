@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "gateImage.h"
+#include "Settings.h"
 #include "GateLibrary.h"
 #include "wx/image.h"
 #include "wx/wx.h"
@@ -181,7 +182,7 @@ void gateImage::generateImage() {
 	//End of edit
 
 	// Load the font texture
-	guiText::loadFont(wxGetApp().appSettings.textFontFile);
+	guiText::loadFont(appConfig().appSettings.textFontFile);
 	
 	// Do the rendering here.
 	renderMap();

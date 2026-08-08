@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "GUICanvas.h"
+#include "Settings.h"
 #include "GateLibrary.h"
 #include "MainApp.h"
 #include "paramDialog.h"
@@ -536,7 +537,7 @@ void GUICanvas::mouseRightDown(wxMouseEvent& event) {
 			else submitCommand( new cmdDeleteWire( gCircuit, this, gateList[hotspotGate]->getConnection(hotspotHighlight)->getID() ) );
 		}
 		currentDragState = DRAG_NONE;
-	} else if (currentDragState == DRAG_NONE && wxGetApp().appSettings.rightClickRotate) {
+	} else if (currentDragState == DRAG_NONE && appConfig().appSettings.rightClickRotate) {
 		// Not on a hotspot, so check if it's on a gate:
 		// Loop through all objects hit by the mouse
 		CollisionGroup hitThings = mouse->getOverlaps();

@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "guiWire.h"
+#include "Settings.h"
 #include <cmath>
 #include <stack>
 #include "guiGate.h"
@@ -277,14 +278,14 @@ void guiWire::draw(bool color) {
 			for (int z = 0; z <= 360; z += 360 / POINTS_PER_VERTEX)
 			{
 				degInRad = z*DEG2RAD;
-				glVertex2f(cos(degInRad)*wxGetApp().appSettings.wireConnRadius, sin(degInRad)*wxGetApp().appSettings.wireConnRadius);
+				glVertex2f(cos(degInRad)*appConfig().appSettings.wireConnRadius, sin(degInRad)*appConfig().appSettings.wireConnRadius);
 			}
 			glEnd();
 		}
 		glTranslatef(-(*isectPoints)[i].x, -(*isectPoints)[i].y, 0.0);
 	}
 
-	if (wxGetApp().appSettings.wireConnVisible) {
+	if (appConfig().appSettings.wireConnVisible) {
 		vector< GLPoint2f >* vertexPoints = &(renderInfo.vertexPoints);
 		for (unsigned int i = 0; i < vertexPoints->size(); i++) {
 			// Draw the connection point:
@@ -297,7 +298,7 @@ void guiWire::draw(bool color) {
 				for (int z = 0; z <= 360; z += 360 / POINTS_PER_VERTEX)
 				{
 					degInRad = z*DEG2RAD;
-					glVertex2f(cos(degInRad)*wxGetApp().appSettings.wireConnRadius, sin(degInRad)*wxGetApp().appSettings.wireConnRadius);
+					glVertex2f(cos(degInRad)*appConfig().appSettings.wireConnRadius, sin(degInRad)*appConfig().appSettings.wireConnRadius);
 				}
 				glEnd();
 			}

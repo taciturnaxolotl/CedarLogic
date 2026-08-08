@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "klsMiniMap.h"
+#include "Settings.h"
 #include "guiText.h"
 
 #include "guiGate.h"
@@ -121,7 +122,7 @@ void klsMiniMap::generateImage() {
 	//End of edit
 		
 	// Load the font texture
-	guiText::loadFont(wxGetApp().appSettings.textFontFile);
+	guiText::loadFont(appConfig().appSettings.textFontFile);
 
 	// Do the rendering here.
 	renderMap();
