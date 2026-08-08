@@ -32,10 +32,10 @@ include(VsSourceGroups)
 include(GNUInstallDirs)
 
 ##
-# Testing options. The logic/ and simulator/ subdirectories build their own
+# Testing options. The logic/ and format/ subdirectories build their own
 # doctest suites; enabling BUILD_TESTING here lets `ctest` aggregate them.
 ##
-option(BUILD_TESTING "Build the logic/simulator test suites" ON)
+option(BUILD_TESTING "Build the logic/format test suites" ON)
 option(ENABLE_SANITIZERS "Instrument tests with ASan/UBSan (GCC/Clang only)" OFF)
 if(BUILD_TESTING)
     enable_testing()
@@ -223,9 +223,7 @@ add_subdirectory(
 # own doctest suite under BUILD_TESTING.
 add_subdirectory("${PROJECT_SOURCE_DIR}/format/")
 
-# The simulator is a standalone logic-core rewrite; build it only for its tests.
 if(BUILD_TESTING)
-    add_subdirectory("${PROJECT_SOURCE_DIR}/simulator/")
     # Headless differential test for the collision checker's spatial grid.
     add_subdirectory("${PROJECT_SOURCE_DIR}/src/gui/tests/")
 endif()

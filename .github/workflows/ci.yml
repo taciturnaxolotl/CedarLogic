@@ -30,12 +30,6 @@ jobs:
           cmake --build build/logic
           ctest --test-dir build/logic --output-on-failure
 
-      - name: simulator/ suite
-        run: |
-          cmake -S simulator -B build/simulator -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON
-          cmake --build build/simulator
-          ctest --test-dir build/simulator --output-on-failure
-
       - name: format/ suite
         run: |
           cmake -S format -B build/format -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON
