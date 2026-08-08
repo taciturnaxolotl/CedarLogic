@@ -32,6 +32,21 @@ cmdMoveSelection::~cmdMoveSelection() {
 	for (klsCommand *cmd : proxconnects) delete cmd;
 }
 
+// A cached segment map holds raw guiGate* pointers in its connections. When
+// this move is part of a paste, undo/redo of the paste deletes and recreates
+// the gates, so those pointers dangle. Re-resolve each connection's gate from
+// its (stable) gid before the map is restored, or setSegmentMap dereferences
+// freed memory. For an ordinary move the gate is unchanged, so this is a no-op.
+void cmdMoveSelection::rebindSegMapGates(SegmentMap &segMap) {
+	auto *gates = gCircuit->getGates();
+	for (auto &seg : segMap) {
+		for (wireConnection &conn : seg.second.connections) {
+			auto it = gates->find(conn.gid);
+			if (it != gates->end()) conn.cGate = it->second;
+		}
+	}
+}
+
 bool cmdMoveSelection::Do() {
 
 	for (unsigned int i = 0; i < gateList.size(); i++) {
@@ -41,6 +56,7 @@ bool cmdMoveSelection::Do() {
 	}
 	for (unsigned int i = 0; i < wireList.size(); i++) {
 		if ((gCircuit->getWires())->find(wireList[i]) == (gCircuit->getWires())->end()) continue; // error, wire not found
+		rebindSegMapGates(newSegMaps[wireList[i]]);
 		(*(gCircuit->getWires()))[wireList[i]]->setSegmentMap(newSegMaps[wireList[i]]);
 	}
 	for (unsigned int i = 0; i < proxconnects.size(); i++) {
@@ -57,6 +73,7 @@ bool cmdMoveSelection::Undo() {
 	}
 	for (unsigned int i = 0; i < wireList.size() && wireMove < 0; i++) {
 		if ((gCircuit->getWires())->find(wireList[i]) == (gCircuit->getWires())->end()) continue; // error, wire not found
+		rebindSegMapGates(oldSegMaps[wireList[i]]);
 		(*(gCircuit->getWires()))[wireList[i]]->setSegmentMap(oldSegMaps[wireList[i]]);
 	}
 	wireMove = -1;
