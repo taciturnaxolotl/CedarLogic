@@ -74,12 +74,14 @@ public:
     // MainFrame::OnIdle) do exactly that. Preserve that order; taking them the
     // other way round risks deadlock.
     //
-    // NOTE: locking is not yet consistent -- most sites use RAII lockers
-    // (wxMutexLocker / wxCriticalSectionLocker), but threadLogic.cpp still
-    // hand-rolls a `while (mexMessages.TryLock()==wxMUTEX_BUSY) wxYield();`
-    // spin on the same mutex, which is NOT equivalent to a blocking lock (it
-    // pumps the GUI event loop while waiting). Audit this carefully before
-    // changing any of it.
+    // Message-drain protocol: each drain site takes mexMessages only long
+    // enough to swap the pending deque into a local, then processes the local
+    // with the lock released (so parseMessage may freely re-take mexMessages to
+    // send a reply). This replaced an older TryLock+wxYield busy-spin that held
+    // mexMessages across parseMessage -- which pumped the GUI event loop while
+    // waiting (reentrancy) and only worked because the mutex was recursive.
+    // Anything that clears these queues (New/Open) must also hold mexMessages;
+    // the logic thread drains dGUItoLOGIC independently of the GUI timers.
 
     // Coarse lock for the background-thread lifecycle: guards the logicThread /
     // saveThread pointers (install in MainFrame, teardown in threadLogic::OnExit)

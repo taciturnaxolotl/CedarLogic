@@ -45,13 +45,20 @@ void *threadLogic::Entry() {
 
 void threadLogic::checkMessages() {
 	wxCriticalSectionLocker locker(wxGetApp().m_critsect);
-	while (wxGetApp().mexMessages.TryLock() == wxMUTEX_BUSY) wxYield();
-	while (wxGetApp().dGUItoLOGIC.size() > 0) {
-		parseMessage(wxGetApp().dGUItoLOGIC.front());
-		wxGetApp().dGUItoLOGIC.pop_front();
+	// Take the whole pending batch under the lock, then process it with the lock
+	// released. Holding mexMessages only for the O(1) swap avoids the old
+	// TryLock+wxYield busy-spin, and lets parseMessage's STEPSIM path re-take
+	// mexMessages (via sendMessage) without relying on the mutex being recursive.
+	deque< klsMessage::Message > batch;
+	{
+		wxMutexLocker lock(wxGetApp().mexMessages);
+		batch.swap(wxGetApp().dGUItoLOGIC);
 	}
-	wxGetApp().mexMessages.Unlock();
-}	
+	while (!batch.empty()) {
+		parseMessage(batch.front());
+		batch.pop_front();
+	}
+}
 
 void threadLogic::OnExit() {
 	wxCriticalSectionLocker locker(wxGetApp().m_critsect);
