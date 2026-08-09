@@ -81,6 +81,21 @@ jobs:
           python3 tools/git-sync-deps
           python3 bin/fetch-ninja
 
+      - name: Patch SkOpts for clang-cl intrin.h (Windows)
+        if: matrix.name == 'windows' && steps.cache.outputs.cache-hit != 'true'
+        working-directory: skia
+        shell: bash
+        # LLVM #95133: clang-cl's <intrin.h> declares _xend() always_inline; when
+        # the SkOpts opts code pulls it under the target() pragma it becomes
+        # multiversioned + always_inline -- a hard error in clang >= 19. Pre-include
+        # <intrin.h> before the pragma (as the file already does for <immintrin.h>)
+        # so its guard is populated without a target attribute.
+        run: |
+          f=src/opts/SkOpts_SetTarget.h
+          grep -q '#include <intrin.h>' "$f" || \
+            sed -i 's|#include <immintrin.h>|#include <immintrin.h>\n        #include <intrin.h>|' "$f"
+          sed -n '60,66p' "$f"
+
       - name: Linux GL dev headers
         if: matrix.name == 'linux' && steps.cache.outputs.cache-hit != 'true'
         run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev
