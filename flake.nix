@@ -16,13 +16,17 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-      in
-      {
-        packages = {
-          default = self.packages.${system}.cedarlogic;
 
-          cedarlogic = pkgs.stdenv.mkDerivation {
-            pname = "cedarlogic";
+        # withSkia builds against the Skia rendering engine (Workstream G).
+        # The hermetic Nix build has no network for the CI Skia cache, so it
+        # uses a system Skia (USE_SYSTEM_SKIA=ON) -- exactly the shape of the
+        # existing USE_SYSTEM_WXWIDGETS path. This is gated behind the
+        # cedarlogic-skia variant so the default build never depends on Skia,
+        # and stays buildable even before nixpkgs' skia GL support is confirmed.
+        mkCedarLogic =
+          { withSkia ? false }:
+          pkgs.stdenv.mkDerivation {
+            pname = if withSkia then "cedarlogic-skia" else "cedarlogic";
             version = "2.3.8";
 
             src = ./.;
@@ -32,17 +36,23 @@
               pkg-config
             ];
 
-            buildInputs = with pkgs; [
-              wxGTK32
-              libGL
-              libGLU
-              mesa
-              catch2_3
-            ];
+            buildInputs =
+              (with pkgs; [
+                wxGTK32
+                libGL
+                libGLU
+                mesa
+                catch2_3
+              ])
+              ++ pkgs.lib.optional withSkia pkgs.skia;
 
             cmakeFlags = [
               "-DUSE_SYSTEM_WXWIDGETS=ON"
               "-DCMAKE_BUILD_TYPE=Release"
+            ]
+            ++ pkgs.lib.optionals withSkia [
+              "-DWITH_SKIA=ON"
+              "-DUSE_SYSTEM_SKIA=ON"
             ];
 
             # Patch CMakeLists.txt to use system Catch2 instead of FetchContent
@@ -70,6 +80,12 @@
               mainProgram = "CedarLogic";
             };
           };
+      in
+      {
+        packages = {
+          default = self.packages.${system}.cedarlogic;
+          cedarlogic = mkCedarLogic { };
+          cedarlogic-skia = mkCedarLogic { withSkia = true; };
         };
 
         devShells.default = pkgs.mkShell {

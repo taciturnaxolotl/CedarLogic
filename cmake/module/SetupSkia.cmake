@@ -1,0 +1,117 @@
+# Skia integration (Workstream G).
+#
+# OFF by default: including this module changes nothing about the build until
+# -DWITH_SKIA=ON is passed. When on, it produces a single INTERFACE target,
+# `cedar_skia`, carrying Skia's include dirs, static libraries, required system
+# dependencies, and the WITH_SKIA / SK_GL compile definitions. Link it onto the
+# app target; guard all Skia code behind `#ifdef WITH_SKIA`.
+#
+# Where Skia comes from mirrors the USE_SYSTEM_WXWIDGETS split:
+#   USE_SYSTEM_SKIA=OFF  consume the CI-built dist from .github/workflows/skia.yml.
+#                        Point SKIA_ROOT at the extracted artifact (it holds
+#                        include/ and lib/). This is the path for Windows, macOS,
+#                        and CI, which restore that dist from cache.
+#   USE_SYSTEM_SKIA=ON   find a system Skia (hermetic Nix, distro packages) via
+#                        pkg-config, or SKIA_ROOT as a fallback. This is the path
+#                        for the Nix flake, which has no network for the cache.
+
+option(WITH_SKIA "Build CedarLogic against the Skia rendering engine (Workstream G)" OFF)
+
+if(CMAKE_SYSTEM_NAME STREQUAL Linux)
+    set(USE_SYSSKIA_DEF TRUE)
+else()
+    set(USE_SYSSKIA_DEF FALSE)
+endif()
+set(USE_SYSTEM_SKIA "${USE_SYSSKIA_DEF}" CACHE BOOL
+    "Find a system Skia instead of consuming the CI-built dist")
+
+set(SKIA_ROOT "" CACHE PATH
+    "Root of a Skia dist (contains include/ and lib/); required when \
+USE_SYSTEM_SKIA=OFF, optional fallback when ON")
+
+if(NOT WITH_SKIA)
+    return()
+endif()
+
+# NB: Skia (m124) requires C++17. CedarLogic's CMAKE_CXX_STANDARD is raised to
+# 17 in the top-level CMakeLists when WITH_SKIA is on; C++17 is source-
+# compatible with the existing C++11 code.
+
+add_library(cedar_skia INTERFACE)
+target_compile_definitions(cedar_skia INTERFACE WITH_SKIA SK_GL)
+
+set(_skia_found FALSE)
+
+if(USE_SYSTEM_SKIA)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(SKIA_PC QUIET skia)
+        if(SKIA_PC_FOUND)
+            target_include_directories(cedar_skia INTERFACE ${SKIA_PC_INCLUDE_DIRS})
+            target_link_libraries(cedar_skia INTERFACE ${SKIA_PC_LINK_LIBRARIES})
+            set(_skia_found TRUE)
+            message(STATUS "Skia: using system package (pkg-config)")
+        endif()
+    endif()
+endif()
+
+# Fall back to (or, when USE_SYSTEM_SKIA=OFF, require) a dist tree at SKIA_ROOT.
+if(NOT _skia_found)
+    if(NOT SKIA_ROOT)
+        message(FATAL_ERROR
+            "WITH_SKIA is ON but Skia was not found. Set -DSKIA_ROOT=<dir> to a "
+            "Skia dist containing include/ and lib/ (build one with the Skia CI "
+            "workflow), or set -DUSE_SYSTEM_SKIA=ON with a pkg-config 'skia'.")
+    endif()
+    if(NOT EXISTS "${SKIA_ROOT}/include/core/SkCanvas.h")
+        message(FATAL_ERROR
+            "SKIA_ROOT='${SKIA_ROOT}' does not look like a Skia dist "
+            "(missing include/core/SkCanvas.h).")
+    endif()
+
+    # Static archives, module libs first so GNU ld resolves core symbols after
+    # its dependents. --start-group makes the order robust regardless.
+    file(GLOB _skia_libs "${SKIA_ROOT}/lib/*.a" "${SKIA_ROOT}/lib/*.lib")
+    if(NOT _skia_libs)
+        message(FATAL_ERROR "No Skia static libraries under '${SKIA_ROOT}/lib'.")
+    endif()
+    list(SORT _skia_libs)  # deterministic; 'skia' sorts after module libs
+
+    # Skia's own headers include each other root-relative (e.g.
+    # #include "include/core/SkTypes.h"), so the dist root itself must be on the
+    # search path -- alongside include/ for our own "core/..."-style includes.
+    target_include_directories(cedar_skia INTERFACE "${SKIA_ROOT}" "${SKIA_ROOT}/include")
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND NOT APPLE AND NOT MSVC)
+        target_link_libraries(cedar_skia INTERFACE
+            -Wl,--start-group ${_skia_libs} -Wl,--end-group)
+    else()
+        target_link_libraries(cedar_skia INTERFACE ${_skia_libs})
+    endif()
+    message(STATUS "Skia: using dist at ${SKIA_ROOT}")
+endif()
+
+# System libraries the static Skia needs at final link. Skia's vendored deps
+# (freetype, harfbuzz, icu, image codecs, zlib, expat) ship as their own static
+# archives beside libskia and are picked up by the glob above; these are the
+# OS-level pieces layered on top.
+if(WIN32)
+    target_link_libraries(cedar_skia INTERFACE opengl32 user32 gdi32)
+elseif(APPLE)
+    target_link_libraries(cedar_skia INTERFACE
+        "-framework CoreFoundation" "-framework CoreGraphics"
+        "-framework CoreText" "-framework OpenGL")
+else()
+    # Skia's GL backend (and wxGLCanvas) use GLX; link legacy libGL, which
+    # provides glX* -- under GLVND OPENGL_opengl_LIBRARY is libOpenGL, which does
+    # not. Bare "GL" defers to -lGL at link time (find_package(OpenGL) runs after
+    # this module).
+    find_package(Fontconfig QUIET)
+    target_link_libraries(cedar_skia INTERFACE GL ${CMAKE_DL_LIBS} pthread)
+    if(Fontconfig_FOUND)
+        target_link_libraries(cedar_skia INTERFACE Fontconfig::Fontconfig)
+    endif()
+    # wxWidgets' shared libs pull system DSOs (zlib, png, ...) that modern ld
+    # won't resolve indirectly (--no-copy-dt-needed-entries default). Let a
+    # linked .so's DT_NEEDED satisfy them instead of listing each by hand.
+    target_link_options(cedar_skia INTERFACE "LINKER:--copy-dt-needed-entries")
+endif()

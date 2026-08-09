@@ -8,3 +8,4 @@ format/tests/fixtures/*.cdl -text
 *.yaml text eol=lf
 *.gn text eol=lf
 *.sh text eol=lf
+*.nix text eol=lf

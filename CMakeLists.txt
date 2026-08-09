@@ -31,6 +31,9 @@ include(ResourceTools)
 include(VsSourceGroups)
 include(GNUInstallDirs)
 
+# Skia rendering engine (Workstream G). OFF by default -- a no-op until wired up.
+include(SetupSkia)
+
 ##
 # Testing options. The logic/ and format/ subdirectories build their own
 # doctest suites; enabling BUILD_TESTING here lets `ctest` aggregate them.
@@ -46,6 +49,23 @@ endif()
 ##
 
 # Use static runtime libs.
+# The Skia lib is built /MT, so the whole app must link /MT too or the link
+# fails (LNK2038/LNK2005). CMAKE_MSVC_RUNTIME_LIBRARY only works under policy
+# CMP0091, which cmake_minimum_required(3.11) leaves OLD and which did not take
+# effect reliably here -- so for the Skia build, rewrite /MD -> /MT directly in
+# the flag variables (the pre-CMP0091 idiom). This reaches the app and every
+# subdirectory. The default build is untouched.
+if(WITH_SKIA AND MSVC)
+    foreach(flag_var
+        CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+        CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
+        CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+        CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO)
+        if(${flag_var} MATCHES "/MD")
+            string(REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+        endif()
+    endforeach()
+endif()
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 # Linking to the system version of wxWidgets is usually preferred on linux, and
@@ -187,6 +207,12 @@ target_link_libraries(CedarLogic PRIVATE
     ${wxWidgets_LIBRARIES}
 )
 
+# Skia carries its own includes, static libs, system deps, and the WITH_SKIA/
+# SK_GL defines. The target only exists when -DWITH_SKIA=ON (see SetupSkia).
+if(TARGET cedar_skia)
+    target_link_libraries(CedarLogic PRIVATE cedar_skia)
+endif()
+
 # macOS: Link Sparkle framework
 if(APPLE)
     target_link_libraries(CedarLogic PRIVATE "${SPARKLE_FRAMEWORK}")
@@ -228,9 +254,6 @@ if(BUILD_TESTING)
     add_subdirectory("${PROJECT_SOURCE_DIR}/src/gui/tests/")
 endif()
 
-# specify the C++ standard
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 target_compile_definitions(CedarLogic PRIVATE "_PRODUCTION_")
 
