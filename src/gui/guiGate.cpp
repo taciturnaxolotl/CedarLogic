@@ -719,6 +719,26 @@ void guiGateKEYPAD::draw( bool color ) {
 	guiGate::draw(color);
 }
 
+void guiGateKEYPAD::drawToScene(cl::render::Scene& scene,
+                                const cl::render::RenderStyle& style) {
+	using namespace cl::render;
+	// The current-value cell is highlighted with a translucent blue box drawn
+	// behind the digit grid (mirrors draw(): highlight first, then the lines).
+	if (style.showLiveState) {
+		Transform t;
+		t.a = (float)mModel[0];  t.b = (float)mModel[1];
+		t.c = (float)mModel[4];  t.d = (float)mModel[5];
+		t.e = (float)mModel[12]; t.f = (float)mModel[13];
+		scene.pushTransform(t);
+		scene.fillRect(
+			Point(renderInfo_valueBox.begin.x, renderInfo_valueBox.begin.y),
+			Point(renderInfo_valueBox.end.x, renderInfo_valueBox.end.y),
+			Color(0.0f, 0.4f, 1.0f, 0.3f));
+		scene.popTransform();
+	}
+	guiGate::drawToScene(scene, style);   // digit grid + outline, on top
+}
+
 void guiGateKEYPAD::setLogicParam( string paramName, string value ) {
 	if (paramName == "OUTPUT_NUM" || paramName == "OUTPUT_BITS") {
 		istringstream iss(paramName == "OUTPUT_NUM" ? value : lparams["OUTPUT_NUM"]);

@@ -320,8 +320,10 @@ class guiGateKEYPAD : public guiGate {
 public:
 	guiGateKEYPAD();
 	void draw( bool color = true );
+	void drawToScene(cl::render::Scene& scene,
+	                 const cl::render::RenderStyle& style) override;
 	void setLogicParam( string paramName, string value );
-	
+
 	// Toggle the output button on and off:
 	klsMessage::Message_SET_GATE_PARAM* checkClick( GLfloat x, GLfloat y );
 protected:
