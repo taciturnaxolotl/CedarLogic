@@ -96,6 +96,21 @@ jobs:
             sed -i 's|#include <immintrin.h>|#include <immintrin.h>\n        #include <intrin.h>|' "$f"
           sed -n '60,66p' "$f"
 
+      - name: Patch freetype to use its bundled zlib (Windows)
+        if: matrix.name == 'windows' && steps.cache.outputs.cache-hit != 'true'
+        working-directory: skia
+        shell: bash
+        # freetype2's BUILD.gn forces FT_CONFIG_OPTION_SYSTEM_ZLIB, making its gzip
+        # code reference unprefixed inflate/inflateEnd from an external zlib. Skia's
+        # zlib exports Cr_z_-prefixed symbols, so those references never resolve
+        # (LNK2019). Dropping the define lets freetype use its own bundled, renamed
+        # zlib -- self-contained, no external inflate. (Windows-only; other
+        # platforms link fine as-is.)
+        run: |
+          f=third_party/freetype2/BUILD.gn
+          sed -i '/FT_CONFIG_OPTION_SYSTEM_ZLIB/d' "$f"
+          echo "remaining SYSTEM_ZLIB refs (expect none):" && grep -c FT_CONFIG_OPTION_SYSTEM_ZLIB "$f" || true
+
       - name: Linux GL dev headers
         if: matrix.name == 'linux' && steps.cache.outputs.cache-hit != 'true'
         run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev
