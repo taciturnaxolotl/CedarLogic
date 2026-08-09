@@ -168,6 +168,19 @@ file(GLOB SRC_FILES
 	"${PROJECT_SOURCE_DIR}/include/gui/GLFont/*.h"
 )
 
+# Skia backend translation units (SkiaScene/SkiaBackend) compile only when Skia
+# is in the build; guarded internally by #ifdef WITH_SKIA as well. Only these TUs
+# include Skia and need C++17, so raise the standard per-source rather than on the
+# whole target: the legacy app code keeps its historical standard, avoiding C++17
+# clashes there (e.g. std::byte vs windows.h's 'byte' under `using namespace
+# std`). They stay in the app target so their Skia symbols get linked.
+if(WITH_SKIA)
+    file(GLOB SKIA_SRC_FILES "${PROJECT_SOURCE_DIR}/src/gui/render/*.cpp")
+    list(APPEND SRC_FILES ${SKIA_SRC_FILES})
+    set_source_files_properties(${SKIA_SRC_FILES} PROPERTIES
+        COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,/std:c++17,-std=c++17>")
+endif()
+
 # macOS: Add Objective-C++ sources
 if(APPLE)
     list(APPEND SRC_FILES
