@@ -9,14 +9,24 @@
 
 #ifdef WITH_SKIA
 
+#include <functional>
+
 namespace cl {
 namespace render {
+
+class Scene;  // engine-neutral sink; the callback draws into a Skia-backed one
 
 // Render the G0 proof (a stroked path + a line of text) into an offscreen raster
 // surface and write it to `path` as a PNG. No window and no GL context, so it
 // runs headless (CI, no display). Returns true on success. This is the concrete
 // evidence that Skia actually rasterizes on a given machine.
 bool skiaProbeToPng(const char* path, int width, int height);
+
+// Render an arbitrary scene into an offscreen raster surface (cleared to white)
+// and write it as a PNG. `draw` receives a Skia-backed Scene to emit into (e.g.
+// GUICanvas::renderToScene). Keeps Skia headers out of the caller's TU.
+bool skiaRenderToPng(const char* path, int width, int height,
+                     const std::function<void(Scene&)>& draw);
 
 }  // namespace render
 }  // namespace cl

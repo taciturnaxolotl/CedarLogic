@@ -104,6 +104,9 @@ enum DragState {
 	DRAG_WIRESEG
 };
 
+// Engine-neutral rendering seam (Workstream G); defined in gui/render/.
+namespace cl { namespace render { class Scene; struct RenderStyle; } }
+
 // Class GUICanvas, inherits from klsGLCanvas for basic scroll/zoom/viewport functionality
 //		all event handling is passed to this subclass in GL coordinates.
 //		GUICanvas handles all gate and wire manipulation.
@@ -147,6 +150,13 @@ public:
 
 	// Render this page
     void OnRender( bool noColor = false );
+
+    // Render the whole page into the engine-neutral Scene (Workstream G): fits
+    // the circuit to a device-sized viewport, draws the grid, then every gate
+    // and wire via their drawToScene(). Used by the headless Skia render path;
+    // the live GL OnRender() is untouched.
+    void renderToScene(cl::render::Scene& scene, const cl::render::RenderStyle& style,
+                       int deviceW, int deviceH);
 
 	// Update the collision checker and refresh
 	void Update();

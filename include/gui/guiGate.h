@@ -83,6 +83,9 @@ protected:
 };
 
 
+// Engine-neutral rendering seam (Workstream G); defined in gui/render/.
+namespace cl { namespace render { class Scene; struct RenderStyle; } }
+
 class guiGate : public klsCollisionObject {
 public:
 	guiGate();
@@ -149,6 +152,12 @@ public:
 	void declareInput(string name) { isInput[name] = true; };
 	void declareOutput(string name) { isInput[name] = false; };
 	virtual void draw(bool color = true);
+
+	// Emit this gate into the engine-neutral rendering Scene (Workstream G).
+	// Base draws the gate outline + label lines under the model transform;
+	// interactive subtypes can override to add their widgets. GL path untouched.
+	virtual void drawToScene(cl::render::Scene& scene,
+	                         const cl::render::RenderStyle& style);
 	void setGLcoords( float x, float y, bool noUpdateWires = false );
 	void getGLcoords( float &x, float &y );
 	

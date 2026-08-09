@@ -18,6 +18,8 @@
 #include "QuickAddDialog.h"
 #include "klsClipboard.h"
 #include "guiWire.h"
+#include "render/Scene.h"
+#include "render/RenderStyle.h"
 
 #include <wx/dnd.h>
 
@@ -192,6 +194,45 @@ void GUICanvas::submitCommand(klsCommand *cmd) {
 }
 
 // Render the page
+// Render the whole page into the engine-neutral Scene (Workstream G). Fits the
+// circuit's world bounding box into a deviceW x deviceH viewport (y-flipped for a
+// top-left device origin), then emits every wire and gate. No OpenGL; the live
+// GL OnRender() below is untouched.
+void GUICanvas::renderToScene(cl::render::Scene& scene,
+                              const cl::render::RenderStyle& style,
+                              int deviceW, int deviceH) {
+	using namespace cl::render;
+
+	klsBBox world;
+	for (auto it = gateList.begin(); it != gateList.end(); ++it)
+		if (it->second) world.addBBox(it->second->getBBox());
+	for (auto it = wireList.begin(); it != wireList.end(); ++it)
+		if (it->second) world.addBBox(it->second->getBBox());
+
+	float minX, minY, maxX, maxY;
+	if (world.empty()) { minX = minY = -50; maxX = maxY = 50; }
+	else { minX = world.getLeft(); maxX = world.getRight();
+	       minY = world.getBottom(); maxY = world.getTop(); }
+
+	float worldW = std::max(1e-3f, maxX - minX);
+	float worldH = std::max(1e-3f, maxY - minY);
+	float scale = 0.92f * std::min((float)deviceW / worldW,
+	                               (float)deviceH / worldH);
+	float offX = ((float)deviceW - worldW * scale) * 0.5f;
+	float offY = ((float)deviceH - worldH * scale) * 0.5f;
+
+	// world -> device: x' = (x - minX)*scale + offX ; y' = (maxY - y)*scale + offY
+	Transform t;
+	t.a = scale;  t.c = 0;      t.e = -minX * scale + offX;
+	t.b = 0;      t.d = -scale; t.f =  maxY * scale + offY;
+	scene.setViewport(t);
+
+	for (auto it = wireList.begin(); it != wireList.end(); ++it)
+		if (it->second) it->second->drawToScene(scene, style);
+	for (auto it = gateList.begin(); it != gateList.end(); ++it)
+		if (it->second) it->second->drawToScene(scene, style);
+}
+
 void GUICanvas::OnRender( bool noColor ) {
 	glColor4f( 0.0, 0.0, 0.0, 1.0 );
 	

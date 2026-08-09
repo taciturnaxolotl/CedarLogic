@@ -479,8 +479,11 @@ bool MainApp::OnInit()
     string cmdFilename;
     string renderOutput;
     int renderW = 1600, renderH = 1000;
-    if (argc >= 4 && wxString(argv[1]) == "--render") {
+    bool renderSkia = false;   // --render-skia routes through Skia instead of GL
+    if (argc >= 4 && (wxString(argv[1]) == "--render" ||
+                      wxString(argv[1]) == "--render-skia")) {
         renderMode().headlessRender = true;
+        renderSkia = (wxString(argv[1]) == "--render-skia");
         cmdFilename = argv[2].ToStdString();
         renderOutput = argv[3].ToStdString();
         if (argc >= 6) { renderW = wxAtoi(argv[4]); renderH = wxAtoi(argv[5]); }
@@ -517,13 +520,17 @@ bool MainApp::OnInit()
             }
         }
         // Realize + size the window so the canvas has a client size, load the
-        // circuit synchronously, render it offscreen, and exit.
+        // circuit synchronously, render it offscreen, and exit. The Skia raster
+        // path needs only the loaded model (not a GL window), so it skips
+        // Show() -- realizing the GL canvas hangs under headless software GL.
         frame->SetSize(renderW + 220, renderH + 140);
-        frame->Show(true);
+        if (!renderSkia) frame->Show(true);
         wxYield();
         frame->load(cmdFilename);
         wxYield();
-        bool ok = frame->renderToPng(renderOutput);
+        bool ok = renderSkia
+            ? frame->renderToPngSkia(renderOutput, renderW, renderH)
+            : frame->renderToPng(renderOutput);
         // The PNG is written; exit immediately rather than tear down the (shown)
         // frame + autosave thread, which otherwise hangs this one-shot process.
         fflush(nullptr);

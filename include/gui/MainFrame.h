@@ -153,6 +153,11 @@ public:
 	// Render the current canvas to a PNG (headless --render mode). Output size
 	// follows the canvas client area, which the caller sizes before calling.
 	bool renderToPng(const wxString &path);
+
+	// Workstream G: render the current canvas to a PNG through Skia (engine-
+	// neutral Scene -> raster surface), instead of the OpenGL path above.
+	// Returns false if built without WITH_SKIA.
+	bool renderToPngSkia(const wxString &path, int width, int height);
 	// Ask which format to save an old-format file in. Returns 1/2/3, or -1 to
 	// cancel. New/v3 circuits return 3 without prompting.
 	int chooseSaveFormat();

@@ -11,6 +11,8 @@
 #include "guiWire.h"
 #include "PaletteDrag.h"
 #include "RenderMode.h"
+#include "render/Scene.h"
+#include "render/RenderStyle.h"
 #include "Settings.h"
 #include <cmath>
 #include <stack>
@@ -317,6 +319,63 @@ void guiWire::draw(bool color) {
 		glLineStipple(oldRepeat, oldStipple);
 	}
 
+}
+
+// Engine-neutral mirror of draw(): emit segments (state-colored) + connection
+// dots into the Scene. No OpenGL. See guiWire::draw for the reference behavior.
+void guiWire::drawToScene(cl::render::Scene& scene,
+                          const cl::render::RenderStyle& style) {
+	using namespace cl::render;
+	if (connectPoints.size() < 2) return;
+
+	const bool isBus = ids.size() != 1;
+
+	Stroke s;
+	s.width = isBus ? 4.0f : 1.0f;
+	if (!style.colorOutput || !style.showLiveState) {
+		// Print/topology: black, weight carries bus vs net (state ignored).
+		s = style.wire(WireState::Low, isBus);
+	} else {
+		// Screen: replicate draw()'s decimal-gradient state coloring.
+		bool conflict = false, unknown = false, hiz = false;
+		double redness = 0;
+		for (int i = 0; i < (int)state.size(); i++) {
+			switch (state[i]) {
+				case ONE:      redness += pow(2.0, i); break;
+				case HI_Z:     hiz = true; break;
+				case UNKNOWN:  unknown = true; break;
+				case CONFLICT: conflict = true; break;
+				default:       break;
+			}
+		}
+		double denom = pow(2.0, (double)state.size()) - 1;
+		if (denom > 0) redness /= denom;
+		if (conflict)      s.color = Color(0.0f, 1.0f, 1.0f);
+		else if (unknown)  s.color = Color(0.3f, 0.3f, 1.0f);
+		else if (hiz)      s.color = Color(0.0f, 0.78f, 0.0f);
+		else               s.color = Color((float)redness, 0.0f, 0.0f);
+	}
+	s.dashed = selected && style.showSelection;
+
+	const std::vector<GLLine2f>& segs = renderInfo.lineSegments;
+	if (!segs.empty()) {
+		std::vector<Point> pts;
+		pts.reserve(segs.size() * 2);
+		for (size_t i = 0; i < segs.size(); i++) {
+			pts.push_back(Point(segs[i].begin.x, segs[i].begin.y));
+			pts.push_back(Point(segs[i].end.x, segs[i].end.y));
+		}
+		scene.lines(&pts[0], pts.size(), s);
+	}
+
+	const float r = (float)appConfig().appSettings.wireConnRadius;
+	for (size_t i = 0; i < renderInfo.intersectPoints.size(); i++)
+		scene.fillCircle(Point(renderInfo.intersectPoints[i].x,
+		                       renderInfo.intersectPoints[i].y), r, s.color);
+	if (appConfig().appSettings.wireConnVisible)
+		for (size_t i = 0; i < renderInfo.vertexPoints.size(); i++)
+			scene.fillCircle(Point(renderInfo.vertexPoints[i].x,
+			                       renderInfo.vertexPoints[i].y), r, s.color);
 }
 
 bool guiWire::hover(float cx, float cy, float delta) {

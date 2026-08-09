@@ -11,6 +11,11 @@
 #include "MainApp.h"
 #include "PaletteDrag.h"
 #include "RenderMode.h"
+#ifdef WITH_SKIA
+#include "render/SkiaProbe.h"    // skiaRenderToPng (no Skia headers leak here)
+#include "render/Scene.h"
+#include "render/RenderStyle.h"
+#endif
 #include "SimBridge.h"
 #include "Settings.h"
 #include "GateLibrary.h"
@@ -1541,6 +1546,24 @@ bool MainFrame::renderToPng(const wxString &path) {
 	wxBitmap bmp = getBitmap(appConfig().appSettings.gridlineVisible, false, 1);
 	if (!bmp.IsOk()) return false;
 	return bmp.ConvertToImage().SaveFile(path, wxBITMAP_TYPE_PNG);
+}
+
+bool MainFrame::renderToPngSkia(const wxString &path, int width, int height) {
+#ifdef WITH_SKIA
+	if (currentCanvas == NULL) return false;
+	GUICanvas *canvas = currentCanvas;
+	// Draw through the engine-neutral Scene into a Skia raster surface. The
+	// callback keeps Skia headers out of this TU (see SkiaProbe.h).
+	cl::render::RenderStyle style = cl::render::RenderStyle::screen();
+	return cl::render::skiaRenderToPng(
+		path.ToStdString().c_str(), width, height,
+		[canvas, &style, width, height](cl::render::Scene &scene) {
+			canvas->renderToScene(scene, style, width, height);
+		});
+#else
+	(void)path; (void)width; (void)height;
+	return false;
+#endif
 }
 
 void MainFrame::openFileFromFinder(const wxString& fileName) {

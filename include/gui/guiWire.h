@@ -18,6 +18,9 @@
 #include "klsCollisionChecker.h"
 #include "wireSegment.h"
 
+// Engine-neutral rendering seam (Workstream G); defined in gui/render/.
+namespace cl { namespace render { class Scene; struct RenderStyle; } }
+
 class guiGate;
 class XMLParser;
 
@@ -51,6 +54,11 @@ public:
 	void updateConnectionPos(unsigned long gid, string connection);
 
 	void draw(bool color = true);
+
+	// Emit this wire into the engine-neutral rendering Scene (Workstream G).
+	// Mirrors draw() without OpenGL; the GL path is untouched.
+	void drawToScene(cl::render::Scene& scene,
+	                 const cl::render::RenderStyle& style);
 
 	bool hover(float cx, float cy, float delta);
 

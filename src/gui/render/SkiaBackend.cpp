@@ -15,6 +15,7 @@
 #include "core/SkStream.h"
 #include "encode/SkPngEncoder.h"
 #include "render/SkiaProbe.h"
+#include "render/SkiaScene.h"
 #include "core/SkFontMgr.h"
 #include "core/SkFontStyle.h"
 #include "core/SkImageInfo.h"
@@ -134,6 +135,24 @@ bool skiaProbeToPng(const char* path, int width, int height) {
 	SkPixmap pixmap;
 	if (!image->peekPixels(&pixmap)) return false;
 
+	SkFILEWStream out(path);
+	if (!out.isValid()) return false;
+	return SkPngEncoder::Encode(&out, pixmap, SkPngEncoder::Options{});
+}
+
+bool skiaRenderToPng(const char* path, int width, int height,
+                     const std::function<void(Scene&)>& draw) {
+	sk_sp<SkSurface> surface = SkiaBackend::get().rasterSurface(width, height);
+	if (!surface) return false;
+	surface->getCanvas()->clear(SK_ColorWHITE);
+
+	SkiaScene scene(surface->getCanvas(), SkiaBackend::get().defaultFont());
+	draw(scene);
+
+	sk_sp<SkImage> image = surface->makeImageSnapshot();
+	if (!image) return false;
+	SkPixmap pixmap;
+	if (!image->peekPixels(&pixmap)) return false;
 	SkFILEWStream out(path);
 	if (!out.isValid()) return false;
 	return SkPngEncoder::Encode(&out, pixmap, SkPngEncoder::Options{});

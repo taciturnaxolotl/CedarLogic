@@ -17,6 +17,8 @@
 #include "klsCollisionChecker.h"
 #include "paramDialog.h"
 #include "guiWire.h"
+#include "render/Scene.h"
+#include "render/RenderStyle.h"
 
 DECLARE_APP(MainApp)
 
@@ -219,6 +221,56 @@ void guiGate::draw(bool color) {
 		}
 		glLineStipple( oldRepeat, oldStipple );
 	}
+}
+
+// Engine-neutral mirror of the base draw(): outline vertices + label lines under
+// the gate's model transform. No OpenGL. Interactive subtypes may override to add
+// their widgets; for now they render as their outline.
+void guiGate::drawToScene(cl::render::Scene& scene,
+                          const cl::render::RenderStyle& style) {
+	using namespace cl::render;
+
+	// The gate's model matrix (mModel is a GL 4x4, column-major) reduces to a 2D
+	// affine: x' = m0*x + m4*y + m12 ; y' = m1*x + m5*y + m13.
+	Transform t;
+	t.a = (float)mModel[0];  t.b = (float)mModel[1];
+	t.c = (float)mModel[4];  t.d = (float)mModel[5];
+	t.e = (float)mModel[12]; t.f = (float)mModel[13];
+	scene.pushTransform(t);
+
+	Stroke s(style.gateStroke(GateKind::Generic), 1.0f);
+	s.dashed = selected && style.showSelection;
+
+	if (!vertices.empty()) {
+		std::vector<Point> pts;
+		pts.reserve(vertices.size());
+		for (size_t i = 0; i < vertices.size(); i++)
+			pts.push_back(Point(vertices[i].x, vertices[i].y));
+		scene.lines(&pts[0], pts.size(), s);
+	}
+
+	// Label lines are counter-rotated so text stays upright under the model's
+	// rotation -- mirror draw()'s handling.
+	if (!labelVertices.empty()) {
+		istringstream iss(gparams["angle"]);
+		float angle = 0;
+		iss >> angle;
+		std::vector<Point> lp;
+		lp.reserve(labelVertices.size());
+		if (angle != 0) {
+			float rad = angle * DEG2RAD, cosA = cos(rad), sinA = sin(rad);
+			for (size_t i = 0; i < labelVertices.size(); i++) {
+				float x = labelVertices[i].x, y = labelVertices[i].y;
+				lp.push_back(Point(x * cosA + y * sinA, -x * sinA + y * cosA));
+			}
+		} else {
+			for (size_t i = 0; i < labelVertices.size(); i++)
+				lp.push_back(Point(labelVertices[i].x, labelVertices[i].y));
+		}
+		scene.lines(&lp[0], lp.size(), s);
+	}
+
+	scene.popTransform();
 }
 
 void guiGate::setGLcoords( float x, float y, bool noUpdateWires ) {
