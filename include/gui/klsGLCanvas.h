@@ -230,6 +230,9 @@ private:
 	bool deferPaint;    // suppress setPan's synchronous repaint during a compound
 	                    // camera move (e.g. zoom = setZoom + setCenter) so it
 	                    // paints once at the final state, not the intermediate one
+	bool panning;       // a middle-drag pan is in progress: skip setPan's
+	                    // hover/collision OnMouseMove work, which else runs twice
+	                    // per move and stutters the drag on large circuits
 
 	// Zoom and OpenGL coordinate of upper-left corner of this canvas:
 	GLdouble viewZoom;

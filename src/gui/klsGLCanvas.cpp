@@ -88,6 +88,7 @@ klsGLCanvas::klsGLCanvas(wxWindow *parent, const wxString& name, wxWindowID id,
 
 	glInitialized = false;
 	deferPaint = false;
+	panning = false;
 	// G3 go/no-go: opt into the Skia live-render path with CEDAR_SKIA_LIVE=1.
 	skiaLive = false;
 	if (const char* e = std::getenv("CEDAR_SKIA_LIVE")) skiaLive = (e[0] == '1');
@@ -444,11 +445,16 @@ void klsGLCanvas::setPan( GLdouble newX, GLdouble newY ) {
 	panX = newX;
 	panY = newY;
 
-	// Reset the mouse coordinates to the new pan settings, and
-	// call OnMouseMove() because the mouse's gl coords have changed:
+	// Reset the mouse coordinates to the new pan settings, and call OnMouseMove()
+	// because the mouse's gl coords have changed. During a middle-drag pan we skip
+	// OnMouseMove -- its collision/hover work is irrelevant to panning and would
+	// run every mouse-move (twice, with the caller's own call), stuttering the
+	// drag; setMouseCoords still runs so the next drag delta is computed correctly.
 	setMouseCoords();
-	GLPoint2f m = getMouseCoords();
-	OnMouseMove(m.x, m.y, isShiftDown, isControlDown);
+	if (!panning) {
+		GLPoint2f m = getMouseCoords();
+		OnMouseMove(m.x, m.y, isShiftDown, isControlDown);
+	}
 	updateMiniMap();
 
 	// During a compound camera move (zoom = setZoom + setCenter, each of which
@@ -612,12 +618,17 @@ void klsGLCanvas::wxOnMouseEvent(wxMouseEvent& event) {
 				GLPoint2f mouseDelta( getMouseCoords().x - getDragStartCoords( BUTTON_MIDDLE ).x,
 										getMouseCoords().y - getDragStartCoords( BUTTON_MIDDLE ).y );
 
+				// A pan only needs to move the camera + repaint. Flag it so setPan
+				// skips the hover/collision OnMouseMove, and skip our own call too
+				// -- that heavy per-move work is what makes the drag stutter.
+				panning = true;
 				translatePan( -mouseDelta.x, -mouseDelta.y );
+				panning = false;
+			} else {
+				// It's nothing else, so it must be a mouse motion event:
+				GLPoint2f m = getMouseCoords();
+				OnMouseMove(m.x, m.y, event.ShiftDown(), event.ControlDown());
 			}
-			
-			// It's nothing else, so it must be a mouse motion event:
-			GLPoint2f m = getMouseCoords();
-			OnMouseMove(m.x, m.y, event.ShiftDown(), event.ControlDown());
 		}
 		
 	}
