@@ -8,3 +8,17 @@
 clang_win = "C:\Program Files\LLVM"
 target_cpu = "x86"
 extra_cflags = ["/MT"]
+
+# Have freetype build against Skia's own zlib (which exports Cr_z_-prefixed
+# symbols) instead of its bundled plain-named copy. Otherwise freetype's gzip
+# code references unprefixed inflate/inflateEnd that can't resolve against Skia's
+# zlib.lib, and the app link fails with LNK2019 (unresolved _inflate).
+skia_use_freetype_zlib_bundled = false
+
+# Drop Skia's bundled image codecs on Windows: CedarLogic decodes images through
+# wxWidgets, not Skia, and Skia's static libjpeg/libpng/libwebp collide with the
+# ones wxWidgets already bundles at static link (LNK2005, e.g. _jpeg_*). Skia's
+# vector + text + SVG/PDF rendering does not need them.
+skia_use_libjpeg_turbo = false
+skia_use_libpng = false
+skia_use_libwebp = false
