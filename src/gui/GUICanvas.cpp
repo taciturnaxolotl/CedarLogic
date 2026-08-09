@@ -228,22 +228,36 @@ void GUICanvas::renderToScene(cl::render::Scene& scene,
 	t.b = 0;      t.d = -scale; t.f =  maxY * scale + offY;
 	scene.setViewport(t);
 
-	// Background grid, matching the GL canvas. Stroke widths are device pixels
-	// (SkiaScene divides by the viewport scale, like GL's device-space
-	// glLineWidth), so 1.0 is a ~1px hairline at any zoom.
+	// Background grid, matching klsGLCanvas exactly. The GL grid is NOT a fixed
+	// world spacing: the base world spacing is snapped to an integer (>=1), then
+	// grown so on-screen lines stay at least MIN_GRID_SCREEN_SPACING px apart when
+	// zoomed out. It's a faint translucent blue (GRID_INTENSITY as both blue and
+	// alpha), drawn across the whole canvas, not just the circuit's bbox. Stroke
+	// widths are device pixels (SkiaScene divides by the viewport scale), so 1.0
+	// is a hairline at any zoom.
 	if (style.showGrid) {
-		float gx = horizSpacing, gy = vertSpacing;
-		if (gx <= 0) gx = 1.0f;
-		if (gy <= 0) gy = 1.0f;
+		const float viewZoom = 1.0f / scale;   // GL viewZoom = world units / pixel
+		const long spaceX = std::max(std::max((long)(horizSpacing + 0.5f), 1L),
+		                             (long)(MIN_GRID_SCREEN_SPACING * viewZoom));
+		const long spaceY = std::max(std::max((long)(vertSpacing + 0.5f), 1L),
+		                             (long)(MIN_GRID_SCREEN_SPACING * viewZoom));
+
+		// World extent of the full device rectangle (inverse of the viewport),
+		// so the grid fills the image the way GL fills the visible viewport.
+		const float gMinX = minX - offX / scale;
+		const float gMaxX = minX + ((float)deviceW - offX) / scale;
+		const float gMinY = maxY - ((float)deviceH - offY) / scale;
+		const float gMaxY = maxY + offY / scale;
+
 		Stroke grid;
-		grid.color = Color(0.87f, 0.89f, 0.92f);
+		grid.color = Color(0.0f, 0.0f, (float)GRID_INTENSITY, (float)GRID_INTENSITY);
 		grid.width = 1.0f;
 		std::vector<Point> gl;
-		for (float x = std::ceil(minX / gx) * gx; x <= maxX; x += gx) {
-			gl.push_back(Point(x, minY)); gl.push_back(Point(x, maxY));
+		for (long x = (long)std::floor(gMinX / spaceX) * spaceX; x <= gMaxX; x += spaceX) {
+			gl.push_back(Point((float)x, gMinY)); gl.push_back(Point((float)x, gMaxY));
 		}
-		for (float y = std::ceil(minY / gy) * gy; y <= maxY; y += gy) {
-			gl.push_back(Point(minX, y)); gl.push_back(Point(maxX, y));
+		for (long y = (long)std::floor(gMinY / spaceY) * spaceY; y <= gMaxY; y += spaceY) {
+			gl.push_back(Point(gMinX, (float)y)); gl.push_back(Point(gMaxX, (float)y));
 		}
 		if (!gl.empty()) scene.lines(&gl[0], gl.size(), grid);
 	}
