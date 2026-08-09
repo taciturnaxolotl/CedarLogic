@@ -20,6 +20,7 @@
 class GrDirectContext;
 class SkSurface;
 class SkImage;
+class SkPicture;
 class SkFont;
 class SkFontMgr;
 class SkTypeface;
@@ -61,6 +62,13 @@ public:
 	SkImage* minimapCacheImage() const;
 	void setMinimapCache(sk_sp<SkImage> img, unsigned long long key, int w, int h);
 
+	// Main-canvas scene picture cache (used by skiaRenderWindowScene). The
+	// recorded circuit is reused while `key` matches; a pan is a picture replay,
+	// only a content/scale change re-records.
+	bool sceneCacheHit(unsigned long long key) const;
+	SkPicture* sceneCachePicture() const;
+	void setSceneCache(sk_sp<SkPicture> pic, unsigned long long key);
+
 private:
 	SkiaBackend() {}
 	SkiaBackend(const SkiaBackend&);
@@ -70,6 +78,8 @@ private:
 	sk_sp<SkImage> fMinimapCache;   // declared after fContext: destructs first
 	unsigned long long fMinimapKey = 0;
 	int fMinimapW = 0, fMinimapH = 0;
+	sk_sp<SkPicture> fScenePicture;   // main-canvas circuit, world coords
+	unsigned long long fSceneKey = 0;
 	sk_sp<SkFontMgr> fFontMgr;
 	sk_sp<SkTypeface> fTypeface;
 	SkFont* fFont = nullptr;

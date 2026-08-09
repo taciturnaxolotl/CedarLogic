@@ -166,6 +166,12 @@ public:
     void drawSceneContents(cl::render::Scene& scene, const cl::render::RenderStyle& style,
                            const cl::render::Transform& t, float scale,
                            float gMinX, float gMinY, float gMaxX, float gMaxY);
+    void drawGridInto(cl::render::Scene& scene, const cl::render::RenderStyle& style,
+                      float scale, float gMinX, float gMinY, float gMaxX, float gMaxY);
+    void drawCircuitInto(cl::render::Scene& scene, const cl::render::RenderStyle& style);
+#ifdef WITH_SKIA
+    unsigned long long renderContentKey();
+#endif
 
 	// Update the collision checker and refresh
 	void Update();

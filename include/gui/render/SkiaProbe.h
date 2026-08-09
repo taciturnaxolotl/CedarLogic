@@ -15,6 +15,7 @@ namespace cl {
 namespace render {
 
 class Scene;  // engine-neutral sink; the callback draws into a Skia-backed one
+struct Transform;
 
 // Render the G0 proof (a stroked path + a line of text) into an offscreen raster
 // surface and write it to `path` as a PNG. No window and no GL context, so it
@@ -48,6 +49,22 @@ bool skiaRenderWindowCached(int width, int height, int fboId,
                             const std::function<void(Scene&)>& drawStatic,
                             const std::function<void(Scene&)>& drawOverlay,
                             float strokeScale = 1.0f);
+
+// The live main-canvas path with retained rendering. The circuit (drawScene) is
+// recorded once into an SkPicture in world coordinates and re-recorded only when
+// `sceneKey` or the camera SCALE changes -- so a pan (translation only) is a
+// picture replay, not a full re-run of drawToScene over every gate/wire. The
+// picture is recorded under the camera's scale (so device-pixel stroke widths
+// bake correctly) and replayed under its translation. `drawGrid` is camera-
+// dependent (fills the viewport) so it's drawn live every frame, on top of the
+// cleared surface and under the circuit. `camera` is the full world->device
+// transform; `drawGrid` sets its own viewport, `drawScene` must NOT (the seam
+// sets the recording matrix).
+bool skiaRenderWindowScene(int width, int height, int fboId,
+                           unsigned long long sceneKey,
+                           const Transform& camera,
+                           const std::function<void(Scene&)>& drawGrid,
+                           const std::function<void(Scene&)>& drawScene);
 
 // Render a scene into a vector SVG at `path`. Same callback contract as
 // skiaRenderToPng; output is resolution-independent through the same Scene seam

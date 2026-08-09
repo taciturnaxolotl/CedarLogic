@@ -243,42 +243,80 @@ void GUICanvas::renderToScene(cl::render::Scene& scene,
 // transform. Shared by the bbox-fit export path (renderToScene) and the live
 // camera path (renderLiveToScene). `scale` is device px per world unit; the
 // g{Min,Max}{X,Y} bounds are the visible world rectangle for the grid.
-void GUICanvas::drawSceneContents(cl::render::Scene& scene,
-                                  const cl::render::RenderStyle& style,
-                                  const cl::render::Transform& t, float scale,
-                                  float gMinX, float gMinY,
-                                  float gMaxX, float gMaxY) {
+// The background grid, matching klsGLCanvas: the base world spacing snaps to an
+// integer (>=1), then grows so on-screen lines stay at least
+// MIN_GRID_SCREEN_SPACING px apart when zoomed out. Faint translucent blue
+// (GRID_INTENSITY as both blue and alpha). Assumes the viewport is already set;
+// it is camera-dependent so the live path draws it fresh every frame.
+void GUICanvas::drawGridInto(cl::render::Scene& scene,
+                             const cl::render::RenderStyle& style, float scale,
+                             float gMinX, float gMinY, float gMaxX, float gMaxY) {
 	using namespace cl::render;
-	scene.setViewport(t);
-
-	// Background grid, matching klsGLCanvas exactly: the base world spacing snaps
-	// to an integer (>=1), then grows so on-screen lines stay at least
-	// MIN_GRID_SCREEN_SPACING px apart when zoomed out. Faint translucent blue
-	// (GRID_INTENSITY as both blue and alpha). Stroke widths are device pixels.
-	if (style.showGrid) {
-		const float viewZoom = 1.0f / scale;   // GL viewZoom = world units / pixel
-		const long spaceX = std::max(std::max((long)(horizSpacing + 0.5f), 1L),
-		                             (long)(MIN_GRID_SCREEN_SPACING * viewZoom));
-		const long spaceY = std::max(std::max((long)(vertSpacing + 0.5f), 1L),
-		                             (long)(MIN_GRID_SCREEN_SPACING * viewZoom));
-		Stroke grid;
-		grid.color = Color(0.0f, 0.0f, (float)GRID_INTENSITY, (float)GRID_INTENSITY);
-		grid.width = 1.0f;
-		std::vector<Point> gl;
-		for (long x = (long)std::floor(gMinX / spaceX) * spaceX; x <= gMaxX; x += spaceX) {
-			gl.push_back(Point((float)x, gMinY)); gl.push_back(Point((float)x, gMaxY));
-		}
-		for (long y = (long)std::floor(gMinY / spaceY) * spaceY; y <= gMaxY; y += spaceY) {
-			gl.push_back(Point(gMinX, (float)y)); gl.push_back(Point(gMaxX, (float)y));
-		}
-		if (!gl.empty()) scene.lines(&gl[0], gl.size(), grid);
+	if (!style.showGrid) return;
+	const float viewZoom = 1.0f / scale;   // GL viewZoom = world units / pixel
+	const long spaceX = std::max(std::max((long)(horizSpacing + 0.5f), 1L),
+	                             (long)(MIN_GRID_SCREEN_SPACING * viewZoom));
+	const long spaceY = std::max(std::max((long)(vertSpacing + 0.5f), 1L),
+	                             (long)(MIN_GRID_SCREEN_SPACING * viewZoom));
+	Stroke grid;
+	grid.color = Color(0.0f, 0.0f, (float)GRID_INTENSITY, (float)GRID_INTENSITY);
+	grid.width = 1.0f;
+	std::vector<Point> gl;
+	for (long x = (long)std::floor(gMinX / spaceX) * spaceX; x <= gMaxX; x += spaceX) {
+		gl.push_back(Point((float)x, gMinY)); gl.push_back(Point((float)x, gMaxY));
 	}
+	for (long y = (long)std::floor(gMinY / spaceY) * spaceY; y <= gMaxY; y += spaceY) {
+		gl.push_back(Point(gMinX, (float)y)); gl.push_back(Point(gMaxX, (float)y));
+	}
+	if (!gl.empty()) scene.lines(&gl[0], gl.size(), grid);
+}
 
+// The circuit itself: wires then gates. Assumes the viewport/matrix is already
+// set by the caller (the live path records this into an SkPicture, so it must
+// NOT set the viewport here).
+void GUICanvas::drawCircuitInto(cl::render::Scene& scene,
+                                const cl::render::RenderStyle& style) {
 	for (auto it = wireList.begin(); it != wireList.end(); ++it)
 		if (it->second) it->second->drawToScene(scene, style);
 	for (auto it = gateList.begin(); it != gateList.end(); ++it)
 		if (it->second) it->second->drawToScene(scene, style);
 }
+
+void GUICanvas::drawSceneContents(cl::render::Scene& scene,
+                                  const cl::render::RenderStyle& style,
+                                  const cl::render::Transform& t, float scale,
+                                  float gMinX, float gMinY,
+                                  float gMaxX, float gMaxY) {
+	scene.setViewport(t);
+	drawGridInto(scene, style, scale, gMinX, gMinY, gMaxX, gMaxY);
+	drawCircuitInto(scene, style);
+}
+
+#ifdef WITH_SKIA
+// A cheap signature of everything that affects the rendered circuit: gate
+// positions + selection, and wire selection + signal state (which drives every
+// state colour and per-type fill). The live path re-records its SkPicture only
+// when this changes, so a pure pan (nothing here changes) replays the cache.
+unsigned long long GUICanvas::renderContentKey() {
+	unsigned long long sig = 1469598103934665603ULL;
+	auto mix = [&sig](unsigned long long v) { sig = (sig ^ v) * 1099511628211ULL; };
+	for (auto it = gateList.begin(); it != gateList.end(); ++it) {
+		if (!it->second) continue;
+		float x, y; it->second->getGLcoords(x, y);
+		mix(it->first);
+		mix((unsigned)(x * 32.0f)); mix((unsigned)(y * 32.0f));
+		mix(it->second->isSelected() ? 1u : 0u);
+	}
+	for (auto it = wireList.begin(); it != wireList.end(); ++it) {
+		if (!it->second) continue;
+		mix(it->first);
+		mix(it->second->isSelected() ? 1u : 0u);
+		const std::vector<StateType>& st = it->second->getState();
+		for (size_t i = 0; i < st.size(); i++) mix((unsigned)st[i]);
+	}
+	return sig;
+}
+#endif
 
 // Render the page at the LIVE camera (pan/zoom), not the bbox fit -- this is the
 // on-screen path (G3). Mirrors klsGLCanvas::reclaimViewport's ortho:
@@ -305,18 +343,38 @@ void GUICanvas::renderLiveToScene(cl::render::Scene& scene,
 }
 
 // G3: paint the live frame through Skia's Ganesh backend into the window FBO.
+// The grid is drawn live (camera-dependent); the circuit is retained in an
+// SkPicture and replayed under the camera, so a pan is a cheap replay.
 bool GUICanvas::renderSkiaLive() {
 #ifdef WITH_SKIA
+	using namespace cl::render;
 	wxSize sz = GetClientSize();
 	const double sf = GetContentScaleFactor();
 	const int w = (int)(sz.GetWidth() * sf), h = (int)(sz.GetHeight() * sf);
 	if (w <= 0 || h <= 0) return false;
+	GLdouble px, py; getPan(px, py);
+	double vz = getZoom();
+	if (vz <= 0) vz = 1.0;
+	const float scale = (float)(sf / vz);
+	Transform t;
+	t.a = scale;  t.c = 0; t.e = (float)(-px * scale);
+	t.b = 0; t.d = -scale; t.f = (float)( py * scale);
+	const float gMinX = (float)px;
+	const float gMaxX = (float)(px + sz.GetWidth()  * vz);
+	const float gMinY = (float)(py - sz.GetHeight() * vz);
+	const float gMaxY = (float)py;
+
 	GUICanvas* self = this;
-	cl::render::RenderStyle style = cl::render::RenderStyle::screen();
-	return cl::render::skiaRenderWindow(w, h, 0,
-		[self, &style](cl::render::Scene& scene) {
-			self->renderLiveToScene(scene, style);
-		});
+	const RenderStyle style = RenderStyle::screen();
+	const unsigned long long key = renderContentKey();
+	auto drawGrid = [self, style, t, scale, gMinX, gMinY, gMaxX, gMaxY](Scene& s) {
+		s.setViewport(t);
+		self->drawGridInto(s, style, scale, gMinX, gMinY, gMaxX, gMaxY);
+	};
+	auto drawScene = [self, style](Scene& s) {
+		self->drawCircuitInto(s, style);
+	};
+	return skiaRenderWindowScene(w, h, 0, key, t, drawGrid, drawScene);
 #else
 	return false;
 #endif

@@ -15,7 +15,10 @@
 #include "core/SkDocument.h"
 #include "core/SkFont.h"
 #include "core/SkImage.h"
+#include "core/SkPicture.h"
+#include "core/SkPictureRecorder.h"
 #include "core/SkPixmap.h"
+#include "core/SkRect.h"
 #include "core/SkSamplingOptions.h"
 #include "core/SkStream.h"
 #include "encode/SkPngEncoder.h"
@@ -24,6 +27,7 @@
 #include "core/SkFontMgr.h"
 #include "core/SkFontStyle.h"
 #include "core/SkImageInfo.h"
+#include "core/SkMatrix.h"
 #include "core/SkPaint.h"
 #include "core/SkPath.h"
 #include "core/SkSurface.h"
@@ -244,6 +248,64 @@ void SkiaBackend::setMinimapCache(sk_sp<SkImage> img, unsigned long long key,
 	fMinimapKey = key;
 	fMinimapW = w;
 	fMinimapH = h;
+}
+
+bool SkiaBackend::sceneCacheHit(unsigned long long key) const {
+	return fScenePicture && fSceneKey == key;
+}
+
+SkPicture* SkiaBackend::sceneCachePicture() const { return fScenePicture.get(); }
+
+void SkiaBackend::setSceneCache(sk_sp<SkPicture> pic, unsigned long long key) {
+	fScenePicture = pic;
+	fSceneKey = key;
+}
+
+bool skiaRenderWindowScene(int width, int height, int fboId,
+                           unsigned long long sceneKey,
+                           const Transform& camera,
+                           const std::function<void(Scene&)>& drawGrid,
+                           const std::function<void(Scene&)>& drawScene) {
+	SkiaBackend& backend = SkiaBackend::get();
+	sk_sp<SkSurface> surface = backend.windowSurface(width, height, fboId);
+	if (!surface) return false;
+	GrDirectContext* ctx = backend.context();
+	if (ctx) ctx->resetContext();
+	SkCanvas* canvas = surface->getCanvas();
+	canvas->clear(SK_ColorWHITE);
+
+	// Grid: camera-dependent (fills the viewport), so drawn live every frame.
+	{
+		SkiaScene grid(canvas, backend.defaultFont());
+		drawGrid(grid);
+	}
+
+	// Circuit: recorded once in world coords and reused until the content or the
+	// camera SCALE changes. Key on the scale so device-pixel stroke widths, which
+	// bake into the picture, stay correct; a pure pan keeps the scale and just
+	// replays under a new translation.
+	unsigned long long key = (sceneKey * 1099511628211ULL) ^
+	                         (unsigned long long)(camera.a * 4096.0f);
+	if (!backend.sceneCacheHit(key)) {
+		SkPictureRecorder rec;
+		SkCanvas* pc = rec.beginRecording(SkRect::MakeLTRB(-1e6f, -1e6f, 1e6f, 1e6f));
+		// Bake the camera's scale (and y-flip) into the picture; translation is
+		// applied at replay, so panning doesn't invalidate it.
+		pc->scale(camera.a, camera.d);
+		SkiaScene scene(pc, backend.defaultFont());
+		drawScene(scene);   // wires + gates; must not setViewport
+		backend.setSceneCache(rec.finishRecordingAsPicture(), key);
+	}
+	// The grid left the canvas matrix at the full camera; replay the picture (which
+	// already bakes the scale) under just the translation, so the net is the full
+	// camera again.
+	canvas->save();
+	canvas->setMatrix(SkMatrix::Translate(camera.e, camera.f));
+	canvas->drawPicture(backend.sceneCachePicture());
+	canvas->restore();
+
+	if (ctx) ctx->flushAndSubmit();
+	return true;
 }
 
 bool skiaRenderWindowCached(int width, int height, int fboId,
