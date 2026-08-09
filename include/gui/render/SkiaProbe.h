@@ -37,6 +37,18 @@ bool skiaRenderWindow(int width, int height, int fboId,
                       const std::function<void(Scene&)>& draw,
                       float strokeScale = 1.0f);
 
+// Like skiaRenderWindow, but caches the `drawStatic` layer as an image keyed by
+// `contentKey`: when the key (and size) are unchanged the cached image is
+// re-blitted instead of re-running drawStatic, and only `drawOverlay` is redrawn
+// on top. Built for the minimap, where panning the main canvas moves only the
+// viewport rectangle (the overlay) while the circuit thumbnail (the static
+// layer) is unchanged -- so a pan costs a blit, not a full circuit redraw.
+bool skiaRenderWindowCached(int width, int height, int fboId,
+                            unsigned long long contentKey,
+                            const std::function<void(Scene&)>& drawStatic,
+                            const std::function<void(Scene&)>& drawOverlay,
+                            float strokeScale = 1.0f);
+
 // Render a scene into a vector SVG at `path`. Same callback contract as
 // skiaRenderToPng; output is resolution-independent through the same Scene seam
 // that matches the GL golden, replacing the hand-rolled svgExport.cpp. Canvas is

@@ -61,6 +61,7 @@ private:
 	klsGLCanvas* currentCanvas;	
 	
 	GLPoint2f minCorner, maxCorner;
+	unsigned long long contentSig = 0;   // cache key: changes when the circuit does
 DECLARE_EVENT_TABLE()
 };
 

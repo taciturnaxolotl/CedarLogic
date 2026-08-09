@@ -19,6 +19,7 @@
 
 class GrDirectContext;
 class SkSurface;
+class SkImage;
 class SkFont;
 class SkFontMgr;
 class SkTypeface;
@@ -54,12 +55,21 @@ public:
 	// text into `surface`, then flush. Renders to whatever the surface targets.
 	void probe(SkSurface* surface);
 
+	// Minimap thumbnail cache (used by skiaRenderWindowCached). The cached image
+	// is reused while `key` and the size match; setMinimapCache replaces it.
+	bool minimapCacheHit(unsigned long long key, int w, int h) const;
+	SkImage* minimapCacheImage() const;
+	void setMinimapCache(sk_sp<SkImage> img, unsigned long long key, int w, int h);
+
 private:
 	SkiaBackend() {}
 	SkiaBackend(const SkiaBackend&);
 	SkiaBackend& operator=(const SkiaBackend&);
 
 	sk_sp<GrDirectContext> fContext;
+	sk_sp<SkImage> fMinimapCache;   // declared after fContext: destructs first
+	unsigned long long fMinimapKey = 0;
+	int fMinimapW = 0, fMinimapH = 0;
 	sk_sp<SkFontMgr> fFontMgr;
 	sk_sp<SkTypeface> fTypeface;
 	SkFont* fFont = nullptr;

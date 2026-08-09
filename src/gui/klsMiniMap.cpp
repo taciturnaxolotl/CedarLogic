@@ -44,6 +44,11 @@ void klsMiniMap::setViewport() {
 
 	wxSize sz = GetClientSize();
 	float minX = FLT_MAX, minY = FLT_MAX, maxX = -FLT_MAX, maxY = -FLT_MAX;
+	// Accumulate a cheap content signature (gate ids + positions) so the Skia
+	// path can cache the rendered thumbnail and skip the full redraw while the
+	// circuit is unchanged -- e.g. while the user pans the main canvas.
+	unsigned long long sig = 1469598103934665603ULL;  // FNV-ish seed
+	auto mix = [&sig](unsigned long long v) { sig = (sig ^ v) * 1099511628211ULL; };
 	unordered_map < unsigned long, guiGate* >::iterator gateWalk = gateList->begin();
 	while (gateWalk != gateList->end()) {
 		float x, y;
@@ -52,8 +57,12 @@ void klsMiniMap::setViewport() {
 		if (y < minY) minY = y;
 		if (x > maxX) maxX = x;
 		if (y > maxY) maxY = y;
+		mix(gateWalk->first);
+		mix((unsigned)(x * 32.0f)); mix((unsigned)(y * 32.0f));
 		gateWalk++;
 	}
+	mix(gateList->size()); mix(wireList ? wireList->size() : 0);
+	contentSig = sig;
 	if (origin.x < minX) minX = origin.x;
 	if (origin.y > maxY) maxY = origin.y;
 	if (endpoint.x > maxX) maxX = endpoint.x;
@@ -126,7 +135,11 @@ bool klsMiniMap::generateImageSkia() {
 	// Hairline strokes: the whole circuit is shrunk to a thumbnail, so full-weight
 	// lines would collapse dense clusters into a black blob.
 	const float strokeScale = 0.5f;
-	const bool ok = skiaRenderWindow(w, h, 0, [self, &style, &t](Scene& scene) {
+
+	// Static layer: the circuit thumbnail. Cached by contentSig, so panning the
+	// main canvas (which only moves the viewport rect) re-blits instead of
+	// re-running drawToScene over every gate/wire.
+	auto drawCircuit = [self, &style, &t](Scene& scene) {
 		scene.setViewport(t);
 		if (self->wireList)
 			for (auto& kv : *self->wireList)
@@ -134,15 +147,21 @@ bool klsMiniMap::generateImageSkia() {
 		if (self->gateList)
 			for (auto& kv : *self->gateList)
 				if (kv.second) kv.second->drawToScene(scene, style);
-		// Red rectangle marking the main canvas's visible area.
-		if (self->gateList && !self->gateList->empty()) {
-			const Point box[] = { Point(self->origin.x,   self->origin.y),
-			                      Point(self->origin.x,   self->endpoint.y),
-			                      Point(self->endpoint.x, self->endpoint.y),
-			                      Point(self->endpoint.x, self->origin.y) };
-			scene.polyline(box, 4, Stroke(Color(1.0f, 0.0f, 0.0f, 1.0f), 2.0f), true);
-		}
-	}, strokeScale);
+	};
+	// Overlay: the red rectangle marking the main canvas's visible area (moves
+	// every pan, always redrawn).
+	auto drawViewportRect = [self, &t](Scene& scene) {
+		if (!self->gateList || self->gateList->empty()) return;
+		scene.setViewport(t);
+		const Point box[] = { Point(self->origin.x,   self->origin.y),
+		                      Point(self->origin.x,   self->endpoint.y),
+		                      Point(self->endpoint.x, self->endpoint.y),
+		                      Point(self->endpoint.x, self->origin.y) };
+		scene.polyline(box, 4, Stroke(Color(1.0f, 0.0f, 0.0f, 1.0f), 2.0f), true);
+	};
+
+	const bool ok = skiaRenderWindowCached(w, h, 0, contentSig,
+	                                       drawCircuit, drawViewportRect, strokeScale);
 	if (ok) SwapBuffers();
 	return ok;
 }

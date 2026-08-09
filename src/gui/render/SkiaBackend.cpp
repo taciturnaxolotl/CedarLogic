@@ -16,6 +16,7 @@
 #include "core/SkFont.h"
 #include "core/SkImage.h"
 #include "core/SkPixmap.h"
+#include "core/SkSamplingOptions.h"
 #include "core/SkStream.h"
 #include "encode/SkPngEncoder.h"
 #include "render/SkiaProbe.h"
@@ -227,6 +228,51 @@ bool skiaRenderWindow(int width, int height, int fboId,
 	SkiaScene scene(canvas, backend.defaultFont(), strokeScale);
 	draw(scene);
 	// Flush the recorded work to GL and hand back to the caller to SwapBuffers.
+	if (ctx) ctx->flushAndSubmit();
+	return true;
+}
+
+bool SkiaBackend::minimapCacheHit(unsigned long long key, int w, int h) const {
+	return fMinimapCache && fMinimapKey == key && fMinimapW == w && fMinimapH == h;
+}
+
+SkImage* SkiaBackend::minimapCacheImage() const { return fMinimapCache.get(); }
+
+void SkiaBackend::setMinimapCache(sk_sp<SkImage> img, unsigned long long key,
+                                  int w, int h) {
+	fMinimapCache = img;
+	fMinimapKey = key;
+	fMinimapW = w;
+	fMinimapH = h;
+}
+
+bool skiaRenderWindowCached(int width, int height, int fboId,
+                            unsigned long long contentKey,
+                            const std::function<void(Scene&)>& drawStatic,
+                            const std::function<void(Scene&)>& drawOverlay,
+                            float strokeScale) {
+	SkiaBackend& backend = SkiaBackend::get();
+	sk_sp<SkSurface> surface = backend.windowSurface(width, height, fboId);
+	if (!surface) return false;
+	GrDirectContext* ctx = backend.context();
+	if (ctx) ctx->resetContext();
+	SkCanvas* canvas = surface->getCanvas();
+	canvas->clear(SK_ColorWHITE);
+
+	if (backend.minimapCacheHit(contentKey, width, height)) {
+		// Re-blit the cached circuit thumbnail (device space) -- no redraw.
+		canvas->drawImage(backend.minimapCacheImage(), 0, 0,
+		                  SkSamplingOptions{}, nullptr);
+	} else {
+		SkiaScene scene(canvas, backend.defaultFont(), strokeScale);
+		drawStatic(scene);
+		// Snapshot the circuit layer (before the overlay) for reuse on pan.
+		backend.setMinimapCache(surface->makeImageSnapshot(), contentKey,
+		                        width, height);
+	}
+	// The moving overlay (viewport rectangle) is always redrawn on top.
+	SkiaScene overlay(canvas, backend.defaultFont(), strokeScale);
+	drawOverlay(overlay);
 	if (ctx) ctx->flushAndSubmit();
 	return true;
 }
