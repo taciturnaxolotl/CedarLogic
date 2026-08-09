@@ -233,6 +233,9 @@ private:
 	bool panning;       // a middle-drag pan is in progress: skip setPan's
 	                    // hover/collision OnMouseMove work, which else runs twice
 	                    // per move and stutters the drag on large circuits
+	wxLongLong lastPanPaintMs;  // last synchronous repaint during a pan; used to
+	                            // throttle painting to ~frame rate so a real
+	                            // mouse's move flood doesn't back up the paints
 
 	// Zoom and OpenGL coordinate of upper-left corner of this canvas:
 	GLdouble viewZoom;

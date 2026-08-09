@@ -89,6 +89,7 @@ klsGLCanvas::klsGLCanvas(wxWindow *parent, const wxString& name, wxWindowID id,
 	glInitialized = false;
 	deferPaint = false;
 	panning = false;
+	lastPanPaintMs = 0;
 	// G3 go/no-go: opt into the Skia live-render path with CEDAR_SKIA_LIVE=1.
 	skiaLive = false;
 	if (const char* e = std::getenv("CEDAR_SKIA_LIVE")) skiaLive = (e[0] == '1');
@@ -377,17 +378,6 @@ void klsGLCanvas::wxOnPaint(wxPaintEvent& event) {
 		glClearColor (1.0, 1.0, 1.0, 0.0);
 		glColor3b(0, 0, 0);
 		glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
-
-#ifdef __WXMSW__
-		// Cap presentation to the display refresh (vsync). Skia renders a frame in
-		// ~1 ms, so without this the canvas free-runs well past the refresh rate --
-		// which tears during a pan and reads as "not smooth". Harmless for GL.
-		typedef BOOL (WINAPI *SwapIntervalProc)(int);
-		if (SwapIntervalProc swapInterval =
-		        (SwapIntervalProc)wglGetProcAddress("wglSwapIntervalEXT")) {
-			swapInterval(1);
-		}
-#endif
 		
 		//TODO: Check if alpha is hardware supported, and
 		// don't enable it if not!
@@ -472,6 +462,18 @@ void klsGLCanvas::setPan( GLdouble newX, GLdouble newY ) {
 	// calls setPan) skip the repaint until the final state, so we don't flash the
 	// intermediate frame.
 	if (deferPaint) return;
+
+	// While panning, throttle the synchronous repaint to ~frame rate. A real
+	// mouse fires moves far faster than we can paint; without this each move
+	// forces a full synchronous paint and they back up, so the view lags the
+	// cursor. Intermediate moves still update panX/panY above, so no motion is
+	// lost -- the next painted frame just uses the latest position. endDrag forces
+	// a final paint so the last move always lands.
+	if (panning) {
+		wxLongLong now = wxGetLocalTimeMillis();
+		if ((now - lastPanPaintMs).GetValue() < 12) return;
+		lastPanPaintMs = now;
+	}
 
 	Refresh(); // Obviously it needs refreshed after a pan.
 	// Force an immediate repaint rather than a deferred WM_PAINT. On Windows
@@ -605,6 +607,9 @@ void klsGLCanvas::wxOnMouseEvent(wxMouseEvent& event) {
 	} else if( event.MiddleUp() ) {
 		endDrag( BUTTON_MIDDLE );
 		OnMouseUp( event );
+		// The last pan move may have been throttled; paint the final position.
+		Refresh();
+		wxWindow::Update();
 	} else {
 		// It's not a button event, so check the others:
 		if( event.Entering() ) {
