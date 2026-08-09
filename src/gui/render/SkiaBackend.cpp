@@ -10,6 +10,11 @@
 #include "core/SkColor.h"
 #include "core/SkColorSpace.h"
 #include "core/SkFont.h"
+#include "core/SkImage.h"
+#include "core/SkPixmap.h"
+#include "core/SkStream.h"
+#include "encode/SkPngEncoder.h"
+#include "render/SkiaProbe.h"
 #include "core/SkFontMgr.h"
 #include "core/SkFontStyle.h"
 #include "core/SkImageInfo.h"
@@ -116,6 +121,22 @@ void SkiaBackend::probe(SkSurface* surface) {
 	}
 
 	if (fContext) fContext->flushAndSubmit();
+}
+
+bool skiaProbeToPng(const char* path, int width, int height) {
+	SkiaBackend& backend = SkiaBackend::get();
+	sk_sp<SkSurface> surface = backend.rasterSurface(width, height);
+	if (!surface) return false;
+	backend.probe(surface.get());  // draws the path + text (no GPU flush needed)
+
+	sk_sp<SkImage> image = surface->makeImageSnapshot();
+	if (!image) return false;
+	SkPixmap pixmap;
+	if (!image->peekPixels(&pixmap)) return false;
+
+	SkFILEWStream out(path);
+	if (!out.isValid()) return false;
+	return SkPngEncoder::Encode(&out, pixmap, SkPngEncoder::Options{});
 }
 
 }  // namespace render

@@ -17,6 +17,9 @@
 #include <sstream>
 #include "migrate.hpp"   // cl::loadCircuit, to validate a file before the GUI load
 #include "wx/stdpaths.h"
+#ifdef WITH_SKIA
+#include "render/SkiaProbe.h"   // headless --skia-probe (no Skia headers leak here)
+#endif
 #include "wx/fileconf.h"
 
 // Crash reporter: portable pieces (report path, URL helpers, the next-launch
@@ -456,6 +459,21 @@ bool MainApp::OnInit()
 	//	fName.Normalize(wxPATH_NORM_LONG|wxPATH_NORM_DOTS|wxPATH_NORM_TILDE|wxPATH_NORM_ABSOLUTE);
 	//	cmdFilename = fName.GetFullPath();
     //}	
+#ifdef WITH_SKIA
+    // Headless Skia render proof: `--skia-probe <output.png> [width height]`.
+    // Renders through Skia into an offscreen raster surface (no window, no GL)
+    // and writes a PNG, then exits -- runs in CI with no display and proves Skia
+    // rasterizes on this machine.
+    if (argc >= 3 && wxString(argv[1]) == "--skia-probe") {
+        int w = 320, h = 200;
+        if (argc >= 5) { w = wxAtoi(argv[3]); h = wxAtoi(argv[4]); }
+        bool ok = cl::render::skiaProbeToPng(
+            wxString(argv[2]).ToStdString().c_str(), w, h);
+        fflush(nullptr);
+        std::_Exit(ok ? 0 : 1);
+    }
+#endif
+
     // Headless render mode: `--render <input.cdl> <output.png> [width height]`.
     // Loads the circuit, writes a PNG of it, and exits without a main loop.
     string cmdFilename;

@@ -14,6 +14,7 @@ on:
   push:
     branches:
       - 'feat/g0-**'
+      - 'feat/g1-**'
 
 permissions:
   contents: read
@@ -58,7 +59,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential cmake ninja-build \
             libwxgtk3.2-dev libgtk-3-dev libgl1-mesa-dev libglu1-mesa-dev \
-            libfontconfig1-dev
+            libfontconfig1-dev xvfb fonts-dejavu-core
 
       - name: Configure + build (Linux)
         if: matrix.name == 'linux'
@@ -71,12 +72,28 @@ jobs:
           cmake --build build
           cmake --install build --prefix "$PWD/dist"
 
+      # Actually exercise Skia: render the probe to a PNG headlessly (xvfb only
+      # satisfies wx's GTK init; the raster render itself is pure CPU). Fail if
+      # the PNG is missing or suspiciously tiny (i.e. blank / not written).
+      - name: Skia render proof (Linux)
+        if: matrix.name == 'linux'
+        env:
+          CEDAR_FONT_DIR: /usr/share/fonts/truetype/dejavu
+        run: |
+          xvfb-run -a ./build/CedarLogic --skia-probe skia-probe.png 480 300
+          ls -l skia-probe.png
+          sz=$(stat -c%s skia-probe.png)
+          echo "probe png size: $sz bytes"
+          test "$sz" -gt 1000
+
       - name: Upload test build (Linux)
         if: matrix.name == 'linux'
         uses: actions/upload-artifact@v4
         with:
           name: CedarLogic-linux-skia
-          path: dist
+          path: |
+            dist
+            skia-probe.png
           if-no-files-found: error
 
       # Windows: system wxWidgets isn't available, so this also FetchContent-builds
