@@ -615,6 +615,31 @@ void guiGateTOGGLE::draw( bool color ) {
 	glColor4f( 0.0, 0.0, 0.0, 1.0 );
 }
 
+void guiGateTOGGLE::drawToScene(cl::render::Scene& scene,
+                                const cl::render::RenderStyle& style) {
+	using namespace cl::render;
+	guiGate::drawToScene(scene, style);   // outline + labels
+
+	Transform t;
+	t.a = (float)mModel[0];  t.b = (float)mModel[1];
+	t.c = (float)mModel[4];  t.d = (float)mModel[5];
+	t.e = (float)mModel[12]; t.f = (float)mModel[13];
+	scene.pushTransform(t);
+	const float x1 = renderInfo_clickBox.begin.x, y1 = renderInfo_clickBox.begin.y;
+	const float x2 = renderInfo_clickBox.end.x,   y2 = renderInfo_clickBox.end.y;
+	if (style.showLiveState) {
+		// Filled button: red when driving 1, black when driving 0 (as draw()).
+		const Color c((float)renderInfo_outputNum, 0.0f, 0.0f, 1.0f);
+		scene.fillRect(Point(x1, y1), Point(x2, y2), c);
+	} else {
+		const Point box[] = {Point(x1, y1), Point(x2, y1),
+		                     Point(x2, y2), Point(x1, y2)};
+		scene.polyline(box, 4, Stroke(style.gateStroke(GateKind::Input), 1.0f),
+		               true);
+	}
+	scene.popTransform();
+}
+
 void guiGateTOGGLE::setGUIParam( string paramName, string value ) {
 	if (paramName == "CLICK_BOX") {
 		istringstream iss(value);
@@ -848,6 +873,56 @@ void guiGateREGISTER::draw( bool color ) {
 	}
 }
 
+void guiGateREGISTER::drawToScene(cl::render::Scene& scene,
+                                  const cl::render::RenderStyle& style) {
+	using namespace cl::render;
+	guiGate::drawToScene(scene, style);   // outline + labels
+	if (!style.showLiveState) return;     // print/topology: no lit digits
+
+	Transform t;
+	t.a = (float)mModel[0];  t.b = (float)mModel[1];
+	t.c = (float)mModel[4];  t.d = (float)mModel[5];
+	t.e = (float)mModel[12]; t.f = (float)mModel[13];
+	scene.pushTransform(t);
+
+	// The value box, black outline.
+	const float bx = renderInfo_valueBox.begin.x, by = renderInfo_valueBox.begin.y;
+	const float ex = renderInfo_valueBox.end.x,   ey = renderInfo_valueBox.end.y;
+	const Point box[] = {Point(bx, by), Point(bx, ey), Point(ex, ey), Point(ex, by)};
+	scene.polyline(box, 4, Stroke(style.gateStroke(GateKind::Generic), 1.0f), true);
+
+	// Seven-segment digits, mirroring draw()'s GL_LINES pairs. Red normally,
+	// blue when any input is unknown.
+	float diffx = renderInfo_diffx / (float)renderInfo_numDigitsToShow;
+	float diffy = renderInfo_diffy;
+	const Color segColor = renderInfo_drawBlue ? Color(0.3f, 0.3f, 1.0f)
+	                                           : Color(1.0f, 0.0f, 0.0f);
+	std::vector<Point> seg;
+	for (unsigned int d = 0; d < renderInfo_currentValue.size(); d++) {
+		char c = renderInfo_currentValue[d];
+		const float x0 = bx + diffx * d;
+		const float L = x0 + diffx * 0.1875f, R = x0 + diffx * 0.8125f;
+		const float yT = by + diffy * 0.88462f, yM = by + diffy * 0.5f,
+		            yB = by + diffy * 0.11538f;
+		if (c != '1' && c != '4' && c != 'B' && c != 'D')  // TOP
+			{ seg.push_back(Point(L, yT)); seg.push_back(Point(R, yT)); }
+		if (c != '0' && c != '1' && c != '7' && c != 'C')  // MID
+			{ seg.push_back(Point(L, yM)); seg.push_back(Point(R, yM)); }
+		if (c != '1' && c != '4' && c != '7' && c != '9' && c != 'A' && c != 'F')  // BOTTOM
+			{ seg.push_back(Point(L, yB)); seg.push_back(Point(R, yB)); }
+		if (c != '1' && c != '2' && c != '3' && c != '7' && c != 'D')  // TL
+			{ seg.push_back(Point(L, yT)); seg.push_back(Point(L, yM)); }
+		if (c != '5' && c != '6' && c != 'B' && c != 'C' && c != 'E' && c != 'F')  // TR
+			{ seg.push_back(Point(R, yT)); seg.push_back(Point(R, yM)); }
+		if (c != '1' && c != '3' && c != '4' && c != '5' && c != '7' && c != '9')  // BL
+			{ seg.push_back(Point(L, yB)); seg.push_back(Point(L, yM)); }
+		if (c != '2' && c != 'C' && c != 'E' && c != 'F')  // BR
+			{ seg.push_back(Point(R, yB)); seg.push_back(Point(R, yM)); }
+	}
+	if (!seg.empty()) scene.lines(&seg[0], seg.size(), Stroke(segColor, 2.0f));
+	scene.popTransform();
+}
+
 void guiGateREGISTER::setLogicParam( string paramName, string value ) {
 	int intVal;
 	if (paramName == "INPUT_BITS") {
@@ -1007,6 +1082,33 @@ void guiGateLED::draw( bool color ) {
 	glColor4f( 0.0, 0.0, 0.0, 1.0 );
 }
 
+void guiGateLED::drawToScene(cl::render::Scene& scene,
+                             const cl::render::RenderStyle& style) {
+	using namespace cl::render;
+	guiGate::drawToScene(scene, style);   // outline + labels
+	if (!style.showLiveState) return;     // topology/print: LED prints as outline
+	StateType outputState = HI_Z;
+	map<string, guiWire*>::iterator it = connections.begin();
+	if (it != connections.end() && it->second)
+		outputState = it->second->getState()[0];
+	Color c(0, 0, 0, 1);
+	switch (outputState) {
+		case ONE:      c = Color(1.0f, 0.0f, 0.0f); break;
+		case HI_Z:     c = Color(0.0f, 0.78f, 0.0f); break;
+		case UNKNOWN:  c = Color(0.3f, 0.3f, 1.0f); break;
+		case CONFLICT: c = Color(0.0f, 1.0f, 1.0f); break;
+		case ZERO: default: c = Color(0.0f, 0.0f, 0.0f); break;
+	}
+	Transform t;
+	t.a = (float)mModel[0];  t.b = (float)mModel[1];
+	t.c = (float)mModel[4];  t.d = (float)mModel[5];
+	t.e = (float)mModel[12]; t.f = (float)mModel[13];
+	scene.pushTransform(t);
+	scene.fillRect(Point(renderInfo_ledBox.begin.x, renderInfo_ledBox.begin.y),
+	               Point(renderInfo_ledBox.end.x, renderInfo_ledBox.end.y), c);
+	scene.popTransform();
+}
+
 void guiGateLED::setGUIParam( string paramName, string value ) {
 	if (paramName == "LED_BOX") {
 		istringstream iss(value);
@@ -1043,8 +1145,26 @@ void guiLabel::draw( bool color ) {
 	theText.draw();
 }
 
+void guiLabel::drawToScene(cl::render::Scene& scene,
+                           const cl::render::RenderStyle& style) {
+	using namespace cl::render;
+	Transform t;
+	t.a = (float)mModel[0];  t.b = (float)mModel[1];
+	t.c = (float)mModel[4];  t.d = (float)mModel[5];
+	t.e = (float)mModel[12]; t.f = (float)mModel[13];
+	scene.pushTransform(t);
+	double px, py;
+	theText.getPosition(px, py);
+	std::string txt = getGUIParam("LABEL_TEXT");
+	// SkFont em size runs larger than the GL font's nominal height; scale down
+	// so cap heights roughly match the golden.
+	scene.text(Point((float)px, (float)py), txt.c_str(),
+	           (float)getTextHeight() * 1.35f, style.gateStroke(GateKind::Label));
+	scene.popTransform();
+}
+
 // A custom setParam function is required because
-// the object must resize it's bounding box 
+// the object must resize it's bounding box
 // each time the LABEL_TEXT or TEXT_HEIGHT parameter is set.
 void guiLabel::setGUIParam( string paramName, string value ) {
 	if( (paramName == "LABEL_TEXT") || (paramName == "TEXT_HEIGHT")  ) {
@@ -1153,6 +1273,43 @@ void guiTO_FROM::draw( bool color ) {
 // A custom setParam function is required because
 // the object must resize it's bounding box 
 // each time the JUNCTION_ID parameter is set.
+void guiTO_FROM::drawToScene(cl::render::Scene& scene,
+                             const cl::render::RenderStyle& style) {
+	guiGate::drawToScene(scene, style);   // gate outline + label lines
+	using namespace cl::render;
+	Transform t;
+	t.a = (float)mModel[0];  t.b = (float)mModel[1];
+	t.c = (float)mModel[4];  t.d = (float)mModel[5];
+	t.e = (float)mModel[12]; t.f = (float)mModel[13];
+	scene.pushTransform(t);
+
+	// Keep the label readable on 90/180-rotated tos/froms: the gate's rotation is
+	// baked into mModel, so the text would otherwise render upside down. Mirror
+	// draw()'s counter-rotation -- shift by the label width, then spin 180.
+	const std::string angle = getGUIParam("angle");
+	const bool flipped = (angle == "180" || angle == "90");
+	if (flipped) {
+		GLbox bb = theText.getBoundingBox();
+		const double textWidth = bb.right - bb.left;
+		const int direction = (getGUIType() == "TO") ? +1
+		                    : (getGUIType() == "FROM") ? -1 : 0;
+		const double dx = direction * (textWidth + FLIPPED_OFFSET);
+		Transform r;                 // translate(dx) * rotate180 about z
+		r.a = -1.0f; r.b = 0.0f; r.c = 0.0f; r.d = -1.0f;
+		r.e = (float)dx; r.f = 0.0f;
+		scene.pushTransform(r);
+	}
+
+	double px, py;
+	theText.getPosition(px, py);
+	std::string txt = theText.getText();
+	scene.text(Point((float)px, (float)py), txt.c_str(),
+	           (float)TO_FROM_TEXT_HEIGHT * 1.35f, style.gateStroke(GateKind::Generic));
+
+	if (flipped) scene.popTransform();
+	scene.popTransform();
+}
+
 void guiTO_FROM::setLogicParam( string paramName, string value ) {
 	if( paramName == "JUNCTION_ID" ) {
 		guiGate::setLogicParam( paramName, value );

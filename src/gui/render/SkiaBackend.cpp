@@ -80,19 +80,66 @@ const SkFont* SkiaBackend::defaultFont() {
 	if (fFontTried) return fFont;
 	fFontTried = true;
 
-	// The bundled face is a G2 decision; for now load from CEDAR_FONT_DIR when
-	// set (also how the golden harness will point at a pinned face).
-	const char* dir = std::getenv("CEDAR_FONT_DIR");
-	if (dir) {
-		fFontMgr = SkFontMgr_New_Custom_Directory(dir);
-		if (fFontMgr) {
-			fTypeface = fFontMgr->matchFamilyStyle(nullptr, SkFontStyle::Normal());
-			if (!fTypeface) {
-				fTypeface = fFontMgr->legacyMakeTypeface(nullptr,
-				                                         SkFontStyle::Normal());
+	// This Skia is built with the custom-directory font manager only (no platform
+	// system manager), so a face has to come from a file on disk. Resolve one at
+	// runtime, most-specific first, so text works with no configuration:
+	//   1. CEDAR_FONT_FILE   -- explicit override (a single .ttf)
+	//   2. res/LabelFont.ttf -- a face bundled next to the app, if we ship one
+	//   3. a platform system sans-serif at its well-known path
+	// The platform list ends on the first hit; on Windows that is real Arial,
+	// which matches the GL renderer's baked arial.glf atlas.
+	//
+	// makeFromFile takes a full path; the "." directory argument only scopes
+	// family matching, which we don't use here.
+	fFontMgr = SkFontMgr_New_Custom_Directory(".");
+	if (!fFontMgr) return fFont;
+
+	// Bold faces first: the GL renderer's baked arial.glf atlas is bold, so
+	// schematic labels read heavier than a book weight. Matching it keeps Skia
+	// output visually identical to the legacy renderer. Regular is the fallback.
+	const char* env = std::getenv("CEDAR_FONT_FILE");
+	const char* candidates[] = {
+		env,
+		"res/LabelFont.ttf",
+		"LabelFont.ttf",
+#if defined(_WIN32)
+		"C:/Windows/Fonts/arialbd.ttf",
+		"C:/Windows/Fonts/arial.ttf",
+		"C:/Windows/Fonts/segoeui.ttf",
+#elif defined(__APPLE__)
+		"/Library/Fonts/Arial Bold.ttf",
+		"/System/Library/Fonts/Helvetica.ttc",
+		"/Library/Fonts/Arial.ttf",
+#else
+		"/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+		"/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+		"/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+		"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+		"/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf",
+		"/usr/share/fonts/dejavu/DejaVuSans.ttf",
+#endif
+	};
+	for (const char* path : candidates) {
+		if (!path || !*path) continue;
+		fTypeface = fFontMgr->makeFromFile(path, 0);
+		if (fTypeface) break;
+	}
+
+	// Last resort: a directory of faces via CEDAR_FONT_DIR.
+	if (!fTypeface) {
+		const char* dir = std::getenv("CEDAR_FONT_DIR");
+		if (dir && *dir) {
+			sk_sp<SkFontMgr> dm = SkFontMgr_New_Custom_Directory(dir);
+			if (dm) {
+				fTypeface = dm->matchFamilyStyle(nullptr, SkFontStyle::Normal());
+				if (!fTypeface) {
+					fTypeface = dm->legacyMakeTypeface(nullptr,
+					                                   SkFontStyle::Normal());
+				}
 			}
 		}
 	}
+
 	if (fTypeface) fFont = new SkFont(fTypeface, 12.0f);
 	return fFont;
 }

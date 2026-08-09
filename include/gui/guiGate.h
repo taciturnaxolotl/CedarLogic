@@ -301,7 +301,9 @@ class guiGateTOGGLE : public guiGate {
 public:
 	guiGateTOGGLE();
 	void draw( bool color = true );
-	
+	void drawToScene(cl::render::Scene& scene,
+	                 const cl::render::RenderStyle& style) override;
+
 	void setGUIParam( string paramName, string value );
 	void setLogicParam( string paramName, string value );
 
@@ -332,6 +334,8 @@ class guiGateREGISTER : public guiGate {
 public:
 	guiGateREGISTER();
 	void draw( bool color = true );
+	void drawToScene(cl::render::Scene& scene,
+	                 const cl::render::RenderStyle& style) override;
 	void setGUIParam( string paramName, string value );
 	void setLogicParam( string paramName, string value );
 protected:
@@ -362,6 +366,8 @@ class guiGateLED : public guiGate {
 public:
 	guiGateLED();
 	void draw( bool color = true );
+	void drawToScene(cl::render::Scene& scene,
+	                 const cl::render::RenderStyle& style) override;
 	void setGUIParam( string paramName, string value );
 protected:
 	GLLine2f renderInfo_ledBox;
@@ -375,6 +381,8 @@ class guiLabel : public guiGate {
 public:
 	guiLabel();
 	void draw( bool color = true );
+	void drawToScene(cl::render::Scene& scene,
+	                 const cl::render::RenderStyle& style) override;
 
 	// Recalculate the label's bounding box:
 	void calcBBox( void );
@@ -411,6 +419,8 @@ public:
 	guiTO_FROM();
 
 	void draw( bool color = true );
+	void drawToScene(cl::render::Scene& scene,
+	                 const cl::render::RenderStyle& style) override;
 
 	// Recalculate the gate's bounding box:
 	void calcBBox( void );

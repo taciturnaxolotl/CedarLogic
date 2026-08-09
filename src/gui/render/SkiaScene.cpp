@@ -10,6 +10,7 @@
 #include "core/SkCanvas.h"
 #include "core/SkColor.h"
 #include "core/SkFont.h"
+#include "core/SkFontTypes.h"
 #include "core/SkMatrix.h"
 #include "core/SkPaint.h"
 #include "core/SkPath.h"
@@ -141,11 +142,27 @@ void SkiaScene::fillRect(Point lo, Point hi, const Color& c) {
 
 void SkiaScene::text(Point origin, const char* utf8, float pixelHeight,
                      const Color& c) {
-	if (!fFont || !utf8) return;
+	if (!fFont || !utf8 || !*utf8) return;
 	SkFont f(*fFont);
 	f.setSize(pixelHeight);
+	// The text is sized in world units and drawn through the viewport's scale
+	// matrix. Use linear (unhinted) metrics + subpixel positioning so glyph
+	// advances are the true fractional values rather than advances hinted to the
+	// unscaled pixel grid and then magnified -- the latter reads as loose, uneven
+	// letter-spacing at the zoom levels schematics use.
+	f.setSubpixel(true);
+	f.setLinearMetrics(true);
+	f.setHinting(SkFontHinting::kNone);
+	f.setEdging(SkFont::Edging::kAntiAlias);
 	SkPaint p = fillPaint(c);
-	fCanvas->drawString(utf8, origin.x, origin.y, f, p);
+	// The viewport flips y (device is y-down); flip it back around the text
+	// origin so glyphs render upright rather than mirrored. Text is positioned
+	// by its baseline-left, like the GL font.
+	fCanvas->save();
+	fCanvas->translate(origin.x, origin.y);
+	fCanvas->scale(1.0f, -1.0f);
+	fCanvas->drawString(utf8, 0.0f, 0.0f, f, p);
+	fCanvas->restore();
 }
 
 }  // namespace render

@@ -45,8 +45,9 @@ public:
 	// A CPU raster surface for offscreen rendering (PNG/SVG/PDF, goldens).
 	sk_sp<SkSurface> rasterSurface(int width, int height);
 
-	// A default typeface for text, or null if none is available. The bundled
-	// face is a G2 decision; here we load from CEDAR_FONT_DIR if set.
+	// A default typeface for text, or null if none is available. Resolved at
+	// runtime, most-specific first: CEDAR_FONT_FILE, a bundled res/ face, then a
+	// platform system sans-serif. See defaultFont() for the full search order.
 	const SkFont* defaultFont();
 
 	// G0 proof: draw one stroked path and (if a font is available) one line of
