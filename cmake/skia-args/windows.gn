@@ -9,13 +9,18 @@ clang_win = "C:\Program Files\LLVM"
 target_cpu = "x86"
 extra_cflags = ["/MT"]
 
-# Drop the Skia image codecs that duplicate wxWidgets' bundled ones at static
-# link. Only libjpeg actually collided (LNK2005 on _jpeg_*); webp is safe to drop
-# too since core Skia doesn't reference it. PNG stays enabled: core Skia
-# references SkPngDecoder/Encoder unconditionally (DirectWrite color-glyph
-# metrics, image serialization), and Skia's libpng did not clash with wx's.
-# The real m124 gates are the per-direction *_decode/*_encode args.
-skia_use_libjpeg_turbo_decode = false
-skia_use_libjpeg_turbo_encode = false
+# libjpeg-turbo (decode + encode) is REQUIRED for the PDF backend: Skia's
+# optional("pdf") is gated on `skia_use_libjpeg_turbo_decode &&
+# skia_use_libjpeg_turbo_encode` (BUILD.gn ~L1216), and compiles the null stub
+# SkDocument_PDF_None.cpp otherwise -- which is why an earlier "codecs off" build
+# linked a SkPDF that returned null. Enable it so PDF is real.
+#
+# Skia's libjpeg-turbo duplicates wxWidgets' bundled libjpeg (LNK2005 on _jpeg_*
+# at the app link). That is resolved on the app side, not here: CedarLogic builds
+# wxWidgets with wxUSE_LIBJPEG=OFF (see CMakeLists) so Skia's is the only libjpeg.
+# webp stays off (core Skia doesn't reference it); PNG stays on (core references
+# SkPngDecoder/Encoder unconditionally and Skia's libpng didn't clash with wx's).
+skia_use_libjpeg_turbo_decode = true
+skia_use_libjpeg_turbo_encode = true
 skia_use_libwebp_decode = false
 skia_use_libwebp_encode = false

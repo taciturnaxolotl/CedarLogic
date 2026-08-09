@@ -1200,7 +1200,7 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 	} else if (result == wxID_OK) {
 		// Save to file
 		wxString caption = "Export Circuit";
-		wxString wildcard = "SVG (*.svg)|*.svg|PNG (*.png)|*.png|JPEG (*.jpg;*.jpeg)|*.jpg;*.jpeg|Bitmap (*.bmp)|*.bmp";
+		wxString wildcard = "SVG (*.svg)|*.svg|PNG (*.png)|*.png|Bitmap (*.bmp)|*.bmp";
 		wxFileDialog saveDialog(this, caption, wxEmptyString, "", wildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 		saveDialog.SetDirectory(lastDirectory);
 
@@ -1228,12 +1228,9 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 					wxMessageBox("Failed to export SVG file.", "Export Error", wxOK | wxICON_ERROR);
 				}
 			} else {
-				// Export as bitmap
-				wxBitmapType fileType;
-				if (ext == "bmp") fileType = wxBITMAP_TYPE_BMP;
-				else if (ext == "png") fileType = wxBITMAP_TYPE_PNG;
-				else fileType = wxBITMAP_TYPE_JPEG;
-
+				// Export as bitmap (PNG default; BMP when explicitly chosen).
+				wxBitmapType fileType = (ext == "bmp") ? wxBITMAP_TYPE_BMP
+				                                       : wxBITMAP_TYPE_PNG;
 				bitmap.SaveFile(path, fileType);
 			}
 		}

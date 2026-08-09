@@ -105,6 +105,16 @@ else()
     set(wxUSE_PROTOCOL_FTP OFF)
     set(wxUSE_PROTOCOL_HTTP OFF)
 
+    # Skia's PDF backend needs libjpeg-turbo, whose symbols duplicate wxWidgets'
+    # bundled libjpeg on Windows (LNK2005 on _jpeg_*). Drop wx's copy there so
+    # Skia's is the only libjpeg; the app exposes PNG/SVG/PDF export instead of
+    # JPEG (a poor format for line-art schematics anyway). wxTIFF pulls jpeglib.h
+    # for JPEG-in-TIFF, so it must go too -- the app never reads/writes TIFF.
+    if(WIN32 AND WITH_SKIA)
+        set(wxUSE_LIBJPEG OFF)
+        set(wxUSE_LIBTIFF OFF)
+    endif()
+
     FetchContent_MakeAvailable(wxWidgets_fetch)
     set(wxWidgets_LIBRARIES wx::html wx::aui wx::adv wx::gl wx::core wx::base)
 endif()
