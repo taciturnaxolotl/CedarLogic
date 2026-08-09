@@ -211,6 +211,20 @@ bool skiaRenderToPng(const char* path, int width, int height,
 	return SkPngEncoder::Encode(&out, pixmap, SkPngEncoder::Options{});
 }
 
+bool skiaRenderWindow(int width, int height, int fboId,
+                      const std::function<void(Scene&)>& draw) {
+	SkiaBackend& backend = SkiaBackend::get();
+	sk_sp<SkSurface> surface = backend.windowSurface(width, height, fboId);
+	if (!surface) return false;
+	SkCanvas* canvas = surface->getCanvas();
+	canvas->clear(SK_ColorWHITE);
+	SkiaScene scene(canvas, backend.defaultFont());
+	draw(scene);
+	// Flush the recorded work to GL and hand back to the caller to SwapBuffers.
+	if (GrDirectContext* ctx = backend.context()) ctx->flushAndSubmit();
+	return true;
+}
+
 bool skiaRenderToSvg(const char* path, int width, int height,
                      const std::function<void(Scene&)>& draw) {
 	SkFILEWStream out(path);

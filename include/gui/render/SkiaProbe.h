@@ -28,6 +28,14 @@ bool skiaProbeToPng(const char* path, int width, int height);
 bool skiaRenderToPng(const char* path, int width, int height,
                      const std::function<void(Scene&)>& draw);
 
+// Render a scene straight into the currently-bound window framebuffer via Skia's
+// Ganesh GL backend, then flush (the caller presents with SwapBuffers). The GL
+// context must be current. `fboId` is the target framebuffer (0 = window).
+// This is the live on-screen path (Workstream G3); returns false if Skia could
+// not adopt the GL context or wrap the framebuffer.
+bool skiaRenderWindow(int width, int height, int fboId,
+                      const std::function<void(Scene&)>& draw);
+
 // Render a scene into a vector SVG at `path`. Same callback contract as
 // skiaRenderToPng; output is resolution-independent through the same Scene seam
 // that matches the GL golden, replacing the hand-rolled svgExport.cpp. Canvas is

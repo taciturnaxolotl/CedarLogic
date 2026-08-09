@@ -105,7 +105,7 @@ enum DragState {
 };
 
 // Engine-neutral rendering seam (Workstream G); defined in gui/render/.
-namespace cl { namespace render { class Scene; struct RenderStyle; } }
+namespace cl { namespace render { class Scene; struct RenderStyle; struct Transform; } }
 
 // Class GUICanvas, inherits from klsGLCanvas for basic scroll/zoom/viewport functionality
 //		all event handling is passed to this subclass in GL coordinates.
@@ -157,6 +157,15 @@ public:
     // the live GL OnRender() is untouched.
     void renderToScene(cl::render::Scene& scene, const cl::render::RenderStyle& style,
                        int deviceW, int deviceH);
+
+    // Render at the live camera (pan/zoom) rather than the bbox fit -- the
+    // on-screen path (G3). renderSkiaLive() paints it through Ganesh into the
+    // window framebuffer; drawSceneContents() is the shared grid/wire/gate draw.
+    void renderLiveToScene(cl::render::Scene& scene, const cl::render::RenderStyle& style);
+    bool renderSkiaLive() override;
+    void drawSceneContents(cl::render::Scene& scene, const cl::render::RenderStyle& style,
+                           const cl::render::Transform& t, float scale,
+                           float gMinX, float gMinY, float gMaxX, float gMaxY);
 
 	// Update the collision checker and refresh
 	void Update();

@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "klsGLCanvas.h"
+#include <cstdlib>
 #include "Settings.h"
 #include "MainApp.h"
 #include "paramDialog.h"
@@ -86,6 +87,9 @@ klsGLCanvas::klsGLCanvas(wxWindow *parent, const wxString& name, wxWindowID id,
 	disableVertGrid();
 
 	glInitialized = false;
+	// G3 go/no-go: opt into the Skia live-render path with CEDAR_SKIA_LIVE=1.
+	skiaLive = false;
+	if (const char* e = std::getenv("CEDAR_SKIA_LIVE")) skiaLive = (e[0] == '1');
 
 	minimap = NULL;
 	
@@ -396,7 +400,11 @@ void klsGLCanvas::wxOnPaint(wxPaintEvent& event) {
 	}
 
 	reclaimViewport();
-	klsGLCanvasRender();
+	// G3: try the Skia live path first; if it declines (not built, or the GL
+	// context couldn't be adopted), fall back to the fixed-function GL render.
+	if (!(skiaLive && renderSkiaLive())) {
+		klsGLCanvasRender();
+	}
 
 	// Show the new buffer:
 	glFlush();

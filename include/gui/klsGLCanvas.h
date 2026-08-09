@@ -106,7 +106,15 @@ public:
     virtual void OnKeyUp( wxKeyEvent& event ) {};
 
     virtual void OnRender( bool noColor = false ) {};
+	// Workstream G3: render the live frame through Skia's Ganesh GL backend
+	// instead of fixed-function GL. Returns true if it painted (caller then just
+	// SwapBuffers); false falls back to OnRender(). Base is a no-op.
+	virtual bool renderSkiaLive() { return false; }
 	virtual void OnSize(void) {};
+
+	// Toggle the Skia live-render path (G3 go/no-go; off by default).
+	void setSkiaLive( bool on ) { skiaLive = on; }
+	bool isSkiaLive() const { return skiaLive; }
 
 	// Event query methods:
 	// (Need member vars to back these up, too.)
@@ -218,6 +226,7 @@ private:
 	void setIsDragging( bool isDragging, mouseButton whichButton = BUTTON_LEFT ) { isDraggingFlag[whichButton] = isDragging; };
 
 	bool glInitialized; // Is OpenGL initialized on this canvas
+	bool skiaLive;      // G3: route the live frame through Skia (off by default)
 
 	// Zoom and OpenGL coordinate of upper-left corner of this canvas:
 	GLdouble viewZoom;

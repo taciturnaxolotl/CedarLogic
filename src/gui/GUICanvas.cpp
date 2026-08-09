@@ -20,6 +20,9 @@
 #include "guiWire.h"
 #include "render/Scene.h"
 #include "render/RenderStyle.h"
+#ifdef WITH_SKIA
+#include "render/SkiaProbe.h"
+#endif
 
 
 #include <wx/dnd.h>
@@ -226,29 +229,38 @@ void GUICanvas::renderToScene(cl::render::Scene& scene,
 	Transform t;
 	t.a = scale;  t.c = 0;      t.e = -minX * scale + offX;
 	t.b = 0;      t.d = -scale; t.f =  maxY * scale + offY;
+
+	// Visible world rect = the full device rectangle back-projected, so the grid
+	// fills the image the way GL fills the visible viewport.
+	const float gMinX = minX - offX / scale;
+	const float gMaxX = minX + ((float)deviceW - offX) / scale;
+	const float gMinY = maxY - ((float)deviceH - offY) / scale;
+	const float gMaxY = maxY + offY / scale;
+	drawSceneContents(scene, style, t, scale, gMinX, gMinY, gMaxX, gMaxY);
+}
+
+// Draw the grid + wires + gates into `scene` under an already-computed viewport
+// transform. Shared by the bbox-fit export path (renderToScene) and the live
+// camera path (renderLiveToScene). `scale` is device px per world unit; the
+// g{Min,Max}{X,Y} bounds are the visible world rectangle for the grid.
+void GUICanvas::drawSceneContents(cl::render::Scene& scene,
+                                  const cl::render::RenderStyle& style,
+                                  const cl::render::Transform& t, float scale,
+                                  float gMinX, float gMinY,
+                                  float gMaxX, float gMaxY) {
+	using namespace cl::render;
 	scene.setViewport(t);
 
-	// Background grid, matching klsGLCanvas exactly. The GL grid is NOT a fixed
-	// world spacing: the base world spacing is snapped to an integer (>=1), then
-	// grown so on-screen lines stay at least MIN_GRID_SCREEN_SPACING px apart when
-	// zoomed out. It's a faint translucent blue (GRID_INTENSITY as both blue and
-	// alpha), drawn across the whole canvas, not just the circuit's bbox. Stroke
-	// widths are device pixels (SkiaScene divides by the viewport scale), so 1.0
-	// is a hairline at any zoom.
+	// Background grid, matching klsGLCanvas exactly: the base world spacing snaps
+	// to an integer (>=1), then grows so on-screen lines stay at least
+	// MIN_GRID_SCREEN_SPACING px apart when zoomed out. Faint translucent blue
+	// (GRID_INTENSITY as both blue and alpha). Stroke widths are device pixels.
 	if (style.showGrid) {
 		const float viewZoom = 1.0f / scale;   // GL viewZoom = world units / pixel
 		const long spaceX = std::max(std::max((long)(horizSpacing + 0.5f), 1L),
 		                             (long)(MIN_GRID_SCREEN_SPACING * viewZoom));
 		const long spaceY = std::max(std::max((long)(vertSpacing + 0.5f), 1L),
 		                             (long)(MIN_GRID_SCREEN_SPACING * viewZoom));
-
-		// World extent of the full device rectangle (inverse of the viewport),
-		// so the grid fills the image the way GL fills the visible viewport.
-		const float gMinX = minX - offX / scale;
-		const float gMaxX = minX + ((float)deviceW - offX) / scale;
-		const float gMinY = maxY - ((float)deviceH - offY) / scale;
-		const float gMaxY = maxY + offY / scale;
-
 		Stroke grid;
 		grid.color = Color(0.0f, 0.0f, (float)GRID_INTENSITY, (float)GRID_INTENSITY);
 		grid.width = 1.0f;
@@ -266,6 +278,48 @@ void GUICanvas::renderToScene(cl::render::Scene& scene,
 		if (it->second) it->second->drawToScene(scene, style);
 	for (auto it = gateList.begin(); it != gateList.end(); ++it)
 		if (it->second) it->second->drawToScene(scene, style);
+}
+
+// Render the page at the LIVE camera (pan/zoom), not the bbox fit -- this is the
+// on-screen path (G3). Mirrors klsGLCanvas::reclaimViewport's ortho:
+//   gluOrtho2D(panX, panX + w*viewZoom, panY - h*viewZoom, panY), viewport in
+//   physical pixels. So device px per world unit = contentScale / viewZoom, and
+//   world y is flipped for the top-left device origin.
+void GUICanvas::renderLiveToScene(cl::render::Scene& scene,
+                                  const cl::render::RenderStyle& style) {
+	using namespace cl::render;
+	wxSize sz = GetClientSize();
+	const double sf = GetContentScaleFactor();
+	GLdouble px, py; getPan(px, py);
+	double vz = getZoom();
+	if (vz <= 0) vz = 1.0;
+	const float scale = (float)(sf / vz);
+	Transform t;
+	t.a = scale;  t.c = 0; t.e = (float)(-px * scale);
+	t.b = 0; t.d = -scale; t.f = (float)( py * scale);
+	const float gMinX = (float)px;
+	const float gMaxX = (float)(px + sz.GetWidth()  * vz);
+	const float gMinY = (float)(py - sz.GetHeight() * vz);
+	const float gMaxY = (float)py;
+	drawSceneContents(scene, style, t, scale, gMinX, gMinY, gMaxX, gMaxY);
+}
+
+// G3: paint the live frame through Skia's Ganesh backend into the window FBO.
+bool GUICanvas::renderSkiaLive() {
+#ifdef WITH_SKIA
+	wxSize sz = GetClientSize();
+	const double sf = GetContentScaleFactor();
+	const int w = (int)(sz.GetWidth() * sf), h = (int)(sz.GetHeight() * sf);
+	if (w <= 0 || h <= 0) return false;
+	GUICanvas* self = this;
+	cl::render::RenderStyle style = cl::render::RenderStyle::screen();
+	return cl::render::skiaRenderWindow(w, h, 0,
+		[self, &style](cl::render::Scene& scene) {
+			self->renderLiveToScene(scene, style);
+		});
+#else
+	return false;
+#endif
 }
 
 void GUICanvas::OnRender( bool noColor ) {
