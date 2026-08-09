@@ -1,0 +1,7 @@
+# macOS Skia args. GL backend (Metal deferred); arm64 to match both the
+# macos-14 runner and the app's arm64-only build. Deployment target matches
+# CMAKE_OSX_DEPLOYMENT_TARGET (11.0) so the static lib links into the bundle.
+skia_use_metal = false
+target_cpu = "arm64"
+extra_cflags = ["-mmacosx-version-min=11.0"]
+extra_ldflags = ["-mmacosx-version-min=11.0"]

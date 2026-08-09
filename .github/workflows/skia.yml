@@ -1,0 +1,133 @@
+name: Skia (build + cache)
+
+# Workstream G, phase G0 -- the go/no-go for the Skia rendering engine.
+# Builds Skia once per platform with CedarLogic's exact feature set (GL + SVG +
+# PDF, static /MT on Windows) and caches the result so app builds restore it in
+# seconds instead of the ~20-40 min first build. This is deliberately NOT run on
+# every push: it triggers manually, or when the pinned milestone or the GN args
+# change.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/skia.yml'
+      - 'cmake/skia-args/**'
+
+permissions:
+  contents: read
+
+env:
+  # Pinned milestone. aseprite/skia ships a known-good static /MT Windows recipe
+  # with vendored deps; a fine bootstrap while our own pin stands up.
+  SKIA_REPO: https://github.com/aseprite/skia.git
+  SKIA_REF: aseprite-m124
+
+jobs:
+  build:
+    name: Skia (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      # Each platform is an independent go/no-go signal -- one failing must not
+      # cancel the others (Windows /MT is the risky one; Linux is the easy
+      # validator; macOS the least certain).
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux,   os: ubuntu-22.04, args: linux }
+          - { name: windows, os: windows-2022, args: windows }
+          - { name: macos,   os: macos-14,     args: macos }
+    steps:
+      - name: Checkout CedarLogic (GN args only)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: cmake/skia-args
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Compose the effective GN args (common + per-OS) into one file. Its hash
+      # is the cache key, so any arg edit forces a rebuild.
+      - name: Compose GN args
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/skia-args"
+          cat cmake/skia-args/common.gn "cmake/skia-args/${{ matrix.args }}.gn" \
+            > "$RUNNER_TEMP/skia-args/effective.gn"
+          echo "----- effective GN args (${{ matrix.name }}) -----"
+          cat "$RUNNER_TEMP/skia-args/effective.gn"
+
+      - name: Restore Skia dist cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: skia-dist
+          key: skia-${{ matrix.name }}-${{ env.SKIA_REF }}-${{ hashFiles('cmake/skia-args/common.gn', format('cmake/skia-args/{0}.gn', matrix.args)) }}
+
+      - name: Clone Skia
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          git clone --depth 1 --branch "$SKIA_REF" "$SKIA_REPO" skia
+
+      - name: Sync deps + fetch build tools
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: skia
+        shell: bash
+        run: |
+          python3 tools/git-sync-deps
+          python3 bin/fetch-ninja
+
+      - name: gn gen
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: skia
+        shell: bash
+        run: |
+          GN=./bin/gn; [ -f "$GN" ] || GN=./bin/gn.exe
+          ARGS="$(cat "$RUNNER_TEMP/skia-args/effective.gn")"
+          "$GN" gen out/Release --args="$ARGS"
+
+      - name: Build (skia + modules)
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: skia
+        shell: bash
+        run: |
+          NINJA=third_party/ninja/ninja
+          [ -f "$NINJA" ] || NINJA=third_party/ninja/ninja.exe
+          "$NINJA" -C out/Release skia modules
+
+      # Assemble a compact, self-describing dist: headers + static libs + the
+      # exact args used. This is what the cache stores and what USE_SYSTEM_SKIA=
+      # OFF consumers point SKIA_ROOT at.
+      - name: Assemble dist
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -e
+          mkdir -p skia-dist/lib
+          cp "$RUNNER_TEMP/skia-args/effective.gn" skia-dist/args.gn
+          echo "$SKIA_REF" > skia-dist/SKIA_REF.txt
+          # Core + module public headers (SkCanvas, SkSVGCanvas, SkPDFDocument...).
+          cp -R skia/include skia-dist/include
+          for m in svg skshaper skparagraph skunicode; do
+            if [ -d "skia/modules/$m/include" ]; then
+              mkdir -p "skia-dist/include/modules/$m"
+              cp -R "skia/modules/$m/include/." "skia-dist/include/modules/$m/"
+            fi
+          done
+          # Static libraries (*.a on POSIX, *.lib on Windows).
+          find skia/out/Release -maxdepth 1 \( -name '*.a' -o -name '*.lib' \) \
+            -exec cp {} skia-dist/lib/ \;
+          echo "----- dist libs -----"
+          ls -la skia-dist/lib
+
+      - name: Upload Skia dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: skia-${{ matrix.name }}
+          path: skia-dist
+          retention-days: 14
+          if-no-files-found: error

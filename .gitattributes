@@ -1,3 +1,10 @@
 # Sample circuit files are byte-exact test fixtures — never normalize their line
 # endings, so every platform's checkout matches what the parser was tested on.
 format/tests/fixtures/*.cdl -text
+
+# CI workflows and build scripts run under bash on the Linux/macOS runners,
+# where CRLF line endings break the shell (and gn arg files). Force LF.
+*.yml text eol=lf
+*.yaml text eol=lf
+*.gn text eol=lf
+*.sh text eol=lf

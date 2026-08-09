@@ -1,0 +1,10 @@
+# Windows Skia args. Build with clang-cl against the runner's LLVM and link the
+# static CRT (/MT) to match CedarLogic's CMAKE_MSVC_RUNTIME_LIBRARY =
+# MultiThreaded -- a /MD Skia would fail the app link with LNK2038.
+#
+# target_cpu is x86 to match the shipping 32-bit CedarLogic build; a mismatched
+# architecture fails the link with LNK1112. Bump to "x64" here (and in the app)
+# when the desktop build moves to 64-bit.
+clang_win = "C:\Program Files\LLVM"
+target_cpu = "x86"
+extra_cflags = ["/MT"]

@@ -1,0 +1,5 @@
+# Linux Skia args. Default GCC/Clang toolchain; fontconfig stays on for
+# system-font discovery in developer builds (the bundled face still works via
+# the custom directory font manager from common.gn). x86_64.
+target_cpu = "x64"
+skia_use_fontconfig = true

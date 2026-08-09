@@ -1,0 +1,37 @@
+# Shared Skia GN build args for CedarLogic (Workstream G).
+# Milestone pin: aseprite-m124. Consumed by .github/workflows/skia.yml, which
+# concatenates this with the matching per-OS file. The hash of these files is
+# the Skia build-cache key, so any arg change rebuilds Skia.
+
+is_official_build = true
+is_debug = false
+
+# Backends: GL on screen (reuses CedarLogic's existing wxGLCanvas context).
+# No Vulkan/Metal/Dawn yet.
+skia_use_gl = true
+skia_use_vulkan = false
+skia_use_dawn = false
+
+# Export: one recorded scene fans out to SVG (SkSVGCanvas) and PDF (SkPDF),
+# retiring the hand-rolled svgExport.cpp and adding print-quality PDF.
+skia_enable_svg = true
+skia_enable_pdf = true
+skia_use_expat = true
+
+# Text: FreeType + HarfBuzz on every platform (Skia defaults FreeType off on
+# Windows/macOS) so a bundled face renders identically everywhere, plus a
+# directory font manager to load that face at runtime.
+skia_use_freetype = true
+skia_use_harfbuzz = true
+skia_enable_fontmgr_custom_directory = true
+
+# Self-contained: vendor every third-party dep so the cached artifact links the
+# same way on CI, Windows, and macOS without chasing system packages.
+skia_use_system_expat = false
+skia_use_system_freetype2 = false
+skia_use_system_harfbuzz = false
+skia_use_system_icu = false
+skia_use_system_libjpeg_turbo = false
+skia_use_system_libpng = false
+skia_use_system_libwebp = false
+skia_use_system_zlib = false
