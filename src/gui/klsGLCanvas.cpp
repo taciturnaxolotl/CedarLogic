@@ -377,6 +377,17 @@ void klsGLCanvas::wxOnPaint(wxPaintEvent& event) {
 		glClearColor (1.0, 1.0, 1.0, 0.0);
 		glColor3b(0, 0, 0);
 		glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
+
+#ifdef __WXMSW__
+		// Cap presentation to the display refresh (vsync). Skia renders a frame in
+		// ~1 ms, so without this the canvas free-runs well past the refresh rate --
+		// which tears during a pan and reads as "not smooth". Harmless for GL.
+		typedef BOOL (WINAPI *SwapIntervalProc)(int);
+		if (SwapIntervalProc swapInterval =
+		        (SwapIntervalProc)wglGetProcAddress("wglSwapIntervalEXT")) {
+			swapInterval(1);
+		}
+#endif
 		
 		//TODO: Check if alpha is hardware supported, and
 		// don't enable it if not!
