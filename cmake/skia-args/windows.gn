@@ -9,15 +9,13 @@ clang_win = "C:\Program Files\LLVM"
 target_cpu = "x86"
 extra_cflags = ["/MT"]
 
-# Drop Skia's bundled image codecs on Windows: CedarLogic decodes images through
-# wxWidgets, not Skia, and Skia's static libjpeg/libpng/libwebp collide with the
-# ones wxWidgets already bundles at static link (LNK2005, e.g. _jpeg_*). Skia's
-# vector + text + SVG/PDF rendering does not need them. The real m124 gates are
-# the per-direction *_decode/*_encode args (skia_use_libjpeg_turbo does not
-# exist -- gn reports it "set but never used").
+# Drop the Skia image codecs that duplicate wxWidgets' bundled ones at static
+# link. Only libjpeg actually collided (LNK2005 on _jpeg_*); webp is safe to drop
+# too since core Skia doesn't reference it. PNG stays enabled: core Skia
+# references SkPngDecoder/Encoder unconditionally (DirectWrite color-glyph
+# metrics, image serialization), and Skia's libpng did not clash with wx's.
+# The real m124 gates are the per-direction *_decode/*_encode args.
 skia_use_libjpeg_turbo_decode = false
 skia_use_libjpeg_turbo_encode = false
-skia_use_libpng_decode = false
-skia_use_libpng_encode = false
 skia_use_libwebp_decode = false
 skia_use_libwebp_encode = false
