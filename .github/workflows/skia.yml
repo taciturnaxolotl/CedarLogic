@@ -57,6 +57,14 @@ jobs:
           mkdir -p "$RUNNER_TEMP/skia-args"
           cat cmake/skia-args/common.gn "cmake/skia-args/${{ matrix.args }}.gn" \
             > "$RUNNER_TEMP/skia-args/effective.gn"
+          if [ "${{ matrix.name }}" = "windows" ]; then
+            # Skia's clang_win_version auto-detect (gn/highest_version_dir.py)
+            # matches an X.Y.Z resource dir, but modern LLVM ships a single-int
+            # dir (lib/clang/<major>), so detection fails with IndexError. Pass
+            # the version explicitly (skips the script; see BUILDCONFIG.gn guard).
+            ver="$(ls 'C:/Program Files/LLVM/lib/clang' | sort -V | tail -n1)"
+            echo "clang_win_version = \"$ver\"" >> "$RUNNER_TEMP/skia-args/effective.gn"
+          fi
           echo "----- effective GN args (${{ matrix.name }}) -----"
           cat "$RUNNER_TEMP/skia-args/effective.gn"
 
@@ -80,6 +88,10 @@ jobs:
         run: |
           python3 tools/git-sync-deps
           python3 bin/fetch-ninja
+
+      - name: Linux GL dev headers
+        if: matrix.name == 'linux' && steps.cache.outputs.cache-hit != 'true'
+        run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev
 
       - name: gn gen
         if: steps.cache.outputs.cache-hit != 'true'
