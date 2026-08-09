@@ -65,7 +65,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: skia-dist
-          key: skia-${{ matrix.name }}-${{ env.SKIA_REF }}-h2-${{ hashFiles('cmake/skia-args/common.gn', format('cmake/skia-args/{0}.gn', matrix.args)) }}
+          key: skia-${{ matrix.name }}-${{ env.SKIA_REF }}-h3-${{ hashFiles('cmake/skia-args/common.gn', format('cmake/skia-args/{0}.gn', matrix.args)) }}
 
       - name: Clone Skia
         if: steps.cache.outputs.cache-hit != 'true'
@@ -127,14 +127,20 @@ jobs:
           ARGS="$(cat "$RUNNER_TEMP/skia-args/effective.gn")"
           "$GN" gen out/Release --args="$ARGS"
 
-      - name: Build (skia + modules)
+      - name: Build (skia core)
         if: steps.cache.outputs.cache-hit != 'true'
         working-directory: skia
         shell: bash
+        # Core Skia only -- canvas, paths, SkFont, the Ganesh GPU backend, ports
+        # font managers, effects, and (when enabled) PDF. NOT the modules group:
+        # it drags in skresources, which unconditionally pulls the image codecs
+        # (libjpeg/png/webp) that then collide with wxWidgets' at static link and
+        # aren't honored by skia_use_libjpeg_turbo=false. The SVG-writer module is
+        # added back for export (Workstream G4), which will handle its own deps.
         run: |
           NINJA=third_party/ninja/ninja
           [ -f "$NINJA" ] || NINJA=third_party/ninja/ninja.exe
-          "$NINJA" -C out/Release skia modules
+          "$NINJA" -C out/Release skia
 
       # Assemble a compact, self-describing dist: headers + static libs + the
       # exact args used. This is what the cache stores and what USE_SYSTEM_SKIA=
