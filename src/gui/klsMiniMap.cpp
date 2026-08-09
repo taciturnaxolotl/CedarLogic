@@ -123,6 +123,9 @@ bool klsMiniMap::generateImageSkia() {
 
 	klsMiniMap* self = this;
 	RenderStyle style = RenderStyle::print();   // black outlines, no grid/live (= draw(false))
+	// Hairline strokes: the whole circuit is shrunk to a thumbnail, so full-weight
+	// lines would collapse dense clusters into a black blob.
+	const float strokeScale = 0.5f;
 	const bool ok = skiaRenderWindow(w, h, 0, [self, &style, &t](Scene& scene) {
 		scene.setViewport(t);
 		if (self->wireList)
@@ -139,7 +142,7 @@ bool klsMiniMap::generateImageSkia() {
 			                      Point(self->endpoint.x, self->origin.y) };
 			scene.polyline(box, 4, Stroke(Color(1.0f, 0.0f, 0.0f, 1.0f), 2.0f), true);
 		}
-	});
+	}, strokeScale);
 	if (ok) SwapBuffers();
 	return ok;
 }

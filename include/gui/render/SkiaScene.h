@@ -26,7 +26,10 @@ public:
 	// Neither pointer is owned; the caller keeps both alive for the SkiaScene's
 	// lifetime. `font` supplies the typeface for text() (its size is overridden
 	// per call from the requested pixel height); may be null to skip text.
-	SkiaScene(SkCanvas* canvas, const SkFont* font);
+	// `strokeScale` multiplies every stroke width (default 1.0); the minimap uses
+	// <1 so a whole circuit shrunk to a thumbnail stays hairline instead of
+	// collapsing dense line clusters into a black blob.
+	SkiaScene(SkCanvas* canvas, const SkFont* font, float strokeScale = 1.0f);
 
 	void setViewport(const Transform& worldToDevice) override;
 	void pushTransform(const Transform& local) override;
@@ -48,8 +51,13 @@ public:
 	using Scene::fillPolygon;
 
 private:
+	// Effective device scale for stroke widths: the canvas scale divided by
+	// fStrokeScale, so widths render at (device width * fStrokeScale) px.
+	float strokeDevScale() const;
+
 	SkCanvas* fCanvas;
 	const SkFont* fFont;
+	float fStrokeScale;
 };
 
 }  // namespace render

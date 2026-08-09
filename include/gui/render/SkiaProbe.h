@@ -34,7 +34,8 @@ bool skiaRenderToPng(const char* path, int width, int height,
 // This is the live on-screen path (Workstream G3); returns false if Skia could
 // not adopt the GL context or wrap the framebuffer.
 bool skiaRenderWindow(int width, int height, int fboId,
-                      const std::function<void(Scene&)>& draw);
+                      const std::function<void(Scene&)>& draw,
+                      float strokeScale = 1.0f);
 
 // Render a scene into a vector SVG at `path`. Same callback contract as
 // skiaRenderToPng; output is resolution-independent through the same Scene seam

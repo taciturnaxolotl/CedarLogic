@@ -212,7 +212,7 @@ bool skiaRenderToPng(const char* path, int width, int height,
 }
 
 bool skiaRenderWindow(int width, int height, int fboId,
-                      const std::function<void(Scene&)>& draw) {
+                      const std::function<void(Scene&)>& draw, float strokeScale) {
 	SkiaBackend& backend = SkiaBackend::get();
 	sk_sp<SkSurface> surface = backend.windowSurface(width, height, fboId);
 	if (!surface) return false;
@@ -224,7 +224,7 @@ bool skiaRenderWindow(int width, int height, int fboId,
 	if (ctx) ctx->resetContext();
 	SkCanvas* canvas = surface->getCanvas();
 	canvas->clear(SK_ColorWHITE);
-	SkiaScene scene(canvas, backend.defaultFont());
+	SkiaScene scene(canvas, backend.defaultFont(), strokeScale);
 	draw(scene);
 	// Flush the recorded work to GL and hand back to the caller to SwapBuffers.
 	if (ctx) ctx->flushAndSubmit();

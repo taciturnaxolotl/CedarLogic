@@ -79,8 +79,13 @@ SkPaint fillPaint(const Color& c) {
 
 }  // namespace
 
-SkiaScene::SkiaScene(SkCanvas* canvas, const SkFont* font)
-	: fCanvas(canvas), fFont(font) {}
+SkiaScene::SkiaScene(SkCanvas* canvas, const SkFont* font, float strokeScale)
+	: fCanvas(canvas), fFont(font),
+	  fStrokeScale(strokeScale > 1e-3f ? strokeScale : 1.0f) {}
+
+float SkiaScene::strokeDevScale() const {
+	return deviceScale(fCanvas) / fStrokeScale;
+}
 
 void SkiaScene::setViewport(const Transform& worldToDevice) {
 	fCanvas->setMatrix(toMatrix(worldToDevice));
@@ -103,7 +108,7 @@ void SkiaScene::lines(const Point* pts, std::size_t count, const Stroke& s) {
 		path.moveTo(pts[i].x, pts[i].y);
 		path.lineTo(pts[i + 1].x, pts[i + 1].y);
 	}
-	fCanvas->drawPath(path, strokePaint(s, deviceScale(fCanvas)));
+	fCanvas->drawPath(path, strokePaint(s, strokeDevScale()));
 }
 
 void SkiaScene::polyline(const Point* pts, std::size_t count, const Stroke& s,
@@ -113,7 +118,7 @@ void SkiaScene::polyline(const Point* pts, std::size_t count, const Stroke& s,
 	path.moveTo(pts[0].x, pts[0].y);
 	for (std::size_t i = 1; i < count; ++i) path.lineTo(pts[i].x, pts[i].y);
 	if (closed) path.close();
-	fCanvas->drawPath(path, strokePaint(s, deviceScale(fCanvas)));
+	fCanvas->drawPath(path, strokePaint(s, strokeDevScale()));
 }
 
 void SkiaScene::fillPolygon(const Point* pts, std::size_t count,
@@ -131,7 +136,7 @@ void SkiaScene::fillCircle(Point center, float radius, const Color& c) {
 }
 
 void SkiaScene::strokeCircle(Point center, float radius, const Stroke& s) {
-	fCanvas->drawCircle(center.x, center.y, radius, strokePaint(s, deviceScale(fCanvas)));
+	fCanvas->drawCircle(center.x, center.y, radius, strokePaint(s, strokeDevScale()));
 }
 
 void SkiaScene::fillRect(Point lo, Point hi, const Color& c) {
