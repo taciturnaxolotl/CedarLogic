@@ -162,6 +162,7 @@ file(GLOB SRC_FILES
 	"${PROJECT_SOURCE_DIR}/src/gui/GLFont/*.cpp"
 	"${PROJECT_SOURCE_DIR}/include/*.h"
 	"${PROJECT_SOURCE_DIR}/include/gui/*.h"
+	"${PROJECT_SOURCE_DIR}/include/gui/render/*.h"
 	"${PROJECT_SOURCE_DIR}/include/logic/*.h"
 	"${PROJECT_SOURCE_DIR}/include/gui/command/*.h"
 	"${PROJECT_SOURCE_DIR}/include/gui/GLFont/*.h"
