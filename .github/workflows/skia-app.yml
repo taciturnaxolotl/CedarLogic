@@ -1,0 +1,102 @@
+name: Skia app build (verify)
+
+# Verifies the Skia binding (SkiaScene / SkiaBackend) actually compiles and
+# links: builds CedarLogic with -DWITH_SKIA=ON against the Skia dist produced by
+# skia.yml. The binding TUs are linked into the executable, so the linker must
+# resolve their Skia symbols -- proving both compile and link, without needing a
+# call site yet. This closes G0.
+
+on:
+  workflow_dispatch:
+  # push (not pull_request) so the workflow runs from the feature branch's own
+  # copy -- pull_request/dispatch would require this file on the default branch,
+  # which it isn't until the stack merges.
+  push:
+    branches:
+      - 'feat/g0-**'
+
+permissions:
+  contents: read
+  actions: read   # to download the Skia dist artifact from the skia.yml run
+
+concurrency:
+  group: skia-app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: App + Skia (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux,   os: ubuntu-24.04, artifact: skia-linux }
+          - { name: windows, os: windows-2022, artifact: skia-windows }
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pull the Skia dist from the latest successful skia.yml run on the supply
+      # branch -- the canonical build. Pinning the branch is deterministic:
+      # "latest success across all branches" would grab whichever feature
+      # branch's Skia run finished last (and may carry a stale dist).
+      - name: Download Skia dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          rid="$(gh run list --workflow skia.yml --branch feat/g0-skia-supply \
+                   --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          echo "Skia dist from run $rid"
+          gh run download "$rid" -n ${{ matrix.artifact }} -D skia-dist
+          echo "----- libs -----" && ls skia-dist/lib
+
+      - name: Install deps (Linux)
+        if: matrix.name == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build \
+            libwxgtk3.2-dev libgtk-3-dev libgl1-mesa-dev libglu1-mesa-dev \
+            libfontconfig1-dev
+
+      - name: Configure + build (Linux)
+        if: matrix.name == 'linux'
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=OFF \
+            -DWITH_SKIA=ON -DUSE_SYSTEM_SKIA=OFF \
+            -DSKIA_ROOT="$PWD/skia-dist"
+          cmake --build build
+          cmake --install build --prefix "$PWD/dist"
+
+      - name: Upload test build (Linux)
+        if: matrix.name == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: CedarLogic-linux-skia
+          path: dist
+          if-no-files-found: error
+
+      # Windows: system wxWidgets isn't available, so this also FetchContent-builds
+      # wxWidgets (static /MT) -- the true integration test that the /MT + x86 Skia
+      # links with the /MT + x86 app (LNK2038/LNK1112 would surface here).
+      - name: Configure + build (Windows)
+        if: matrix.name == 'windows'
+        shell: bash
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A Win32 \
+            -DBUILD_TESTING=OFF \
+            -DWITH_SKIA=ON -DUSE_SYSTEM_SKIA=OFF \
+            -DSKIA_ROOT="$PWD/skia-dist"
+          cmake --build build --config Release
+          cmake --install build --config Release --prefix "$PWD/dist"
+
+      - name: Upload test build (Windows)
+        if: matrix.name == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: CedarLogic-windows-x86-skia
+          path: dist
+          if-no-files-found: error
