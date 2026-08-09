@@ -16,6 +16,7 @@
 #include "guiWire.h"
 
 #include <cstdlib>
+#include <algorithm>
 #include "render/Scene.h"
 #include "render/RenderStyle.h"
 #ifdef WITH_SKIA
@@ -151,14 +152,19 @@ bool klsMiniMap::generateImageSkia() {
 				if (kv.second) kv.second->drawToScene(scene, style);
 	};
 	// Overlay: the red rectangle marking the main canvas's visible area (moves
-	// every pan, always redrawn).
+	// every pan, always redrawn). The thumbnail is fit to the circuit only, so the
+	// viewport is often LARGER than it (you can see the whole circuit) -- clamp the
+	// rect to the thumbnail so it stays visible (a full border when everything is
+	// on screen, a smaller box when zoomed in).
 	auto drawViewportRect = [self, &t](Scene& scene) {
 		if (!self->gateList || self->gateList->empty()) return;
 		scene.setViewport(t);
-		const Point box[] = { Point(self->origin.x,   self->origin.y),
-		                      Point(self->origin.x,   self->endpoint.y),
-		                      Point(self->endpoint.x, self->endpoint.y),
-		                      Point(self->endpoint.x, self->origin.y) };
+		const float L = std::max((float)self->origin.x,   (float)self->minCorner.x);
+		const float R = std::min((float)self->endpoint.x, (float)self->maxCorner.x);
+		const float T = std::min((float)self->origin.y,   (float)self->minCorner.y);
+		const float B = std::max((float)self->endpoint.y, (float)self->maxCorner.y);
+		if (R <= L || T <= B) return;   // viewport doesn't overlap the circuit
+		const Point box[] = { Point(L, T), Point(L, B), Point(R, B), Point(R, T) };
 		scene.polyline(box, 4, Stroke(Color(1.0f, 0.0f, 0.0f, 1.0f), 2.0f), true);
 	};
 

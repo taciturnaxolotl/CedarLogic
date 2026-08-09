@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
+#include <vector>
 
 #include "core/SkCanvas.h"
 #include "core/SkColor.h"
@@ -150,15 +152,28 @@ void SkiaScene::text(Point origin, const char* utf8, float pixelHeight,
 	if (!fFont || !utf8 || !*utf8) return;
 	SkFont f(*fFont);
 	f.setSize(pixelHeight);
-	// The text is sized in world units and drawn through the viewport's scale
-	// matrix. Use linear (unhinted) metrics + subpixel positioning so glyph
-	// advances are the true fractional values rather than advances hinted to the
-	// unscaled pixel grid and then magnified -- the latter reads as loose, uneven
-	// letter-spacing at the zoom levels schematics use.
-	f.setSubpixel(true);
-	f.setLinearMetrics(true);
-	f.setHinting(SkFontHinting::kNone);
-	f.setEdging(SkFont::Edging::kAntiAlias);
+	f.setLinearMetrics(true);   // true fractional advances under the viewport scale
+
+	// Render the label as vector glyph paths rather than atlas glyphs. Schematic
+	// text is drawn through a live zoom, and the GPU glyph atlas re-buckets on
+	// every size change -- briefly scaling a cached glyph, which reads as flashing
+	// stretched text. Paths scale exactly with the canvas matrix, so text stays
+	// crisp and artifact-free at any zoom (there are few labels, so cost is low).
+	const size_t len = std::strlen(utf8);
+	const int n = f.countText(utf8, len, SkTextEncoding::kUTF8);
+	if (n <= 0) return;
+	std::vector<SkGlyphID> glyphs(n);
+	f.textToGlyphs(utf8, len, SkTextEncoding::kUTF8, glyphs.data(), n);
+	std::vector<SkScalar> xpos(n);
+	f.getXPos(glyphs.data(), n, xpos.data(), 0.0f);
+	SkPath text, glyph;
+	for (int i = 0; i < n; i++) {
+		if (f.getPath(glyphs[i], &glyph)) {
+			glyph.offset(xpos[i], 0.0f);
+			text.addPath(glyph);
+		}
+	}
+
 	SkPaint p = fillPaint(c);
 	// The viewport flips y (device is y-down); flip it back around the text
 	// origin so glyphs render upright rather than mirrored. Text is positioned
@@ -166,7 +181,7 @@ void SkiaScene::text(Point origin, const char* utf8, float pixelHeight,
 	fCanvas->save();
 	fCanvas->translate(origin.x, origin.y);
 	fCanvas->scale(1.0f, -1.0f);
-	fCanvas->drawString(utf8, 0.0f, 0.0f, f, p);
+	fCanvas->drawPath(text, p);
 	fCanvas->restore();
 }
 
