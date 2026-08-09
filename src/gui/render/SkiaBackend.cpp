@@ -216,12 +216,18 @@ bool skiaRenderWindow(int width, int height, int fboId,
 	SkiaBackend& backend = SkiaBackend::get();
 	sk_sp<SkSurface> surface = backend.windowSurface(width, height, fboId);
 	if (!surface) return false;
+	GrDirectContext* ctx = backend.context();
+	// The GL context is shared with wx and (until they migrate) other GL canvases,
+	// so its state changes behind Skia's back between frames. Invalidate Skia's
+	// cached GL state each frame or stale bindings corrupt the render (flashing,
+	// stretched glyphs from a wrong texture/transform).
+	if (ctx) ctx->resetContext();
 	SkCanvas* canvas = surface->getCanvas();
 	canvas->clear(SK_ColorWHITE);
 	SkiaScene scene(canvas, backend.defaultFont());
 	draw(scene);
 	// Flush the recorded work to GL and hand back to the caller to SwapBuffers.
-	if (GrDirectContext* ctx = backend.context()) ctx->flushAndSubmit();
+	if (ctx) ctx->flushAndSubmit();
 	return true;
 }
 

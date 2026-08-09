@@ -15,6 +15,13 @@
 #include "guiGate.h"
 #include "guiWire.h"
 
+#include <cstdlib>
+#include "render/Scene.h"
+#include "render/RenderStyle.h"
+#ifdef WITH_SKIA
+#include "render/SkiaProbe.h"
+#endif
+
 // Enable access to objects in the main application
 DECLARE_APP(MainApp)
 
@@ -95,12 +102,64 @@ void klsMiniMap::setViewport() {
 	glLoadIdentity ();
 }
 
+// Render the whole circuit through Skia (G3), mirroring the GL renderMap() but
+// via the same Scene seam the main canvas uses -- so the minimap migrates off
+// fixed-function GL instead of fighting Skia for the shared GL context's state.
+#ifdef WITH_SKIA
+bool klsMiniMap::generateImageSkia() {
+	using namespace cl::render;
+	wxSize sz = GetClientSize();
+	const double sf = GetContentScaleFactor();
+	const int w = (int)(sz.GetWidth() * sf), h = (int)(sz.GetHeight() * sf);
+	const double spanX = maxCorner.x - minCorner.x;   // fit box from setViewport()
+	if (w <= 0 || h <= 0 || spanX <= 1e-6) return false;
+
+	// world -> device: x'=(x-minCorner.x)*scale ; y'=(minCorner.y-y)*scale, where
+	// minCorner is the fit box's top-left (setViewport stores orthoBoxTL there).
+	const float scale = (float)(w / spanX);
+	Transform t;
+	t.a = scale;  t.c = 0; t.e = (float)(-minCorner.x * scale);
+	t.b = 0; t.d = -scale; t.f = (float)( minCorner.y * scale);
+
+	klsMiniMap* self = this;
+	RenderStyle style = RenderStyle::print();   // black outlines, no grid/live (= draw(false))
+	const bool ok = skiaRenderWindow(w, h, 0, [self, &style, &t](Scene& scene) {
+		scene.setViewport(t);
+		if (self->wireList)
+			for (auto& kv : *self->wireList)
+				if (kv.second) kv.second->drawToScene(scene, style);
+		if (self->gateList)
+			for (auto& kv : *self->gateList)
+				if (kv.second) kv.second->drawToScene(scene, style);
+		// Red rectangle marking the main canvas's visible area.
+		if (self->gateList && !self->gateList->empty()) {
+			const Point box[] = { Point(self->origin.x,   self->origin.y),
+			                      Point(self->origin.x,   self->endpoint.y),
+			                      Point(self->endpoint.x, self->endpoint.y),
+			                      Point(self->endpoint.x, self->origin.y) };
+			scene.polyline(box, 4, Stroke(Color(1.0f, 0.0f, 0.0f, 1.0f), 2.0f), true);
+		}
+	});
+	if (ok) SwapBuffers();
+	return ok;
+}
+#endif
+
 // Print the canvas contents to a bitmap:
 void klsMiniMap::generateImage() {
 	wxSize sz = GetClientSize();
 
-	// Setup the viewport for rendering:
+	// Setup the viewport for rendering (also stores minCorner/maxCorner, used by
+	// the Skia path below and the mouse handler):
 	setViewport();
+
+#ifdef WITH_SKIA
+	static const bool useSkia = []() {
+		const char* e = std::getenv("CEDAR_SKIA_LIVE");
+		return e && e[0] == '1';
+	}();
+	if (useSkia && generateImageSkia()) return;
+#endif
 	// Reset the glViewport to the size of the bitmap:
 	double scaleFactorImg = GetContentScaleFactor();
 	glViewport(0, 0, (GLint)(sz.GetWidth() * scaleFactorImg), (GLint)(sz.GetHeight() * scaleFactorImg));

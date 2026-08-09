@@ -45,6 +45,9 @@ public:
 private:
 	void setViewport();
 	void generateImage();
+#ifdef WITH_SKIA
+	bool generateImageSkia();   // G3: render the minimap through Skia
+#endif
 	void renderMap();
 	
 	// viewport rect
