@@ -158,6 +158,10 @@ public:
 	// neutral Scene -> raster surface), instead of the OpenGL path above.
 	// Returns false if built without WITH_SKIA.
 	bool renderToPngSkia(const wxString &path, int width, int height);
+	bool renderToSvgSkia(const wxString &path, int width, int height,
+	                     bool showGrid, bool noColor);
+	bool renderToPdfSkia(const wxString &path, int width, int height,
+	                     bool showGrid, bool noColor);
 	// Ask which format to save an old-format file in. Returns 1/2/3, or -1 to
 	// cancel. New/v3 circuits return 3 without prompting.
 	int chooseSaveFormat();

@@ -90,6 +90,14 @@ if(NOT _skia_found)
     message(STATUS "Skia: using dist at ${SKIA_ROOT}")
 endif()
 
+# A few of Skia's public headers still #include internal "src/..." headers that
+# are unused in the public API (docs/SkPDFDocument.h pulls src/base/SkTime.h even
+# though its Metadata carries its own DateTime). The trimmed dist ships no src/
+# tree, so those includes fail to resolve. Add empty shims LAST, so a real Skia
+# checkout (system/Nix) that ships the genuine headers is searched first.
+target_include_directories(cedar_skia INTERFACE
+    "${CMAKE_CURRENT_LIST_DIR}/../skia-shim")
+
 # System libraries the static Skia needs at final link. Skia's vendored deps
 # (freetype, harfbuzz, icu, image codecs, zlib, expat) ship as their own static
 # archives beside libskia and are picked up by the glob above; these are the

@@ -1209,11 +1209,21 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 			wxString ext = path.SubString(path.find_last_of(".") + 1, path.length());
 
 			if (ext == "svg") {
-				// Export as SVG
-				// Convert multiplier to scale (2x, 4x, 6x)
+				bool success = false;
+#ifdef WITH_SKIA
+				// Vector SVG through the Scene seam (Skia) -- same renderer that
+				// matches the GL golden, so the export is faithful. The page is
+				// the canvas size x the chosen multiplier; SVG stays crisp anyway.
+				wxSize sz = currentCanvas->GetClientSize();
+				success = renderToSvgSkia(path, sz.GetWidth() * multiplier,
+				                          sz.GetHeight() * multiplier,
+				                          showGrid, useNoColor);
+#else
+				// Fallback: the legacy hand-rolled exporter.
 				float scale = multiplier / 2.0f;
-				bool success = SVGExporter::exportToSVG(currentCanvas, std::string(path.mb_str()),
-				                                       showGrid, useNoColor, scale);
+				success = SVGExporter::exportToSVG(currentCanvas, std::string(path.mb_str()),
+				                                   showGrid, useNoColor, scale);
+#endif
 				if (!success) {
 					wxMessageBox("Failed to export SVG file.", "Export Error", wxOK | wxICON_ERROR);
 				}
@@ -1562,6 +1572,54 @@ bool MainFrame::renderToPngSkia(const wxString &path, int width, int height) {
 		});
 #else
 	(void)path; (void)width; (void)height;
+	return false;
+#endif
+}
+
+// Build the export RenderStyle from the dialog's choices: black-on-white with
+// no live signal colors when "Black & White" is picked (print intent), full
+// color otherwise. Selection overlays never belong in an exported file.
+#ifdef WITH_SKIA
+static cl::render::RenderStyle exportStyle(bool showGrid, bool noColor) {
+	cl::render::RenderStyle style;
+	style.colorOutput = !noColor;
+	style.showLiveState = !noColor;
+	style.showGrid = showGrid;
+	style.showSelection = false;
+	return style;
+}
+#endif
+
+bool MainFrame::renderToSvgSkia(const wxString &path, int width, int height,
+                                bool showGrid, bool noColor) {
+#ifdef WITH_SKIA
+	if (currentCanvas == NULL) return false;
+	GUICanvas *canvas = currentCanvas;
+	cl::render::RenderStyle style = exportStyle(showGrid, noColor);
+	return cl::render::skiaRenderToSvg(
+		path.ToStdString().c_str(), width, height,
+		[canvas, &style, width, height](cl::render::Scene &scene) {
+			canvas->renderToScene(scene, style, width, height);
+		});
+#else
+	(void)path; (void)width; (void)height; (void)showGrid; (void)noColor;
+	return false;
+#endif
+}
+
+bool MainFrame::renderToPdfSkia(const wxString &path, int width, int height,
+                                bool showGrid, bool noColor) {
+#ifdef WITH_SKIA
+	if (currentCanvas == NULL) return false;
+	GUICanvas *canvas = currentCanvas;
+	cl::render::RenderStyle style = exportStyle(showGrid, noColor);
+	return cl::render::skiaRenderToPdf(
+		path.ToStdString().c_str(), width, height,
+		[canvas, &style, width, height](cl::render::Scene &scene) {
+			canvas->renderToScene(scene, style, width, height);
+		});
+#else
+	(void)path; (void)width; (void)height; (void)showGrid; (void)noColor;
 	return false;
 #endif
 }

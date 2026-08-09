@@ -5,10 +5,14 @@
 #include "render/SkiaBackend.h"
 
 #include <cstdlib>
+#include <memory>
 
 #include "core/SkCanvas.h"
+#include "core/SkRect.h"
+#include "svg/SkSVGCanvas.h"
 #include "core/SkColor.h"
 #include "core/SkColorSpace.h"
+#include "core/SkDocument.h"
 #include "core/SkFont.h"
 #include "core/SkImage.h"
 #include "core/SkPixmap.h"
@@ -24,6 +28,7 @@
 #include "core/SkSurface.h"
 #include "core/SkSurfaceProps.h"
 #include "core/SkTypeface.h"
+#include "docs/SkPDFDocument.h"
 #include "gpu/GrBackendSurface.h"
 #include "gpu/GrDirectContext.h"
 #include "gpu/GrTypes.h"
@@ -204,6 +209,43 @@ bool skiaRenderToPng(const char* path, int width, int height,
 	SkFILEWStream out(path);
 	if (!out.isValid()) return false;
 	return SkPngEncoder::Encode(&out, pixmap, SkPngEncoder::Options{});
+}
+
+bool skiaRenderToSvg(const char* path, int width, int height,
+                     const std::function<void(Scene&)>& draw) {
+	SkFILEWStream out(path);
+	if (!out.isValid()) return false;
+	{
+		// SkSVGCanvas streams the SVG as it draws and finalizes when the canvas
+		// is destroyed, so scope it tightly around the draw.
+		SkRect bounds = SkRect::MakeIWH(width, height);
+		std::unique_ptr<SkCanvas> canvas = SkSVGCanvas::Make(bounds, &out);
+		if (!canvas) return false;
+		canvas->drawColor(SK_ColorWHITE);   // GL export ground is white
+		SkiaScene scene(canvas.get(), SkiaBackend::get().defaultFont());
+		draw(scene);
+	}
+	return true;
+}
+
+bool skiaRenderToPdf(const char* path, int width, int height,
+                     const std::function<void(Scene&)>& draw) {
+	SkFILEWStream out(path);
+	if (!out.isValid()) return false;
+
+	SkPDF::Metadata meta;
+	meta.fTitle = "CedarLogic circuit";
+	meta.fCreator = "CedarLogic";
+	sk_sp<SkDocument> doc = SkPDF::MakeDocument(&out, meta);
+	if (!doc) return false;
+
+	SkCanvas* canvas = doc->beginPage((float)width, (float)height);
+	canvas->clear(SK_ColorWHITE);
+	SkiaScene scene(canvas, SkiaBackend::get().defaultFont());
+	draw(scene);
+	doc->endPage();
+	doc->close();
+	return true;
 }
 
 }  // namespace render

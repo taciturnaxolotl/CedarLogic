@@ -28,6 +28,24 @@ bool skiaProbeToPng(const char* path, int width, int height);
 bool skiaRenderToPng(const char* path, int width, int height,
                      const std::function<void(Scene&)>& draw);
 
+// Render a scene into a vector SVG at `path`. Same callback contract as
+// skiaRenderToPng; output is resolution-independent through the same Scene seam
+// that matches the GL golden, replacing the hand-rolled svgExport.cpp. Canvas is
+// `width` x `height` and filled white. Returns true on success.
+bool skiaRenderToSvg(const char* path, int width, int height,
+                     const std::function<void(Scene&)>& draw);
+
+// Render a scene into a single-page PDF at `path` -- resolution-independent
+// vector output for print. Same callback contract as skiaRenderToPng.
+//
+// NB: this needs a Skia build with the PDF backend compiled in. The pinned
+// aseprite-m124 dist currently links a stub SkPDF that returns null (its
+// skia.lib carries no real PDF impl), so this returns false there until the
+// dist is rebuilt with skia_enable_pdf actually taking effect. The app code is
+// backend-ready; only the supplied library is missing the piece.
+bool skiaRenderToPdf(const char* path, int width, int height,
+                     const std::function<void(Scene&)>& draw);
+
 }  // namespace render
 }  // namespace cl
 

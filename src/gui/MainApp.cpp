@@ -480,10 +480,16 @@ bool MainApp::OnInit()
     string renderOutput;
     int renderW = 1600, renderH = 1000;
     bool renderSkia = false;   // --render-skia routes through Skia instead of GL
+    bool renderSvg = false;    // --render-svg writes a vector SVG via Skia
+    bool renderPdf = false;    // --render-pdf writes a vector PDF via Skia
     if (argc >= 4 && (wxString(argv[1]) == "--render" ||
-                      wxString(argv[1]) == "--render-skia")) {
+                      wxString(argv[1]) == "--render-skia" ||
+                      wxString(argv[1]) == "--render-svg" ||
+                      wxString(argv[1]) == "--render-pdf")) {
         renderMode().headlessRender = true;
         renderSkia = (wxString(argv[1]) == "--render-skia");
+        renderSvg = (wxString(argv[1]) == "--render-svg");
+        renderPdf = (wxString(argv[1]) == "--render-pdf");
         cmdFilename = argv[2].ToStdString();
         renderOutput = argv[3].ToStdString();
         if (argc >= 6) { renderW = wxAtoi(argv[4]); renderH = wxAtoi(argv[5]); }
@@ -529,7 +535,13 @@ bool MainApp::OnInit()
         wxYield();
         frame->load(cmdFilename);
         wxYield();
-        bool ok = renderSkia
+        bool ok = renderPdf
+            ? frame->renderToPdfSkia(renderOutput, renderW, renderH,
+                                     /*showGrid=*/true, /*noColor=*/false)
+            : renderSvg
+            ? frame->renderToSvgSkia(renderOutput, renderW, renderH,
+                                     /*showGrid=*/true, /*noColor=*/false)
+            : renderSkia
             ? frame->renderToPngSkia(renderOutput, renderW, renderH)
             : frame->renderToPng(renderOutput);
         // The PNG is written; exit immediately rather than tear down the (shown)
