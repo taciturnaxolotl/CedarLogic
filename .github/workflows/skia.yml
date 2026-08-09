@@ -57,15 +57,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/skia-args"
           cat cmake/skia-args/common.gn "cmake/skia-args/${{ matrix.args }}.gn" \
             > "$RUNNER_TEMP/skia-args/effective.gn"
-          if [ "${{ matrix.name }}" = "windows" ]; then
-            # Skia's clang_win_version auto-detect (gn/highest_version_dir.py)
-            # matches an X.Y.Z resource dir, but modern LLVM ships a single-int
-            # dir (lib/clang/<major>), so detection fails with IndexError. Pass
-            # the version explicitly (skips the script; see BUILDCONFIG.gn guard).
-            ver="$(ls 'C:/Program Files/LLVM/lib/clang' | sort -V | tail -n1)"
-            echo "clang_win_version = \"$ver\"" >> "$RUNNER_TEMP/skia-args/effective.gn"
-          fi
-          echo "----- effective GN args (${{ matrix.name }}) -----"
+          echo "----- base GN args (${{ matrix.name }}) -----"
           cat "$RUNNER_TEMP/skia-args/effective.gn"
 
       - name: Restore Skia dist cache
@@ -93,12 +85,30 @@ jobs:
         if: matrix.name == 'linux' && steps.cache.outputs.cache-hit != 'true'
         run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev
 
+      - name: Pin LLVM (Windows)
+        if: matrix.name == 'windows' && steps.cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        # The runner's default LLVM (20) is too new for aseprite-m124: its SkOpts
+        # function-multiversioning trips a clang-20 error in clang's own
+        # intrinsics headers ('target' multiversioning + always_inline). Pin the
+        # clang the milestone was built against.
+        run: choco install llvm --version=18.1.8 -y --force --allow-downgrade
+
       - name: gn gen
         if: steps.cache.outputs.cache-hit != 'true'
         working-directory: skia
         shell: bash
         run: |
           GN=./bin/gn; [ -f "$GN" ] || GN=./bin/gn.exe
+          if [ "${{ matrix.name }}" = "windows" ]; then
+            # clang_win_version auto-detect (gn/highest_version_dir.py) wants an
+            # X.Y.Z resource dir, but LLVM ships lib/clang/<major>; pass it
+            # explicitly to skip the script (BUILDCONFIG.gn guards on it).
+            ver="$(ls 'C:/Program Files/LLVM/lib/clang' | sort -V | tail -n1)"
+            echo "clang_win_version = \"$ver\"" >> "$RUNNER_TEMP/skia-args/effective.gn"
+            echo "----- effective GN args (windows) -----"
+            cat "$RUNNER_TEMP/skia-args/effective.gn"
+          fi
           ARGS="$(cat "$RUNNER_TEMP/skia-args/effective.gn")"
           "$GN" gen out/Release --args="$ARGS"
 
