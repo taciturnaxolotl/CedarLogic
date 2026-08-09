@@ -88,11 +88,11 @@ jobs:
       - name: Pin LLVM (Windows)
         if: matrix.name == 'windows' && steps.cache.outputs.cache-hit != 'true'
         shell: pwsh
-        # The runner's default LLVM (20) is too new for aseprite-m124: its SkOpts
-        # function-multiversioning trips a clang-20 error in clang's own
-        # intrinsics headers ('target' multiversioning + always_inline). Pin the
-        # clang the milestone was built against.
-        run: choco install llvm --version=18.1.8 -y --force --allow-downgrade
+        # Narrow compatibility window: the runner's default LLVM 20 is too new for
+        # aseprite-m124 (its SkOpts function-multiversioning trips a clang-20 error
+        # in clang's own intrinsics headers), while the runner's MSVC STL rejects
+        # anything older than Clang 19 (STL1000). Clang 19 satisfies both.
+        run: choco install llvm --version=19.1.7 -y --force --allow-downgrade
 
       - name: gn gen
         if: steps.cache.outputs.cache-hit != 'true'
