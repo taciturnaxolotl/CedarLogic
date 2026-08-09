@@ -90,9 +90,6 @@ klsGLCanvas::klsGLCanvas(wxWindow *parent, const wxString& name, wxWindowID id,
 	deferPaint = false;
 	panning = false;
 	lastPanPaintMs = 0;
-	// G3 go/no-go: opt into the Skia live-render path with CEDAR_SKIA_LIVE=1.
-	skiaLive = false;
-	if (const char* e = std::getenv("CEDAR_SKIA_LIVE")) skiaLive = (e[0] == '1');
 
 	minimap = NULL;
 	
@@ -403,9 +400,10 @@ void klsGLCanvas::wxOnPaint(wxPaintEvent& event) {
 	}
 
 	reclaimViewport();
-	// G3: try the Skia live path first; if it declines (not built, or the GL
-	// context couldn't be adopted), fall back to the fixed-function GL render.
-	if (!(skiaLive && renderSkiaLive())) {
+	// G3: try the Skia live path first (on by default, toggleable in View); if it
+	// declines (not built, or the GL context couldn't be adopted), fall back to
+	// the fixed-function GL render.
+	if (!(appConfig().appSettings.useSkiaRenderer && renderSkiaLive())) {
 		klsGLCanvasRender();
 	}
 

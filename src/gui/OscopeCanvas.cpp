@@ -17,8 +17,15 @@
 
 #include "glToImage.h"
 
+#include "render/Scene.h"
+#include "render/RenderStyle.h"
+#ifdef WITH_SKIA
+#include "render/SkiaProbe.h"
+#endif
+
 // Included to use the min() and max() templates:
 #include <algorithm>
+#include <vector>
 using namespace std;
 
 DECLARE_APP(MainApp)
@@ -183,7 +190,96 @@ void OscopeCanvas::OnRender(double scaleOverride){
 	} // for
 }
 
-void OscopeCanvas::OnPaint(wxPaintEvent& event){ 
+#ifdef WITH_SKIA
+// Render the waveforms through Skia, mirroring OnRender()'s GL drawing. The GL
+// ortho is gluOrtho2D(0, OSCOPE_HORIZONTAL, numberOfWires*1.5, -0.25) -- note it
+// is y-DOWN (top = -0.25), unlike the main canvas -- so the world->device
+// transform has a positive y scale and no flip.
+bool OscopeCanvas::OnRenderSkia() {
+	using namespace cl::render;
+	const unsigned int numberOfWires = parentFrame->numberOfFeeds();
+	wxSize sz = GetClientSize();
+	const double sf = GetContentScaleFactor();
+	const int w = (int)(sz.GetWidth() * sf), h = (int)(sz.GetHeight() * sf);
+	if (w <= 0 || h <= 0) return false;
+	const float worldH = numberOfWires * 1.5f + 0.25f;  // top -0.25 .. bottom nw*1.5
+	if (worldH <= 1e-3f) return false;
+	const float scaleX = (float)w / (float)OSCOPE_HORIZONTAL;
+	const float scaleY = (float)h / worldH;
+	Transform t;
+	t.a = scaleX; t.c = 0; t.e = 0;
+	t.b = 0; t.d = scaleY; t.f = 0.25f * scaleY;   // world y=-0.25 -> device 0
+	OscopeCanvas* self = this;
+	return skiaRenderWindow(w, h, 0, [self, &t, numberOfWires](Scene& scene) {
+		self->drawOscopeScene(scene, t, numberOfWires);
+	});
+}
+
+void OscopeCanvas::drawOscopeScene(cl::render::Scene& scene,
+                                   const cl::render::Transform& t,
+                                   unsigned int numberOfWires) {
+	using namespace cl::render;
+	scene.setViewport(t);
+	const Stroke gridStroke(Color(0.0f, 0.0f, (float)GRID_INTENSITY,
+	                              (float)GRID_INTENSITY), 1.0f);
+
+	// Ten vertical division lines (x = 0 and OSCOPE_HORIZONTAL/10 * 1..9).
+	std::vector<Point> vlines;
+	for (int k = 0; k < 10; k++) {
+		const float x = (float)(OSCOPE_HORIZONTAL / 10.0) * k;
+		vlines.push_back(Point(x, -0.5f));
+		vlines.push_back(Point(x, numberOfWires * 1.5f));
+	}
+	if (!vlines.empty()) scene.lines(&vlines[0], vlines.size(), gridStroke);
+
+	for (unsigned int i = 0; i < numberOfWires; i++) {
+		const unsigned int wireNum = i;
+		// Horizontal baseline for this wire.
+		const Point hb[2] = { Point(0.0f, wireNum * 1.5f + 1.0f),
+		                      Point((float)OSCOPE_HORIZONTAL, wireNum * 1.5f + 1.0f) };
+		scene.lines(hb, 2, gridStroke);
+
+		map< string, deque< StateType > >::iterator thisWire =
+			stateValues.find(parentFrame->getFeedName(i).c_str());
+		if (thisWire == stateValues.end()) continue;
+
+		deque< StateType >::reverse_iterator wireVal = (thisWire->second).rbegin();
+		float horizLoc = (float)OSCOPE_HORIZONTAL, y = 0.0f, lastY = 0.0f;
+		bool firstTime = true;
+		while (wireVal != (thisWire->second).rend()) {
+			bool solid = false;
+			Color c(0, 0, 0, 1);
+			switch (*wireVal) {
+				case ZERO:     c = Color(0, 0, 0);          y = 1.0f + wireNum * 1.5f; break;
+				case ONE:      c = Color(1, 0, 0);          y = 0.0f + wireNum * 1.5f; break;
+				case HI_Z:     c = Color(0, 0.78f, 0);      y = 0.5f + wireNum * 1.5f; break;
+				case UNKNOWN:  c = Color(0.3f, 0.3f, 1.0f); y = 0.75f + wireNum * 1.5f; solid = true; break;
+				case CONFLICT: c = Color(0, 1, 1);          y = 0.75f + wireNum * 1.5f; solid = true; break;
+				default: break;
+			}
+			if (solid) {
+				scene.fillRect(Point(horizLoc - 1.0f, 0.0f + wireNum * 1.5f),
+				               Point(horizLoc, y), c);
+			} else {
+				std::vector<Point> seg;
+				if (!firstTime && lastY != y) {   // rising/falling edge
+					seg.push_back(Point(horizLoc, lastY));
+					seg.push_back(Point(horizLoc, y));
+				}
+				seg.push_back(Point(horizLoc, y));          // the run
+				seg.push_back(Point(horizLoc - 1.0f, y));
+				scene.lines(&seg[0], seg.size(), Stroke(c, 1.0f));
+			}
+			firstTime = false;
+			horizLoc -= 1.0f;
+			lastY = y;
+			++wireVal;
+		}
+	}
+}
+#endif  // WITH_SKIA
+
+void OscopeCanvas::OnPaint(wxPaintEvent& event){
 	wxPaintDC dc(this);
 	wxGetApp().SetCurrentCanvas(this);
 	// Init OpenGL once, but after SetCurrent
@@ -194,7 +290,7 @@ void OscopeCanvas::OnPaint(wxPaintEvent& event){
 		glClearColor (1.0, 1.0, 1.0, 0.0);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glEnable(GL_BLEND);
-		
+
 		//*********************************
 		//Edit by Joshua Lansford 4/09/07
 		//anti-alis ing is nice
@@ -202,6 +298,13 @@ void OscopeCanvas::OnPaint(wxPaintEvent& event){
 		//End of edit
 
 	}
+
+#ifdef WITH_SKIA
+	if (appConfig().appSettings.useSkiaRenderer && OnRenderSkia()) {
+		SwapBuffers();
+		return;
+	}
+#endif
 
 	OnRender();
 

@@ -28,6 +28,7 @@ struct ApplicationSettings {
 	bool wireConnVisible;
 	bool gridlineVisible;
 	bool rightClickRotate;
+	bool useSkiaRenderer = true;   // G3: render the canvases through Skia (default)
 };
 
 class Settings {

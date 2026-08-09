@@ -31,6 +31,9 @@ using namespace std;
 
 class OscopeFrame;
 
+// Engine-neutral rendering seam (Workstream G); defined in gui/render/.
+namespace cl { namespace render { class Scene; struct Transform; } }
+
 class OscopeCanvas: public wxGLCanvas
 {
 public:
@@ -50,6 +53,12 @@ public:
 		
 	// Render this page (scaleOverride > 0 uses that instead of GetContentScaleFactor)
     void OnRender(double scaleOverride = 0.0);
+#ifdef WITH_SKIA
+    // G3: render the waveforms through Skia's Ganesh backend instead of GL.
+    bool OnRenderSkia();
+    void drawOscopeScene(cl::render::Scene& scene, const cl::render::Transform& t,
+                         unsigned int numberOfWires);
+#endif
     wxImage generateImage();
     
     void clearData( void ) {

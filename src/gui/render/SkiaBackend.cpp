@@ -60,9 +60,25 @@ SkiaBackend& SkiaBackend::get() {
 
 bool SkiaBackend::ensureContext() {
 	if (fContext) return true;
-	sk_sp<const GrGLInterface> iface = GrGLMakeNativeInterface();
-	fContext = GrDirectContexts::MakeGL(iface);
+	fInterface = GrGLMakeNativeInterface();
+	fContext = GrDirectContexts::MakeGL(fInterface);
 	return fContext != nullptr;
+}
+
+void SkiaBackend::resetGLStateForLegacy() {
+	if (!fInterface) return;
+	// GL enums (avoid pulling a platform GL header): unbind the modern-pipeline
+	// objects Ganesh leaves set so subsequent fixed-function GL draws correctly.
+	const unsigned GL_ARRAY_BUFFER = 0x8892, GL_ELEMENT_ARRAY_BUFFER = 0x8893;
+	const unsigned GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE0 = 0x84C0, GL_FRAMEBUFFER = 0x8D40;
+	const GrGLInterface::Functions& gl = fInterface->fFunctions;
+	if (gl.fUseProgram)      gl.fUseProgram(0);
+	if (gl.fBindVertexArray) gl.fBindVertexArray(0);
+	if (gl.fBindBuffer)    { gl.fBindBuffer(GL_ARRAY_BUFFER, 0);
+	                         gl.fBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); }
+	if (gl.fActiveTexture)   gl.fActiveTexture(GL_TEXTURE0);
+	if (gl.fBindTexture)     gl.fBindTexture(GL_TEXTURE_2D, 0);
+	if (gl.fBindFramebuffer) gl.fBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 sk_sp<SkSurface> SkiaBackend::windowSurface(int width, int height, int fboId,
@@ -233,6 +249,7 @@ bool skiaRenderWindow(int width, int height, int fboId,
 	draw(scene);
 	// Flush the recorded work to GL and hand back to the caller to SwapBuffers.
 	if (ctx) ctx->flushAndSubmit();
+	backend.resetGLStateForLegacy();   // leave the shared GL context fixed-function-ready
 	return true;
 }
 
@@ -305,6 +322,7 @@ bool skiaRenderWindowScene(int width, int height, int fboId,
 	canvas->restore();
 
 	if (ctx) ctx->flushAndSubmit();
+	backend.resetGLStateForLegacy();   // leave the shared GL context fixed-function-ready
 	return true;
 }
 
@@ -336,6 +354,7 @@ bool skiaRenderWindowCached(int width, int height, int fboId,
 	SkiaScene overlay(canvas, backend.defaultFont(), strokeScale);
 	drawOverlay(overlay);
 	if (ctx) ctx->flushAndSubmit();
+	backend.resetGLStateForLegacy();   // leave the shared GL context fixed-function-ready
 	return true;
 }
 

@@ -90,6 +90,7 @@ BEGIN_EVENT_TABLE(MainFrame, wxFrame)
 	
     EVT_MENU(View_Oscope, MainFrame::OnOscope)
     EVT_MENU(View_Gridline, MainFrame::OnViewGridline)
+    EVT_MENU(View_SkiaRenderer, MainFrame::OnViewSkiaRenderer)
     EVT_MENU(View_WireConn, MainFrame::OnViewWireConn)
     EVT_MENU(View_RightClickRotate, MainFrame::OnViewRightClickRotate)
     EVT_MENU(View_Preferences, MainFrame::OnPreferences)
@@ -158,6 +159,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
     settingsMenu->AppendCheckItem(View_Gridline, "Display Gridlines", "Toggle gridline display");
     settingsMenu->AppendCheckItem(View_WireConn, "Display Wire Connection Points", "Toggle wire connection points");
     settingsMenu->AppendCheckItem(View_RightClickRotate, "Right-Click Rotate", "Toggle right-click to rotate gates");
+    settingsMenu->AppendCheckItem(View_SkiaRenderer, "Skia Renderer", "Render the canvas with the Skia engine");
     settingsMenu->AppendSeparator();
     settingsMenu->Append(View_Preferences, "Preferences...\tCtrl+,", "Open preferences dialog");
     viewMenu->AppendSeparator();
@@ -199,6 +201,14 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
     // set checkmarks on settings menu
     menuBar->Check(View_Gridline, appConfig().appSettings.gridlineVisible);
     menuBar->Check(View_WireConn, appConfig().appSettings.wireConnVisible);
+#ifdef WITH_SKIA
+    menuBar->Check(View_SkiaRenderer, appConfig().appSettings.useSkiaRenderer);
+#else
+    // No Skia in this build: reflect that and disable the toggle.
+    appConfig().appSettings.useSkiaRenderer = false;
+    menuBar->Check(View_SkiaRenderer, false);
+    menuBar->Enable(View_SkiaRenderer, false);
+#endif
     menuBar->Check(View_RightClickRotate, appConfig().appSettings.rightClickRotate);
     
     // ... and attach this menu bar to the frame
@@ -862,6 +872,14 @@ void MainFrame::OnViewWireConn(wxCommandEvent& event) {
 	if (currentCanvas != NULL) currentCanvas->Update();
 }
 
+void MainFrame::OnViewSkiaRenderer(wxCommandEvent& event) {
+	appConfig().appSettings.useSkiaRenderer = event.IsChecked();
+	// Repaint the visible canvas + minimap with the newly-chosen engine; other
+	// pages and the oscope repaint on their next paint.
+	if (currentCanvas != NULL) { currentCanvas->Refresh(); currentCanvas->Update(); }
+	if (miniMap != NULL) miniMap->Refresh();
+}
+
 void MainFrame::OnViewRightClickRotate(wxCommandEvent& event) {
 	appConfig().appSettings.rightClickRotate = event.IsChecked();
 }
@@ -1416,6 +1434,7 @@ void MainFrame::saveSettings() {
 	conf->Write("WireConnVisible", settings.wireConnVisible);
 	conf->Write("GridlineVisible", settings.gridlineVisible);
 	conf->Write("RightClickRotate", settings.rightClickRotate);
+	conf->Write("UseSkiaRenderer", settings.useSkiaRenderer);
 }
 
 void MainFrame::ResumeExecution() {

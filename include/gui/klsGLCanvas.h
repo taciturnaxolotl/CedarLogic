@@ -112,10 +112,6 @@ public:
 	virtual bool renderSkiaLive() { return false; }
 	virtual void OnSize(void) {};
 
-	// Toggle the Skia live-render path (G3 go/no-go; off by default).
-	void setSkiaLive( bool on ) { skiaLive = on; }
-	bool isSkiaLive() const { return skiaLive; }
-
 	// Event query methods:
 	// (Need member vars to back these up, too.)
 	GLPoint2f getDragStartCoords( mouseButton whichButton = BUTTON_LEFT ) { return dragStartCoords[whichButton]; };
@@ -226,7 +222,6 @@ private:
 	void setIsDragging( bool isDragging, mouseButton whichButton = BUTTON_LEFT ) { isDraggingFlag[whichButton] = isDragging; };
 
 	bool glInitialized; // Is OpenGL initialized on this canvas
-	bool skiaLive;      // G3: route the live frame through Skia (off by default)
 	bool deferPaint;    // suppress setPan's synchronous repaint during a compound
 	                    // camera move (e.g. zoom = setZoom + setCenter) so it
 	                    // paints once at the final state, not the intermediate one

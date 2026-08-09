@@ -184,11 +184,7 @@ void klsMiniMap::generateImage() {
 	setViewport();
 
 #ifdef WITH_SKIA
-	static const bool useSkia = []() {
-		const char* e = std::getenv("CEDAR_SKIA_LIVE");
-		return e && e[0] == '1';
-	}();
-	if (useSkia && generateImageSkia()) return;
+	if (appConfig().appSettings.useSkiaRenderer && generateImageSkia()) return;
 #endif
 	// Reset the glViewport to the size of the bitmap:
 	double scaleFactorImg = GetContentScaleFactor();
