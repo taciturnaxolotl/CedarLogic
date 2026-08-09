@@ -65,7 +65,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: skia-dist
-          key: skia-${{ matrix.name }}-${{ env.SKIA_REF }}-${{ hashFiles('cmake/skia-args/common.gn', format('cmake/skia-args/{0}.gn', matrix.args)) }}
+          key: skia-${{ matrix.name }}-${{ env.SKIA_REF }}-h2-${{ hashFiles('cmake/skia-args/common.gn', format('cmake/skia-args/{0}.gn', matrix.args)) }}
 
       - name: Clone Skia
         if: steps.cache.outputs.cache-hit != 'true'
@@ -147,19 +147,21 @@ jobs:
           mkdir -p skia-dist/lib
           cp "$RUNNER_TEMP/skia-args/effective.gn" skia-dist/args.gn
           echo "$SKIA_REF" > skia-dist/SKIA_REF.txt
-          # Core + module public headers (SkCanvas, SkSVGCanvas, SkPDFDocument...).
+          # Public headers, preserving Skia's checkout-relative layout: its public
+          # headers include each other root-relative -- both include/... and
+          # modules/... (e.g. SkColorSpace.h -> modules/skcms/skcms.h) -- so a
+          # consumer puts SKIA_ROOT on the include path. cp --parents is not
+          # portable to macOS, so copy module headers with a mkdir+cp loop.
           cp -R skia/include skia-dist/include
-          for m in svg skshaper skparagraph skunicode; do
-            if [ -d "skia/modules/$m/include" ]; then
-              mkdir -p "skia-dist/include/modules/$m"
-              cp -R "skia/modules/$m/include/." "skia-dist/include/modules/$m/"
-            fi
-          done
+          ( cd skia && find modules \( -name '*.h' -o -name '*.inc' \) | while IFS= read -r f; do
+              mkdir -p "../skia-dist/$(dirname "$f")"
+              cp "$f" "../skia-dist/$f"
+            done )
           # Static libraries (*.a on POSIX, *.lib on Windows).
           find skia/out/Release -maxdepth 1 \( -name '*.a' -o -name '*.lib' \) \
             -exec cp {} skia-dist/lib/ \;
-          echo "----- dist libs -----"
-          ls -la skia-dist/lib
+          echo "----- skcms header present -----" && ls skia-dist/modules/skcms/skcms.h
+          echo "----- dist libs -----" && ls -la skia-dist/lib
 
       - name: Upload Skia dist
         uses: actions/upload-artifact@v4
