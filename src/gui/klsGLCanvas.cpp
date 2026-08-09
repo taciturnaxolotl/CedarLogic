@@ -87,6 +87,7 @@ klsGLCanvas::klsGLCanvas(wxWindow *parent, const wxString& name, wxWindowID id,
 	disableVertGrid();
 
 	glInitialized = false;
+	deferPaint = false;
 	// G3 go/no-go: opt into the Skia live-render path with CEDAR_SKIA_LIVE=1.
 	skiaLive = false;
 	if (const char* e = std::getenv("CEDAR_SKIA_LIVE")) skiaLive = (e[0] == '1');
@@ -449,6 +450,11 @@ void klsGLCanvas::setPan( GLdouble newX, GLdouble newY ) {
 	GLPoint2f m = getMouseCoords();
 	OnMouseMove(m.x, m.y, isShiftDown, isControlDown);
 	updateMiniMap();
+
+	// During a compound camera move (zoom = setZoom + setCenter, each of which
+	// calls setPan) skip the repaint until the final state, so we don't flash the
+	// intermediate frame.
+	if (deferPaint) return;
 
 	Refresh(); // Obviously it needs refreshed after a pan.
 	// Force an immediate repaint rather than a deferred WM_PAINT. On Windows
@@ -845,6 +851,11 @@ void klsGLCanvas::zoomToMouse(long numLines)
 	centerToMouse.x /= getZoom();
 	centerToMouse.y /= getZoom();
 
+	// setZoom and setCenter both call setPan, which normally repaints
+	// synchronously -- defer so the zoom paints once at the final camera state
+	// instead of flashing the intermediate (center-fixed) frame before the
+	// mouse-fixed correction.
+	deferPaint = true;
 	if (numLines > 0) {
 		setZoom(getZoom() * (pow(ZOOM_STEP, numLines)));
 	} else {
@@ -855,6 +866,10 @@ void klsGLCanvas::zoomToMouse(long numLines)
 	centerToMouse.y *= getZoom();
 
 	setCenter(mouse.x - centerToMouse.x, mouse.y - centerToMouse.y);
+	deferPaint = false;
+
+	Refresh();
+	wxWindow::Update();
 }
 
 GLPoint2f klsGLCanvas::getCenter() {

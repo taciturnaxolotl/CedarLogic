@@ -227,6 +227,9 @@ private:
 
 	bool glInitialized; // Is OpenGL initialized on this canvas
 	bool skiaLive;      // G3: route the live frame through Skia (off by default)
+	bool deferPaint;    // suppress setPan's synchronous repaint during a compound
+	                    // camera move (e.g. zoom = setZoom + setCenter) so it
+	                    // paints once at the final state, not the intermediate one
 
 	// Zoom and OpenGL coordinate of upper-left corner of this canvas:
 	GLdouble viewZoom;
