@@ -63,10 +63,12 @@ void klsMiniMap::setViewport() {
 	}
 	mix(gateList->size()); mix(wireList ? wireList->size() : 0);
 	contentSig = sig;
-	if (origin.x < minX) minX = origin.x;
-	if (origin.y > maxY) maxY = origin.y;
-	if (endpoint.x > maxX) maxX = endpoint.x;
-	if (endpoint.y < minY) minY = endpoint.y;
+	// NOTE: the fit is the circuit bounding box ONLY -- deliberately NOT extended
+	// to include the viewport rectangle (origin/endpoint). That keeps the
+	// thumbnail stable while panning (so the cached image stays valid and the
+	// viewport rect stays aligned to it); the rect simply moves over the fixed
+	// circuit and clips at the edges when you pan into empty space. Extending the
+	// fit to the viewport would rescale the thumbnail on every pan.
 
 	minCorner = GLPoint2f(minX-5,maxY+5);
 	maxCorner = GLPoint2f(maxX+5,minY-5);
