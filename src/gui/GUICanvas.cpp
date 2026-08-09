@@ -21,6 +21,7 @@
 #include "render/Scene.h"
 #include "render/RenderStyle.h"
 
+
 #include <wx/dnd.h>
 
 // Included to use the min() and max() templates:
@@ -226,6 +227,26 @@ void GUICanvas::renderToScene(cl::render::Scene& scene,
 	t.a = scale;  t.c = 0;      t.e = -minX * scale + offX;
 	t.b = 0;      t.d = -scale; t.f =  maxY * scale + offY;
 	scene.setViewport(t);
+
+	// Background grid, matching the GL canvas. Stroke widths are device pixels
+	// (SkiaScene divides by the viewport scale, like GL's device-space
+	// glLineWidth), so 1.0 is a ~1px hairline at any zoom.
+	if (style.showGrid) {
+		float gx = horizSpacing, gy = vertSpacing;
+		if (gx <= 0) gx = 1.0f;
+		if (gy <= 0) gy = 1.0f;
+		Stroke grid;
+		grid.color = Color(0.87f, 0.89f, 0.92f);
+		grid.width = 1.0f;
+		std::vector<Point> gl;
+		for (float x = std::ceil(minX / gx) * gx; x <= maxX; x += gx) {
+			gl.push_back(Point(x, minY)); gl.push_back(Point(x, maxY));
+		}
+		for (float y = std::ceil(minY / gy) * gy; y <= maxY; y += gy) {
+			gl.push_back(Point(minX, y)); gl.push_back(Point(maxX, y));
+		}
+		if (!gl.empty()) scene.lines(&gl[0], gl.size(), grid);
+	}
 
 	for (auto it = wireList.begin(); it != wireList.end(); ++it)
 		if (it->second) it->second->drawToScene(scene, style);

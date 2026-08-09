@@ -5,6 +5,7 @@
 #include "render/SkiaScene.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include "core/SkCanvas.h"
 #include "core/SkColor.h"
@@ -42,16 +43,26 @@ SkPaint::Cap toCap(Cap c) {
 	}
 }
 
-SkPaint strokePaint(const Stroke& s) {
+// Uniform scale factor of a canvas's current matrix (sqrt of |determinant|).
+// Used to keep stroke widths in device pixels regardless of the viewport zoom,
+// matching GL's device-space glLineWidth.
+float deviceScale(SkCanvas* canvas) {
+	SkMatrix m = canvas->getTotalMatrix();
+	float det = m.getScaleX() * m.getScaleY() - m.getSkewX() * m.getSkewY();
+	float s = std::sqrt(std::fabs(det));
+	return s > 1e-6f ? s : 1.0f;
+}
+
+SkPaint strokePaint(const Stroke& s, float devScale) {
 	SkPaint p;
 	p.setAntiAlias(true);
 	p.setStyle(SkPaint::kStroke_Style);
-	p.setStrokeWidth(s.width);
+	p.setStrokeWidth(s.width / devScale);   // s.width is device pixels
 	p.setStrokeCap(toCap(s.cap));
 	p.setColor4f(toColor(s.color));
 	if (s.dashed) {
-		// Approximates the legacy 0x9999 selection stipple.
-		const SkScalar intervals[] = {3.0f, 3.0f};
+		// Approximates the legacy 0x9999 selection stipple (device-space dashes).
+		const SkScalar intervals[] = {3.0f / devScale, 3.0f / devScale};
 		p.setPathEffect(SkDashPathEffect::Make(intervals, 2, 0.0f));
 	}
 	return p;
@@ -91,7 +102,7 @@ void SkiaScene::lines(const Point* pts, std::size_t count, const Stroke& s) {
 		path.moveTo(pts[i].x, pts[i].y);
 		path.lineTo(pts[i + 1].x, pts[i + 1].y);
 	}
-	fCanvas->drawPath(path, strokePaint(s));
+	fCanvas->drawPath(path, strokePaint(s, deviceScale(fCanvas)));
 }
 
 void SkiaScene::polyline(const Point* pts, std::size_t count, const Stroke& s,
@@ -101,7 +112,7 @@ void SkiaScene::polyline(const Point* pts, std::size_t count, const Stroke& s,
 	path.moveTo(pts[0].x, pts[0].y);
 	for (std::size_t i = 1; i < count; ++i) path.lineTo(pts[i].x, pts[i].y);
 	if (closed) path.close();
-	fCanvas->drawPath(path, strokePaint(s));
+	fCanvas->drawPath(path, strokePaint(s, deviceScale(fCanvas)));
 }
 
 void SkiaScene::fillPolygon(const Point* pts, std::size_t count,
@@ -119,7 +130,7 @@ void SkiaScene::fillCircle(Point center, float radius, const Color& c) {
 }
 
 void SkiaScene::strokeCircle(Point center, float radius, const Stroke& s) {
-	fCanvas->drawCircle(center.x, center.y, radius, strokePaint(s));
+	fCanvas->drawCircle(center.x, center.y, radius, strokePaint(s, deviceScale(fCanvas)));
 }
 
 void SkiaScene::fillRect(Point lo, Point hi, const Color& c) {

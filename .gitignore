@@ -19,3 +19,4 @@ result
 corelog.log
 guilog.log
 *.log
+build-skia/

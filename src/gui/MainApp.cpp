@@ -520,11 +520,12 @@ bool MainApp::OnInit()
             }
         }
         // Realize + size the window so the canvas has a client size, load the
-        // circuit synchronously, render it offscreen, and exit. The Skia raster
-        // path needs only the loaded model (not a GL window), so it skips
-        // Show() -- realizing the GL canvas hangs under headless software GL.
+        // circuit synchronously, render it offscreen, and exit. Realizing the
+        // frame is required even for the Skia raster path: it initializes the
+        // canvas + wire/gate render geometry that renderToScene reads (skipping
+        // it crashes). Works with a real display; hangs under headless xvfb.
         frame->SetSize(renderW + 220, renderH + 140);
-        if (!renderSkia) frame->Show(true);
+        frame->Show(true);
         wxYield();
         frame->load(cmdFilename);
         wxYield();
