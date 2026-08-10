@@ -129,20 +129,17 @@ def process_shape(body_lines):
     n_runs = 0
     n_removed = 0
     i = 0
-    inside_offset = False
     while i < len(toks):
         t = toks[i]
         if t[0] == 'other':
-            if OFFSET_OPEN.search(t[3]):
-                inside_offset = True
-            if re.search(r'</(offset|label_offset)>', t[3]):
-                inside_offset = False
             out.append(t[3])
             i += 1
             continue
-        # A run of connected top-level lines (only outside offset wrappers).
-        if inside_offset:
-            out.append(t[3]); i += 1; continue
+        # A run of connected lines. <offset>/<label_offset> tags are 'other'
+        # tokens, so a run can't span across one -- it's bounded to a single
+        # coordinate frame. Fitting inside an offset is fine: the emitted <arc>
+        # sits in the same local frame, and the parser applies the offset to it
+        # exactly as it did to the lines (LibraryParse::parseShapeObject).
         run = [t[2]]
         indent = t[1]
         j = i + 1
