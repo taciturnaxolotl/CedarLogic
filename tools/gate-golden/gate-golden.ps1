@@ -133,8 +133,13 @@ function Invoke-Capture {
             $running = @($running | Where-Object { -not $_.HasExited })
             if ($running.Count -ge $Throttle) { Start-Sleep -Milliseconds 40 }
         }
-        $p = Start-Process $exePath -PassThru -WindowStyle Hidden -ArgumentList `
-            $j.Flag, $j.Gate, $j.Angle, $j.File, $Size, $Size
+        # Quote any argument containing a space (some gate names -- e.g.
+        # "3x8 Decoder Chip" -- and output paths do) so Start-Process passes each
+        # as a single argv entry instead of splitting it.
+        $argv = @($j.Flag, $j.Gate, $j.Angle, $j.File, $Size, $Size) | ForEach-Object {
+            if ("$_" -match '\s') { '"' + $_ + '"' } else { "$_" }
+        }
+        $p = Start-Process $exePath -PassThru -WindowStyle Hidden -ArgumentList $argv
         $running += $p
         $done++
         if ($done % 25 -eq 0) { Write-Host "  launched $done / $total" }
