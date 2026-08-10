@@ -88,7 +88,11 @@ public:
 		const T *i;
 		GLFontChar *glfont_char;
 		float width;
-		
+
+		//No font loaded yet (Create not called / failed): report an empty box
+		//rather than dereferencing a null glyph table.
+		if (header.chars == NULL) { size->first = 0; size->second = 0; return; }
+
 		//Height is the same for now...might change in future
 		size->second = (int)(header.chars[header.start_char].dy *
 			header.tex_height);
@@ -120,7 +124,11 @@ public:
 		T c;
 		GLFontChar *glfont_char;
 		float width;
-		
+
+		//No font loaded yet (Create not called / failed): report an empty box
+		//rather than dereferencing a null glyph table.
+		if (header.chars == NULL) { size->first = 0; size->second = 0; return; }
+
 		//Height is the same for now...might change in future
 		size->second = (int)(header.chars[header.start_char].dy *
 			header.tex_height);
