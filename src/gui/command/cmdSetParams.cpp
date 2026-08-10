@@ -6,6 +6,14 @@
 #include "../OscopeFrame.h"
 #include "../MainApp.h"
 #include "cmdSerialize.h"
+#include "cmdRegistry.h"
+
+// Self-register so the paste dispatcher can rebuild a "setparams ..." line
+// without naming this type. See cmdRegistry.h.
+static const bool s_registered_cmdSetParams =
+	cmd::registerFactory("setparams", [](const std::string &def) -> klsCommand * {
+		return new cmdSetParams(def);
+	});
 
 DECLARE_APP(MainApp);
 

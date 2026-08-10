@@ -17,6 +17,7 @@
 #include "MainApp.h"
 #include "commands.h"
 #include "cmdSerialize.h"
+#include "cmdRegistry.h"
 #include "GUICanvas.h"
 #include "GUICircuit.h"
 #include "guiGate.h"
@@ -37,6 +38,37 @@ public:
 	}
 };
 
+// Paste-specific tweak (Colin Broberg, 10/6/16): when a single gate is pasted,
+// auto-increment a trailing number on its JUNCTION_ID param so repeated pastes
+// don't collide, and rewrite the clipboard so the next paste keeps counting.
+// Skipped when the block holds more than one gate, or when Shift is held.
+// Mutates `line` (the setparams command text) in place.
+static void autoIncrementJunctionId(string &line, const string &pasteText) {
+	// More than one creategate in the block, or Shift held -> leave it alone.
+	if (pasteText.find("creategate", pasteText.find("creategate") + 1) != string::npos ||
+		wxGetKeyState(WXK_SHIFT)) {
+		return;
+	}
+
+	// Gather the run of digits at the end of the line. line always ends in a
+	// tab, so start one character before it.
+	string numEnd;
+	for (int i = line.length() - 2; i > 0; i--) {
+		if (isdigit(line[i])) numEnd = line[i] + numEnd;
+		else break;
+	}
+	if (numEnd == "" || line.find("JUNCTION_ID") == string::npos) return;
+
+	string newPasteText = pasteText; // rewritten to the clipboard so subsequent pastes keep incrementing
+	line.erase(line.length() - 1 - numEnd.length(), numEnd.length() + 1);                  // drop the number and its trailing tab
+	newPasteText.erase(newPasteText.length() - 2 - numEnd.length(), numEnd.length() + 2);  // same, plus the newline
+
+	string s = to_string(stoi(numEnd) + 1) + "\t"; // the point of it all: bump the trailing number by 1
+	line += s;
+	newPasteText += s + "\n";
+	wxTheClipboard->AddData(new wxTextDataObject(newPasteText));
+}
+
 cmdPasteBlock* klsClipboard::pasteBlock( GUICircuit* gCircuit, GUICanvas* gCanvas ) {
 	clipboardCtx clipboard;
 	if ( !clipboard.valid || !wxTheClipboard->IsSupported(wxDF_UNICODETEXT) ) {
@@ -54,58 +86,16 @@ cmdPasteBlock* klsClipboard::pasteBlock( GUICircuit* gCircuit, GUICanvas* gCanva
 		TranslationMap gateids;
 		TranslationMap wireids;
     	while (getline( iss, temp, '\n' )) {
-    		klsCommand* cg = NULL;
-    		std::string kw = cmdser::keyword(temp);
-    		if (kw == "creategate") cg = new cmdCreateGate(temp);
-			else if (kw == "setparams") {
+    		// The setparams line for a lone pasted gate gets its JUNCTION_ID
+    		// bumped before the command is rebuilt (this also rewrites the
+    		// clipboard so the next paste keeps counting).
+    		if (cmdser::keyword(temp) == "setparams")
+    			autoIncrementJunctionId(temp, pasteText);
 
-				/* EDIT by Colin Broberg, 10/6/16
-				   logic to increment number on end of TO/FROM tag */
-
-				string numEnd = "";	// String of numbers on end that we will build
-
-				// If we are copying more than one thing, don't increment them -- that would be annoying
-				// Hold Shift during paste to bypass the auto-increment
-				if (pasteText.find("creategate", pasteText.find("creategate") + 1) == std::string::npos
-					&& !wxGetKeyState(WXK_SHIFT)) {
-
-					// Loop from end of temp to beginning, gathering up numbers to build unto numEnd
-					// Starts at temp.length() - 2 so that it starts at the end minus one because 
-					// temp always ends with a /t
-					for (int i = temp.length() - 2; i > 0; i--) {
-						if (isdigit(temp[i])) {
-							numEnd = temp[i] + numEnd;
-						}
-						else {
-							break;
-						}
-					}
-
-					// If we have numbers to add and we are naming a junction_id
-					if (numEnd != "" && temp.find("JUNCTION_ID") != std::string::npos) {
-						string newPasteText = pasteText; // This string will be modified and rewritten to the clipboard so that subsequent pastes continue to increment
-
-						temp.erase(temp.length() - 1 - numEnd.length(), numEnd.length() + 1); // Erase number at end of tag, add 1 to erase the \t also
-						newPasteText.erase(newPasteText.length() - 2 - numEnd.length(), numEnd.length() + 2);  // Modify clipboard data similarly, but +2 so it erases the \n also
-
-						int holder = stoi(numEnd);
-						holder++; // The whole point of this -- increment number at end of tag by 1
-						string s = to_string(holder) + "\t";
-
-						temp += s; // Add it back to temp string
-						newPasteText += s + "\n";
-
-						wxTheClipboard->AddData(new wxTextDataObject(newPasteText)); // Update clipboard data so subsequent pastes carry
-					/* END OF EDIT */
-					}
-
-				}
-				cg = new cmdSetParams(temp);
-			}
-    		else if (kw == "createwire") cg = new cmdCreateWire(temp);
-    		else if (kw == "connectwire") cg = new cmdConnectWire(temp);
-    		else if (kw == "movewire") cg = new cmdMoveWire(temp);
-    		else break;
+    		// The registry picks the concrete command from the line's keyword.
+    		// An unrecognized keyword ends the block, as the old chain did.
+    		klsCommand* cg = cmd::fromLine(temp);
+    		if (cg == NULL) break;
     		cmdList.push_back( cg );
     		cg->setPointers( gCircuit, gCanvas, gateids, wireids );
     		cg->Do();

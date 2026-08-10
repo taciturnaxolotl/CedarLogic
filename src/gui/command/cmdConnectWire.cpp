@@ -5,6 +5,14 @@
 #include "../guiWire.h"
 #include "../guiGate.h"
 #include "cmdSerialize.h"
+#include "cmdRegistry.h"
+
+// Self-register so the paste dispatcher can rebuild a "connectwire ..." line
+// without naming this type. See cmdRegistry.h.
+static const bool s_registered_cmdConnectWire =
+	cmd::registerFactory("connectwire", [](const std::string &def) -> klsCommand * {
+		return new cmdConnectWire(def);
+	});
 
 cmdConnectWire::cmdConnectWire(GUICircuit* gCircuit, IDType wid, IDType gid,
 		const std::string &hotspot, bool noCalcShape) :

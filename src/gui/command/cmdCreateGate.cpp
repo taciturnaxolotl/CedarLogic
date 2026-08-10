@@ -7,8 +7,16 @@
 #include "../MainApp.h"
 #include "cmdSetParams.h"
 #include "cmdSerialize.h"
+#include "cmdRegistry.h"
 
 DECLARE_APP(MainApp)
+
+// Self-register so the paste dispatcher can rebuild a "creategate ..." line
+// without naming this type. See cmdRegistry.h.
+static const bool s_registered_cmdCreateGate =
+	cmd::registerFactory("creategate", [](const std::string &def) -> klsCommand * {
+		return new cmdCreateGate(def);
+	});
 
 cmdCreateGate::cmdCreateGate(GUICanvas* gCanvas, GUICircuit* gCircuit, unsigned long gid, string gateType, float x, float y) : klsCommand(true, "Create Gate") {
 	this->gCanvas = gCanvas;

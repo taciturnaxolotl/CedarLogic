@@ -4,6 +4,14 @@
 #include "../GUICircuit.h"
 #include "../guiWire.h"
 #include "cmdSerialize.h"
+#include "cmdRegistry.h"
+
+// Self-register so the paste dispatcher can rebuild a "movewire ..." line
+// without naming this type. See cmdRegistry.h.
+static const bool s_registered_cmdMoveWire =
+	cmd::registerFactory("movewire", [](const std::string &def) -> klsCommand * {
+		return new cmdMoveWire(def);
+	});
 
 // Resolve a connection's gate pointer from its (stable) id. Uses find() rather
 // than unordered_map::operator[] so a missing gate doesn't get a phantom null
