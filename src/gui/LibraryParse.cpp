@@ -247,29 +247,17 @@ bool LibraryParse::parseShapeObject( string type, LibraryGate* newGate, double o
 		temp = mParse->readTagValue("circle");
 		mParse->readCloseTag();
 		istringstream iss(temp);
-		
+
 		double radius = 1.0;
 		long numSegs = 12;
 		iss >> x1 >> dump >> y1 >> dump >> radius >> dump >> numSegs;
 		// Apply the offset:
 		x1 += offX; y1 += offY;
 
-		// Generate a circle of the defined shape:
-		float theX = 0 + x1;
-		float theY = 0 + y1;
-		float lastX = x1;//         = sin((double)0)*radius + x1;
-		float lastY = radius + y1;//= cos((double)0)*radius + y1;
-
-		float degStep = 360.0 / (float) numSegs;
-		for (float i=degStep; i <= 360; i += degStep)
-		{
-			float degInRad = i*DEG2RAD;
-			theX = sin(degInRad)*radius + x1;
-			theY = cos(degInRad)*radius + y1;
-			newGate->shape.push_back( lgLine(lastX, lastY, theX, theY) );
-			lastX = theX;
-			lastY = theY;
-		}
+		// Keep the circle whole (Workstream G) rather than tessellating it to
+		// lines here: Skia strokes it smooth, and the GL path reproduces this same
+		// segs-gon at draw time (see guiGate). segs is preserved for that.
+		newGate->circles.push_back( lgCircle( x1, y1, (float)radius, (int)numSegs, isLabel ) );
 		return true;
 	}
 	

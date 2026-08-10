@@ -51,6 +51,18 @@ struct lgArc {
 	bool isLabel;
 };
 
+// A structured circle in a gate's shape (Workstream G) -- inversion bubbles,
+// mostly. Kept whole so Skia strokes a true circle instead of the segs-gon the
+// author baked in; segs is retained so the GL path can reproduce that old
+// tessellation exactly (byte-stable) while Skia renders smooth.
+struct lgCircle {
+	lgCircle( float nCx = 0, float nCy = 0, float nR = 1, int nSegs = 12, bool nIsLabel = false )
+		: cx(nCx), cy(nCy), r(nR), segs(nSegs), isLabel(nIsLabel) {}
+	float cx, cy, r;
+	int segs;
+	bool isLabel;
+};
+
 struct lgDlgParam {
 	string textLabel; // The label shown to the user when the widget is drawn. The "Visible Name" of the param.
 
@@ -71,6 +83,7 @@ struct LibraryGate {
 	vector < lgHotspot > hotspots;
 	vector < lgLine > shape;
 	vector < lgArc > arcs; // Structured curved primitives (Workstream G); render smooth.
+	vector < lgCircle > circles; // Structured circles (Workstream G); render smooth.
 	vector < lgDlgParam > dlgParams; // The parameters to be listed in the "settings dialog".
 	map < string, string > guiParams;
 	map < string, string > logicParams;

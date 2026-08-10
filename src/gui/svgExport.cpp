@@ -242,6 +242,14 @@ bool SVGExporter::exportToSVG(GUICanvas* canvas, const std::string& filename,
             svgFile << "\" fill=\"none\" class=\"" << pathClass << "\"/>\n";
         }
 
+        // Structured circles (inversion bubbles) as SVG circles.
+        for (const auto& circ : gate->getCircles()) {
+            svgFile << "          <circle cx=\"" << floatToStr(circ.cx)
+                    << "\" cy=\"" << floatToStr(flipLocalY(circ.cy))
+                    << "\" r=\"" << floatToStr(circ.r)
+                    << "\" fill=\"none\" class=\"" << pathClass << "\"/>\n";
+        }
+
         // Special handling for KEYPAD gates (highlight selected key)
         if (gate->getGUIType() == "KEYPAD" && !noColor) {
             // Get the current output value to determine which key is selected

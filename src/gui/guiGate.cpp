@@ -231,6 +231,23 @@ void guiGate::draw(bool color) {
 		glEnd();
 	}
 
+	// Structured circles: reproduce the exact segs-gon the library used to bake in
+	// at parse time (same start at the top, same clockwise winding, same i<=360
+	// loop), so the fixed-function render is byte-identical to before.
+	for (unsigned int c = 0; c < circles.size(); c++) {
+		const GateCircle& circ = circles[c];
+		float lastX = circ.cx, lastY = circ.r + circ.cy;
+		float degStep = 360.0f / (float)circ.segs;
+		glBegin(GL_LINES);
+		for (float i = degStep; i <= 360; i += degStep) {
+			float rad = i * DEG2RAD;
+			float x = sin(rad) * circ.r + circ.cx, y = cos(rad) * circ.r + circ.cy;
+			glVertex2f(lastX, lastY); glVertex2f(x, y);
+			lastX = x; lastY = y;
+		}
+		glEnd();
+	}
+
 	// Draw label lines with counter-rotation so they stay upright:
 	if (!labelVertices.empty()) {
 		istringstream iss(gparams["angle"]);
@@ -299,6 +316,11 @@ void guiGate::drawToScene(cl::render::Scene& scene,
 	for (size_t a = 0; a < arcs.size(); a++) {
 		const GateArc& arc = arcs[a];
 		scene.arc(Point(arc.cx, arc.cy), arc.r, arc.startDeg, arc.sweepDeg, s);
+	}
+	// Structured circles stroke as true circles (smooth inversion bubbles).
+	for (size_t c = 0; c < circles.size(); c++) {
+		const GateCircle& circ = circles[c];
+		scene.strokeCircle(Point(circ.cx, circ.cy), circ.r, s);
 	}
 
 	// Label lines are counter-rotated so text stays upright under the model's
@@ -371,6 +393,13 @@ void guiGate::insertArc( float cx, float cy, float r, float startDeg, float swee
 	arcs.push_back( a );
 }
 
+// Insert a structured circle, kept whole (see guiGate.h).
+void guiGate::insertCircle( float cx, float cy, float r, int segs, bool isLabel ) {
+	GateCircle c;
+	c.cx = cx; c.cy = cy; c.r = r; c.segs = segs; c.isLabel = isLabel;
+	circles.push_back( c );
+}
+
 // Insert a line in the line list.
 void guiGate::insertLine( float x1, float y1, float x2, float y2, bool isLabel ) {
 	if (isLabel) {
@@ -402,6 +431,12 @@ void guiGate::calcBBox( void ) {
 			float d = (arc.startDeg + arc.sweepDeg * (float)i / (float)segs) * DEG2RAD;
 			modelBBox.addPoint( GLPoint2f(arc.cx + arc.r * sin(d), arc.cy + arc.r * cos(d)) );
 		}
+	}
+	// Include circle extents (its bounding box corners).
+	for( unsigned int c = 0; c < circles.size(); c++ ) {
+		const GateCircle& circ = circles[c];
+		modelBBox.addPoint( GLPoint2f(circ.cx - circ.r, circ.cy - circ.r) );
+		modelBBox.addPoint( GLPoint2f(circ.cx + circ.r, circ.cy + circ.r) );
 	}
 
 	// Recalculate the world-space bbox:

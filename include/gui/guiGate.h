@@ -187,6 +187,10 @@ public:
 	// Degrees from +Y clockwise, matching the <circle>/Scene convention.
 	void insertArc( float cx, float cy, float r, float startDeg, float sweepDeg, bool isLabel = false );
 
+	// Insert a structured circle (Workstream G). Skia strokes it true; GL redraws
+	// the `segs`-gon the author baked in, keeping the fixed-function path stable.
+	void insertCircle( float cx, float cy, float r, int segs, bool isLabel = false );
+
 	// Recalculate the bounding box, based on the lines that are included alredy:
 	virtual void calcBBox( void );
 
@@ -229,8 +233,13 @@ public:
 	// Skia, tessellated for GL/legacy export. Degrees from +Y, clockwise.
 	struct GateArc { float cx, cy, r, startDeg, sweepDeg; bool isLabel; };
 
-	// Get the gate's arcs (for the legacy SVG export, etc.)
+	// A structured circle in the gate outline (Workstream G) -- inversion bubbles.
+	// Skia strokes it true; GL reproduces the `segs`-gon the author baked in.
+	struct GateCircle { float cx, cy, r; int segs; bool isLabel; };
+
+	// Get the gate's arcs / circles (for the legacy SVG export, etc.)
 	const vector<GateArc>& getArcs() const { return arcs; }
+	const vector<GateCircle>& getCircles() const { return circles; }
 
 	// Get the gate's transformation matrix (for SVG export, etc.)
 	const GLdouble* getModelMatrix() const { return mModel; }
@@ -310,6 +319,7 @@ protected:
 	// Structured arcs (Workstream G): drawn smooth under Skia, tessellated for GL.
 	// GateArc is declared in the public section (getArcs()).
 	vector<GateArc> arcs;
+	vector<GateCircle> circles;
 	// map i/o name to hotspot coord
 	map< string, gateHotspot* > hotspots;
 	// map i/o name to wire id
