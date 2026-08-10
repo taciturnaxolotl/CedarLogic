@@ -40,7 +40,13 @@ param(
     [int]$Size = 256,
 
     [string[]]$Gates,       # optional subset; default = every gate in GateDefs
-    [int]$Throttle = 8      # max concurrent render processes (capture)
+    [int]$Throttle = 8,     # max concurrent render processes (capture)
+
+    # Directory that CONTAINS res/ (res/cl_gatedefs.xml, res/arial.glf). Pinned
+    # via CEDARLOGIC_RESOURCES_DIR so every render reads a known gate library --
+    # otherwise the exe's default resources dir wins and edits to the repo's
+    # res/ are invisible, making the comparison meaningless. Defaults to repo root.
+    [string]$ResourcesDir
 )
 
 $ErrorActionPreference = "Stop"
@@ -110,6 +116,14 @@ function Invoke-Capture {
     if (-not $OutDir) { throw "-OutDir is required for capture." }
     $dest = Resolve-RepoPath $OutDir
     New-Item -ItemType Directory -Force -Path $dest | Out-Null
+
+    # Pin the gate library the exe loads. Child processes inherit this env var.
+    $resDir = if ($ResourcesDir) { Resolve-RepoPath $ResourcesDir } else { "$repoRoot" }
+    $env:CEDARLOGIC_RESOURCES_DIR = $resDir
+    Write-Host "Resources dir (CEDARLOGIC_RESOURCES_DIR): $resDir"
+    if (-not (Test-Path (Join-Path $resDir "res/cl_gatedefs.xml"))) {
+        throw "No res/cl_gatedefs.xml under resources dir: $resDir"
+    }
 
     $gateList = if ($Gates) { $Gates } else { Get-GateNames $xmlPath }
     Write-Host "Capturing $($gateList.Count) gates x $($Angles.Count) angles x $($Engines.Count) engines -> $dest"
