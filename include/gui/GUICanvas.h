@@ -136,6 +136,7 @@ public:
     void OnMouseEnter(wxMouseEvent& event);
 
     void OnKeyDown(wxKeyEvent& event);
+    void cancelDrag() override;   // cancel an in-progress drag (Escape / lost capture)
 	
 	void OnSize( void ) { Update(); };
 	

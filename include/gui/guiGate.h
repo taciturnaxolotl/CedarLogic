@@ -249,7 +249,7 @@ public:
 	// B&W minimap needs. appearanceHash adds selection and the logic params that
 	// drive state fills (toggle/register/keypad values) -- what the live canvas
 	// needs. Float BITS are hashed (a value->unsigned cast on negatives is UB).
-	unsigned long long geometryHash() const;
+	virtual unsigned long long geometryHash() const;
 	unsigned long long appearanceHash() const;
 	bool isConnectionInput(string idx) { return isInput[idx]; };
 	
@@ -379,6 +379,9 @@ public:
 	void draw( bool color = true );
 	void drawToScene(cl::render::Scene& scene,
 	                 const cl::render::RenderStyle& style) override;
+	// The B&W markers (minimap/print) depend on the driving net's state, so fold
+	// it into the geometry hash or the thumbnail caches a stale marker.
+	unsigned long long geometryHash() const override;
 	void setGUIParam( string paramName, string value );
 protected:
 	GLLine2f renderInfo_ledBox;

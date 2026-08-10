@@ -111,6 +111,10 @@ public:
 	// instead of fixed-function GL. Returns true if it painted (caller then just
 	// SwapBuffers); false falls back to OnRender(). Base is a no-op.
 	virtual bool renderSkiaLive() { return false; }
+	// Unwind any subclass-specific drag state on an abnormal drag end (lost mouse
+	// capture). endDrag() only clears the base flags; subclasses that track their
+	// own drag (new-gate placement, paste, gate move) override this to cancel it.
+	virtual void cancelDrag() {}
 	virtual void OnSize(void) {};
 
 	// Event query methods:

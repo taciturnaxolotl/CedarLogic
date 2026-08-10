@@ -1185,6 +1185,18 @@ void guiGateLED::drawToScene(cl::render::Scene& scene,
 	scene.popTransform();
 }
 
+unsigned long long guiGateLED::geometryHash() const {
+	unsigned long long h = guiGate::geometryHash();
+	// The B&W CONFLICT/UNKNOWN/HI_Z markers are read live off the driving net, so
+	// its state is a geometry determinant for an LED (unlike other gates).
+	map< string, guiWire* >::const_iterator it = connections.begin();
+	if (it != connections.end() && it->second) {
+		const std::vector<StateType>& st = it->second->getState();
+		if (!st.empty()) hmixU(h, (unsigned)st[0]);
+	}
+	return h;
+}
+
 void guiGateLED::setGUIParam( string paramName, string value ) {
 	if (paramName == "LED_BOX") {
 		istringstream iss(value);

@@ -428,6 +428,10 @@ void klsGLCanvas::wxOnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(event))
 	if (isDragging(BUTTON_LEFT))   endDrag(BUTTON_LEFT);
 	if (isDragging(BUTTON_MIDDLE)) endDrag(BUTTON_MIDDLE);
 	if (isDragging(BUTTON_RIGHT))  endDrag(BUTTON_RIGHT);
+	// Base flags are cleared; let the subclass unwind its own drag state (a
+	// half-placed new gate, an in-progress paste or move) which endDrag doesn't
+	// touch -- otherwise it stays desynced from the now-cleared flags.
+	cancelDrag();
 }
 
 
@@ -772,11 +776,14 @@ void klsGLCanvas::endDrag( mouseButton whichButton ) {
 	// Set the flag to tell us that the button is finished dragging:
 	setIsDragging( false, whichButton );
 
-	// Release the mouse capture.
-	// wxWidgets has an assertion for when the mouse is released too many times.
-	// This function is called for double clicking and ESC presses (among other reasons).
-	// In both of those situations ReleaseMouse is called without CaptureMouse.
-	if (HasCapture()) {
+	// Release the mouse capture, but only once no other button is still mid-drag:
+	// the capture is shared, so a concurrent middle-pan + left gate-drag would
+	// otherwise lose tracking when the first button is released.
+	// (wxWidgets asserts on over-release; this is also called for double-click/ESC
+	// where ReleaseMouse may run without a matching CaptureMouse -- HasCapture
+	// guards that.)
+	if (HasCapture() && !isDragging(BUTTON_LEFT) && !isDragging(BUTTON_MIDDLE)
+	                 && !isDragging(BUTTON_RIGHT)) {
 		ReleaseMouse();
 	}
 

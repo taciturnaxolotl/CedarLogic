@@ -122,6 +122,9 @@ void klsMiniMap::setViewport() {
 	// changes (viewport moved beyond the circuit and widened it) but stays cached
 	// while the fit is stable (viewport within the circuit -- the common case).
 	mixf(minCorner.x); mixf(minCorner.y); mixf(maxCorner.x); mixf(maxCorner.y);
+	// Connection-dot settings affect the thumbnail too.
+	mix(appConfig().appSettings.wireConnVisible ? 1u : 0u);
+	mixf((float)appConfig().appSettings.wireConnRadius);
 	contentSig = sig;
 
 	// Set the model matrix:

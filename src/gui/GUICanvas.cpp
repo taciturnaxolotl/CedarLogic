@@ -26,6 +26,7 @@
 
 
 #include <wx/dnd.h>
+#include <cstring>
 
 // Included to use the min() and max() templates:
 #include <algorithm>
@@ -300,6 +301,11 @@ void GUICanvas::drawSceneContents(cl::render::Scene& scene,
 unsigned long long GUICanvas::renderContentKey() {
 	unsigned long long sig = 1469598103934665603ULL;
 	auto mix = [&sig](unsigned long long v) { sig = (sig ^ v) * 1099511628211ULL; };
+	// Global settings that change the drawing but aren't per-object state: wire
+	// connection dots are gated on wireConnVisible and sized by wireConnRadius.
+	mix(appConfig().appSettings.wireConnVisible ? 1u : 0u);
+	{ float r = (float)appConfig().appSettings.wireConnRadius; unsigned u;
+	  std::memcpy(&u, &r, sizeof u); mix(u); }
 	// Fold each gate's/wire's full appearance -- transform, params, selection and
 	// signal state -- so any edit (move, rotate, reshape, toggle, param change)
 	// invalidates the retained SkPicture. Anything omitted here replays stale.
@@ -1220,6 +1226,51 @@ void GUICanvas::OnMouseEnter(wxMouseEvent& event) {
 }
 
 
+// Cancel any in-progress drag and restore pre-drag state. Invoked by Escape and,
+// via the base cancelDrag() hook, on a lost mouse capture (so an OS capture steal
+// mid new-gate/paste/move doesn't leave currentDragState + newDragGate orphaned).
+void GUICanvas::cancelDrag() {
+	unselectAllGates();
+	unselectAllWires();
+	if (currentDragState == DRAG_NEWGATE && newDragGate != nullptr) {
+		gCircuit->getGates()->erase(newDragGate->getID());
+		collisionChecker.removeObject( newDragGate );
+		delete newDragGate;
+		newDragGate = nullptr;
+		collisionChecker.update();
+		paletteDrag().newGateToDrag = "";
+	} else if (isWithinPaste) {
+		// Cancel paste operation: undo all pasted gates/wires
+		pasteCommand->Undo();
+		delete pasteCommand;
+		pasteCommand = nullptr;
+		isWithinPaste = false;
+		preMove.clear();
+		preMoveWire.clear();
+		collisionChecker.update();
+	} else {
+		if (preMove.size() > 0) {
+			saveMove = false;
+			for (unsigned int i = 0; i < preMove.size(); i++) {
+				if (gateList.find(preMove[i].id) == gateList.end()) continue;
+				gateList[preMove[i].id]->setGLcoords(preMove[i].x, preMove[i].y);
+				if (preMove[i].selected) gateList[preMove[i].id]->select();
+			}
+			preMove.clear();
+		}
+		if (preMoveWire.size() > 0) {
+			for (unsigned int i = 0; i < preMoveWire.size(); i++) {
+				if (wireList.find(preMoveWire[i].id) == wireList.end()) continue;
+				wireList[preMoveWire[i].id]->setSegmentMap(preMoveWire[i].oldWireTree);
+				wireList[preMoveWire[i].id]->select();
+			}
+		}
+	}
+	currentDragState = DRAG_NONE;
+	endDrag(BUTTON_LEFT);
+	Refresh();
+}
+
 void GUICanvas::OnKeyDown(wxKeyEvent& event) {
 	switch (event.GetKeyCode()) {
 	case WXK_DELETE:
@@ -1227,44 +1278,7 @@ void GUICanvas::OnKeyDown(wxKeyEvent& event) {
 		if (currentDragState == DRAG_NONE && !(this->isLocked())) deleteSelection();
 		break;
 	case WXK_ESCAPE:
-		unselectAllGates();
-		unselectAllWires();
-		if (currentDragState == DRAG_NEWGATE) {
-			gCircuit->getGates()->erase(newDragGate->getID());
-			collisionChecker.removeObject( newDragGate );
-			delete newDragGate;
-			collisionChecker.update();
-			paletteDrag().newGateToDrag = "";
-		} else if (isWithinPaste) {
-			// Cancel paste operation: undo all pasted gates/wires
-			pasteCommand->Undo();
-			delete pasteCommand;
-			pasteCommand = nullptr;
-			isWithinPaste = false;
-			preMove.clear();
-			preMoveWire.clear();
-			collisionChecker.update();
-		} else {
-			if (preMove.size() > 0) {
-				saveMove = false;
-				for (unsigned int i = 0; i < preMove.size(); i++) {
-					if (gateList.find(preMove[i].id) == gateList.end()) continue;
-					gateList[preMove[i].id]->setGLcoords(preMove[i].x, preMove[i].y);
-					if (preMove[i].selected) gateList[preMove[i].id]->select();
-				}
-				preMove.clear();
-			}
-			if (preMoveWire.size() > 0) {
-				for (unsigned int i = 0; i < preMoveWire.size(); i++) {
-					if (wireList.find(preMoveWire[i].id) == wireList.end()) continue;
-					wireList[preMoveWire[i].id]->setSegmentMap(preMoveWire[i].oldWireTree);
-					wireList[preMoveWire[i].id]->select();
-				}
-			}
-		}
-		currentDragState = DRAG_NONE;
-		endDrag(BUTTON_LEFT);
-		Refresh();
+		cancelDrag();
 		break;
 	case WXK_LEFT:
 	case WXK_NUMPAD_LEFT:
