@@ -119,6 +119,27 @@ struct LineDef {
 	}
 };
 
+// Structured curve primitives (Workstream G). Embedded gate defs carry these so a
+// circuit still renders smooth curves if its gate is later dropped from the
+// library. Angles: degrees from +Y clockwise (the renderer's convention).
+struct ArcDef {
+	double cx = 0, cy = 0, r = 1, startDeg = 0, sweepDeg = 360;
+	bool isLabel = false;
+	bool operator==(const ArcDef &o) const {
+		return cx == o.cx && cy == o.cy && r == o.r &&
+		       startDeg == o.startDeg && sweepDeg == o.sweepDeg && isLabel == o.isLabel;
+	}
+};
+
+struct CircleDef {
+	double cx = 0, cy = 0, r = 1;
+	int segs = 12;
+	bool isLabel = false;
+	bool operator==(const CircleDef &o) const {
+		return cx == o.cx && cy == o.cy && r == o.r && segs == o.segs && isLabel == o.isLabel;
+	}
+};
+
 struct DlgParamDef {
 	std::string label;
 	std::string name;
@@ -141,11 +162,14 @@ struct GateDef {
 	std::string logicType;
 	std::vector<HotspotDef> hotspots;
 	std::vector<LineDef> shape;
+	std::vector<ArcDef> arcs;       // structured curves (Workstream G)
+	std::vector<CircleDef> circles; // structured circles / inversion bubbles
 	std::vector<DlgParamDef> dlgParams;
 	std::vector<Param> params;   // gui vs logic distinguished by Param::gui
 	bool operator==(const GateDef &o) const {
 		return name == o.name && caption == o.caption && guiType == o.guiType &&
 		       logicType == o.logicType && hotspots == o.hotspots && shape == o.shape &&
+		       arcs == o.arcs && circles == o.circles &&
 		       dlgParams == o.dlgParams && params == o.params;
 	}
 };

@@ -110,6 +110,8 @@ TEST_CASE("Embedded gate definitions round-trip through the v3 format") {
 	               { "IN_1", true, -3, -1, true, "", 1 },      // inverted
 	               { "OUT_0", false, 3, 0, false, "TRUE", 2 } }; // eInput + busLines
 	g.shape = { { -3, -3, 3, 3, false }, { 0, 0, 1, 1, true } }; // a line + a label line
+	g.arcs = { { 0, 0, 2, 0, 180, false } };          // the AND body's D-curve
+	g.circles = { { 2.35, 0, 0.35, 24, false } };     // an inversion bubble
 	g.dlgParams = { { "Input Bits", "INPUT_BITS", "INT", false },        // unbounded
 	                { "Bit Width", "WIDTH", "INT", true, 1.0f, 32.0f } }; // ranged
 	g.params = { { "angle", "0", true }, { "INPUT_BITS", "2", false } };
@@ -126,6 +128,12 @@ TEST_CASE("Embedded gate definitions round-trip through the v3 format") {
 	CHECK(r.hotspots[2].busLines == 2);
 	CHECK(r.hotspots[2].eInput == "TRUE");
 	CHECK(r.shape[1].isLabel == true);
+	REQUIRE(r.arcs.size() == 1);
+	CHECK(r.arcs[0].r == 2);
+	CHECK(r.arcs[0].sweepDeg == 180);       // structured arc survives the round trip
+	REQUIRE(r.circles.size() == 1);
+	CHECK(r.circles[0].r == 0.35);
+	CHECK(r.circles[0].segs == 24);         // circle + its seg count survive too
 	CHECK(r.dlgParams[0].isGui == false);
 	CHECK(r.dlgParams[1].rMin == 1.0f);  // INT/FLOAT range bounds survive the round trip
 	CHECK(r.dlgParams[1].rMax == 32.0f);

@@ -426,6 +426,10 @@ static cl::GateDef toGateDef(const LibraryGate &lg) {
 		d.hotspots.push_back({ h.name, h.isInput, h.x, h.y, h.isInverted, h.logicEInput, h.busLines });
 	for (const lgLine &l : lg.shape)
 		d.shape.push_back({ l.x1, l.y1, l.x2, l.y2, l.isLabel });
+	for (const lgArc &a : lg.arcs)
+		d.arcs.push_back({ a.cx, a.cy, a.r, a.startDeg, a.sweepDeg, a.isLabel });
+	for (const lgCircle &c : lg.circles)
+		d.circles.push_back({ c.cx, c.cy, c.r, c.segs, c.isLabel });
 	for (const lgDlgParam &p : lg.dlgParams)
 		d.dlgParams.push_back({ p.textLabel, p.name, p.type, p.isGui, p.Rmin, p.Rmax });
 	for (const auto &kv : lg.guiParams) d.params.push_back({ kv.first, kv.second, true });
@@ -443,6 +447,10 @@ static LibraryGate fromGateDef(const cl::GateDef &d) {
 		lg.hotspots.push_back(lgHotspot(h.name, h.isInput, (float)h.x, (float)h.y, h.inverted, h.eInput, h.busLines));
 	for (const cl::LineDef &l : d.shape)
 		lg.shape.push_back(lgLine((float)l.x1, (float)l.y1, (float)l.x2, (float)l.y2, l.isLabel));
+	for (const cl::ArcDef &a : d.arcs)
+		lg.arcs.push_back(lgArc((float)a.cx, (float)a.cy, (float)a.r, (float)a.startDeg, (float)a.sweepDeg, a.isLabel));
+	for (const cl::CircleDef &c : d.circles)
+		lg.circles.push_back(lgCircle((float)c.cx, (float)c.cy, (float)c.r, c.segs, c.isLabel));
 	for (const cl::DlgParamDef &p : d.dlgParams)
 		lg.dlgParams.push_back(lgDlgParam(p.label, p.name, p.type, p.isGui, p.rMin, p.rMax));
 	for (const cl::Param &p : d.params) {

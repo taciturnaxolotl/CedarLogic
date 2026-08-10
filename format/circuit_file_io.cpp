@@ -117,6 +117,25 @@ static SNode gateDefNode(const GateDef &g) {
 		ln.add(num(l.y2));
 		n.add(std::move(ln));
 	}
+	for (const ArcDef &a : g.arcs) {
+		SNode an = SNode::list();
+		an.add(SNode::sym(a.isLabel ? "labelarc" : "arc"));
+		an.add(num(a.cx));
+		an.add(num(a.cy));
+		an.add(num(a.r));
+		an.add(num(a.startDeg));
+		an.add(num(a.sweepDeg));
+		n.add(std::move(an));
+	}
+	for (const CircleDef &c : g.circles) {
+		SNode cn = SNode::list();
+		cn.add(SNode::sym(c.isLabel ? "labelcircle" : "circle"));
+		cn.add(num(c.cx));
+		cn.add(num(c.cy));
+		cn.add(num(c.r));
+		cn.add(num(c.segs));
+		n.add(std::move(cn));
+	}
 	for (const DlgParamDef &d : g.dlgParams) {
 		SNode dn = SNode::list();
 		dn.add(SNode::sym("dlgparam"));
@@ -263,6 +282,23 @@ static GateDef readGateDef(const SNode &n) {
 			l.y2 = std::stod(item(c, 4));
 			l.isLabel = (head == "labelline");
 			g.shape.push_back(l);
+		} else if (head == "arc" || head == "labelarc") {
+			ArcDef a;
+			a.cx = std::stod(item(c, 1));
+			a.cy = std::stod(item(c, 2));
+			a.r = std::stod(item(c, 3));
+			a.startDeg = std::stod(item(c, 4));
+			a.sweepDeg = std::stod(item(c, 5));
+			a.isLabel = (head == "labelarc");
+			g.arcs.push_back(a);
+		} else if (head == "circle" || head == "labelcircle") {
+			CircleDef cd;
+			cd.cx = std::stod(item(c, 1));
+			cd.cy = std::stod(item(c, 2));
+			cd.r = std::stod(item(c, 3));
+			cd.segs = static_cast<int>(std::stod(item(c, 4)));
+			cd.isLabel = (head == "labelcircle");
+			g.circles.push_back(cd);
 		} else if (head == "dlgparam") {
 			DlgParamDef d;
 			d.label = item(c, 1);
