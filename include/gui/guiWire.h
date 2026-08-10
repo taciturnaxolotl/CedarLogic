@@ -98,6 +98,12 @@ public:
 	// Get the state for each wire id.
 	const std::vector<StateType> & getState() const;
 
+	// Render-cache signatures (see guiGate). geometryHash covers the wire's
+	// routing (its line segments) + selection; appearanceHash adds signal state
+	// (the net colour). Float bits are hashed to avoid the negative-cast UB.
+	unsigned long long geometryHash() const;
+	unsigned long long appearanceHash() const;
+
 	// Get the intersection points for drawing connection dots
 	const std::vector<GLPoint2f>& getIntersectPoints() const { return renderInfo.intersectPoints; }
 

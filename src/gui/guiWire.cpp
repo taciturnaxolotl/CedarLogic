@@ -15,6 +15,7 @@
 #include "render/RenderStyle.h"
 #include "Settings.h"
 #include <cmath>
+#include <cstring>
 #include <stack>
 #include "guiGate.h"
 #include "XMLParser.h"
@@ -323,6 +324,31 @@ void guiWire::draw(bool color) {
 
 // Engine-neutral mirror of draw(): emit segments (state-colored) + connection
 // dots into the Scene. No OpenGL. See guiWire::draw for the reference behavior.
+namespace {
+	inline void wmixU(unsigned long long& h, unsigned long long v) {
+		h = (h ^ v) * 1099511628211ULL;
+	}
+	inline void wmixF(unsigned long long& h, float f) {
+		unsigned u; std::memcpy(&u, &f, sizeof u); wmixU(h, u);
+	}
+}
+
+unsigned long long guiWire::geometryHash() const {
+	unsigned long long h = 1469598103934665603ULL;
+	for (const GLLine2f& seg : renderInfo.lineSegments) {
+		wmixF(h, seg.begin.x); wmixF(h, seg.begin.y);
+		wmixF(h, seg.end.x);   wmixF(h, seg.end.y);
+	}
+	return h;
+}
+
+unsigned long long guiWire::appearanceHash() const {
+	unsigned long long h = geometryHash();
+	wmixU(h, selected ? 1u : 0u);
+	for (StateType s : state) wmixU(h, (unsigned)s);
+	return h;
+}
+
 void guiWire::drawToScene(cl::render::Scene& scene,
                           const cl::render::RenderStyle& style) {
 	using namespace cl::render;

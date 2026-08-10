@@ -300,19 +300,18 @@ void GUICanvas::drawSceneContents(cl::render::Scene& scene,
 unsigned long long GUICanvas::renderContentKey() {
 	unsigned long long sig = 1469598103934665603ULL;
 	auto mix = [&sig](unsigned long long v) { sig = (sig ^ v) * 1099511628211ULL; };
+	// Fold each gate's/wire's full appearance -- transform, params, selection and
+	// signal state -- so any edit (move, rotate, reshape, toggle, param change)
+	// invalidates the retained SkPicture. Anything omitted here replays stale.
 	for (auto it = gateList.begin(); it != gateList.end(); ++it) {
 		if (!it->second) continue;
-		float x, y; it->second->getGLcoords(x, y);
 		mix(it->first);
-		mix((unsigned)(x * 32.0f)); mix((unsigned)(y * 32.0f));
-		mix(it->second->isSelected() ? 1u : 0u);
+		mix(it->second->appearanceHash());
 	}
 	for (auto it = wireList.begin(); it != wireList.end(); ++it) {
 		if (!it->second) continue;
 		mix(it->first);
-		mix(it->second->isSelected() ? 1u : 0u);
-		const std::vector<StateType>& st = it->second->getState();
-		for (size_t i = 0; i < st.size(); i++) mix((unsigned)st[i]);
+		mix(it->second->appearanceHash());
 	}
 	return sig;
 }

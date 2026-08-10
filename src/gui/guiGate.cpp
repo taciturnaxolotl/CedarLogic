@@ -12,6 +12,7 @@
 #include "GateLibrary.h"
 #include <iomanip>
 #include <cmath>
+#include <cstring>
 #include "wx/wx.h"
 #include "MainApp.h"
 #include "klsCollisionChecker.h"
@@ -155,6 +156,38 @@ void guiGate::removeConnection(string c, int &obj) {
 
 bool guiGate::isConnected(string c) {
 	return (connections.find(c) != connections.end());
+}
+
+// FNV-1a style mixing helpers for the render-cache signatures. Float BITS are
+// hashed (not a numeric cast, which is UB on out-of-range negatives and lossy).
+namespace {
+	inline void hmixU(unsigned long long& h, unsigned long long v) {
+		h = (h ^ v) * 1099511628211ULL;
+	}
+	inline void hmixF(unsigned long long& h, double d) {
+		float f = (float)d; unsigned u; std::memcpy(&u, &f, sizeof u); hmixU(h, u);
+	}
+	inline void hmixS(unsigned long long& h, const std::string& s) {
+		for (unsigned char c : s) hmixU(h, c);
+	}
+}
+
+unsigned long long guiGate::geometryHash() const {
+	unsigned long long h = 1469598103934665603ULL;
+	// The 2D-affine components of the model matrix: position + rotation + flip.
+	hmixF(h, mModel[0]);  hmixF(h, mModel[1]);  hmixF(h, mModel[4]);
+	hmixF(h, mModel[5]);  hmixF(h, mModel[12]); hmixF(h, mModel[13]);
+	for (const auto& kv : gparams) { hmixS(h, kv.first); hmixS(h, kv.second); }
+	return h;
+}
+
+unsigned long long guiGate::appearanceHash() const {
+	unsigned long long h = geometryHash();
+	hmixU(h, selected ? 1u : 0u);
+	// Logic params drive the state-coloured fills (TOGGLE OUTPUT_NUM, REGISTER
+	// CURRENT_VALUE, KEYPAD OUTPUT_NUM, ...) even when no wire state changes.
+	for (const auto& kv : lparams) { hmixS(h, kv.first); hmixS(h, kv.second); }
+	return h;
 }
 
 void guiGate::draw(bool color) {

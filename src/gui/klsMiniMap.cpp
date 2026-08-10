@@ -16,6 +16,7 @@
 #include "guiWire.h"
 
 #include <cstdlib>
+#include <cstring>
 #include <algorithm>
 #include "render/Scene.h"
 #include "render/RenderStyle.h"
@@ -50,6 +51,7 @@ void klsMiniMap::setViewport() {
 	// circuit is unchanged -- e.g. while the user pans the main canvas.
 	unsigned long long sig = 1469598103934665603ULL;  // FNV-ish seed
 	auto mix = [&sig](unsigned long long v) { sig = (sig ^ v) * 1099511628211ULL; };
+	auto mixf = [&mix](float f) { unsigned u; std::memcpy(&u, &f, sizeof u); mix(u); };
 	unordered_map < unsigned long, guiGate* >::iterator gateWalk = gateList->begin();
 	while (gateWalk != gateList->end()) {
 		float x, y;
@@ -59,9 +61,13 @@ void klsMiniMap::setViewport() {
 		if (x > maxX) maxX = x;
 		if (y > maxY) maxY = y;
 		mix(gateWalk->first);
-		mix((unsigned)(x * 32.0f)); mix((unsigned)(y * 32.0f));
+		mix(gateWalk->second->geometryHash());   // transform + params (rotation, label...)
 		gateWalk++;
 	}
+	// Wire routing too, so reshaping a wire re-renders the thumbnail.
+	if (wireList)
+		for (auto& kv : *wireList)
+			if (kv.second) { mix(kv.first); mix(kv.second->geometryHash()); }
 	mix(gateList->size()); mix(wireList ? wireList->size() : 0);
 	// Extend the fit to include the current viewport rectangle, so panning/zooming
 	// the main canvas out past the circuit widens the thumbnail for navigation
@@ -115,8 +121,7 @@ void klsMiniMap::setViewport() {
 	// Fold the final fit into the cache key: the thumbnail re-renders when the fit
 	// changes (viewport moved beyond the circuit and widened it) but stays cached
 	// while the fit is stable (viewport within the circuit -- the common case).
-	mix((unsigned)(minCorner.x * 32.0f)); mix((unsigned)(minCorner.y * 32.0f));
-	mix((unsigned)(maxCorner.x * 32.0f)); mix((unsigned)(maxCorner.y * 32.0f));
+	mixf(minCorner.x); mixf(minCorner.y); mixf(maxCorner.x); mixf(maxCorner.y);
 	contentSig = sig;
 
 	// Set the model matrix:

@@ -242,6 +242,15 @@ public:
 	void removeConnection(string, int&);
 	bool isConnected(string);
 	bool isSelected() { return selected; };
+
+	// Hashes of everything that affects how this gate is drawn, for the retained
+	// Skia render caches. geometryHash covers the model transform (position,
+	// rotation, flip) and GUI params (angle, box coords, label) -- what the
+	// B&W minimap needs. appearanceHash adds selection and the logic params that
+	// drive state fills (toggle/register/keypad values) -- what the live canvas
+	// needs. Float BITS are hashed (a value->unsigned cast on negatives is UB).
+	unsigned long long geometryHash() const;
+	unsigned long long appearanceHash() const;
 	bool isConnectionInput(string idx) { return isInput[idx]; };
 	
 	void saveGate(XMLParser*);
