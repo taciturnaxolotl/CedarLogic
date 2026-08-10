@@ -79,6 +79,17 @@ set(USE_SYSTEM_WXWIDGETS "${USE_SYSWX_DEF}" CACHE BOOL
     "Use the system version of wxWidgets or build it from soruce")
 
 if (USE_SYSTEM_WXWIDGETS)
+    if(WIN32 AND WITH_SKIA)
+        # A prebuilt system wxWidgets links its own libjpeg, which collides
+        # (LNK2005 on _jpeg_*) with the libjpeg-turbo Skia's PDF backend needs.
+        # The only fix is to drop wx's JPEG (wxUSE_LIBJPEG=OFF), which requires a
+        # from-source wx -- impossible with a prebuilt system one. Fail clearly
+        # rather than at link time.
+        message(FATAL_ERROR
+            "WITH_SKIA on Windows requires the bundled wxWidgets "
+            "(-DUSE_SYSTEM_WXWIDGETS=OFF): a prebuilt system wxWidgets links a "
+            "libjpeg that collides with Skia's (LNK2005).")
+    endif()
     find_package(wxWidgets 3.2.0 COMPONENTS html aui adv gl core base REQUIRED)
     include("${wxWidgets_USE_FILE}")
 else()

@@ -1139,26 +1139,49 @@ void guiGateLED::drawToScene(cl::render::Scene& scene,
                              const cl::render::RenderStyle& style) {
 	using namespace cl::render;
 	guiGate::drawToScene(scene, style);   // outline + labels
-	if (!style.showLiveState) return;     // topology/print: LED prints as outline
 	StateType outputState = HI_Z;
 	map<string, guiWire*>::iterator it = connections.begin();
 	if (it != connections.end() && it->second)
 		outputState = it->second->getState()[0];
-	Color c(0, 0, 0, 1);
-	switch (outputState) {
-		case ONE:      c = Color(1.0f, 0.0f, 0.0f); break;
-		case HI_Z:     c = Color(0.0f, 0.78f, 0.0f); break;
-		case UNKNOWN:  c = Color(0.3f, 0.3f, 1.0f); break;
-		case CONFLICT: c = Color(0.0f, 1.0f, 1.0f); break;
-		case ZERO: default: c = Color(0.0f, 0.0f, 0.0f); break;
-	}
+
 	Transform t;
 	t.a = (float)mModel[0];  t.b = (float)mModel[1];
 	t.c = (float)mModel[4];  t.d = (float)mModel[5];
 	t.e = (float)mModel[12]; t.f = (float)mModel[13];
 	scene.pushTransform(t);
-	scene.fillRect(Point(renderInfo_ledBox.begin.x, renderInfo_ledBox.begin.y),
-	               Point(renderInfo_ledBox.end.x, renderInfo_ledBox.end.y), c);
+	const float x1 = renderInfo_ledBox.begin.x, y1 = renderInfo_ledBox.begin.y;
+	const float x2 = renderInfo_ledBox.end.x,   y2 = renderInfo_ledBox.end.y;
+
+	if (!style.showLiveState) {
+		// B&W schematic (print/export/minimap): box outline plus a distinct marker
+		// for broken states, mirroring draw(color=false) -- so a CONFLICT/UNKNOWN/
+		// HI_Z LED stays distinguishable on paper instead of becoming a bare box.
+		const Stroke s(style.gateStroke(GateKind::Generic), 1.0f);
+		const Point box[] = { Point(x1, y1), Point(x2, y1), Point(x2, y2), Point(x1, y2) };
+		scene.polyline(box, 4, s, true);
+		if (outputState == CONFLICT) {
+			const Point x[] = { Point(x1, y1), Point(x2, y2), Point(x1, y2), Point(x2, y1) };
+			scene.lines(x, 4, s);
+		} else if (outputState == UNKNOWN) {
+			const Point sl[] = { Point(x1, y1), Point(x2, y2) };
+			scene.lines(sl, 2, s);
+		} else if (outputState == HI_Z) {
+			const float midY = (y1 + y2) * 0.5f;
+			const Point hz[] = { Point(x1, midY), Point(x2, midY) };
+			scene.lines(hz, 2, s);
+		}
+	} else {
+		// Screen: filled, state-coloured box.
+		Color c(0, 0, 0, 1);
+		switch (outputState) {
+			case ONE:      c = Color(1.0f, 0.0f, 0.0f); break;
+			case HI_Z:     c = Color(0.0f, 0.78f, 0.0f); break;
+			case UNKNOWN:  c = Color(0.3f, 0.3f, 1.0f); break;
+			case CONFLICT: c = Color(0.0f, 1.0f, 1.0f); break;
+			case ZERO: default: c = Color(0.0f, 0.0f, 0.0f); break;
+		}
+		scene.fillRect(Point(x1, y1), Point(x2, y2), c);
+	}
 	scene.popTransform();
 }
 

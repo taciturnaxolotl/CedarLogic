@@ -34,7 +34,8 @@ BEGIN_EVENT_TABLE(klsGLCanvas, wxGLCanvas)
 
 	EVT_MOUSEWHEEL(klsGLCanvas::wxOnMouseWheel)
     EVT_MOUSE_EVENTS(klsGLCanvas::wxOnMouseEvent)
-    
+    EVT_MOUSE_CAPTURE_LOST(klsGLCanvas::wxOnCaptureLost)
+
     EVT_KEY_DOWN(klsGLCanvas::wxKeyDown)
     EVT_KEY_UP(klsGLCanvas::wxKeyUp)
 
@@ -419,6 +420,17 @@ void klsGLCanvas::wxOnEraseBackground(wxEraseEvent& WXUNUSED(event))
 }
 
 
+// The OS took the mouse capture away mid-drag (alt-tab, a popup, etc.). End any
+// active drags so state doesn't get stuck; endDrag(BUTTON_MIDDLE) also flushes
+// the final pan frame the throttle may have skipped.
+void klsGLCanvas::wxOnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(event))
+{
+	if (isDragging(BUTTON_LEFT))   endDrag(BUTTON_LEFT);
+	if (isDragging(BUTTON_MIDDLE)) endDrag(BUTTON_MIDDLE);
+	if (isDragging(BUTTON_RIGHT))  endDrag(BUTTON_RIGHT);
+}
+
+
 void klsGLCanvas::wxOnSize(wxSizeEvent& event)
 {
 	wxGetApp().SetCurrentCanvas(this);
@@ -603,11 +615,8 @@ void klsGLCanvas::wxOnMouseEvent(wxMouseEvent& event) {
 		}
 		
 	} else if( event.MiddleUp() ) {
-		endDrag( BUTTON_MIDDLE );
+		endDrag( BUTTON_MIDDLE );   // forces the final pan repaint
 		OnMouseUp( event );
-		// The last pan move may have been throttled; paint the final position.
-		Refresh();
-		wxWindow::Update();
 	} else {
 		// It's not a button event, so check the others:
 		if( event.Entering() ) {
@@ -638,6 +647,12 @@ void klsGLCanvas::wxOnMouseEvent(wxMouseEvent& event) {
 				panning = true;
 				translatePan( -mouseDelta.x, -mouseDelta.y );
 				panning = false;
+				// ...unless a left drag (gate move / rubber-band / new-gate) is also
+				// in progress: it still needs OnMouseMove to track the cursor.
+				if( isDragging( BUTTON_LEFT ) ) {
+					GLPoint2f m = getMouseCoords();
+					OnMouseMove(m.x, m.y, event.ShiftDown(), event.ControlDown());
+				}
 			} else {
 				// It's nothing else, so it must be a mouse motion event:
 				GLPoint2f m = getMouseCoords();
@@ -763,6 +778,14 @@ void klsGLCanvas::endDrag( mouseButton whichButton ) {
 	// In both of those situations ReleaseMouse is called without CaptureMouse.
 	if (HasCapture()) {
 		ReleaseMouse();
+	}
+
+	// A middle-drag pan throttles its repaints, so its last frame may have been
+	// skipped; paint the final position now, however the pan ended (MiddleUp, ESC,
+	// or lost capture -- see wxOnCaptureLost).
+	if (whichButton == BUTTON_MIDDLE) {
+		Refresh();
+		wxWindow::Update();
 	}
 }
 

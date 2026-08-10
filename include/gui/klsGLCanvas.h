@@ -79,6 +79,7 @@ public:
 
 	// Handle events from wxWidgets:
     void wxOnPaint(wxPaintEvent& event);
+    void wxOnCaptureLost(wxMouseCaptureLostEvent& event);
     void wxOnSize(wxSizeEvent& event);
     void wxOnEraseBackground(wxEraseEvent& event);
     void klsGLCanvasRender( bool noColor = false );
