@@ -218,6 +218,19 @@ void guiGate::draw(bool color) {
 	}
 	glEnd();
 
+	// Structured arcs: the fixed-function path has no arc primitive, so tessellate
+	// each into a line strip. Same convention as Scene::arc (degrees from +Y, CW).
+	for (unsigned int a = 0; a < arcs.size(); a++) {
+		const GateArc& arc = arcs[a];
+		const int segs = 48;
+		glBegin(GL_LINE_STRIP);
+		for (int i = 0; i <= segs; i++) {
+			float d = (arc.startDeg + arc.sweepDeg * (float)i / (float)segs) * DEG2RAD;
+			glVertex2f(arc.cx + arc.r * sin(d), arc.cy + arc.r * cos(d));
+		}
+		glEnd();
+	}
+
 	// Draw label lines with counter-rotation so they stay upright:
 	if (!labelVertices.empty()) {
 		istringstream iss(gparams["angle"]);
@@ -280,6 +293,12 @@ void guiGate::drawToScene(cl::render::Scene& scene,
 		for (size_t i = 0; i < vertices.size(); i++)
 			pts.push_back(Point(vertices[i].x, vertices[i].y));
 		scene.lines(&pts[0], pts.size(), s);
+	}
+
+	// Structured arcs stroke as true curves here -- crisp at any zoom, no chording.
+	for (size_t a = 0; a < arcs.size(); a++) {
+		const GateArc& arc = arcs[a];
+		scene.arc(Point(arc.cx, arc.cy), arc.r, arc.startDeg, arc.sweepDeg, s);
 	}
 
 	// Label lines are counter-rotated so text stays upright under the model's
@@ -345,6 +364,13 @@ bool guiGate::clickSelect( GLfloat x, GLfloat y ) {
 	}
 }
 
+// Insert a structured arc, kept whole (see guiGate.h / Scene::arc).
+void guiGate::insertArc( float cx, float cy, float r, float startDeg, float sweepDeg, bool isLabel ) {
+	GateArc a;
+	a.cx = cx; a.cy = cy; a.r = r; a.startDeg = startDeg; a.sweepDeg = sweepDeg; a.isLabel = isLabel;
+	arcs.push_back( a );
+}
+
 // Insert a line in the line list.
 void guiGate::insertLine( float x1, float y1, float x2, float y2, bool isLabel ) {
 	if (isLabel) {
@@ -366,6 +392,16 @@ void guiGate::calcBBox( void ) {
 	}
 	for( unsigned int i = 0; i < labelVertices.size(); i++ ) {
 		modelBBox.addPoint( labelVertices[i] );
+	}
+	// Include arc extents: sample the curve so an arc-only outline still bounds
+	// correctly (endpoints alone would miss the bulge).
+	for( unsigned int a = 0; a < arcs.size(); a++ ) {
+		const GateArc& arc = arcs[a];
+		const int segs = 24;
+		for (int i = 0; i <= segs; i++) {
+			float d = (arc.startDeg + arc.sweepDeg * (float)i / (float)segs) * DEG2RAD;
+			modelBBox.addPoint( GLPoint2f(arc.cx + arc.r * sin(d), arc.cy + arc.r * cos(d)) );
+		}
 	}
 
 	// Recalculate the world-space bbox:

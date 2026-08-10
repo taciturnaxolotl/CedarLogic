@@ -228,6 +228,20 @@ bool SVGExporter::exportToSVG(GUICanvas* canvas, const std::string& filename,
                     << "\" class=\"" << pathClass << "\"/>\n";
         }
 
+        // Structured arcs: tessellate to an SVG polyline (this legacy exporter has
+        // no arc primitive). Same convention as Scene::arc (degrees from +Y, CW).
+        for (const auto& arc : gate->getArcs()) {
+            const int segs = 48;
+            svgFile << "          <polyline points=\"";
+            for (int i = 0; i <= segs; i++) {
+                float d = (arc.startDeg + arc.sweepDeg * (float)i / (float)segs) * 3.14159265358979323846f / 180.0f;
+                float px = arc.cx + arc.r * std::sin(d);
+                float py = arc.cy + arc.r * std::cos(d);
+                svgFile << floatToStr(px) << "," << floatToStr(flipLocalY(py)) << " ";
+            }
+            svgFile << "\" fill=\"none\" class=\"" << pathClass << "\"/>\n";
+        }
+
         // Special handling for KEYPAD gates (highlight selected key)
         if (gate->getGUIType() == "KEYPAD" && !noColor) {
             // Get the current output value to determine which key is selected

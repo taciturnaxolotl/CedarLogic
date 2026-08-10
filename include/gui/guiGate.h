@@ -182,6 +182,11 @@ public:
 	// Insert a line in the line list.
 	void insertLine( float x1, float y1, float x2, float y2, bool isLabel = false );
 
+	// Insert a structured arc (Workstream G). Kept whole -- the Skia path strokes
+	// it smooth, the GL path tessellates it -- rather than baked into chords.
+	// Degrees from +Y clockwise, matching the <circle>/Scene convention.
+	void insertArc( float cx, float cy, float r, float startDeg, float sweepDeg, bool isLabel = false );
+
 	// Recalculate the bounding box, based on the lines that are included alredy:
 	virtual void calcBBox( void );
 
@@ -219,6 +224,13 @@ public:
 
 	// Get the gate's label vertices (for SVG export, etc.)
 	const vector<GLPoint2f>& getLabelVertices() const { return labelVertices; }
+
+	// A structured arc in the gate outline (Workstream G): drawn smooth under
+	// Skia, tessellated for GL/legacy export. Degrees from +Y, clockwise.
+	struct GateArc { float cx, cy, r, startDeg, sweepDeg; bool isLabel; };
+
+	// Get the gate's arcs (for the legacy SVG export, etc.)
+	const vector<GateArc>& getArcs() const { return arcs; }
 
 	// Get the gate's transformation matrix (for SVG export, etc.)
 	const GLdouble* getModelMatrix() const { return mModel; }
@@ -295,6 +307,9 @@ protected:
 	
 	vector<GLPoint2f> vertices;
 	vector<GLPoint2f> labelVertices;
+	// Structured arcs (Workstream G): drawn smooth under Skia, tessellated for GL.
+	// GateArc is declared in the public section (getArcs()).
+	vector<GateArc> arcs;
 	// map i/o name to hotspot coord
 	map< string, gateHotspot* > hotspots;
 	// map i/o name to wire id

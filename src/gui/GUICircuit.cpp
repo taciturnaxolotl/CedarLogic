@@ -94,6 +94,10 @@ guiGate* GUICircuit::createGate(string gateName, long id, bool noOscope) {
 		lgLine tempLine = gateDef.shape[i];
 		newGate->insertLine(tempLine.x1, tempLine.y1, tempLine.x2, tempLine.y2, tempLine.isLabel);
 	}
+	for (unsigned int i = 0; i < gateDef.arcs.size(); i++) {
+		lgArc a = gateDef.arcs[i];
+		newGate->insertArc(a.cx, a.cy, a.r, a.startDeg, a.sweepDeg, a.isLabel);
+	}
 	for (unsigned int i = 0; i < gateDef.hotspots.size(); i++) {
 		lgHotspot tempHS = gateDef.hotspots[i];
 		newGate->insertHotspot(tempHS.x, tempHS.y, tempHS.name, tempHS.busLines);
