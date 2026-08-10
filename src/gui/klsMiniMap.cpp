@@ -63,13 +63,16 @@ void klsMiniMap::setViewport() {
 		gateWalk++;
 	}
 	mix(gateList->size()); mix(wireList ? wireList->size() : 0);
-	contentSig = sig;
-	// NOTE: the fit is the circuit bounding box ONLY -- deliberately NOT extended
-	// to include the viewport rectangle (origin/endpoint). That keeps the
-	// thumbnail stable while panning (so the cached image stays valid and the
-	// viewport rect stays aligned to it); the rect simply moves over the fixed
-	// circuit and clips at the edges when you pan into empty space. Extending the
-	// fit to the viewport would rescale the thumbnail on every pan.
+	// Extend the fit to include the current viewport rectangle, so panning/zooming
+	// the main canvas out past the circuit widens the thumbnail for navigation
+	// (rather than capping to the drawing's bounds). While the viewport stays
+	// within the circuit this is a no-op, so the thumbnail -- and its cache --
+	// stay stable; the fit only changes once you move beyond the circuit. The
+	// final fit is folded into contentSig below so the cache invalidates then.
+	if (origin.x < minX) minX = origin.x;
+	if (origin.y > maxY) maxY = origin.y;
+	if (endpoint.x > maxX) maxX = endpoint.x;
+	if (endpoint.y < minY) minY = endpoint.y;
 
 	minCorner = GLPoint2f(minX-5,maxY+5);
 	maxCorner = GLPoint2f(maxX+5,minY-5);
@@ -108,6 +111,13 @@ void klsMiniMap::setViewport() {
 	// Store minCorner and maxCorner for use in mouse handler:
 	minCorner = orthoBoxTL;
 	maxCorner = orthoBoxBR;
+
+	// Fold the final fit into the cache key: the thumbnail re-renders when the fit
+	// changes (viewport moved beyond the circuit and widened it) but stays cached
+	// while the fit is stable (viewport within the circuit -- the common case).
+	mix((unsigned)(minCorner.x * 32.0f)); mix((unsigned)(minCorner.y * 32.0f));
+	mix((unsigned)(maxCorner.x * 32.0f)); mix((unsigned)(maxCorner.y * 32.0f));
+	contentSig = sig;
 
 	// Set the model matrix:
 	glMatrixMode (GL_MODELVIEW);
@@ -152,19 +162,15 @@ bool klsMiniMap::generateImageSkia() {
 				if (kv.second) kv.second->drawToScene(scene, style);
 	};
 	// Overlay: the red rectangle marking the main canvas's visible area (moves
-	// every pan, always redrawn). The thumbnail is fit to the circuit only, so the
-	// viewport is often LARGER than it (you can see the whole circuit) -- clamp the
-	// rect to the thumbnail so it stays visible (a full border when everything is
-	// on screen, a smaller box when zoomed in).
+	// every pan, always redrawn). The fit includes the viewport, so the rect is
+	// always within the thumbnail -- draw it directly.
 	auto drawViewportRect = [self, &t](Scene& scene) {
 		if (!self->gateList || self->gateList->empty()) return;
 		scene.setViewport(t);
-		const float L = std::max((float)self->origin.x,   (float)self->minCorner.x);
-		const float R = std::min((float)self->endpoint.x, (float)self->maxCorner.x);
-		const float T = std::min((float)self->origin.y,   (float)self->minCorner.y);
-		const float B = std::max((float)self->endpoint.y, (float)self->maxCorner.y);
-		if (R <= L || T <= B) return;   // viewport doesn't overlap the circuit
-		const Point box[] = { Point(L, T), Point(L, B), Point(R, B), Point(R, T) };
+		const Point box[] = { Point((float)self->origin.x,   (float)self->origin.y),
+		                      Point((float)self->origin.x,   (float)self->endpoint.y),
+		                      Point((float)self->endpoint.x, (float)self->endpoint.y),
+		                      Point((float)self->endpoint.x, (float)self->origin.y) };
 		scene.polyline(box, 4, Stroke(Color(1.0f, 0.0f, 0.0f, 1.0f), 2.0f), true);
 	};
 
