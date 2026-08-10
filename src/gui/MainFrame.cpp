@@ -19,6 +19,7 @@
 #include "SimBridge.h"
 #include "Settings.h"
 #include "GateLibrary.h"
+#include "guiText.h"
 #include "MainFrame.h"
 #include "wx/filedlg.h"
 #include "wx/timer.h"
@@ -1590,6 +1591,35 @@ bool MainFrame::renderToPngSkia(const wxString &path, int width, int height) {
 	(void)path; (void)width; (void)height;
 	return false;
 #endif
+}
+
+bool MainFrame::renderSingleGate(const std::string &gateName, const std::string &angle,
+                                 const wxString &path, int width, int height, bool skia) {
+	if (currentCanvas == NULL || gCircuit == NULL) return false;
+
+	// Ensure the GL text font's glyph metrics are loaded before any gate is
+	// created: createGate -> calcBBox -> guiText::getBoundingBox reads them, and
+	// in this windowless one-shot the canvas may not have painted (which is what
+	// normally loads the font) yet. Create() reads the metrics from the file
+	// before touching GL, so this is safe without a current context; the texture
+	// reloads at real render time.
+	guiText::loadFont(appConfig().appSettings.textFontFile);
+
+	// Build one gate of this type through the real creation path, so its shape,
+	// hotspots and params are exactly what the app would produce. createGate
+	// registers it in the circuit and stamps its id; we still add it to the
+	// canvas list that the renderer iterates.
+	guiGate *g = gCircuit->createGate(gateName, -1);
+	if (g == NULL) return false;
+
+	// Rotate before placing: insertGate -> setGLcoords -> updateBBoxes reads the
+	// "angle" gparam to build the gate's model matrix.
+	g->setGUIParam("angle", angle);
+	currentCanvas->insertGate(g->getID(), g, 0.0f, 0.0f);
+	currentCanvas->Update();
+
+	if (skia) return renderToPngSkia(path, width, height);
+	return renderToPng(path);
 }
 
 // Build the export RenderStyle from the dialog's choices: black-on-white with

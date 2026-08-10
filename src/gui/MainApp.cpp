@@ -482,7 +482,19 @@ bool MainApp::OnInit()
     bool renderSkia = false;   // --render-skia routes through Skia instead of GL
     bool renderSvg = false;    // --render-svg writes a vector SVG via Skia
     bool renderPdf = false;    // --render-pdf writes a vector PDF via Skia
-    if (argc >= 4 && (wxString(argv[1]) == "--render" ||
+    bool renderGate = false;   // --render-gate[-skia] renders one library gate
+    std::string gateName, gateAngle;
+    if (argc >= 5 && (wxString(argv[1]) == "--render-gate" ||
+                      wxString(argv[1]) == "--render-gate-skia")) {
+        // --render-gate[-skia] <GATENAME> <angle> <out.png> [W H]
+        renderMode().headlessRender = true;
+        renderGate = true;
+        renderSkia = (wxString(argv[1]) == "--render-gate-skia");
+        gateName = argv[2].ToStdString();
+        gateAngle = argv[3].ToStdString();
+        renderOutput = argv[4].ToStdString();
+        if (argc >= 7) { renderW = wxAtoi(argv[5]); renderH = wxAtoi(argv[6]); }
+    } else if (argc >= 4 && (wxString(argv[1]) == "--render" ||
                       wxString(argv[1]) == "--render-skia" ||
                       wxString(argv[1]) == "--render-svg" ||
                       wxString(argv[1]) == "--render-pdf")) {
@@ -510,6 +522,19 @@ bool MainApp::OnInit()
 
     // create the main application window
     MainFrame *frame = new MainFrame(VERSION_TITLE(), cmdFilename);
+
+    if (renderMode().headlessRender && renderGate) {
+        // Single-gate golden path: no file to load. Realize the frame so the
+        // canvas has a client size + render geometry, place one gate, render,
+        // and exit like the file path below.
+        frame->SetSize(renderW + 220, renderH + 140);
+        frame->Show(true);
+        wxYield();
+        bool ok = frame->renderSingleGate(gateName, gateAngle, renderOutput,
+                                          renderW, renderH, renderSkia);
+        fflush(nullptr);
+        std::_Exit(ok ? 0 : 1);
+    }
 
     if (renderMode().headlessRender) {
         // Validate the file up front. A missing or malformed file would otherwise

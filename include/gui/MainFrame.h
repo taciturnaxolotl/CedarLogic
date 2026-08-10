@@ -164,6 +164,14 @@ public:
 	                     bool showGrid, bool noColor);
 	bool renderToPdfSkia(const wxString &path, int width, int height,
 	                     bool showGrid, bool noColor);
+
+	// Golden/permutation test hook (headless --render-gate[-skia]): create one
+	// gate of the named type through the real GateLibrary path, rotate it by
+	// `angle` (a gparam string, e.g. "0"/"90"/"180"/"270"), and render just that
+	// gate to a PNG. `skia` picks the Skia path over OpenGL. Renders whatever the
+	// app would create, so it exercises the true shape/pins/params.
+	bool renderSingleGate(const std::string &gateName, const std::string &angle,
+	                      const wxString &path, int width, int height, bool skia);
 	// Ask which format to save an old-format file in. Returns 1/2/3, or -1 to
 	// cancel. New/v3 circuits return 3 without prompting.
 	int chooseSaveFormat();
