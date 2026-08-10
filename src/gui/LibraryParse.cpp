@@ -232,6 +232,17 @@ bool LibraryParse::parseShapeObject( string type, LibraryGate* newGate, double o
 		y1 += offY; y2 += offY;
 		newGate->shape.push_back( lgLine( x1, y1, x2, y2, isLabel) );
 		return true;
+	} else if( type == "arc" ) {
+		// "arc cx,cy,radius,startDeg,sweepDeg" -- a structured curve kept whole so
+		// the renderer strokes it smooth (see lgArc). Degrees from +Y, clockwise.
+		temp = mParse->readTagValue("arc");
+		mParse->readCloseTag();
+		istringstream iss(temp);
+		float cx = 0, cy = 0, radius = 1, startDeg = 0, sweepDeg = 360;
+		iss >> cx >> dump >> cy >> dump >> radius >> dump >> startDeg >> dump >> sweepDeg;
+		cx += offX; cy += offY;
+		newGate->arcs.push_back( lgArc( cx, cy, radius, startDeg, sweepDeg, isLabel ) );
+		return true;
 	} else if( type == "circle" ) {
 		temp = mParse->readTagValue("circle");
 		mParse->readCloseTag();

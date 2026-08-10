@@ -40,6 +40,8 @@ public:
 	void fillPolygon(const Point* pts, std::size_t count, const Color&) override;
 	void fillCircle(Point center, float radius, const Color&) override;
 	void strokeCircle(Point center, float radius, const Stroke&) override;
+	void arc(Point center, float radius, float startDeg, float sweepDeg,
+	         const Stroke&) override;
 	void fillRect(Point lo, Point hi, const Color&) override;
 	void text(Point origin, const char* utf8, float pixelHeight,
 	          const Color&) override;

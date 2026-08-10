@@ -21,6 +21,7 @@
 #define CL_RENDER_SCENE_H
 
 #include <cstddef>
+#include <cmath>
 #include <vector>
 
 namespace cl {
@@ -105,6 +106,25 @@ public:
 
 	virtual void fillCircle(Point center, float radius, const Color&) = 0;
 	virtual void strokeCircle(Point center, float radius, const Stroke&) = 0;
+
+	// Stroked circular arc. Angles are degrees measured from +Y (up), increasing
+	// clockwise toward +X -- the same convention the gate geometry uses for
+	// circles -- so an arc from 0 to +180 is the right-hand half of the circle.
+	// The default tessellates to a polyline; a backend that strokes a true arc
+	// (Skia) overrides this for resolution-independent curves at any zoom.
+	virtual void arc(Point center, float radius, float startDeg, float sweepDeg,
+	                 const Stroke& s) {
+		const int segs = 64;
+		const float k = 3.14159265358979323846f / 180.0f;
+		std::vector<Point> pts;
+		pts.reserve(segs + 1);
+		for (int i = 0; i <= segs; i++) {
+			float d = startDeg + sweepDeg * (float)i / (float)segs;
+			pts.push_back(Point(center.x + radius * std::sin(d * k),
+			                    center.y + radius * std::cos(d * k)));
+		}
+		polyline(&pts[0], pts.size(), s, false);
+	}
 
 	// Axis-aligned rectangle fill; lo is any corner, hi the opposite.
 	virtual void fillRect(Point lo, Point hi, const Color&) = 0;

@@ -141,6 +141,19 @@ void SkiaScene::strokeCircle(Point center, float radius, const Stroke& s) {
 	fCanvas->drawCircle(center.x, center.y, radius, strokePaint(s, strokeDevScale()));
 }
 
+void SkiaScene::arc(Point center, float radius, float startDeg, float sweepDeg,
+                    const Stroke& s) {
+	// True stroked arc -- no chording, crisp at any zoom. The Scene convention is
+	// degrees from +Y increasing clockwise toward +X; Skia's addArc measures from
+	// +X increasing clockwise (device space), so start -> 90 - start and the sweep
+	// flips sign. Points match the base tessellation and the circle convention.
+	const SkRect oval = SkRect::MakeLTRB(center.x - radius, center.y - radius,
+	                                     center.x + radius, center.y + radius);
+	SkPath path;
+	path.addArc(oval, 90.0f - startDeg, -sweepDeg);
+	fCanvas->drawPath(path, strokePaint(s, strokeDevScale()));
+}
+
 void SkiaScene::fillRect(Point lo, Point hi, const Color& c) {
 	const SkRect r = SkRect::MakeLTRB(std::min(lo.x, hi.x), std::min(lo.y, hi.y),
 	                                  std::max(lo.x, hi.x), std::max(lo.y, hi.y));

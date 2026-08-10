@@ -39,6 +39,18 @@ struct lgLine {
 	bool isLabel;
 };
 
+// A structured circular arc in a gate's shape (Workstream G). Unlike <line>,
+// which bakes curves into ~20 straight chords at author time, an arc survives to
+// the renderer so Skia can stroke it smooth at any zoom. Angles are degrees from
+// +Y increasing clockwise toward +X -- the same convention <circle> uses -- so
+// the AND body's right side is cx=0,cy=0,r=2,start=0,sweep=180.
+struct lgArc {
+	lgArc( float nCx = 0, float nCy = 0, float nR = 1, float nStart = 0, float nSweep = 360, bool nIsLabel = false )
+		: cx(nCx), cy(nCy), r(nR), startDeg(nStart), sweepDeg(nSweep), isLabel(nIsLabel) {}
+	float cx, cy, r, startDeg, sweepDeg;
+	bool isLabel;
+};
+
 struct lgDlgParam {
 	string textLabel; // The label shown to the user when the widget is drawn. The "Visible Name" of the param.
 
@@ -58,6 +70,7 @@ struct LibraryGate {
 	string logicType; // Note: If a gate has no logic type, then logicType="".
 	vector < lgHotspot > hotspots;
 	vector < lgLine > shape;
+	vector < lgArc > arcs; // Structured curved primitives (Workstream G); render smooth.
 	vector < lgDlgParam > dlgParams; // The parameters to be listed in the "settings dialog".
 	map < string, string > guiParams;
 	map < string, string > logicParams;
