@@ -31,22 +31,29 @@ PaletteFrame::PaletteFrame( wxWindow *parent, wxWindowID id, const wxPoint &pos,
 		libWalk++;
 	}
 	sectionChoice = new wxChoice(this, ID_LISTBOX, wxDefaultPosition, wxDefaultSize, strings);
-	sectionChoice->SetSelection(0);
 	paletteSizer->Add( sectionChoice, wxSizerFlags(0).Expand().Border(wxALL, 4) );
-	for (unsigned int i = 0; i < strings.GetCount(); i++) {
-		PaletteCanvas* paletteCanvas = new PaletteCanvas( this, wxID_ANY, strings[i], wxDefaultPosition, wxDefaultSize );
-		paletteSizer->Add( paletteCanvas, wxSizerFlags(1).Expand().Border(wxALL, 0) );
-		paletteSizer->Hide( paletteCanvas );
-		pcanvases[strings[i]] = paletteCanvas;
+	currentPalette = nullptr;
+	// Guard against an empty gate library: with no sections, strings[0] would
+	// read past the end of the array and pcanvases[<garbage>] would construct a
+	// key from a bad pointer -- the startup access violation at xstring:718.
+	// Leaving currentPalette null yields an empty (but live) palette instead.
+	if (!strings.IsEmpty()) {
+		sectionChoice->SetSelection(0);
+		for (unsigned int i = 0; i < strings.GetCount(); i++) {
+			PaletteCanvas* paletteCanvas = new PaletteCanvas( this, wxID_ANY, strings[i], wxDefaultPosition, wxDefaultSize );
+			paletteSizer->Add( paletteCanvas, wxSizerFlags(1).Expand().Border(wxALL, 0) );
+			paletteSizer->Hide( paletteCanvas );
+			pcanvases[strings[i]] = paletteCanvas;
+		}
+		currentPalette = pcanvases[strings[0]];
+		paletteSizer->Show( currentPalette );
 	}
-	currentPalette = pcanvases[strings[0]];
-	paletteSizer->Show( currentPalette );
 	this->SetSizer( paletteSizer );
 }
 
 void PaletteFrame::OnListSelect( wxCommandEvent& evt ) {
 	int sel = sectionChoice->GetSelection();
-	if (sel != wxNOT_FOUND) {
+	if (sel != wxNOT_FOUND && currentPalette != nullptr) {
 		paletteSizer->Hide( currentPalette );
 		currentPalette = pcanvases[strings[sel]];
 		paletteSizer->Show( currentPalette );
