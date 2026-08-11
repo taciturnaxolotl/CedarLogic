@@ -663,12 +663,30 @@ void MainApp::loadSettings() {
 }
 
 int MainApp::OnExit() {
+#ifdef _WIN32
+	// Stop the WinSparkle updater's background thread. Symmetric with the
+	// win_sparkle_init() in OnInit -- it was never called, so the updater thread
+	// outlived the app.
+	WinSparkleUpdater_Cleanup();
+#endif
 	delete glContext;
 	glContext = NULL;
 #ifdef _WIN32
 	timeEndPeriod(1);
 #endif
-	return wxApp::OnExit();
+	int rc = wxApp::OnExit();
+#ifdef _WIN32
+	// The app's own shutdown is complete here: settings are saved (in
+	// ~MainFrame), the logic/autosave threads are stopped, the GL context and
+	// per-frame objects are freed, and the updater thread is down. wxWidgets'
+	// post-OnExit framework teardown then spins forever winding down the detached
+	// threads, so the process never terminates even though nothing is left to do.
+	// Exit now rather than return into that teardown -- the same approach the
+	// headless --render one-shot already takes. All persistent state is flushed.
+	std::fflush(nullptr);
+	std::_Exit(rc);
+#endif
+	return rc;
 }
 
 void MainApp::SetCurrentCanvas(wxGLCanvas *canvas)
