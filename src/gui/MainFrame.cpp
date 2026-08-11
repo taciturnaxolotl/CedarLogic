@@ -897,6 +897,7 @@ void MainFrame::OnPreferences(wxCommandEvent& event) {
 		appConfig().appSettings.wireConnRadius = (float)dlg.getWireConnRadius();
 		appConfig().appSettings.gridlineVisible = dlg.getGridlineVisible();
 		appConfig().appSettings.refreshRate = dlg.getRefreshRate();
+		appConfig().appSettings.routingGridSize = (float)dlg.getRoutingGridSize();
 
 		// Sync menu checkmarks
 		GetMenuBar()->Check(View_Gridline, appConfig().appSettings.gridlineVisible);
@@ -1441,6 +1442,7 @@ void MainFrame::saveSettings() {
 	conf->Write("GridlineVisible", settings.gridlineVisible);
 	conf->Write("RightClickRotate", settings.rightClickRotate);
 	conf->Write("UseSkiaRenderer", settings.useSkiaRenderer);
+	conf->Write("RoutingGrid", settings.routingGridSize);
 }
 
 void MainFrame::ResumeExecution() {
@@ -1748,6 +1750,27 @@ bool MainFrame::dumpWireDrag(const std::string &gateA, const std::string &gateB,
 }
 
 #ifdef WITH_AVOID
+// Snap a coordinate to the routing grid; grid <= 0 means no snap.
+static float snapToGrid(float v, float grid) {
+	if (grid <= 0.0f) return v;
+	double n = (double)v / grid;
+	return (float)((n < 0 ? -(long long)(-n + 0.5) : (long long)(n + 0.5)) * grid);
+}
+
+// libavoid route -> RoutePoints, snapping interior vertices (junctions/bends) to
+// the router grid. Endpoints are left exact so they stay on their gate hotspots
+// (which live on the 0.5 grid and could be pulled off a pin by a coarser grid).
+static std::vector<cl::avoid::RoutePoint> toRoutePoints(
+		const std::vector<std::pair<float, float>> &pts, float grid) {
+	std::vector<cl::avoid::RoutePoint> rp;
+	for (size_t i = 0; i < pts.size(); i++) {
+		float x = pts[i].first, y = pts[i].second;
+		if (i != 0 && i + 1 != pts.size()) { x = snapToGrid(x, grid); y = snapToGrid(y, grid); }
+		rp.push_back({x, y});
+	}
+	return rp;
+}
+
 bool MainFrame::dumpAvoidRoutes(const wxString &path) {
 	if (currentCanvas == NULL || gCircuit == NULL) return false;
 
@@ -1819,9 +1842,8 @@ bool MainFrame::dumpAvoidRoutes(const wxString &path) {
 	// translator on real data alongside its unit suite.
 	long totalSegs = 0, totalJunctions = 0, nonOrthogonal = 0;
 	auto tally = [&](const std::vector<std::pair<float, float>> &pts) -> size_t {
-		std::vector<cl::avoid::RoutePoint> rp;
-		for (const auto &pt : pts) rp.push_back({pt.first, pt.second});
-		cl::avoid::ShapeOut shape = cl::avoid::polylineToSegments(rp);
+		cl::avoid::ShapeOut shape = cl::avoid::polylineToSegments(
+			toRoutePoints(pts, appConfig().appSettings.routingGridSize));
 		for (const cl::avoid::SegmentOut &sg : shape.segments) {
 			totalSegs++;
 			totalJunctions += (long)sg.crossings.size();
@@ -1913,9 +1935,8 @@ bool MainFrame::applyAvoidRoutes(bool multiTerminal) {
 	for (Rewrite &r : twoTerm) {
 		std::vector<std::pair<float, float>> pts = svc.routeOf(r.wid);
 		if (pts.size() < 2) continue; // no usable route -> keep existing shape
-		std::vector<cl::avoid::RoutePoint> rp;
-		for (const auto &pt : pts) rp.push_back({pt.first, pt.second});
-		cl::avoid::ShapeOut shape = cl::avoid::polylineToSegments(rp);
+		cl::avoid::ShapeOut shape = cl::avoid::polylineToSegments(
+			toRoutePoints(pts, appConfig().appSettings.routingGridSize));
 		std::map<long, wireSegment> sm = shapeToSegMap(shape, r.c0, r.c1);
 		r.wire->setSegmentMap(sm);
 	}

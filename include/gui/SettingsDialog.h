@@ -5,6 +5,7 @@
 #include <wx/dialog.h>
 #include <wx/checkbox.h>
 #include <wx/spinctrl.h>
+#include <wx/choice.h>
 
 class SettingsDialog : public wxDialog {
 public:
@@ -14,12 +15,15 @@ public:
 	double getWireConnRadius() const;
 	bool getGridlineVisible() const;
 	int getRefreshRate() const;
+	// World-units grid the auto-router snaps routes to; 0 = off (exact).
+	double getRoutingGridSize() const;
 
 private:
 	wxCheckBox* wireConnVisibleCtrl;
 	wxSpinCtrlDouble* wireConnRadiusCtrl;
 	wxCheckBox* gridlineVisibleCtrl;
 	wxSpinCtrl* refreshRateCtrl;
+	wxChoice* routingGridCtrl;
 };
 
 #endif

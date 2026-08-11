@@ -29,6 +29,9 @@ struct ApplicationSettings {
 	bool gridlineVisible;
 	bool rightClickRotate;
 	bool useSkiaRenderer = true;   // G3: render the canvases through Skia (default)
+	// Grid the obstacle-avoiding router snaps its routes to, in world units
+	// (Workstream H, 3.2f). 0 means snap off (libavoid's exact coordinates).
+	float routingGridSize = 0.5f;
 };
 
 class Settings {

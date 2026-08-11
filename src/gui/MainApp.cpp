@@ -751,6 +751,7 @@ void MainApp::loadSettings() {
 	conf->Read("GridlineVisible", &appConfig().appSettings.gridlineVisible, true);
 	conf->Read("RightClickRotate", &appConfig().appSettings.rightClickRotate, true);
 	conf->Read("UseSkiaRenderer", &appConfig().appSettings.useSkiaRenderer, true);
+	conf->Read("RoutingGrid", &appConfig().appSettings.routingGridSize, 0.5f);
 
 	// check screen coords
 	wxScreenDC sdc;
