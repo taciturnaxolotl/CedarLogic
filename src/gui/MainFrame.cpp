@@ -1916,29 +1916,91 @@ bool MainFrame::applyAvoidRoutes(bool multiTerminal) {
 	// its two connections so we can attach them back onto the translated tree.
 	struct Rewrite { guiWire *wire; unsigned long wid; wireConnection c0, c1; };
 	std::vector<Rewrite> twoTerm;
-	(void)multiTerminal; // multi-terminal (hyperedge) merge is the next step
+	// A multi-terminal net rerouted as a hyperedge: keep its connections + their
+	// hotspots so we can re-attach each pin to the nearest merged segment.
+	struct MultiRewrite {
+		guiWire *wire; unsigned long wid;
+		std::vector<wireConnection> conns; std::vector<GLPoint2f> hotspots;
+	};
+	std::vector<MultiRewrite> multi;
 
 	auto *wires = gCircuit->getWires();
 	for (auto &wp : *wires) {
 		guiWire *w = wp.second;
 		if (w == NULL) continue;
 		std::vector<wireConnection> conns = w->getConnections();
-		if (conns.size() != 2) continue; // 2-terminal only for now
-		long a = pinFor(conns[0]), b = pinFor(conns[1]);
-		if (a < 0 || b < 0) continue;
-		svc.addConnector(wp.first, (unsigned long)a, (unsigned long)b);
-		twoTerm.push_back({w, wp.first, conns[0], conns[1]});
+		if (conns.size() == 2) {
+			long a = pinFor(conns[0]), b = pinFor(conns[1]);
+			if (a < 0 || b < 0) continue;
+			svc.addConnector(wp.first, (unsigned long)a, (unsigned long)b);
+			twoTerm.push_back({w, wp.first, conns[0], conns[1]});
+		} else if (multiTerminal && conns.size() > 2) {
+			std::vector<unsigned long> keys;
+			std::vector<GLPoint2f> hs;
+			bool ok = true;
+			for (const wireConnection &c : conns) {
+				auto g = gates->find(c.gid);
+				if (g == gates->end()) { ok = false; break; }
+				GLPoint2f p;
+				g->second->getHotspotCoords(c.connection, p.x, p.y);
+				hs.push_back(p);
+				long k = pinFor(c);
+				if (k < 0) { ok = false; break; }
+				keys.push_back((unsigned long)k);
+			}
+			if (!ok || keys.size() < 3) continue;
+			svc.addHyperedge(wp.first, keys);
+			multi.push_back({w, wp.first, conns, hs});
+		}
 	}
 
 	svc.run();
+	const float grid = appConfig().appSettings.routingGridSize;
 
 	for (Rewrite &r : twoTerm) {
 		std::vector<std::pair<float, float>> pts = svc.routeOf(r.wid);
 		if (pts.size() < 2) continue; // no usable route -> keep existing shape
-		cl::avoid::ShapeOut shape = cl::avoid::polylineToSegments(
-			toRoutePoints(pts, appConfig().appSettings.routingGridSize));
+		cl::avoid::ShapeOut shape = cl::avoid::polylineToSegments(toRoutePoints(pts, grid));
 		std::map<long, wireSegment> sm = shapeToSegMap(shape, r.c0, r.c1);
 		r.wire->setSegmentMap(sm);
+	}
+
+	for (MultiRewrite &r : multi) {
+		std::vector<std::vector<std::pair<float, float>>> subs = svc.hyperedgeRoutesOf(r.wid);
+		if (subs.empty()) continue; // no route -> keep trunk shape
+		// Snap every vertex (junctions included; coincident junctions stay
+		// coincident since they snap identically), then merge into one tree.
+		std::vector<std::vector<cl::avoid::RoutePoint>> polys;
+		for (const auto &sub : subs) {
+			std::vector<cl::avoid::RoutePoint> poly;
+			for (const auto &pt : sub)
+				poly.push_back({snapToGrid(pt.first, grid), snapToGrid(pt.second, grid)});
+			polys.push_back(poly);
+		}
+		cl::avoid::ShapeOut shape = cl::avoid::mergePolylines(polys);
+
+		std::map<long, wireSegment> sm;
+		for (const cl::avoid::SegmentOut &s : shape.segments) {
+			wireSegment ws(GLPoint2f(s.bx, s.by), GLPoint2f(s.ex, s.ey),
+			               s.vertical, (unsigned long)s.id);
+			for (const auto &cr : s.crossings) ws.intersects[cr.first].push_back(cr.second);
+			ws.calcBBox();
+			sm[s.id] = ws;
+		}
+		// Attach each pin's connection to the merged segment whose endpoint is
+		// nearest that pin's hotspot.
+		for (size_t k = 0; k < r.conns.size(); k++) {
+			const GLPoint2f &h = r.hotspots[k];
+			long best = -1; float bestD = 1e30f;
+			for (const cl::avoid::SegmentOut &s : shape.segments) {
+				float d0 = (s.bx > h.x ? s.bx - h.x : h.x - s.bx) + (s.by > h.y ? s.by - h.y : h.y - s.by);
+				float d1 = (s.ex > h.x ? s.ex - h.x : h.x - s.ex) + (s.ey > h.y ? s.ey - h.y : h.y - s.ey);
+				float d = d0 < d1 ? d0 : d1;
+				if (d < bestD) { bestD = d; best = s.id; }
+			}
+			if (best >= 0) sm[best].connections.push_back(r.conns[k]);
+		}
+		if (!sm.empty()) r.wire->setSegmentMap(sm);
 	}
 	return true;
 }

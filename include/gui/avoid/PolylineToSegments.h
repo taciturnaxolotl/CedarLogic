@@ -54,6 +54,14 @@ struct ShapeOut {
 // degenerate route (all points coincident) yields a single zero-length segment.
 ShapeOut polylineToSegments(const std::vector<RoutePoint>& pts);
 
+// Merge a set of orthogonal polylines that meet at shared points -- a
+// multi-terminal (hyperedge) net's sub-connectors -- into one segment tree.
+// Segments get globally-unique ids; any two segments of opposite orientation
+// that share an endpoint (a within-polyline corner or a cross-polyline junction)
+// are cross-linked. srcSegId/dstSegId are the first/last segment overall; the
+// caller attaches each pin's connection to the segment nearest its hotspot.
+ShapeOut mergePolylines(const std::vector<std::vector<RoutePoint>>& polylines);
+
 }} // namespace cl::avoid
 
 #endif // POLYLINE_TO_SEGMENTS_H_

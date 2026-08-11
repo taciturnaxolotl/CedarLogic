@@ -239,3 +239,44 @@ TEST_CASE("invariants hold on a complex U-shaped path") {
 		{{0, 0}, {0, -5}, {10, -5}, {10, -5}, {10, 5}, {5, 5}, {5, 5}});
 	requireAllInvariants(s);
 }
+
+TEST_CASE("merge: two polylines sharing a corner make one L-tree") {
+	ShapeOut s = mergePolylines({
+		{{0, 0}, {5, 0}},   // horizontal
+		{{5, 0}, {5, 5}}}); // vertical, shares the corner (5,0)
+	REQUIRE(s.segments.size() == 2);
+	requireAllInvariants(s);                 // linked + connected
+	CHECK(byId(s, 0).crossings.size() == 1); // the two meet at (5,0)
+	CHECK(byId(s, 1).crossings.size() == 1);
+}
+
+TEST_CASE("merge: three sub-connectors at a shared junction (a + node)") {
+	// Junction at (5,5): two horizontals and one vertical all end there.
+	ShapeOut s = mergePolylines({
+		{{0, 5}, {5, 5}},    // H into J
+		{{5, 0}, {5, 5}},    // V into J
+		{{5, 5}, {10, 5}}}); // H out of J
+	REQUIRE(s.segments.size() == 3);
+	requireAllInvariants(s);
+	// The vertical (id 1) crosses both horizontals; the horizontals don't cross
+	// each other (same orientation).
+	CHECK(byId(s, 1).crossings.size() == 2);
+}
+
+TEST_CASE("merge: a trunk with three branch stubs stays one connected tree") {
+	// A shared vertical trunk segmented at each junction, with H branches.
+	ShapeOut s = mergePolylines({
+		{{0, 0}, {0, 4}},    // trunk lower
+		{{0, 4}, {0, 8}},    // trunk upper (collinear, meets at (0,4))
+		{{0, 0}, {6, 0}},    // branch at (0,0)
+		{{0, 4}, {6, 4}},    // branch at (0,4)
+		{{0, 8}, {6, 8}}});  // branch at (0,8)
+	requireAllInvariants(s);                 // one connected component
+	CHECK(s.segments.size() == 5);
+}
+
+TEST_CASE("merge: empty / all-degenerate input yields a valid segment") {
+	ShapeOut s = mergePolylines({{{3, 3}}, {{3, 3}, {3, 3}}});
+	REQUIRE(s.segments.size() == 1);
+	requireAllInvariants(s);
+}
