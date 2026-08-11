@@ -180,10 +180,12 @@ file(GLOB SRC_FILES
 	"${PROJECT_SOURCE_DIR}/src/gui/*.cpp"
 	"${PROJECT_SOURCE_DIR}/src/logic/*.cpp"
 	"${PROJECT_SOURCE_DIR}/src/gui/command/*.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/route/*.cpp"
 	"${PROJECT_SOURCE_DIR}/src/gui/GLFont/*.cpp"
 	"${PROJECT_SOURCE_DIR}/include/*.h"
 	"${PROJECT_SOURCE_DIR}/include/gui/*.h"
 	"${PROJECT_SOURCE_DIR}/include/gui/render/*.h"
+	"${PROJECT_SOURCE_DIR}/include/gui/route/*.h"
 	"${PROJECT_SOURCE_DIR}/include/logic/*.h"
 	"${PROJECT_SOURCE_DIR}/include/gui/command/*.h"
 	"${PROJECT_SOURCE_DIR}/include/gui/GLFont/*.h"
@@ -287,6 +289,8 @@ add_subdirectory("${PROJECT_SOURCE_DIR}/format/")
 if(BUILD_TESTING)
     # Headless differential test for the collision checker's spatial grid.
     add_subdirectory("${PROJECT_SOURCE_DIR}/src/gui/tests/")
+    # Unit tests for the wire router seam (Workstream H).
+    add_subdirectory("${PROJECT_SOURCE_DIR}/src/gui/route/tests/")
 endif()
 
 
