@@ -1847,8 +1847,83 @@ bool MainFrame::dumpAvoidRoutes(const wxString &path) {
 	  << " junctions, " << nonOrthogonal << " non-orthogonal\n";
 	return true;
 }
+
+// Build a wireSegment tree from a translated ShapeOut, attaching the source pin's
+// connection to the segment carrying the route's first point and the dest pin's
+// to the last. Connections keep their gid/cGate so the shape saves + reroutes.
+static std::map<long, wireSegment> shapeToSegMap(const cl::avoid::ShapeOut &shape,
+                                                 const wireConnection &srcConn,
+                                                 const wireConnection &dstConn) {
+	std::map<long, wireSegment> sm;
+	for (const cl::avoid::SegmentOut &s : shape.segments) {
+		wireSegment ws(GLPoint2f(s.bx, s.by), GLPoint2f(s.ex, s.ey),
+		               s.vertical, (unsigned long)s.id);
+		for (const auto &cr : s.crossings) ws.intersects[cr.first].push_back(cr.second);
+		ws.calcBBox();
+		sm[s.id] = ws;
+	}
+	sm[shape.srcSegId].connections.push_back(srcConn);
+	sm[shape.dstSegId].connections.push_back(dstConn);
+	return sm;
+}
+
+bool MainFrame::applyAvoidRoutes(bool multiTerminal) {
+	if (currentCanvas == NULL || gCircuit == NULL) return false;
+
+	cl::avoid::RoutingService svc;
+	auto *gates = gCircuit->getGates();
+	for (auto &gp : *gates) {
+		guiGate *g = gp.second;
+		if (g == NULL) continue;
+		klsBBox b = g->getBBox();
+		svc.addGate(gp.first, b.getLeft(), b.getBottom(), b.getRight(), b.getTop());
+	}
+
+	unsigned long nextPin = 1;
+	auto pinFor = [&](const wireConnection &c) -> long {
+		auto g = gates->find(c.gid);
+		if (g == gates->end()) return -1;
+		GLPoint2f p;
+		g->second->getHotspotCoords(c.connection, p.x, p.y);
+		unsigned long key = nextPin++;
+		svc.addPin(key, c.gid, p.x, p.y);
+		return (long)key;
+	};
+
+	// A 2-terminal wire we'll rewrite from its routed polyline. Keep the wire and
+	// its two connections so we can attach them back onto the translated tree.
+	struct Rewrite { guiWire *wire; unsigned long wid; wireConnection c0, c1; };
+	std::vector<Rewrite> twoTerm;
+	(void)multiTerminal; // multi-terminal (hyperedge) merge is the next step
+
+	auto *wires = gCircuit->getWires();
+	for (auto &wp : *wires) {
+		guiWire *w = wp.second;
+		if (w == NULL) continue;
+		std::vector<wireConnection> conns = w->getConnections();
+		if (conns.size() != 2) continue; // 2-terminal only for now
+		long a = pinFor(conns[0]), b = pinFor(conns[1]);
+		if (a < 0 || b < 0) continue;
+		svc.addConnector(wp.first, (unsigned long)a, (unsigned long)b);
+		twoTerm.push_back({w, wp.first, conns[0], conns[1]});
+	}
+
+	svc.run();
+
+	for (Rewrite &r : twoTerm) {
+		std::vector<std::pair<float, float>> pts = svc.routeOf(r.wid);
+		if (pts.size() < 2) continue; // no usable route -> keep existing shape
+		std::vector<cl::avoid::RoutePoint> rp;
+		for (const auto &pt : pts) rp.push_back({pt.first, pt.second});
+		cl::avoid::ShapeOut shape = cl::avoid::polylineToSegments(rp);
+		std::map<long, wireSegment> sm = shapeToSegMap(shape, r.c0, r.c1);
+		r.wire->setSegmentMap(sm);
+	}
+	return true;
+}
 #else
 bool MainFrame::dumpAvoidRoutes(const wxString &) { return false; }
+bool MainFrame::applyAvoidRoutes(bool) { return false; }
 #endif
 
 // Build the export RenderStyle from the dialog's choices: black-on-white with

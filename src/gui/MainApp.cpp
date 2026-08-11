@@ -516,6 +516,7 @@ bool MainApp::OnInit()
     bool wireShape = false;    // --wire-shape dumps a routed wire's segment map
     bool wireDrag = false;     // --wire-drag dumps a wire's segment map after a seg drag
     bool avoidRoute = false;   // --avoid-route dumps libavoid routes for a circuit
+    bool avoidApply = false;   // --avoid-apply reroutes + saves a circuit
     std::string gateName, gateAngle;
     std::string wsGateA, wsGateB, wsAngleA, wsAngleB;
     if (argc >= 4 && wxString(argv[1]) == "--avoid-route") {
@@ -523,6 +524,13 @@ bool MainApp::OnInit()
         // around the gates with libavoid, dump each polyline. Phase-3.2b skeleton.
         renderMode().headlessRender = true;
         avoidRoute = true;
+        cmdFilename = argv[2].ToStdString();
+        renderOutput = argv[3].ToStdString();
+    } else if (argc >= 4 && wxString(argv[1]) == "--avoid-apply") {
+        // --avoid-apply <input.cdl> <out.cdl>: load, reroute the wires around the
+        // gates with libavoid, write the shapes back, and save. Phase 3.2e.
+        renderMode().headlessRender = true;
+        avoidApply = true;
         cmdFilename = argv[2].ToStdString();
         renderOutput = argv[3].ToStdString();
     } else if (argc >= 7 && (wxString(argv[1]) == "--wire-shape" ||
@@ -610,6 +618,20 @@ bool MainApp::OnInit()
         frame->load(cmdFilename);
         wxYield();
         bool ok = frame->dumpAvoidRoutes(renderOutput);
+        fflush(nullptr);
+        std::_Exit(ok ? 0 : 1);
+    }
+
+    if (renderMode().headlessRender && avoidApply) {
+        // Load, reroute the wires around the gates with libavoid, write the shapes
+        // back into the live wires, and save the rerouted circuit.
+        frame->SetSize(renderW + 220, renderH + 140);
+        frame->Show(true);
+        wxYield();
+        frame->load(cmdFilename);
+        wxYield();
+        bool ok = frame->applyAvoidRoutes(true);
+        if (ok) ok = frame->save(renderOutput, 3);
         fflush(nullptr);
         std::_Exit(ok ? 0 : 1);
     }

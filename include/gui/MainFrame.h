@@ -195,6 +195,14 @@ public:
 	// text. The phase-3.2b skeleton proof; returns false if built without
 	// WITH_AVOID. Multi-terminal wires are skipped until 3.2d.
 	bool dumpAvoidRoutes(const wxString &path);
+
+	// Wire-router hook (headless --avoid-apply): reroute the loaded circuit's
+	// wires around the gates with libavoid and write the resulting shapes back
+	// into the live wires (setSegmentMap), so the circuit renders and saves with
+	// obstacle-avoiding routes. Phase 3.2e. Returns false without WITH_AVOID.
+	// `multiTerminal` also reroutes >2-pin nets (hyperedge merge); false does
+	// only 2-terminal wires and leaves multi-terminal nets on their trunk shape.
+	bool applyAvoidRoutes(bool multiTerminal = true);
 	// Ask which format to save an old-format file in. Returns 1/2/3, or -1 to
 	// cancel. New/v3 circuits return 3 without prompting.
 	int chooseSaveFormat();
