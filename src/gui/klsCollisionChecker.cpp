@@ -114,8 +114,8 @@ klsCollisionObject::klsCollisionObject(klsCollisionObjectType theType) {
 };
 
 klsCollisionObject::~klsCollisionObject() {
-	deleteSubObjects();
-	deleteCollisionObject();
+	detachSubObjects();
+	detachFromCollisions();
 }
 
 klsBBox klsCollisionObject::getBBox() const {
@@ -185,16 +185,16 @@ void klsCollisionObject::insertSubObject(klsCollisionObject* klsc) {
 	cData.subObjs.insert( klsc );
 }
 
-void klsCollisionObject::deleteSubObjects() {
+void klsCollisionObject::detachSubObjects() {
 	CollisionGroup::iterator sub = cData.subObjs.begin();
 	while( sub != cData.subObjs.end() ) {
-		(*sub)->deleteCollisionObject();
+		(*sub)->detachFromCollisions();
 		sub++;
 	}
 	cData.subObjs.clear();
 }
 
-void klsCollisionObject::deleteCollisionObject() {
+void klsCollisionObject::detachFromCollisions() {
 	CollisionGroup badOverlaps = this->getOverlaps();
 	CollisionGroup::iterator remOver = badOverlaps.begin();
 	while( remOver != badOverlaps.end() ) {
@@ -204,7 +204,7 @@ void klsCollisionObject::deleteCollisionObject() {
 	this->clearOverlaps();	
 
 	// NOT a good idea: (Will cause recursive loop!)
-	// this->deleteSubObjects()
+	// this->detachSubObjects()
 	// (Yes, include this comment in the code!)
 }
 
@@ -272,14 +272,10 @@ CollisionGroup klsCollisionObject::verifyOverlaps() {
 // Check the overlaps of all of the collision objects stored in this checker,
 // and update their status:
 void klsCollisionChecker::update( void ) {
-	//TODO: Put a more efficient algorithm in to this that uses a sort-sweep algorithm
-	// or something to that effect to do an all-to-all comparison, that keeps the data
-	// structure between calls to update(). For now, it simply slices the problem up into
-	// an N by N comparison that is order N^2.
-	//NOTE: I made the algorithm more efficient by only updating bboxes that have changed
-	// since the last call to update. So, it is now order S*N, where S is the number
-	// of things that have changed.  Also, moving items are now only checked against
-	// stationary ones, and if S < N/2, then the groups are switched.
+	// Only objects whose bbox changed since the last update are rechecked (call
+	// this S), and each is tested not against everything but against the objects
+	// sharing its grid cells via the UniformGrid broad phase (see top of file).
+	// So the cost is roughly S * (local density), not the old all-against-all N^2.
 
 	// Clear out the old collisions:
 	overlaps.clear();
@@ -413,8 +409,8 @@ void klsCollisionChecker::addObject(klsCollisionObject* newObj) {
 
 void klsCollisionChecker::removeObject( klsCollisionObject* oldObj ) {
 	collisionObjects.erase( oldObj );
-	oldObj->deleteSubObjects();
-	oldObj->deleteCollisionObject();
+	oldObj->detachSubObjects();
+	oldObj->detachFromCollisions();
 }
 
 void klsCollisionChecker::clear() {
