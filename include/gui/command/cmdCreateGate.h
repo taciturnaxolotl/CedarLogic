@@ -2,6 +2,7 @@
 #pragma once
 #include "klsCommand.h"
 #include <vector>
+#include <memory>
 
 // cmdCreateGate - creates a gate on a given canvas at position (x,y)
 class cmdCreateGate : public klsCommand {
@@ -10,8 +11,6 @@ public:
 		unsigned long gid, std::string gateType, float x, float y);
 
 	cmdCreateGate(std::string def);
-
-	~cmdCreateGate();
 
 	bool Do();
 
@@ -22,12 +21,14 @@ public:
 	virtual void setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
 		TranslationMap &gateids, TranslationMap &wireids) override;
 
-	std::vector<klsCommand *> * getConnections();
+	// The proximity-connection sub-commands this command owns; callers append to
+	// it (adopting into unique_ptr) after construction.
+	std::vector<std::unique_ptr<klsCommand>> * getConnections();
 
 protected:
 	float x;
 	float y;
 	std::string gateType;
 	unsigned long gid;
-	std::vector<klsCommand *> proxconnects;
+	std::vector<std::unique_ptr<klsCommand>> proxconnects;
 };

@@ -19,7 +19,6 @@ cmdDeleteSelection::cmdDeleteSelection(GUICircuit* gCircuit,
 cmdDeleteSelection::~cmdDeleteSelection() {
 
 	while (!(cmdList.empty())) {
-		delete cmdList.top();
 		cmdList.pop();
 	}
 }
@@ -27,11 +26,11 @@ cmdDeleteSelection::~cmdDeleteSelection() {
 bool cmdDeleteSelection::Do() {
 
 	for (unsigned int i = 0; i < wires.size(); i++) {
-		cmdList.push(new cmdDeleteWire(gCircuit, gCanvas, wires[i]));
+		cmdList.push(std::unique_ptr<klsCommand>(new cmdDeleteWire(gCircuit, gCanvas, wires[i])));
 		cmdList.top()->Do();
 	}
 	for (unsigned int i = 0; i < gates.size(); i++) {
-		cmdList.push(new cmdDeleteGate(gCircuit, gCanvas, gates[i]));
+		cmdList.push(std::unique_ptr<klsCommand>(new cmdDeleteGate(gCircuit, gCanvas, gates[i])));
 		cmdList.top()->Do();
 	}
 	if (gCircuit->getOscope() != NULL) gCircuit->getOscope()->UpdateMenu();
@@ -43,7 +42,6 @@ bool cmdDeleteSelection::Undo() {
 
 	while (!(cmdList.empty())) {
 		cmdList.top()->Undo();
-		delete cmdList.top();
 		cmdList.pop();
 	}
 	if (gCircuit->getOscope() != NULL) gCircuit->getOscope()->UpdateMenu();

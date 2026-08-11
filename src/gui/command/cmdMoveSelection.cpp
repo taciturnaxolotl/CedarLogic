@@ -26,11 +26,6 @@ cmdMoveSelection::cmdMoveSelection(GUICircuit* gCircuit,
 	wireMove = 1;
 }
 
-cmdMoveSelection::~cmdMoveSelection() {
-	// Owns the proximity-connection sub-commands pushed via getConnections();
-	// free them so they don't leak with the undo history.
-	for (klsCommand *cmd : proxconnects) delete cmd;
-}
 
 // A cached segment map holds raw guiGate* pointers in its connections. When
 // this move is part of a paste, undo/redo of the paste deletes and recreates
@@ -83,6 +78,6 @@ bool cmdMoveSelection::Undo() {
 	return true;
 }
 
-vector<klsCommand *> * cmdMoveSelection::getConnections() {
+vector<std::unique_ptr<klsCommand>> * cmdMoveSelection::getConnections() {
 	return &proxconnects;
 }

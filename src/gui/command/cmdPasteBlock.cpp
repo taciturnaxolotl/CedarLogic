@@ -4,15 +4,12 @@
 cmdPasteBlock::cmdPasteBlock(std::vector<klsCommand *> &cmdList) :
 		klsCommand(true, "Paste") {
 
-	for (unsigned int i = 0; i < cmdList.size(); i++) this->cmdList.push_back(cmdList[i]);
+	// Adopt each sub-command. This command exclusively owns them (unique_ptr), so
+	// a paste and its slot in the undo history free cleanly with no manual delete.
+	for (unsigned int i = 0; i < cmdList.size(); i++)
+		this->cmdList.push_back(std::unique_ptr<klsCommand>(cmdList[i]));
 
 	m_init = false;
-}
-
-cmdPasteBlock::~cmdPasteBlock() {
-	// This command exclusively owns its sub-commands; free them so a paste
-	// (and its slot in the undo history) doesn't leak.
-	for (klsCommand *cmd : cmdList) delete cmd;
 }
 
 bool cmdPasteBlock::Do() {

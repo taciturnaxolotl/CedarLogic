@@ -2,6 +2,7 @@
 #pragma once
 #include "klsCommand.h"
 #include <vector>
+#include <memory>
 #include <map>
 #include "../wireSegment.h"
 #include "../GUICanvas.h"
@@ -16,13 +17,11 @@ public:
 		vector<WireState> &preMoveWire, float startX, float startY,
 		float endX, float endY);
 
-	~cmdMoveSelection();
-
 	bool Do();
 
 	bool Undo();
 
-	vector<klsCommand *> * getConnections();
+	vector<std::unique_ptr<klsCommand>> * getConnections();
 
 protected:
 	// Re-point a cached segment map's connection gate pointers at the live
@@ -37,5 +36,5 @@ protected:
 	map<unsigned long, SegmentMap> newSegMaps;
 	float startX, startY, endX, endY;
 	int wireMove;
-	vector<klsCommand *> proxconnects;
+	vector<std::unique_ptr<klsCommand>> proxconnects;
 };

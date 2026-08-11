@@ -2,6 +2,7 @@
 #pragma once
 #include "klsCommand.h"
 #include <stack>
+#include <memory>
 #include <vector>
 
 // cmdDeleteWire - Deletes a wire
@@ -17,5 +18,5 @@ public:
 
 private:
 	std::vector<IDType> wireIds;
-	std::stack<klsCommand *> cmdList;
+	std::stack<std::unique_ptr<klsCommand>> cmdList;
 };

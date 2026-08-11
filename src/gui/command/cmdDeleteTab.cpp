@@ -45,13 +45,12 @@ cmdDeleteTab::cmdDeleteTab(GUICircuit* gCircuit, GUICanvas* gCanvas,
 
 cmdDeleteTab::~cmdDeleteTab() {
 	while (!(cmdList.empty())) {
-		delete cmdList.top();
 		cmdList.pop();
 	}
 }
 
 bool cmdDeleteTab::Do() {
-	cmdList.push(new cmdDeleteSelection(gCircuit, gCanvas, gates, wires));
+	cmdList.push(std::unique_ptr<klsCommand>(new cmdDeleteSelection(gCircuit, gCanvas, gates, wires)));
 	cmdList.top()->Do();
 
 	unsigned int canSize = canvases->size();

@@ -2,6 +2,7 @@
 #pragma once
 #include "klsCommand.h"
 #include <stack>
+#include <memory>
 #include <vector>
 
 // cmdDeleteSelection - Deletes a selection of gates/wires
@@ -19,5 +20,5 @@ public:
 private:
 	std::vector<unsigned long> gates;
 	std::vector<unsigned long> wires;
-	std::stack<klsCommand *> cmdList;
+	std::stack<std::unique_ptr<klsCommand>> cmdList;
 };

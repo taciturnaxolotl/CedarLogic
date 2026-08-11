@@ -2,21 +2,22 @@
 #pragma once
 #include "klsCommand.h"
 #include <vector>
+#include <memory>
 
 // cmdPasteBlock - Paste's a block of gates/wires
 class cmdPasteBlock : public klsCommand {
 public:
+	// Adopts the sub-commands (raw pointers in, owned as unique_ptr).
 	cmdPasteBlock(std::vector<klsCommand*> &cmdList);
-
-	~cmdPasteBlock();
 
 	bool Do();
 
 	bool Undo();
 
-	void addCommand(klsCommand* cmd) { cmdList.push_back(cmd); };
+	// Adopt an additional sub-command.
+	void addCommand(klsCommand* cmd) { cmdList.push_back(std::unique_ptr<klsCommand>(cmd)); };
 
 private:
-	std::vector<klsCommand *> cmdList;
+	std::vector<std::unique_ptr<klsCommand>> cmdList;
 	bool m_init;
 };

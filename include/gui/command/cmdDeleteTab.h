@@ -2,6 +2,7 @@
 #pragma once
 #include "klsCommand.h"
 #include <stack>
+#include <memory>
 #include <vector>
 
 #ifdef __WXOSX__
@@ -32,7 +33,7 @@ public:
 protected:
 	std::vector < unsigned long > gates;
 	std::vector < unsigned long > wires;
-	std::stack < klsCommand* > cmdList;
+	std::stack<std::unique_ptr<klsCommand>> cmdList;
 #ifdef __WXOSX__
 	wxNotebook* canvasBook;
 #else
