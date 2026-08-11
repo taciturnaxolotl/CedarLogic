@@ -26,3 +26,11 @@ build-skia/
 
 # format standalone test build
 format/build-fmt/
+
+# Local planning + throwaway test builds (never commit)
+HANDOFF.md
+testable/
+
+# Python bytecode cache (arc_fit.py)
+__pycache__/
+*.pyc

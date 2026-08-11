@@ -77,8 +77,8 @@ guiWire::guiWire() : klsCollisionObject(COLL_WIRE) {
 // This problem did not show up in mingw because gcc is too lenient about deleted data.
 // gcc leaves recently deleted stuff alone, windows overwrites it immediately with arbitrary data.
 guiWire::~guiWire() {
-	deleteSubObjects();
-	deleteCollisionObject();
+	detachSubObjects();
+	detachFromCollisions();
 }
 
 // Add an input connection to the wire
@@ -92,7 +92,7 @@ void guiWire::addConnection(guiGate* iGate, string connection, bool openMode) {
 	connectPoints.push_back(temp);
 	if (openMode) return; // On open, don't calc shape until the seg tree is explicity set
 	if (connectPoints.size() < 3) { setVerticalBar = true; calcShape(); return; }
-	this->deleteSubObjects(); // prevent coll checker pointers from invalidating
+	this->detachSubObjects(); // prevent coll checker pointers from invalidating
 	// Find the nearest segment
 	GLPoint2f hsPoint;
 	float minDistance = FLT_MAX; long closestSeg = headSegment;
@@ -140,7 +140,7 @@ void guiWire::removeConnection(guiGate* iGate, string connection) {
 		}
 	}
 	if (connectPoints.size() < 2) return;
-	this->deleteSubObjects(); // prevent coll checker pointers from invalidating
+	this->detachSubObjects(); // prevent coll checker pointers from invalidating
 	// Now I need to find the segment with this thing and update the tree
 	unsigned long gid = iGate->getID();
 	long segID = 0; bool found = false;
@@ -463,7 +463,7 @@ void guiWire::move(GLPoint2f origin, GLPoint2f delta) {
 // the bboxes of the wire segments. Also,
 // add the wire segments into the subObjs list:
 void guiWire::calcBBox() {
-	this->deleteSubObjects();
+	this->detachSubObjects();
 
 	map < long, wireSegment >::iterator segWalk = segMap.begin();
 	while (segWalk != segMap.end()) {
@@ -671,7 +671,7 @@ void guiWire::saveWireLegacy(XMLParser* xparse) {
 map < long, wireSegment > guiWire::getSegmentMap(void) { return segMap; };
 
 void guiWire::setSegmentMap(map < long, wireSegment > newSegMap) {
-	this->deleteSubObjects(); // prevent coll checker pointers from invalidating
+	this->detachSubObjects(); // prevent coll checker pointers from invalidating
 	segMap = newSegMap;
 	calcBBox();
 	headSegment = ((segMap.begin())->first);
@@ -683,7 +683,7 @@ map < long, wireSegment > guiWire::getOldSegmentMap(void) { return oldSegMap; };
 
 // Calculates a default three-segment shape for the wire, from source to destination, squared halfway
 void guiWire::calcShape() {
-	this->deleteSubObjects(); // prevent coll checker pointers from invalidating
+	this->detachSubObjects(); // prevent coll checker pointers from invalidating
 
 	// Get rid of the old shape
 	segMap.clear();
@@ -824,7 +824,7 @@ bool guiWire::startSegDrag(klsCollisionObject* mouse) {
 	CollisionGroup cg = this->checkSubsToObj(mouse);
 	// If there are no segments then we shouldn't drag one
 	if (cg.size() == 0) return false;
-	this->deleteSubObjects(); // prevent coll checker pointers from invalidating	
+	this->detachSubObjects(); // prevent coll checker pointers from invalidating	
 	// Otherwise just grab the first one found and fix the connection points with new segments
 	CollisionGroup::iterator cgWalk = cg.begin();
 	GLPoint2f vertex;
@@ -938,7 +938,7 @@ void guiWire::updateSegDrag(klsCollisionObject* mouse) {
 
 //	The current dragging segment is dropped, clean up
 void guiWire::endSegDrag() {
-	this->deleteSubObjects(); // prevent coll checker pointers from invalidating
+	this->detachSubObjects(); // prevent coll checker pointers from invalidating
 	// Reset the drag segment var
 	currentDragSegment = -1;
 	// merge segments to get rid of messiness
@@ -968,7 +968,7 @@ void guiWire::updateConnectionPos(unsigned long gid, string connection) {
 		segWalk++;
 	}
 	if (!foundit) return;
-	this->deleteSubObjects(); // prevent coll checker pointers from invalidating
+	this->detachSubObjects(); // prevent coll checker pointers from invalidating
 	klsBBox origin;
 	if (!(segMap[currentDragSegment].connections[connID].cGate->isVerticalHotspot(segMap[currentDragSegment].connections[connID].connection))) {
 		// We found the segment we're looking for

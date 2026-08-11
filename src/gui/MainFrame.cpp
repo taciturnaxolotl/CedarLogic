@@ -218,13 +218,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	//////////////////////////////////////////////////////////////////////////
     // parse a gate library
 	//////////////////////////////////////////////////////////////////////////
-#ifndef _PRODUCTION_
-	string libPath = wxGetApp().pathToExe + "res/cl_gatedefs.xml";
-	//WARNING( "just so you know argv[0] == " );
-	//WARNING( wxString(wxGetApp().argv[0]) );
-#else
 	string libPath = appConfig().appSettings.gateLibFile;
-#endif
 	LibraryParse newLib(libPath);
 	gateLibrary().libParser = newLib;
 	

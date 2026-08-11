@@ -93,8 +93,11 @@ private:
 
 protected:
 	void insertSubObject( klsCollisionObject* klsc );
-	void deleteSubObjects();
-	void deleteCollisionObject();
+	// Unhook from the collision system -- these do NOT free any memory. Detaching
+	// on destruction/reshape stops the checker from holding dangling overlap
+	// pointers into an object that is going away or moving.
+	void detachSubObjects();      // detach each sub-object, then forget them
+	void detachFromCollisions();  // remove this object from its overlaps' records
 	
 private:
 	// Functions only to be used by klsCollisionChecker or the object itself:
