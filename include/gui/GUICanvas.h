@@ -18,6 +18,7 @@
 #include <sstream>
 #include <string>
 #include <deque>
+#include <chrono>
 using namespace std;
 
 class cmdPasteBlock;
@@ -88,6 +89,13 @@ struct ConnectionSource {
 #define HOTSPOT_SCREEN_DELTA  5.0
 #define WIRE_HOVER_SCREEN_DELTA 5.0
 #define MOUSE_HOVER_DELTA 4.5
+// Click-vs-drag dead zone (screen pixels, scaled by zoom): the pointer must
+// leave this radius around the press point before a selected gate starts moving,
+// so a click with a little jitter selects instead of nudging it a grid cell over.
+#define DRAG_START_SCREEN_DELTA 6.0
+// ... and a short time dead zone after the press, so a quick click that travels
+// a few pixels while the button is down still selects rather than nudging.
+#define DRAG_START_TIME_MS 85
 
 #define GRID_INTENSITY 0.08
 #define MIN_GRID_SCREEN_SPACING 13
@@ -172,6 +180,11 @@ public:
     void drawCircuitInto(cl::render::Scene& scene, const cl::render::RenderStyle& style);
 #ifdef WITH_SKIA
     unsigned long long renderContentKey();
+    // Interactive overlays (hovered pin bulb, potential-connection bulbs, drag
+    // boxes/lines, wire hover, collision boxes) drawn only in the live Skia path
+    // -- not in renderToScene, which is shared with PNG/SVG export. Mirrors the
+    // GL OnRender overlays so the Skia default keeps the same hover affordances.
+    void drawOverlaysInto(cl::render::Scene& scene);
 #endif
 
 	// Update the collision checker and refresh
@@ -255,6 +268,9 @@ private:
 	bool drawWireHover; // Whether or not to draw a wire hover X value.
 	unsigned long wireHoverID;
 	ConnectionSource currentConnectionSource;
+
+	// When the left button was last pressed, for the click-vs-drag time dead zone.
+	std::chrono::steady_clock::time_point dragPressTime;
 	
 	bool isWithinPaste; // If we are in paste then drag_selection is enabled until drop
 	DragState currentDragState;
