@@ -635,9 +635,9 @@ void MainFrame::OnNew(wxCommandEvent& event) {
 
 	pauseTimers();
 
-	// Clear the message queues under the lock -- the logic thread pops
-	// dGUItoLOGIC every 1ms and pauseTimers() only stops the GUI timers, not
-	// that thread, so an unlocked clear() races it.
+	// Clear the message queues under the lock -- the logic thread drains
+	// dGUItoLOGIC on its own (waking on msgForLogic) and pauseTimers() only stops
+	// the GUI timers, not that thread, so an unlocked clear() races it.
 	{
 		wxMutexLocker lock(simBridge().mexMessages);
 		simBridge().dGUItoLOGIC.clear();

@@ -246,16 +246,22 @@ void GUICircuit::parseMessage(klsMessage::Message message) {
 void GUICircuit::sendMessageToCore(klsMessage::Message message) {
 	wxMutexLocker lock(simBridge().mexMessages);
 
+	bool queuedForLogic = false;
 	if (waitToSendMessage) {
-		
+
 		if (simulate) {
 			simBridge().dGUItoLOGIC.push_back(message);
+			queuedForLogic = true;
 		} else{
 			messageQueue.push_back(message);
 		}
 	} else{
 		simBridge().dGUItoLOGIC.push_back(message);
-	}	
+		queuedForLogic = true;
+	}
+	// Wake the logic thread if we actually gave it work (it blocks on this
+	// condition rather than polling). Signaled under mexMessages, held here.
+	if (queuedForLogic) simBridge().msgForLogic.Signal();
 }
 
 

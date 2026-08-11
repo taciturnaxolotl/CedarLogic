@@ -37,10 +37,19 @@ void *threadLogic::Entry() {
 	
 	cir = new Circuit();
 	while (!TestDestroy()) {
+		// Block until the GUI queues a message (or we're asked to stop) rather
+		// than spinning on a 1ms sleep. WaitTimeout bounds how long a pending
+		// TestDestroy() goes unnoticed, so shutdown stays prompt without the
+		// teardown path having to signal us.
+		{
+			wxMutexLocker lock(simBridge().mexMessages);
+			while (simBridge().dGUItoLOGIC.empty() && !TestDestroy()) {
+				simBridge().msgForLogic.WaitTimeout(100);
+			}
+		}
 		checkMessages();
-		wxThread::Sleep(1);
 	}
-	
+
 	return NULL;
 }
 
