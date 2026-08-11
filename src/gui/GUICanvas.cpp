@@ -371,19 +371,121 @@ bool GUICanvas::renderSkiaLive() {
 
 	GUICanvas* self = this;
 	const RenderStyle style = RenderStyle::screen();
-	const unsigned long long key = renderContentKey();
+	// Content key + interactive overlay state, so the retained picture repaints as
+	// the hovered pin, drag box/line, or wire hover changes (the overlays follow
+	// the mouse; without this they'd be frozen in the cached SkPicture).
+	unsigned long long overlayKey = renderContentKey();
+	{
+		auto mix = [&overlayKey](unsigned long long v) { overlayKey = (overlayKey ^ v) * 1099511628211ULL; };
+		unsigned long long hh = 1469598103934665603ULL;
+		for (char ch : hotspotHighlight) hh = (hh ^ (unsigned char)ch) * 1099511628211ULL;
+		mix(hh);
+		mix(hotspotGate);
+		mix((unsigned long long)currentDragState);
+		mix(drawWireHover ? 1u : 0u);
+		if (drawWireHover || currentDragState != DRAG_NONE) {
+			GLPoint2f m = getMouseCoords(), s = getDragStartCoords();
+			unsigned a, b, c, d;
+			std::memcpy(&a, &m.x, 4); std::memcpy(&b, &m.y, 4);
+			std::memcpy(&c, &s.x, 4); std::memcpy(&d, &s.y, 4);
+			mix(((unsigned long long)a << 32) | b);
+			mix(((unsigned long long)c << 32) | d);
+		}
+		mix(potentialConnectionHotspots.size());
+		for (size_t i = 0; i < potentialConnectionHotspots.size(); i++) {
+			unsigned a, b;
+			std::memcpy(&a, &potentialConnectionHotspots[i].x, 4);
+			std::memcpy(&b, &potentialConnectionHotspots[i].y, 4);
+			mix(((unsigned long long)a << 32) | b);
+		}
+	}
 	auto drawGrid = [self, style, t, scale, gMinX, gMinY, gMaxX, gMaxY](Scene& s) {
 		s.setViewport(t);
 		self->drawGridInto(s, style, scale, gMinX, gMinY, gMaxX, gMaxY);
 	};
 	auto drawScene = [self, style](Scene& s) {
 		self->drawCircuitInto(s, style);
+		self->drawOverlaysInto(s);
 	};
-	return skiaRenderWindowScene(w, h, 0, key, t, drawGrid, drawScene);
+	return skiaRenderWindowScene(w, h, 0, overlayKey, t, drawGrid, drawScene);
 #else
 	return false;
 #endif
 }
+
+#ifdef WITH_SKIA
+void GUICanvas::drawOverlaysInto(cl::render::Scene& scene) {
+	using cl::render::Point;
+	using cl::render::Color;
+	using cl::render::Stroke;
+	const float r = HOTSPOT_SCREEN_RADIUS * (float)getZoom();
+
+	auto box = [&scene](float x, float y, float rad, const Color& c) {
+		Point pts[4] = { Point(x - rad, y + rad), Point(x + rad, y + rad),
+		                 Point(x + rad, y - rad), Point(x - rad, y - rad) };
+		scene.polyline(pts, 4, Stroke(c, 1.0f), true);
+	};
+
+	// Hovered gate pin -- the red bulb you drag a wire out from.
+	if (hotspotHighlight.size() > 0 && gateList.count(hotspotGate) && gateList[hotspotGate]) {
+		float x, y;
+		gateList[hotspotGate]->getHotspotCoords(hotspotHighlight, x, y);
+		box(x, y, r, Color(1.0f, 0.0f, 0.0f));
+	}
+
+	// Wire hover -- a red X at the mouse. Only while the hovered wire still
+	// exists, so deleting it clears the X on the delete's own repaint instead of
+	// leaving it stuck until the next mouse move.
+	if (drawWireHover && wireList.count(wireHoverID) && wireList[wireHoverID]) {
+		GLPoint2f m = getMouseCoords();
+		Point xs[4] = { Point(m.x - r, m.y + r), Point(m.x + r, m.y - r),
+		                Point(m.x + r, m.y + r), Point(m.x - r, m.y - r) };
+		scene.lines(xs, 4, Stroke(Color(1.0f, 0.0f, 0.0f), 1.0f));
+	}
+
+	if (currentDragState == DRAG_SELECT) {
+		GLPoint2f s = getDragStartCoords(), e = getMouseCoords();
+		Point pts[4] = { Point(s.x, s.y), Point(s.x, e.y), Point(e.x, e.y), Point(e.x, s.y) };
+		scene.polyline(pts, 4, Stroke(Color(0.0f, 0.4f, 1.0f, 1.0f), 1.0f), true);
+		scene.fillRect(Point(s.x, s.y), Point(e.x, e.y), Color(0.0f, 0.4f, 1.0f, 0.3f));
+	} else if (currentDragState == DRAG_CONNECT) {
+		// Anchor the preview line at the source pin, not the click point.
+		GLPoint2f s = getDragStartCoords();
+		if (currentConnectionSource.isGate && gateList.count(currentConnectionSource.objectID) &&
+		    gateList[currentConnectionSource.objectID])
+			gateList[currentConnectionSource.objectID]->getHotspotCoords(
+				currentConnectionSource.connection, s.x, s.y);
+		GLPoint2f e = getMouseCoords();
+		Point ln[2] = { Point(s.x, s.y), Point(e.x, e.y) };
+		scene.lines(ln, 2, Stroke(Color(0.0f, 0.78f, 0.0f, 1.0f), 1.0f));
+	} else if (currentDragState == DRAG_NEWGATE && newDragGate != NULL) {
+		newDragGate->drawToScene(scene, cl::render::RenderStyle::screen());
+	}
+
+	// Potential connection hotspots -- where a dragged wire could snap.
+	for (size_t i = 0; i < potentialConnectionHotspots.size(); i++)
+		box(potentialConnectionHotspots[i].x, potentialConnectionHotspots[i].y, r,
+		    Color(0.3f, 0.3f, 1.0f));
+
+	// Collision overlaps -- translucent boxes where two gates overlap.
+	for (std::map<klsCollisionObjectType, CollisionGroup>::iterator ov = collisionChecker.overlaps.begin();
+	     ov != collisionChecker.overlaps.end(); ++ov) {
+		if (ov->first != COLL_GATE) continue;
+		for (CollisionGroup::iterator obj = ov->second.begin(); obj != ov->second.end(); ++obj) {
+			if ((*obj)->getType() != COLL_GATE) continue;
+			CollisionGroup hits = (*obj)->getOverlaps();
+			for (CollisionGroup::iterator h = hits.begin(); h != hits.end(); ++h) {
+				if ((*h)->getType() != COLL_GATE) continue;
+				klsBBox hb = (*obj)->getBBox().intersect((*h)->getBBox());
+				if (!hb.empty())
+					scene.fillRect(Point(hb.getLeft(), hb.getBottom()),
+					               Point(hb.getRight(), hb.getTop()),
+					               Color(0.4f, 0.1f, 0.0f, 0.3f));
+			}
+		}
+	}
+}
+#endif
 
 void GUICanvas::OnRender( bool noColor ) {
 	glColor4f( 0.0, 0.0, 0.0, 1.0 );
@@ -441,8 +543,9 @@ renderNum++;
 		glColor4f( oldColor[0], oldColor[1], oldColor[2], oldColor[3] );
 	}
 
-	// Mouse-over wire
-	if( drawWireHover ) {
+	// Mouse-over wire (only while the hovered wire still exists, so it clears on
+	// delete instead of lingering until the next mouse move).
+	if( drawWireHover && wireList.count(wireHoverID) && wireList[wireHoverID] ) {
 		// Outline the hotspot:
 		GLfloat oldColor[4];
 		glGetFloatv( GL_CURRENT_COLOR, oldColor );
@@ -523,7 +626,12 @@ renderNum++;
 	}
 	// Drag-connect line 
 	else if (currentDragState == DRAG_CONNECT) {
+		// Anchor the preview line at the source pin, not the click point.
 		GLPoint2f start = getDragStartCoords();
+		if (currentConnectionSource.isGate && gateList.count(currentConnectionSource.objectID) &&
+		    gateList[currentConnectionSource.objectID])
+			gateList[currentConnectionSource.objectID]->getHotspotCoords(
+				currentConnectionSource.connection, start.x, start.y);
 		GLPoint2f end = getMouseCoords();
 		glColor4f( 0.0, 0.78f, 0.0, 1.0 );
 		glBegin(GL_LINES);
@@ -556,6 +664,7 @@ renderNum++;
 void GUICanvas::mouseLeftDown(wxMouseEvent& event) {
 	GLPoint2f m = getMouseCoords();
 	bool handled = false;
+	dragPressTime = std::chrono::steady_clock::now(); // for the click-vs-drag time dead zone
 	// If placing a new gate (snap-to-cursor), let OnMouseUp finalize it
 	if (currentDragState == DRAG_NEWGATE) return;
 	// If I am in a paste operation then mouse-up is all I am concerned with
@@ -637,6 +746,11 @@ void GUICanvas::mouseLeftDown(wxMouseEvent& event) {
 	while( hit != hitThings.end() && !handled ) {
 		if ((*hit)->getType() == COLL_GATE) {
 			guiGate* hitGate = ((guiGate*)(*hit));
+			// The gate is in hitThings via its collision box, which is grown to
+			// enclose its hotspot pins -- so clicking the empty space beside a pin
+			// lands in that box. Only treat it as a selection if the click is on the
+			// gate BODY, so pins stay for wire-connecting, not selecting.
+			if (!hitGate->getSelectionBBox().overlaps(mouse->getBBox())) { hit++; continue; }
 			bool wasSelected = hitGate->isSelected();
 			if ((event.ShiftDown()||event.ControlDown()) && wasSelected) hitGate->unselect(); // Remove gate from selection
 			else if ((event.ShiftDown()||event.ControlDown()) && !wasSelected) hitGate->select(); // Add gate to selection
@@ -802,6 +916,21 @@ void GUICanvas::OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool Ct
 	GLPoint2f mSnap = getSnappedPoint( m ); // Work with a snapped mouse coord
 	GLPoint2f dStartSnap = getSnappedPoint( dStart );
 	GLPoint2f diffSnap( mSnap.x - dStartSnap.x, mSnap.y - dStartSnap.y );
+
+	// Click-vs-drag dead zone: treat this as a click (no move) while the pointer
+	// is still within a small pixel radius of the press point, OR within a short
+	// time of it -- so neither a jittery nor a quick-but-traveling selection click
+	// nudges the gate into the next grid cell.
+	{
+		float dead = DRAG_START_SCREEN_DELTA * getZoom();
+		float ax = diff.x < 0 ? -diff.x : diff.x;
+		float ay = diff.y < 0 ? -diff.y : diff.y;
+		long long heldMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+			std::chrono::steady_clock::now() - dragPressTime).count();
+		if ((ax < dead && ay < dead) || heldMs < DRAG_START_TIME_MS) {
+			diffSnap.x = 0.0f; diffSnap.y = 0.0f;
+		}
+	}
 
 	// Update the mouse as a collision object:
 	klsBBox mBox;

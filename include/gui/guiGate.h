@@ -218,6 +218,13 @@ public:
 	
 	klsBBox getModelBBox( void ) { return modelBBox; };
 
+	// World-space bbox of the gate BODY only (no hotspot pins). The collision
+	// bbox (getBBox) is expanded by setBBox->makeValidBBox to enclose the hotspot
+	// sub-objects for hover detection, which would let you select a gate by
+	// clicking the empty space beside a pin; selection hit-tests against this
+	// instead so it tracks the visible body.
+	klsBBox getSelectionBBox( void ) { return selectionBBox; };
+
 	// Get a hotspot from its name.
 	gateHotspot * getHotspot(const std::string &hotspotName) {
 		return hotspots[hotspotName];
@@ -313,6 +320,7 @@ protected:
 
 	// Model space bounding box:
 	klsBBox modelBBox;
+	klsBBox selectionBBox; // world-space body bbox (no hotspots), for selection
 	
 	vector<GLPoint2f> vertices;
 	vector<GLPoint2f> labelVertices;

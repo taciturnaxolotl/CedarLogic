@@ -14,6 +14,8 @@
 #include "core/SkColorSpace.h"
 #include "core/SkDocument.h"
 #include "core/SkFont.h"
+#include "core/SkFontTypes.h"
+#include <cstring>
 #include "core/SkImage.h"
 #include "core/SkPicture.h"
 #include "core/SkPictureRecorder.h"
@@ -406,6 +408,16 @@ bool skiaRenderToPdf(const char* path, int width, int height,
 	doc->endPage();
 	doc->close();
 	return true;
+}
+
+float measuredTextWidth(const char* utf8, float pixelHeight) {
+	if (!utf8 || !*utf8) return 0.0f;
+	const SkFont* base = SkiaBackend::get().defaultFont();
+	if (!base) return 0.0f;
+	SkFont f(*base);
+	f.setSize(pixelHeight);
+	f.setLinearMetrics(true);   // match SkiaScene::text's advances
+	return (float)f.measureText(utf8, std::strlen(utf8), SkTextEncoding::kUTF8);
 }
 
 }  // namespace render

@@ -12,6 +12,7 @@
 #include "core/SkCanvas.h"
 #include "core/SkColor.h"
 #include "core/SkFont.h"
+#include "core/SkFontMetrics.h"
 #include "core/SkFontTypes.h"
 #include "core/SkMatrix.h"
 #include "core/SkPaint.h"
@@ -188,11 +189,18 @@ void SkiaScene::text(Point origin, const char* utf8, float pixelHeight,
 	}
 
 	SkPaint p = fillPaint(c);
-	// The viewport flips y (device is y-down); flip it back around the text
-	// origin so glyphs render upright rather than mirrored. Text is positioned
-	// by its baseline-left, like the GL font.
+	// The GL bitmap font anchors near the TOP of the text -- glyphs hang below the
+	// draw point, and the label hit box (guiText::getBoundingBox) is computed that
+	// way. SkPath glyphs are baseline-relative, so anchoring at the baseline would
+	// render the text a whole line-height too high, off its hit box. Drop the
+	// baseline by the ascent so the top of the text sits at the origin, matching
+	// the GL font and the hit box.
+	SkFontMetrics fm;
+	f.getMetrics(&fm);
+	// The viewport flips y (device is y-down); flip it back around the text origin
+	// so glyphs render upright rather than mirrored.
 	fCanvas->save();
-	fCanvas->translate(origin.x, origin.y);
+	fCanvas->translate(origin.x, origin.y + fm.fAscent);   // fAscent < 0 (above baseline)
 	fCanvas->scale(1.0f, -1.0f);
 	fCanvas->drawPath(text, p);
 	fCanvas->restore();

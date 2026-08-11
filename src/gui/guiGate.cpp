@@ -20,6 +20,10 @@
 #include "guiWire.h"
 #include "render/Scene.h"
 #include "render/RenderStyle.h"
+#include "Settings.h"            // appConfig().appSettings.useSkiaRenderer
+#ifdef WITH_SKIA
+#include "render/SkiaProbe.h"    // measuredTextWidth -- size label hit box to rendered text
+#endif
 
 DECLARE_APP(MainApp)
 
@@ -119,6 +123,9 @@ void guiGate::updateBBoxes( bool noUpdateWires ) {
 	worldBBox.addPoint( modelToWorld( modelBBox.getTopRight()    ) );
 	worldBBox.addPoint( modelToWorld( modelBBox.getBottomLeft()  ) );
 	worldBBox.addPoint( modelToWorld( modelBBox.getBottomRight() ) );
+	// Body-only box for selection, captured before setBBox->makeValidBBox grows
+	// the collision box to enclose the hotspot pins.
+	selectionBBox = worldBBox;
 	this->setBBox(worldBBox);
 
 	// Update the connected wires' shapes to accomidate the new gate position:
@@ -414,30 +421,60 @@ void guiGate::insertLine( float x1, float y1, float x2, float y2, bool isLabel )
 
 // Recalculate the bounding box, based on the lines that are included already:
 void guiGate::calcBBox( void ) {
-	modelBBox.reset();
-
-	for( unsigned int i = 0; i < vertices.size(); i++ ) {
-		modelBBox.addPoint( vertices[i] );
-	}
-	for( unsigned int i = 0; i < labelVertices.size(); i++ ) {
-		modelBBox.addPoint( labelVertices[i] );
-	}
-	// Include arc extents: sample the curve so an arc-only outline still bounds
-	// correctly (endpoints alone would miss the bulge).
-	for( unsigned int a = 0; a < arcs.size(); a++ ) {
-		const GateArc& arc = arcs[a];
-		const int segs = 24;
-		for (int i = 0; i <= segs; i++) {
-			float d = (arc.startDeg + arc.sweepDeg * (float)i / (float)segs) * DEG2RAD;
-			modelBBox.addPoint( GLPoint2f(arc.cx + arc.r * sin(d), arc.cy + arc.r * cos(d)) );
+	// The hit box is the gate's BODY only -- labels (pin names, digit grids, tick
+	// marks) are annotations that spill past the clickable shape, so including
+	// them made you able to select a gate by clicking well outside it. Bound the
+	// body geometry; only if the gate has no body (a pure text/tag element) do we
+	// fall back to the label geometry so it stays selectable.
+	// Pins and inversion bubbles are decorations on the way out to a hotspot; they
+	// (and the empty space around them) shouldn't be grabbable when selecting the
+	// gate. Pins run ~1 model unit from the body edge to the hotspot, so bounding
+	// only geometry that's farther than PIN_ZONE from every hotspot keeps the body
+	// (its edge sits ~1 unit out) while dropping the pin stubs and bubbles.
+	const float PIN_ZONE = 0.9f;
+	bool excludePins = true;
+	auto nearHotspot = [this, PIN_ZONE](const GLPoint2f& p) -> bool {
+		for (const auto& kv : hotspots) {
+			if (!kv.second) continue;
+			float dx = kv.second->modelLocation.x - p.x;
+			float dy = kv.second->modelLocation.y - p.y;
+			if (dx * dx + dy * dy < PIN_ZONE * PIN_ZONE) return true;
 		}
+		return false;
+	};
+	auto addBody = [&](const GLPoint2f& p) {
+		if (!excludePins || !nearHotspot(p)) modelBBox.addPoint(p);
+	};
+
+	// `labelOnly == false` bounds the body; `true` bounds the labels.
+	auto accumulate = [&](bool labelOnly) {
+		// vertices/labelVertices are split by insertLine's isLabel flag.
+		const std::vector<GLPoint2f>& verts = labelOnly ? labelVertices : vertices;
+		for (unsigned int i = 0; i < verts.size(); i++) addBody( verts[i] );
+		for (unsigned int a = 0; a < arcs.size(); a++) {
+			const GateArc& arc = arcs[a];
+			if (arc.isLabel != labelOnly) continue;
+			const int segs = 24;
+			for (int i = 0; i <= segs; i++) {
+				float d = (arc.startDeg + arc.sweepDeg * (float)i / (float)segs) * DEG2RAD;
+				addBody( GLPoint2f(arc.cx + arc.r * sin(d), arc.cy + arc.r * cos(d)) );
+			}
+		}
+		for (unsigned int c = 0; c < circles.size(); c++) {
+			const GateCircle& circ = circles[c];
+			if (circ.isLabel != labelOnly) continue;
+			addBody( GLPoint2f(circ.cx - circ.r, circ.cy - circ.r) );
+			addBody( GLPoint2f(circ.cx + circ.r, circ.cy + circ.r) );
+		}
+	};
+
+	modelBBox.reset();
+	accumulate( /*labelOnly=*/false );          // body, pins/bubbles excluded
+	if (modelBBox.empty()) {                     // pin-dominated (tiny) gate: keep all body
+		excludePins = false;
+		accumulate( false );
 	}
-	// Include circle extents (its bounding box corners).
-	for( unsigned int c = 0; c < circles.size(); c++ ) {
-		const GateCircle& circ = circles[c];
-		modelBBox.addPoint( GLPoint2f(circ.cx - circ.r, circ.cy - circ.r) );
-		modelBBox.addPoint( GLPoint2f(circ.cx + circ.r, circ.cy + circ.r) );
-	}
+	if (modelBBox.empty()) accumulate( true );   // label-only element -> use labels
 
 	// Recalculate the world-space bbox:
 	updateBBoxes();
@@ -1315,10 +1352,18 @@ void guiLabel::drawToScene(cl::render::Scene& scene,
 	double px, py;
 	theText.getPosition(px, py);
 	std::string txt = getGUIParam("LABEL_TEXT");
+	// Tint the text red when selected -- a label has no outline to dash, so this
+	// is its only selection cue (mirrors the GL path; without it selecting a text
+	// label showed no change under the Skia renderer).
+	Color textColor = style.gateStroke(GateKind::Label);
+	if (selected && style.showSelection) {
+		float cc = 1.0f - (float)SELECTED_LABEL_INTENSITY;
+		textColor = Color(1.0f, cc / 4.0f, cc / 4.0f, (float)SELECTED_LABEL_INTENSITY);
+	}
 	// SkFont em size runs larger than the GL font's nominal height; scale down
 	// so cap heights roughly match the golden.
 	scene.text(Point((float)px, (float)py), txt.c_str(),
-	           (float)getTextHeight() * 1.35f, style.gateStroke(GateKind::Label));
+	           (float)getTextHeight() * 1.35f, textColor);
 	scene.popTransform();
 }
 
@@ -1358,13 +1403,23 @@ void guiLabel::setGUIParam( string paramName, string value ) {
 
 void guiLabel::calcBBox( void ) {
 	GLbox textBBox = theText.getBoundingBox();
-	float dx = fabs(textBBox.right-textBBox.left)/2.;
-	float dy = fabs(textBBox.top-textBBox.bottom)/2.;
-	double currentX, currentY; theText.getPosition(currentX, currentY);
-	theText.setPosition(-dx, +dy);
+	float w = fabs(textBBox.right - textBBox.left); // GL width (fallback)
+#ifdef WITH_SKIA
+	// Under the Skia renderer the text draws NARROWER than the GL font at the
+	// cap-height-matched size, so a GL-width box left slack on the side. Size the
+	// box to the width Skia actually renders (drawToScene uses TEXT_HEIGHT*1.35).
+	if (appConfig().appSettings.useSkiaRenderer) {
+		float sw = cl::render::measuredTextWidth(getGUIParam("LABEL_TEXT").c_str(),
+		                                         (float)getTextHeight() * 1.35f);
+		if (sw > 0.0f) w = sw;
+	}
+#endif
+	float dx = w / 2.0f;
+	float dy = fabs(textBBox.top - textBBox.bottom) / 2.0f;
+	theText.setPosition(-dx, +dy);              // centers the text about the origin
 	modelBBox.reset();
-	modelBBox.addPoint( GLPoint2f(textBBox.left-dx, textBBox.bottom+dy) );
-	modelBBox.addPoint( GLPoint2f(textBBox.right-dx, textBBox.top+dy) );
+	modelBBox.addPoint( GLPoint2f(-dx, textBBox.bottom + dy) );
+	modelBBox.addPoint( GLPoint2f(+dx, textBBox.top + dy) );
 
 	// Recalculate the world-space bbox:
 	updateBBoxes();
@@ -1462,8 +1517,13 @@ void guiTO_FROM::drawToScene(cl::render::Scene& scene,
 	double px, py;
 	theText.getPosition(px, py);
 	std::string txt = theText.getText();
+	Color textColor = style.gateStroke(GateKind::Generic);
+	if (selected && style.showSelection) {   // red tint = selected (mirrors GL)
+		float cc = 1.0f - (float)SELECTED_LABEL_INTENSITY;
+		textColor = Color(1.0f, cc / 4.0f, cc / 4.0f, (float)SELECTED_LABEL_INTENSITY);
+	}
 	scene.text(Point((float)px, (float)py), txt.c_str(),
-	           (float)TO_FROM_TEXT_HEIGHT * 1.35f, style.gateStroke(GateKind::Generic));
+	           (float)TO_FROM_TEXT_HEIGHT * 1.35f, textColor);
 
 	if (flipped) scene.popTransform();
 	scene.popTransform();
