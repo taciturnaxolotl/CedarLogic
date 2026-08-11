@@ -40,6 +40,12 @@ include(SetupSkia)
 ##
 option(BUILD_TESTING "Build the logic/format test suites" ON)
 option(ENABLE_SANITIZERS "Instrument tests with ASan/UBSan (GCC/Clang only)" OFF)
+
+##
+# Wire routing (Workstream H, phase 3.2): build/link the vendored libavoid for
+# obstacle-aware orthogonal routing. Guarded so the app still builds without it.
+##
+option(WITH_AVOID "Build/link vendored libavoid for obstacle-aware wire routing" ON)
 if(BUILD_TESTING)
     enable_testing()
 endif()
@@ -212,6 +218,25 @@ if(APPLE)
     )
 endif()
 
+# Vendored libavoid (Adaptagrams): obstacle-avoiding orthogonal connector
+# routing for the wire router (Workstream H, phase 3.2). Built as a static lib
+# from 3rdparty/adaptagrams/libavoid; consumers include "libavoid/libavoid.h".
+# LIBAVOID_NO_DLL keeps its symbols non-__declspec (we link it statically); it's
+# PUBLIC so CedarLogic's TUs that include the headers see the same. Warnings are
+# silenced -- it's third-party, our build shouldn't gate on its diagnostics.
+if(WITH_AVOID)
+    file(GLOB AVOID_SRC "${PROJECT_SOURCE_DIR}/3rdparty/adaptagrams/libavoid/*.cpp")
+    add_library(avoid STATIC ${AVOID_SRC})
+    target_include_directories(avoid PUBLIC "${PROJECT_SOURCE_DIR}/3rdparty/adaptagrams")
+    target_compile_definitions(avoid PUBLIC LIBAVOID_NO_DLL)
+    set_target_properties(avoid PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    if(MSVC)
+        target_compile_options(avoid PRIVATE /w)
+    else()
+        target_compile_options(avoid PRIVATE -w)
+    endif()
+endif()
+
 if(APPLE)
     add_executable(CedarLogic MACOSX_BUNDLE "${SRC_FILES}")
 else()
@@ -248,6 +273,14 @@ target_link_libraries(CedarLogic PRIVATE
 # SK_GL defines. The target only exists when -DWITH_SKIA=ON (see SetupSkia).
 if(TARGET cedar_skia)
     target_link_libraries(CedarLogic PRIVATE cedar_skia)
+endif()
+
+# Vendored libavoid; the target only exists when -DWITH_AVOID=ON. PUBLIC usage
+# requirements (include dir, LIBAVOID_NO_DLL) propagate through the link; the
+# WITH_AVOID define gates the app-side routing code (e.g. --avoid-probe).
+if(TARGET avoid)
+    target_link_libraries(CedarLogic PRIVATE avoid)
+    target_compile_definitions(CedarLogic PRIVATE WITH_AVOID)
 endif()
 
 # macOS: Link Sparkle framework

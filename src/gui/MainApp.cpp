@@ -20,6 +20,9 @@
 #ifdef WITH_SKIA
 #include "render/SkiaProbe.h"   // headless --skia-probe (no Skia headers leak here)
 #endif
+#ifdef WITH_AVOID
+#include "libavoid/libavoid.h"  // headless --avoid-probe (vendored obstacle router)
+#endif
 #include "wx/fileconf.h"
 
 // Crash reporter: portable pieces (report path, URL helpers, the next-launch
@@ -471,6 +474,33 @@ bool MainApp::OnInit()
             wxString(argv[2]).ToStdString().c_str(), w, h);
         fflush(nullptr);
         std::_Exit(ok ? 0 : 1);
+    }
+#endif
+
+#ifdef WITH_AVOID
+    // Headless routing proof: `--avoid-probe`. Builds a tiny scene -- two points
+    // with an obstacle straddling the straight line between them -- routes an
+    // orthogonal connector with libavoid, and prints the resulting polyline.
+    // Proves the vendored library links and routes on this machine (CI-friendly,
+    // no window, no GL). Exits nonzero if routing produced no detour.
+    if (argc >= 2 && wxString(argv[1]) == "--avoid-probe") {
+        Avoid::Router *router = new Avoid::Router(Avoid::OrthogonalRouting);
+        // Obstacle rectangle straddling the direct path from src to dst.
+        Avoid::Rectangle rect(Avoid::Point(40, 30), Avoid::Point(60, 70));
+        new Avoid::ShapeRef(router, rect);
+        Avoid::ConnRef *conn = new Avoid::ConnRef(
+            router, Avoid::ConnEnd(Avoid::Point(0, 50)),
+                    Avoid::ConnEnd(Avoid::Point(100, 50)));
+        router->processTransaction();
+        const Avoid::PolyLine &route = conn->displayRoute();
+        printf("avoid-probe: route has %u points\n", (unsigned)route.size());
+        for (size_t i = 0; i < route.size(); i++)
+            printf("  (%.1f, %.1f)\n", route.ps[i].x, route.ps[i].y);
+        // A straight shot is 2 points; a real detour around the obstacle bends,
+        // so >= 3 points proves obstacle avoidance actually ran.
+        bool ok = route.size() >= 3;
+        fflush(nullptr);
+        std::_Exit(ok ? 0 : 1);  // skip teardown; the process is a one-shot
     }
 #endif
 
