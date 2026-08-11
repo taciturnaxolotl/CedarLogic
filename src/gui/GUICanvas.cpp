@@ -1150,9 +1150,9 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 										movecommand = new cmdMoveSelection(gCircuit, preMove, preMoveWire, 0, 0, 0, 0);
 										if (!isWithinPaste) submitCommand(movecommand);
 									}
-									movecommand->getConnections()->push_back(createwire);
+									movecommand->getConnections()->push_back(std::unique_ptr<klsCommand>(createwire));
 								}
-								else if (currentDragState == DRAG_NEWGATE) creategatecommand->getConnections()->push_back(createwire);
+								else if (currentDragState == DRAG_NEWGATE) creategatecommand->getConnections()->push_back(std::unique_ptr<klsCommand>(createwire));
 								else delete createwire;
 							}
 						}

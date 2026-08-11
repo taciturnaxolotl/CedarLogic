@@ -2,6 +2,7 @@
 #pragma once
 #include "klsCommand.h"
 #include <stack>
+#include <memory>
 
 // cmdDeleteGate - Deletes a gate
 class cmdDeleteGate : public klsCommand {
@@ -16,6 +17,6 @@ public:
 
 private:
 		IDType gateId;
-		std::stack<klsCommand *> cmdList;
+		std::stack<std::unique_ptr<klsCommand>> cmdList;
 		std::string gateType;
 };

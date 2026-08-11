@@ -27,7 +27,6 @@ cmdDeleteGate::cmdDeleteGate(GUICircuit* gCircuit, GUICanvas* gCanvas,
 cmdDeleteGate::~cmdDeleteGate() {
 
 	while (!(cmdList.empty())) {
-		delete cmdList.top();
 		cmdList.pop();
 	}
 }
@@ -48,7 +47,7 @@ bool cmdDeleteGate::Do() {
 			guiWire* gWire = (*(gCircuit->getGates()))[gateId]->getConnection(connWalk->first);
 			//create a disconnect command and do it
 			cmdDisconnectWire* disconn = new cmdDisconnectWire(gCircuit, gWire->getID(), gateId, connWalk->first);
-			cmdList.push(disconn);
+			cmdList.push(std::unique_ptr<klsCommand>(disconn));
 			disconn->Do();
 
 			//----------------------------------------------------------------------------------------
@@ -98,15 +97,15 @@ bool cmdDeleteGate::Do() {
 
 	for (unsigned int i = 0; i < deleteWires.size(); i++) {
 		cmdDeleteWire* delwire = new cmdDeleteWire(gCircuit, gCanvas, deleteWires[i]);
-		cmdList.push(delwire);
+		cmdList.push(std::unique_ptr<klsCommand>(delwire));
 		delwire->Do();
 	}
 
 	float x, y;
 	(*(gCircuit->getGates()))[gateId]->getGLcoords(x, y);
 	guiGate* gGate = (*(gCircuit->getGates()))[gateId];
-	cmdList.push(new cmdMoveGate(gCircuit, gateId, x, y, x, y));
-	cmdList.push(new cmdSetParams(gCircuit, gateId, paramSet(gGate->getAllGUIParams(), gGate->getAllLogicParams()), true));
+	cmdList.push(std::unique_ptr<klsCommand>(new cmdMoveGate(gCircuit, gateId, x, y, x, y)));
+	cmdList.push(std::unique_ptr<klsCommand>(new cmdSetParams(gCircuit, gateId, paramSet(gGate->getAllGUIParams(), gGate->getAllLogicParams()), true)));
 
 	gateType = (*(gCircuit->getGates()))[gateId]->getLibraryGateName();
 

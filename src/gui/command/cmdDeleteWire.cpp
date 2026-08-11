@@ -19,7 +19,6 @@ cmdDeleteWire::cmdDeleteWire(GUICircuit* gCircuit, GUICanvas* gCanvas,
 cmdDeleteWire::~cmdDeleteWire() {
 
 	while (!(cmdList.empty())) {
-		delete cmdList.top();
 		cmdList.pop();
 	}
 }
@@ -34,11 +33,11 @@ bool cmdDeleteWire::Do() {
 
 	std::vector < wireConnection > destroyList = wire->getConnections();
 	cmdMoveWire* movewire = new cmdMoveWire(gCircuit, wireIds[0], wire->getSegmentMap(), GLPoint2f(0, 0));
-	cmdList.push(movewire);
+	cmdList.push(std::unique_ptr<klsCommand>(movewire));
 
 	for (unsigned int j = 0; j < destroyList.size(); j++) {
 		cmdDisconnectWire* disconn = new cmdDisconnectWire(gCircuit, wireIds[0], destroyList[j].cGate->getID(), destroyList[j].connection, true);
-		cmdList.push(disconn);
+		cmdList.push(std::unique_ptr<klsCommand>(disconn));
 		disconn->Do();
 	}
 	gCanvas->removeWire(wireIds[0]);
@@ -63,7 +62,6 @@ bool cmdDeleteWire::Undo() {
 
 	while (!(cmdList.empty())) {
 		cmdList.top()->Undo();
-		delete cmdList.top();
 		cmdList.pop();
 	}
 
