@@ -533,11 +533,14 @@ bool SVGExporter::exportToSVG(GUICanvas* canvas, const std::string& filename,
         }
 
         // Draw dots at wire-to-gate connection points
+        auto* gateList = canvas->getGateList();
         auto connections = wire->getConnections();
         for (const auto& conn : connections) {
-            if (conn.cGate) {
+            auto gateIt = gateList->find(conn.gid);
+            guiGate* connGate = gateIt != gateList->end() ? gateIt->second : nullptr;
+            if (connGate) {
                 // Get the world position of this hotspot
-                auto hotspot = conn.cGate->getHotspot(conn.connection);
+                auto hotspot = connGate->getHotspot(conn.connection);
                 if (hotspot) {
                     GLPoint2f hotspotPos = hotspot->getLocation();
                     svgFile << "      <circle cx=\"" << floatToStr(hotspotPos.x)

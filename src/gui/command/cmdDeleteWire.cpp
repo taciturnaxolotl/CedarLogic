@@ -36,7 +36,7 @@ bool cmdDeleteWire::Do() {
 	cmdList.push(std::unique_ptr<klsCommand>(movewire));
 
 	for (unsigned int j = 0; j < destroyList.size(); j++) {
-		cmdDisconnectWire* disconn = new cmdDisconnectWire(gCircuit, wireIds[0], destroyList[j].cGate->getID(), destroyList[j].connection, true);
+		cmdDisconnectWire* disconn = new cmdDisconnectWire(gCircuit, wireIds[0], destroyList[j].gid, destroyList[j].connection, true);
 		cmdList.push(std::unique_ptr<klsCommand>(disconn));
 		disconn->Do();
 	}

@@ -24,12 +24,6 @@ public:
 	vector<std::unique_ptr<klsCommand>> * getConnections();
 
 protected:
-	// Re-point a cached segment map's connection gate pointers at the live
-	// gates (looked up by gid), so restoring it after a paste undo/redo never
-	// dereferences a freed gate.
-	void rebindSegMapGates(SegmentMap &segMap);
-
-
 	vector<unsigned long> gateList;
 	vector<unsigned long> wireList;
 	map<unsigned long, SegmentMap> oldSegMaps;

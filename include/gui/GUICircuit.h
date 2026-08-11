@@ -61,6 +61,14 @@ public:
 	
 	// Maps of gates and wires to their IDs
 	unordered_map< unsigned long, guiGate* >* getGates() { return &gateList; };
+
+	// Resolve a gate by id without inserting a phantom entry on a miss (unlike
+	// gateList[gid]). Returns nullptr if the gate is gone -- callers that used to
+	// hold a raw guiGate* now resolve through this so a deleted gate can't dangle.
+	guiGate* getGate(unsigned long gid) {
+		auto it = gateList.find(gid);
+		return it != gateList.end() ? it->second : nullptr;
+	}
 	unordered_map< unsigned long, guiWire* >* getWires() { return &wireList; };
 	
 	unsigned long getNextAvailableGateID() { nextGateID++; while (gateList.find(nextGateID) != gateList.end()) nextGateID++; return nextGateID; };

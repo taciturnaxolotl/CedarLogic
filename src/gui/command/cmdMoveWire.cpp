@@ -13,16 +13,6 @@ static const bool s_registered_cmdMoveWire =
 		return new cmdMoveWire(def);
 	});
 
-// Resolve a connection's gate pointer from its (stable) id. Uses find() rather
-// than unordered_map::operator[] so a missing gate doesn't get a phantom null
-// entry inserted into the circuit's live gate list (which unrelated code could
-// then dereference); an absent gate just leaves the connection unbound.
-static void bindConnGate(GUICircuit *gCircuit, wireConnection &conn) {
-	auto *gates = gCircuit->getGates();
-	auto it = gates->find(conn.gid);
-	conn.cGate = (it != gates->end()) ? it->second : nullptr;
-}
-
 cmdMoveWire::cmdMoveWire(GUICircuit* gCircuit, unsigned long wid,
 		const SegmentMap &oldList, const SegmentMap &newList) :
 			klsCommand(true, "Move Wire") {
@@ -72,9 +62,6 @@ bool cmdMoveWire::Do() {
 	if (delta.x != 0 || delta.y != 0) {
 		map < long, wireSegment >::iterator segWalk = oldSegList.begin();
 		while (segWalk != oldSegList.end()) {
-			for (unsigned int i = 0; i < (segWalk->second).connections.size(); i++) {
-				bindConnGate(gCircuit, (segWalk->second).connections[i]);
-			}
 			(segWalk->second).begin.x += delta.x; (segWalk->second).begin.y += delta.y;
 			(segWalk->second).end.x += delta.x; (segWalk->second).end.y += delta.y;
 			segWalk++;
@@ -82,13 +69,6 @@ bool cmdMoveWire::Do() {
 		(*(gCircuit->getWires()))[wid]->setSegmentMap(oldSegList);
 	}
 	else {
-		map < long, wireSegment >::iterator segWalk = newSegList.begin();
-		while (segWalk != newSegList.end()) {
-			for (unsigned int i = 0; i < (segWalk->second).connections.size(); i++) {
-				bindConnGate(gCircuit, (segWalk->second).connections[i]);
-			}
-			segWalk++;
-		}
 		(*(gCircuit->getWires()))[wid]->setSegmentMap(newSegList);
 	}
 	(*(gCircuit->getWires()))[wid]->endSegDrag();
@@ -99,13 +79,6 @@ bool cmdMoveWire::Undo() {
 
 	if ((gCircuit->getWires())->find(wid) == (gCircuit->getWires())->end()) return false; // error, wire not found
 
-	map < long, wireSegment >::iterator segWalk = oldSegList.begin();
-	while (segWalk != oldSegList.end()) {
-		for (unsigned int i = 0; i < (segWalk->second).connections.size(); i++) {
-			bindConnGate(gCircuit, (segWalk->second).connections[i]);
-		}
-		segWalk++;
-	}
 	if (delta.x != 0 || delta.y != 0) {
 		map < long, wireSegment >::iterator segWalk = oldSegList.begin();
 		while (segWalk != oldSegList.end()) {
@@ -151,7 +124,6 @@ void cmdMoveWire::setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
 	while (segWalk != newSegList.end()) {
 		for (unsigned int i = 0; i < (segWalk->second).connections.size(); i++) {
 			(segWalk->second).connections[i].gid = gateids[(segWalk->second).connections[i].gid];
-			bindConnGate(gCircuit, (segWalk->second).connections[i]);
 		}
 		segWalk++;
 	}

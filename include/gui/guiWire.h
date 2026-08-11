@@ -22,6 +22,7 @@
 namespace cl { namespace render { class Scene; struct RenderStyle; } }
 
 class guiGate;
+class GUICircuit;
 class XMLParser;
 
 float distanceToLine(GLPoint2f p, GLPoint2f l1, GLPoint2f l2);
@@ -43,6 +44,10 @@ public:
 	void addConnection(guiGate* iGate, string connection, bool openMode = false);
 
 	void removeConnection(guiGate* iGate, string connection);
+
+	// The circuit this wire belongs to; used to resolve a wireConnection's gid
+	// to a live guiGate* (see gateOf). Set by GUICircuit when the wire is created.
+	void setCircuit(GUICircuit* c) { gCircuit = c; }
 
 	long numConnections();
 
@@ -147,6 +152,14 @@ public:
 	void endSegDrag();
 
 private:
+	// Resolve a connection's gate id to its live guiGate* via the circuit.
+	// Replaces the old raw guiGate* cached in wireConnection, which could
+	// dangle across a gate delete/undo/paste. Returns nullptr if unresolvable.
+	guiGate* gateOf(const wireConnection& c) const;
+
+	// The owning circuit (gate registry). Non-owning.
+	GUICircuit* gCircuit = nullptr;
+
 	// Take existing segment connections and update their map keys
 	bool refreshIntersections(bool removeBadSegs = false);
 

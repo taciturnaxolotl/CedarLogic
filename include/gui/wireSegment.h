@@ -15,8 +15,7 @@
 class guiGate;
 
 struct wireConnection {
-	guiGate* cGate; // hold a pointer since this object shouldn't know about the gateList
-	unsigned long gid; // hold an id that will be useful in copy/paste remapping of ids
+	unsigned long gid; // gate id; resolved to a live guiGate* on demand via the circuit
 	string connection; // know what hotspot i am connected to in the gate
 };
 

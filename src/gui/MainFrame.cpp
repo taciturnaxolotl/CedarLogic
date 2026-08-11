@@ -1653,21 +1653,30 @@ bool MainFrame::dumpWireShape(const std::string &gateA, const std::string &gateB
 	if (!f) return false;
 	f << "wire " << gateA << "@" << angleA << "." << outName
 	  << " -> " << gateB << "@" << angleB << "." << inName << "\n";
-	std::map<long, wireSegment> sm = wire->getSegmentMap();
-	for (const auto &kv : sm) {
-		const wireSegment &s = kv.second;
-		f << "seg " << s.id << (s.verticalSeg ? " V " : " H ")
-		  << "(" << s.begin.x << "," << s.begin.y << ")-("
-		  << s.end.x << "," << s.end.y << ") conn=[";
-		for (const auto &c : s.connections) f << c.connection << ":" << c.gid << " ";
-		f << "] xs={";
-		for (const auto &ix : s.intersects) {
-			f << ix.first << ":";
-			for (long id : ix.second) f << id << ",";
-			f << " ";
+
+	auto dumpSegMap = [&](const char *label) {
+		f << "-- " << label << " --\n";
+		std::map<long, wireSegment> sm = wire->getSegmentMap();
+		for (const auto &kv : sm) {
+			const wireSegment &s = kv.second;
+			f << "seg " << s.id << (s.verticalSeg ? " V " : " H ")
+			  << "(" << s.begin.x << "," << s.begin.y << ")-("
+			  << s.end.x << "," << s.end.y << ") conn=[";
+			for (const auto &c : s.connections) f << c.connection << ":" << c.gid << " ";
+			f << "] xs={";
+			for (const auto &ix : s.intersects) {
+				f << ix.first << ":";
+				for (long id : ix.second) f << id << ",";
+				f << " ";
+			}
+			f << "}\n";
 		}
-		f << "}\n";
-	}
+	};
+
+	dumpSegMap("create");           // guiWire::calcShape output
+	B->setGLcoords(11.0f, 2.0f);    // move B -> guiGate::updateBBoxes notifies the
+	currentCanvas->Update();        // wire, driving updateConnectionPos/updateSegDrag
+	dumpSegMap("after move B");
 	return true;
 }
 

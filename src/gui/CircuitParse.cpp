@@ -268,7 +268,6 @@ void CircuitParse::applyWireShape(const cl::WireInstance &w) {
 			wireConnection nwc;
 			nwc.gid = strtoul(c.gateUuid.c_str(), nullptr, 10);
 			nwc.connection = c.pin;
-			nwc.cGate = (*(gCircuit->getGates()))[nwc.gid];
 			seg.connections.push_back(nwc);
 		}
 		for (const cl::Intersection &x : ms.intersections)

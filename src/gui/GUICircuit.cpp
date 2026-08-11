@@ -156,6 +156,7 @@ guiWire* GUICircuit::createWire(const std::vector<IDType> &wireIds) {
 	if (wireList.find(wireIds[0]) == wireList.end()) { // wire does not exist yet
 
 		guiWire *wire = new guiWire();
+		wire->setCircuit(this); // so the wire can resolve connection gids to live gates
 
 		// Make sure that each used wireId has a spot in the wireList.
 		// This lets getNextAvailableWireId() give an unused id.
