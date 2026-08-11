@@ -18,6 +18,7 @@
 #include <cmath>
 #include <cstring>
 #include <stack>
+#include <utility>
 #include "guiGate.h"
 #include "GUICircuit.h"
 #include "XMLParser.h"
@@ -676,10 +677,19 @@ void guiWire::saveWireLegacy(XMLParser* xparse) {
 
 map < long, wireSegment > guiWire::getSegmentMap(void) { return segMap; };
 
+// Atomically swap in a new segment tree: detach the collision sub-objects (raw
+// pointers into the segMap values we're about to destroy), move the new map in,
+// then rebuild the sub-object registration via calcBBox. Every wholesale segMap
+// replacement routes through here so a reassignment can never leave the collision
+// checker holding a dangling pointer into a freed wireSegment.
+void guiWire::commitSegMap(map < long, wireSegment > newSegMap) {
+	this->detachSubObjects();
+	segMap = std::move(newSegMap);
+	this->calcBBox();
+}
+
 void guiWire::setSegmentMap(map < long, wireSegment > newSegMap) {
-	this->detachSubObjects(); // prevent coll checker pointers from invalidating
-	segMap = newSegMap;
-	calcBBox();
+	commitSegMap(std::move(newSegMap));
 	headSegment = ((segMap.begin())->first);
 	nextSegID = ((segMap.rbegin())->first) + 1;
 	endSegDrag();
@@ -1136,7 +1146,7 @@ void guiWire::mergeSegments() {
 		segWalk++;
 	}
 
-	segMap = newSegMap;  // Assign the new tree
+	commitSegMap(std::move(newSegMap));  // Assign the new tree
 
 	generateRenderInfo();
 }
@@ -1162,7 +1172,7 @@ void guiWire::removeZeroLengthSegments() {
 		newSegMap[headSegment] = base;
 		newSegMap[headSegment].calcBBox();
 		nextSegID = 1; // reset the new seg id
-		segMap = newSegMap;
+		commitSegMap(std::move(newSegMap));
 		return;
 	}
 
@@ -1192,7 +1202,7 @@ void guiWire::removeZeroLengthSegments() {
 	}
 	// DIE A HORRIBLE AND REVOLTING DEATH IN THE DIGITAL DUSTBIN!!!
 	for (unsigned int i = 0; i < eraseIDs.size(); i++) newSegMap.erase(eraseIDs[i]);
-	segMap = newSegMap;
+	commitSegMap(std::move(newSegMap));
 	// Now make sure the intersection maps do not refer to the woebegone segments
 	refreshIntersections(true);
 	// Maybe we removed the head?

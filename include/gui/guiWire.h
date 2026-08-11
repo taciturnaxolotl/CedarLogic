@@ -157,6 +157,13 @@ private:
 	// dangle across a gate delete/undo/paste. Returns nullptr if unresolvable.
 	guiGate* gateOf(const wireConnection& c) const;
 
+	// Atomically replace the whole segment tree. Detaches the collision
+	// sub-objects (raw pointers into the segMap values about to be freed), swaps
+	// the map in, then rebuilds the registration via calcBBox -- so a wholesale
+	// reassignment can never leave the collision checker holding a dangling
+	// wireSegment pointer. Every `segMap = newMap` goes through here.
+	void commitSegMap(map < long, wireSegment > newSegMap);
+
 	// The owning circuit (gate registry). Non-owning.
 	GUICircuit* gCircuit = nullptr;
 
