@@ -181,6 +181,14 @@ public:
 	bool dumpWireShape(const std::string &gateA, const std::string &gateB,
 	                   const std::string &angleA, const std::string &angleB,
 	                   const wxString &path);
+	// Wire-router test hook (headless --wire-drag): same two-gate wire as
+	// dumpWireShape, then programmatically drag the longest segment perpendicular
+	// by a fixed grid delta (startSegDrag -> updateSegDrag -> endSegDrag) and dump
+	// the segment map before/after. Gives the interactive drag path -- the code a
+	// segment-graph / collision-proxy refactor touches most -- a golden net.
+	bool dumpWireDrag(const std::string &gateA, const std::string &gateB,
+	                  const std::string &angleA, const std::string &angleB,
+	                  const wxString &path);
 	// Ask which format to save an old-format file in. Returns 1/2/3, or -1 to
 	// cancel. New/v3 circuits return 3 without prompting.
 	int chooseSaveFormat();

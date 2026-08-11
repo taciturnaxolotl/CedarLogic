@@ -484,12 +484,15 @@ bool MainApp::OnInit()
     bool renderPdf = false;    // --render-pdf writes a vector PDF via Skia
     bool renderGate = false;   // --render-gate[-skia] renders one library gate
     bool wireShape = false;    // --wire-shape dumps a routed wire's segment map
+    bool wireDrag = false;     // --wire-drag dumps a wire's segment map after a seg drag
     std::string gateName, gateAngle;
     std::string wsGateA, wsGateB, wsAngleA, wsAngleB;
-    if (argc >= 7 && wxString(argv[1]) == "--wire-shape") {
-        // --wire-shape <gateA> <gateB> <angleA> <angleB> <out.txt>
+    if (argc >= 7 && (wxString(argv[1]) == "--wire-shape" ||
+                      wxString(argv[1]) == "--wire-drag")) {
+        // --wire-shape/--wire-drag <gateA> <gateB> <angleA> <angleB> <out.txt>
         renderMode().headlessRender = true;
-        wireShape = true;
+        wireShape = (wxString(argv[1]) == "--wire-shape");
+        wireDrag = (wxString(argv[1]) == "--wire-drag");
         wsGateA = argv[2].ToStdString();
         wsGateB = argv[3].ToStdString();
         wsAngleA = argv[4].ToStdString();
@@ -534,12 +537,15 @@ bool MainApp::OnInit()
     // create the main application window
     MainFrame *frame = new MainFrame(VERSION_TITLE(), cmdFilename);
 
-    if (renderMode().headlessRender && wireShape) {
-        // Wire-router test path: two gates + a wire, dump the routed segment map.
+    if (renderMode().headlessRender && (wireShape || wireDrag)) {
+        // Wire-router test path: two gates + a wire, dump the routed segment map
+        // (--wire-shape) or the map after a programmatic segment drag (--wire-drag).
         frame->SetSize(renderW + 220, renderH + 140);
         frame->Show(true);
         wxYield();
-        bool ok = frame->dumpWireShape(wsGateA, wsGateB, wsAngleA, wsAngleB, renderOutput);
+        bool ok = wireDrag
+            ? frame->dumpWireDrag(wsGateA, wsGateB, wsAngleA, wsAngleB, renderOutput)
+            : frame->dumpWireShape(wsGateA, wsGateB, wsAngleA, wsAngleB, renderOutput);
         fflush(nullptr);
         std::_Exit(ok ? 0 : 1);
     }

@@ -1618,65 +1618,123 @@ bool MainFrame::renderSingleGate(const std::string &gateName, const std::string 
 	return renderToPng(path);
 }
 
+// Shared scene for the wire-router test hooks.
+struct ProbeScene {
+	guiWire *wire = nullptr;
+	guiGate *A = nullptr;
+	guiGate *B = nullptr;
+	std::string outName, inName;
+};
+
+// Two gates a fixed distance apart, then a wire from A's first output to B's
+// first input -- this drives guiWire::addConnection -> calcShape, so a dump
+// captures exactly what the router produced. Deterministic: gate/hotspot choice
+// and positions are fixed, so before/after dumps diff cleanly.
+static ProbeScene buildProbeWire(GUICircuit *gCircuit, GUICanvas *canvas,
+                                 const std::string &gateA, const std::string &gateB,
+                                 const std::string &angleA, const std::string &angleB) {
+	ProbeScene sc;
+	guiText::loadFont(appConfig().appSettings.textFontFile);
+	sc.A = gCircuit->createGate(gateA, -1);
+	sc.B = gCircuit->createGate(gateB, -1);
+	if (sc.A == NULL || sc.B == NULL) { sc.A = sc.B = nullptr; return sc; }
+	sc.A->setGUIParam("angle", angleA);
+	sc.B->setGUIParam("angle", angleB);
+	canvas->insertGate(sc.A->getID(), sc.A, -8.0f, 0.0f);
+	canvas->insertGate(sc.B->getID(), sc.B, 8.0f, 0.0f);
+	canvas->Update();
+
+	for (const auto &kv : sc.A->getHotspotList())
+		if (!sc.A->isConnectionInput(kv.first)) { sc.outName = kv.first; break; }
+	for (const auto &kv : sc.B->getHotspotList())
+		if (sc.B->isConnectionInput(kv.first)) { sc.inName = kv.first; break; }
+	if (sc.outName.empty() || sc.inName.empty()) return sc;
+
+	std::vector<IDType> wireIds = { gCircuit->getNextAvailableWireID() };
+	gCircuit->setWireConnection(wireIds, sc.A->getID(), sc.outName);
+	sc.wire = gCircuit->setWireConnection(wireIds, sc.B->getID(), sc.inName);
+	return sc;
+}
+
+// Dump a wire's segment map as deterministic text under `label`.
+static void dumpSegMapTo(std::ofstream &f, guiWire *wire, const char *label) {
+	f << "-- " << label << " --\n";
+	std::map<long, wireSegment> sm = wire->getSegmentMap();
+	for (const auto &kv : sm) {
+		const wireSegment &s = kv.second;
+		f << "seg " << s.id << (s.verticalSeg ? " V " : " H ")
+		  << "(" << s.begin.x << "," << s.begin.y << ")-("
+		  << s.end.x << "," << s.end.y << ") conn=[";
+		for (const auto &c : s.connections) f << c.connection << ":" << c.gid << " ";
+		f << "] xs={";
+		for (const auto &ix : s.intersects) {
+			f << ix.first << ":";
+			for (long id : ix.second) f << id << ",";
+			f << " ";
+		}
+		f << "}\n";
+	}
+}
+
 bool MainFrame::dumpWireShape(const std::string &gateA, const std::string &gateB,
                               const std::string &angleA, const std::string &angleB,
                               const wxString &path) {
 	if (currentCanvas == NULL || gCircuit == NULL) return false;
-	guiText::loadFont(appConfig().appSettings.textFontFile);
-
-	// Two gates a fixed distance apart, then a wire from A's first output to B's
-	// first input -- this drives guiWire::addConnection -> calcShape, so the dump
-	// captures exactly what the router produced. Deterministic: gate/hotspot
-	// choice and positions are fixed, so before/after dumps diff cleanly.
-	guiGate *A = gCircuit->createGate(gateA, -1);
-	guiGate *B = gCircuit->createGate(gateB, -1);
-	if (A == NULL || B == NULL) return false;
-	A->setGUIParam("angle", angleA);
-	B->setGUIParam("angle", angleB);
-	currentCanvas->insertGate(A->getID(), A, -8.0f, 0.0f);
-	currentCanvas->insertGate(B->getID(), B, 8.0f, 0.0f);
-	currentCanvas->Update();
-
-	std::string outName, inName;
-	for (const auto &kv : A->getHotspotList())
-		if (!A->isConnectionInput(kv.first)) { outName = kv.first; break; }
-	for (const auto &kv : B->getHotspotList())
-		if (B->isConnectionInput(kv.first)) { inName = kv.first; break; }
-	if (outName.empty() || inName.empty()) return false;
-
-	std::vector<IDType> wireIds = { gCircuit->getNextAvailableWireID() };
-	gCircuit->setWireConnection(wireIds, A->getID(), outName);
-	guiWire *wire = gCircuit->setWireConnection(wireIds, B->getID(), inName);
-	if (wire == NULL) return false;
+	ProbeScene sc = buildProbeWire(gCircuit, currentCanvas, gateA, gateB, angleA, angleB);
+	if (sc.wire == NULL) return false;
 
 	std::ofstream f(path.ToStdString().c_str());
 	if (!f) return false;
-	f << "wire " << gateA << "@" << angleA << "." << outName
-	  << " -> " << gateB << "@" << angleB << "." << inName << "\n";
+	f << "wire " << gateA << "@" << angleA << "." << sc.outName
+	  << " -> " << gateB << "@" << angleB << "." << sc.inName << "\n";
 
-	auto dumpSegMap = [&](const char *label) {
-		f << "-- " << label << " --\n";
-		std::map<long, wireSegment> sm = wire->getSegmentMap();
-		for (const auto &kv : sm) {
-			const wireSegment &s = kv.second;
-			f << "seg " << s.id << (s.verticalSeg ? " V " : " H ")
-			  << "(" << s.begin.x << "," << s.begin.y << ")-("
-			  << s.end.x << "," << s.end.y << ") conn=[";
-			for (const auto &c : s.connections) f << c.connection << ":" << c.gid << " ";
-			f << "] xs={";
-			for (const auto &ix : s.intersects) {
-				f << ix.first << ":";
-				for (long id : ix.second) f << id << ",";
-				f << " ";
-			}
-			f << "}\n";
-		}
-	};
+	dumpSegMapTo(f, sc.wire, "create"); // guiWire::calcShape output
+	sc.B->setGLcoords(11.0f, 2.0f);     // move B -> guiGate::updateBBoxes notifies the
+	currentCanvas->Update();            // wire, driving updateConnectionPos/updateSegDrag
+	dumpSegMapTo(f, sc.wire, "after move B");
+	return true;
+}
 
-	dumpSegMap("create");           // guiWire::calcShape output
-	B->setGLcoords(11.0f, 2.0f);    // move B -> guiGate::updateBBoxes notifies the
-	currentCanvas->Update();        // wire, driving updateConnectionPos/updateSegDrag
-	dumpSegMap("after move B");
+bool MainFrame::dumpWireDrag(const std::string &gateA, const std::string &gateB,
+                             const std::string &angleA, const std::string &angleB,
+                             const wxString &path) {
+	if (currentCanvas == NULL || gCircuit == NULL) return false;
+	ProbeScene sc = buildProbeWire(gCircuit, currentCanvas, gateA, gateB, angleA, angleB);
+	if (sc.wire == NULL) return false;
+
+	std::ofstream f(path.ToStdString().c_str());
+	if (!f) return false;
+	f << "drag " << gateA << "@" << angleA << "." << sc.outName
+	  << " -> " << gateB << "@" << angleB << "." << sc.inName << "\n";
+	dumpSegMapTo(f, sc.wire, "create");
+
+	// Pick the longest segment (begin <= end always, so no abs needed) and grab
+	// its midpoint. A zero-size mouse box exactly on that segment selects it, the
+	// same point-box the canvas passes to startSegDrag/updateSegDrag (snapMouse).
+	std::map<long, wireSegment> sm = sc.wire->getSegmentMap();
+	const wireSegment *pick = nullptr; float bestLen = -1.0f;
+	for (const auto &kv : sm) {
+		const wireSegment &s = kv.second;
+		float len = (s.end.x - s.begin.x) + (s.end.y - s.begin.y);
+		if (len > bestLen) { bestLen = len; pick = &kv.second; }
+	}
+	if (pick == nullptr) { f << "-- no segment to drag --\n"; return true; }
+	GLPoint2f mid((pick->begin.x + pick->end.x) * 0.5f,
+	              (pick->begin.y + pick->end.y) * 0.5f);
+	bool vertical = pick->verticalSeg;
+
+	klsCollisionObject mouse(COLL_MOUSEBOX);
+	klsBBox startBox; startBox.addPoint(mid); mouse.setBBox(startBox);
+	if (!sc.wire->startSegDrag(&mouse)) { f << "-- drag skipped (no segment under mouse) --\n"; return true; }
+
+	// Drag perpendicular by a fixed grid delta (x for a vertical seg, y for a
+	// horizontal one) so the reshape is real and reproducible.
+	GLPoint2f target = vertical ? GLPoint2f(mid.x + 2.0f, mid.y)
+	                            : GLPoint2f(mid.x, mid.y + 2.0f);
+	klsBBox endBox; endBox.addPoint(target); mouse.setBBox(endBox);
+	sc.wire->updateSegDrag(&mouse);
+	sc.wire->endSegDrag();
+	dumpSegMapTo(f, sc.wire, "after drag");
 	return true;
 }
 
