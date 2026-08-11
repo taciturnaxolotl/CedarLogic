@@ -210,6 +210,14 @@ if(WITH_SKIA)
         COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,/std:c++17,-std=c++17>")
 endif()
 
+# App-side libavoid integration (RoutingService and friends); the sources are
+# also #ifdef WITH_AVOID-guarded internally. They link against the vendored
+# `avoid` static lib, which propagates its include dir + LIBAVOID_NO_DLL.
+if(WITH_AVOID)
+    file(GLOB AVOID_APP_SRC "${PROJECT_SOURCE_DIR}/src/gui/avoid/*.cpp")
+    list(APPEND SRC_FILES ${AVOID_APP_SRC})
+endif()
+
 # macOS: Add Objective-C++ sources
 if(APPLE)
     list(APPEND SRC_FILES

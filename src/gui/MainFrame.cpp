@@ -23,6 +23,14 @@
 #include "guiWire.h"
 #include <fstream>
 #include "MainFrame.h"
+#include "guiGate.h"
+#include "guiWire.h"
+#include "GUICircuit.h"
+#include <fstream>
+#include <algorithm>
+#ifdef WITH_AVOID
+#include "avoid/RoutingService.h"   // headless --avoid-route (libavoid obstacle router)
+#endif
 #include "wx/filedlg.h"
 #include "wx/timer.h"
 #include "wx/wfstream.h"
@@ -1737,6 +1745,63 @@ bool MainFrame::dumpWireDrag(const std::string &gateA, const std::string &gateB,
 	dumpSegMapTo(f, sc.wire, "after drag");
 	return true;
 }
+
+#ifdef WITH_AVOID
+bool MainFrame::dumpAvoidRoutes(const wxString &path) {
+	if (currentCanvas == NULL || gCircuit == NULL) return false;
+
+	cl::avoid::RoutingService svc;
+	auto *gates = gCircuit->getGates();
+
+	// Every gate is an obstacle. Inset the bbox a hair so a wire endpoint sitting
+	// on a gate edge (hotspots live on the boundary) lands just outside its own
+	// obstacle rather than inside it.
+	const float inset = 0.05f;
+	for (auto &gp : *gates) {
+		guiGate *g = gp.second;
+		if (g == NULL) continue;
+		klsBBox b = g->getBBox();
+		svc.addObstacle(gp.first, b.getLeft() + inset, b.getBottom() + inset,
+		                b.getRight() - inset, b.getTop() - inset);
+	}
+
+	// Each 2-terminal wire becomes one connector between its endpoint hotspots.
+	// Multi-terminal nets (shared trunks) wait for 3.2d's hyperedge support.
+	auto *wires = gCircuit->getWires();
+	std::vector<unsigned long> routed;
+	for (auto &wp : *wires) {
+		guiWire *w = wp.second;
+		if (w == NULL) continue;
+		std::vector<wireConnection> conns = w->getConnections();
+		if (conns.size() != 2) continue;
+		auto g0 = gates->find(conns[0].gid);
+		auto g1 = gates->find(conns[1].gid);
+		if (g0 == gates->end() || g1 == gates->end()) continue;
+		GLPoint2f p0, p1;
+		g0->second->getHotspotCoords(conns[0].connection, p0.x, p0.y);
+		g1->second->getHotspotCoords(conns[1].connection, p1.x, p1.y);
+		svc.addConnector(wp.first, p0.x, p0.y, p1.x, p1.y);
+		routed.push_back(wp.first);
+	}
+
+	svc.run();
+
+	std::sort(routed.begin(), routed.end()); // deterministic dump order
+	std::ofstream f(path.ToStdString().c_str());
+	if (!f) return false;
+	f << "avoid-routes: " << routed.size() << " two-terminal wires, "
+	  << gates->size() << " obstacles\n";
+	for (unsigned long wid : routed) {
+		std::vector<std::pair<float, float>> pts = svc.routeOf(wid);
+		f << "wire " << wid << " : " << pts.size() << " pts";
+		for (const auto &pt : pts) f << " (" << pt.first << "," << pt.second << ")";
+		f << "\n";
+	}
+	return true;
+}
+#else
+bool MainFrame::dumpAvoidRoutes(const wxString &) { return false; }
+#endif
 
 // Build the export RenderStyle from the dialog's choices: black-on-white with
 // no live signal colors when "Black & White" is picked (print intent), full

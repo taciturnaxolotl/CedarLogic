@@ -515,9 +515,17 @@ bool MainApp::OnInit()
     bool renderGate = false;   // --render-gate[-skia] renders one library gate
     bool wireShape = false;    // --wire-shape dumps a routed wire's segment map
     bool wireDrag = false;     // --wire-drag dumps a wire's segment map after a seg drag
+    bool avoidRoute = false;   // --avoid-route dumps libavoid routes for a circuit
     std::string gateName, gateAngle;
     std::string wsGateA, wsGateB, wsAngleA, wsAngleB;
-    if (argc >= 7 && (wxString(argv[1]) == "--wire-shape" ||
+    if (argc >= 4 && wxString(argv[1]) == "--avoid-route") {
+        // --avoid-route <input.cdl> <out.txt>: load the circuit, route its wires
+        // around the gates with libavoid, dump each polyline. Phase-3.2b skeleton.
+        renderMode().headlessRender = true;
+        avoidRoute = true;
+        cmdFilename = argv[2].ToStdString();
+        renderOutput = argv[3].ToStdString();
+    } else if (argc >= 7 && (wxString(argv[1]) == "--wire-shape" ||
                       wxString(argv[1]) == "--wire-drag")) {
         // --wire-shape/--wire-drag <gateA> <gateB> <angleA> <angleB> <out.txt>
         renderMode().headlessRender = true;
@@ -589,6 +597,19 @@ bool MainApp::OnInit()
         wxYield();
         bool ok = frame->renderSingleGate(gateName, gateAngle, renderOutput,
                                           renderW, renderH, renderSkia);
+        fflush(nullptr);
+        std::_Exit(ok ? 0 : 1);
+    }
+
+    if (renderMode().headlessRender && avoidRoute) {
+        // Load the circuit, then mirror its gates + wires into libavoid and dump
+        // the routed polylines. Realizing the frame gives the load path a canvas.
+        frame->SetSize(renderW + 220, renderH + 140);
+        frame->Show(true);
+        wxYield();
+        frame->load(cmdFilename);
+        wxYield();
+        bool ok = frame->dumpAvoidRoutes(renderOutput);
         fflush(nullptr);
         std::_Exit(ok ? 0 : 1);
     }

@@ -189,6 +189,12 @@ public:
 	bool dumpWireDrag(const std::string &gateA, const std::string &gateB,
 	                  const std::string &angleA, const std::string &angleB,
 	                  const wxString &path);
+	// Wire-router test hook (headless --avoid-route): mirror the loaded circuit's
+	// gates (as obstacles) and 2-terminal wires (as connectors) into a libavoid
+	// RoutingService, route around the gates, and dump each wire's polyline as
+	// text. The phase-3.2b skeleton proof; returns false if built without
+	// WITH_AVOID. Multi-terminal wires are skipped until 3.2d.
+	bool dumpAvoidRoutes(const wxString &path);
 	// Ask which format to save an old-format file in. Returns 1/2/3, or -1 to
 	// cancel. New/v3 circuits return 3 without prompting.
 	int chooseSaveFormat();
