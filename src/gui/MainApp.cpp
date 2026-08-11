@@ -483,8 +483,19 @@ bool MainApp::OnInit()
     bool renderSvg = false;    // --render-svg writes a vector SVG via Skia
     bool renderPdf = false;    // --render-pdf writes a vector PDF via Skia
     bool renderGate = false;   // --render-gate[-skia] renders one library gate
+    bool wireShape = false;    // --wire-shape dumps a routed wire's segment map
     std::string gateName, gateAngle;
-    if (argc >= 5 && (wxString(argv[1]) == "--render-gate" ||
+    std::string wsGateA, wsGateB, wsAngleA, wsAngleB;
+    if (argc >= 7 && wxString(argv[1]) == "--wire-shape") {
+        // --wire-shape <gateA> <gateB> <angleA> <angleB> <out.txt>
+        renderMode().headlessRender = true;
+        wireShape = true;
+        wsGateA = argv[2].ToStdString();
+        wsGateB = argv[3].ToStdString();
+        wsAngleA = argv[4].ToStdString();
+        wsAngleB = argv[5].ToStdString();
+        renderOutput = argv[6].ToStdString();
+    } else if (argc >= 5 && (wxString(argv[1]) == "--render-gate" ||
                       wxString(argv[1]) == "--render-gate-skia")) {
         // --render-gate[-skia] <GATENAME> <angle> <out.png> [W H]
         renderMode().headlessRender = true;
@@ -522,6 +533,16 @@ bool MainApp::OnInit()
 
     // create the main application window
     MainFrame *frame = new MainFrame(VERSION_TITLE(), cmdFilename);
+
+    if (renderMode().headlessRender && wireShape) {
+        // Wire-router test path: two gates + a wire, dump the routed segment map.
+        frame->SetSize(renderW + 220, renderH + 140);
+        frame->Show(true);
+        wxYield();
+        bool ok = frame->dumpWireShape(wsGateA, wsGateB, wsAngleA, wsAngleB, renderOutput);
+        fflush(nullptr);
+        std::_Exit(ok ? 0 : 1);
+    }
 
     if (renderMode().headlessRender && renderGate) {
         // Single-gate golden path: no file to load. Realize the frame so the

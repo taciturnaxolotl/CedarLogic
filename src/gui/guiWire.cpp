@@ -13,6 +13,7 @@
 #include "RenderMode.h"
 #include "render/Scene.h"
 #include "render/RenderStyle.h"
+#include "route/WireRoute.h"
 #include "Settings.h"
 #include <cmath>
 #include <cstring>
@@ -690,125 +691,38 @@ void guiWire::calcShape() {
 
 	// If there are less than 2 connect points then there is no reason to create a shape
 	if (connectPoints.size() < 2) return;
-	GLPoint2f vertex;
-	float minx = FLT_MAX, maxx = -FLT_MAX, miny = FLT_MAX, maxy = -FLT_MAX;
-	stack < GLPoint2f > vertices;
-	// Find the vertices and the center point
-	for (unsigned int i = 0; i < connectPoints.size(); i++) {
-		connectPoints[i].cGate->getHotspotCoords(connectPoints[i].connection, vertex.x, vertex.y);
-		if (vertex.x > maxx) maxx = vertex.x;
-		if (vertex.x < minx) minx = vertex.x;
-		if (vertex.y > maxy) maxy = vertex.y;
-		if (vertex.y < miny) miny = vertex.y;
-		vertices.push(GLPoint2f(vertex.x, vertex.y));
+	// Gather the pins for the router: each connection's hotspot coordinate and
+	// whether that hotspot faces vertically. Pin index i maps back to
+	// connectPoints[i].
+	cl::route::RouteInput in;
+	in.pins.reserve(connectPoints.size());
+	for (const wireConnection &c : connectPoints) {
+		cl::route::Pin p;
+		c.cGate->getHotspotCoords(c.connection, p.x, p.y);
+		p.verticalHotspot = c.cGate->isVerticalHotspot(c.connection);
+		in.pins.push_back(p);
 	}
-	int counter = connectPoints.size() - 1;
+	// addConnection always sets setVerticalBar before calling calcShape, so this
+	// is effectively always a snap; trunkPos is only consulted when it isn't.
+	in.snapTrunk = setVerticalBar;
+	in.trunkPos = 0.0f;
+	in.nextId = nextSegID;
 
-	bool isOneVertical = connectPoints[0].cGate->isVerticalHotspot(connectPoints[0].connection);
-	bool isTwoVertical = connectPoints[1].cGate->isVerticalHotspot(connectPoints[1].connection);
+	cl::route::RouteResult routed = cl::route::TrunkRouter().route(in);
 
-	// IF BOTH HORIZONTAL
-	if (!isOneVertical && !isTwoVertical) {
-	fallout:
-		float centerx = (minx + maxx) / 2;
-		if (setVerticalBar) {
-			// If this is initial, then we set the vBar segMap[0] for a future reference point, snap to 0.5 grid
-			centerx *= 2;
-			centerx = (int)centerx;
-			centerx /= 2;
-			segMap[0].begin.x = segMap[0].end.x = centerx;
-		}
-		else {
-			// Otherwise just go from where it is already
-			centerx = segMap[0].begin.x;
-		}
-		// Make sure segMap[0] is set right in the new map
-		segMap[0].verticalSeg = true;
-		segMap[0].begin.y = miny;
-		segMap[0].end.y = maxy;
-		segMap[0].id = 0;
-		segMap[0].calcBBox();
-
-		// For each vertex, create the horizontal segment to the vBar
-		while (!(vertices.empty())) {
-			// Create a new horizontal segment with begin being left of end
-			//	If this would be a 0-length seg, then just add the connection to the vbar and call it even
-			if (min(vertices.top().x, centerx) != max(vertices.top().x, centerx)) {
-				segMap[nextSegID] = wireSegment(GLPoint2f(min(vertices.top().x, centerx), vertices.top().y), GLPoint2f(max(vertices.top().x, centerx), vertices.top().y), false, nextSegID);
-				// Assign the connection vertex to the proper segment
-				segMap[nextSegID].connections.push_back(connectPoints[counter--]);
-				segMap[nextSegID].intersects[centerx].push_back(0);
-				segMap[0].intersects[segMap[nextSegID].begin.y].push_back(segMap[nextSegID].id);
-				
-
-				segMap[nextSegID].calcBBox();
-				nextSegID++;
-			}
-			else segMap[0].connections.push_back(connectPoints[counter--]);
-			vertices.pop();
-		}
+	// Translate the routed topology back into the segment map: one wireSegment per
+	// routed segment, its connections resolved from pin indices and its junctions
+	// copied into the intersects map.
+	for (const cl::route::Segment &rs : routed.segments) {
+		wireSegment ws(GLPoint2f(rs.bx, rs.by), GLPoint2f(rs.ex, rs.ey), rs.vertical, rs.id);
+		for (int pinIdx : rs.pins) ws.connections.push_back(connectPoints[pinIdx]);
+		for (const std::pair<float, long> &cr : rs.crossings)
+			ws.intersects[cr.first].push_back(cr.second);
+		ws.calcBBox();
+		segMap[rs.id] = ws;
 	}
-	// IF BOTH ARE VERTICAL
-	else if (isOneVertical && isTwoVertical) {
-		if (miny == maxy) goto fallout;
-		float centery = (miny + maxy) / 2;
-		if (setVerticalBar) {
-			// If this is initial, then we set the vBar segMap[0] for a future reference point, snap to 0.5 grid
-			centery *= 2;
-			centery = (int)centery;
-			centery /= 2;
-			segMap[2].begin.y = segMap[2].end.y = centery;
-		}
-		else {
-			// Otherwise just go from where it is already
-			centery = segMap[2].begin.y;
-		}
-		// Make sure segMap[0] is set right in the new map
-		segMap[2].verticalSeg = false;
-		segMap[2].begin.x = minx;
-		segMap[2].end.x = maxx;
-		segMap[2].id = 2;
-		segMap[2].calcBBox();
-		nextSegID = 0;
-		// For each vertex, create the horizontal segment to the vBar
-		while (!(vertices.empty())) {
-			// Create a new horizontal segment with begin being left of end
-			//	If this would be a 0-length seg, then just add the connection to the vbar and call it even
-			if (min(vertices.top().y, centery) != max(vertices.top().y, centery)) {
-				segMap[nextSegID] = wireSegment(GLPoint2f(vertices.top().x, min(vertices.top().y, centery)), GLPoint2f(vertices.top().x, max(vertices.top().y, centery)), true, nextSegID);
-				// Assign the connection vertex to the proper segment
-				segMap[nextSegID].connections.push_back(connectPoints[counter--]);
-				segMap[nextSegID].intersects[centery].push_back(2);
-				segMap[2].intersects[segMap[nextSegID].begin.x].push_back(segMap[nextSegID].id);
+	nextSegID = routed.nextId;
 
-				segMap[nextSegID].calcBBox();
-				nextSegID++;
-			}
-			else segMap[2].connections.push_back(connectPoints[counter--]);
-			vertices.pop();
-		}
-
-		nextSegID = 3;
-	}
-	// ONE VERTICAL, ONE HORIZONTAL
-	else {
-		unsigned int verticalConn = (isOneVertical ? 0 : 1);
-		unsigned int horizontalConn = (isOneVertical ? 1 : 0);
-		GLPoint2f verticalVertex, horizontalVertex;
-		if (verticalConn == 1) verticalVertex = vertices.top();
-		else horizontalVertex = vertices.top();
-		vertices.pop();
-		if (verticalConn == 0) verticalVertex = vertices.top();
-		else horizontalVertex = vertices.top();
-		segMap[0] = wireSegment(GLPoint2f(verticalVertex.x, min(verticalVertex.y, horizontalVertex.y)), GLPoint2f(verticalVertex.x, max(verticalVertex.y, horizontalVertex.y)), true, 0);
-		segMap[1] = wireSegment(GLPoint2f(min(verticalVertex.x, horizontalVertex.x), horizontalVertex.y), GLPoint2f(max(verticalVertex.x, horizontalVertex.x), horizontalVertex.y), false, 1);
-
-		segMap[0].connections.push_back(connectPoints[verticalConn]);
-		segMap[1].connections.push_back(connectPoints[horizontalConn]);
-		segMap[0].intersects[segMap[1].begin.y].push_back(1);
-		segMap[1].intersects[segMap[0].begin.x].push_back(0);
-		nextSegID = 2;
-	}
 	// Make sure the vertical bar is not reset unless I want it to be
 	setVerticalBar = false;
 

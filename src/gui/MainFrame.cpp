@@ -20,6 +20,8 @@
 #include "Settings.h"
 #include "GateLibrary.h"
 #include "guiText.h"
+#include "guiWire.h"
+#include <fstream>
 #include "MainFrame.h"
 #include "wx/filedlg.h"
 #include "wx/timer.h"
@@ -1614,6 +1616,59 @@ bool MainFrame::renderSingleGate(const std::string &gateName, const std::string 
 
 	if (skia) return renderToPngSkia(path, width, height);
 	return renderToPng(path);
+}
+
+bool MainFrame::dumpWireShape(const std::string &gateA, const std::string &gateB,
+                              const std::string &angleA, const std::string &angleB,
+                              const wxString &path) {
+	if (currentCanvas == NULL || gCircuit == NULL) return false;
+	guiText::loadFont(appConfig().appSettings.textFontFile);
+
+	// Two gates a fixed distance apart, then a wire from A's first output to B's
+	// first input -- this drives guiWire::addConnection -> calcShape, so the dump
+	// captures exactly what the router produced. Deterministic: gate/hotspot
+	// choice and positions are fixed, so before/after dumps diff cleanly.
+	guiGate *A = gCircuit->createGate(gateA, -1);
+	guiGate *B = gCircuit->createGate(gateB, -1);
+	if (A == NULL || B == NULL) return false;
+	A->setGUIParam("angle", angleA);
+	B->setGUIParam("angle", angleB);
+	currentCanvas->insertGate(A->getID(), A, -8.0f, 0.0f);
+	currentCanvas->insertGate(B->getID(), B, 8.0f, 0.0f);
+	currentCanvas->Update();
+
+	std::string outName, inName;
+	for (const auto &kv : A->getHotspotList())
+		if (!A->isConnectionInput(kv.first)) { outName = kv.first; break; }
+	for (const auto &kv : B->getHotspotList())
+		if (B->isConnectionInput(kv.first)) { inName = kv.first; break; }
+	if (outName.empty() || inName.empty()) return false;
+
+	std::vector<IDType> wireIds = { gCircuit->getNextAvailableWireID() };
+	gCircuit->setWireConnection(wireIds, A->getID(), outName);
+	guiWire *wire = gCircuit->setWireConnection(wireIds, B->getID(), inName);
+	if (wire == NULL) return false;
+
+	std::ofstream f(path.ToStdString().c_str());
+	if (!f) return false;
+	f << "wire " << gateA << "@" << angleA << "." << outName
+	  << " -> " << gateB << "@" << angleB << "." << inName << "\n";
+	std::map<long, wireSegment> sm = wire->getSegmentMap();
+	for (const auto &kv : sm) {
+		const wireSegment &s = kv.second;
+		f << "seg " << s.id << (s.verticalSeg ? " V " : " H ")
+		  << "(" << s.begin.x << "," << s.begin.y << ")-("
+		  << s.end.x << "," << s.end.y << ") conn=[";
+		for (const auto &c : s.connections) f << c.connection << ":" << c.gid << " ";
+		f << "] xs={";
+		for (const auto &ix : s.intersects) {
+			f << ix.first << ":";
+			for (long id : ix.second) f << id << ",";
+			f << " ";
+		}
+		f << "}\n";
+	}
+	return true;
 }
 
 // Build the export RenderStyle from the dialog's choices: black-on-white with

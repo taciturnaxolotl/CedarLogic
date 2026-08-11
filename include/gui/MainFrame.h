@@ -172,6 +172,15 @@ public:
 	// app would create, so it exercises the true shape/pins/params.
 	bool renderSingleGate(const std::string &gateName, const std::string &angle,
 	                      const wxString &path, int width, int height, bool skia);
+
+	// Wire-router test hook (headless --wire-shape): place two gates a fixed
+	// distance apart, connect A's first output to B's first input (which runs
+	// calcShape), and write the resulting segment map to `path` as text -- a
+	// deterministic before/after net for router changes, since loaded circuits
+	// reuse their saved segMap and never route.
+	bool dumpWireShape(const std::string &gateA, const std::string &gateB,
+	                   const std::string &angleA, const std::string &angleB,
+	                   const wxString &path);
 	// Ask which format to save an old-format file in. Returns 1/2/3, or -1 to
 	// cancel. New/v3 circuits return 3 without prompting.
 	int chooseSaveFormat();
