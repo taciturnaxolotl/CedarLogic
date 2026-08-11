@@ -29,7 +29,8 @@
 #include <fstream>
 #include <algorithm>
 #ifdef WITH_AVOID
-#include "avoid/RoutingService.h"   // headless --avoid-route (libavoid obstacle router)
+#include "avoid/RoutingService.h"      // headless --avoid-route (libavoid obstacle router)
+#include "avoid/PolylineToSegments.h"  // route polyline -> segment tree (3.2c)
 #endif
 #include "wx/filedlg.h"
 #include "wx/timer.h"
@@ -1791,12 +1792,30 @@ bool MainFrame::dumpAvoidRoutes(const wxString &path) {
 	if (!f) return false;
 	f << "avoid-routes: " << routed.size() << " two-terminal wires, "
 	  << gates->size() << " obstacles\n";
+
+	// Feed every real route through the 3.2c translator and tally validity: a
+	// non-orthogonal emitted segment would mean the translator mishandled some
+	// libavoid output. This exercises the translator on real data alongside its
+	// unit suite.
+	long totalSegs = 0, totalJunctions = 0, nonOrthogonal = 0;
 	for (unsigned long wid : routed) {
 		std::vector<std::pair<float, float>> pts = svc.routeOf(wid);
-		f << "wire " << wid << " : " << pts.size() << " pts";
+		std::vector<cl::avoid::RoutePoint> rp;
+		for (const auto &pt : pts) rp.push_back({pt.first, pt.second});
+		cl::avoid::ShapeOut shape = cl::avoid::polylineToSegments(rp);
+		for (const cl::avoid::SegmentOut &sg : shape.segments) {
+			totalSegs++;
+			totalJunctions += (long)sg.crossings.size();
+			bool ortho = sg.vertical ? (sg.bx == sg.ex) : (sg.by == sg.ey);
+			if (!ortho) nonOrthogonal++;
+		}
+		f << "wire " << wid << " : " << pts.size() << " pts -> "
+		  << shape.segments.size() << " segs";
 		for (const auto &pt : pts) f << " (" << pt.first << "," << pt.second << ")";
 		f << "\n";
 	}
+	f << "translated: " << totalSegs << " segments, " << totalJunctions / 2
+	  << " junctions, " << nonOrthogonal << " non-orthogonal\n";
 	return true;
 }
 #else

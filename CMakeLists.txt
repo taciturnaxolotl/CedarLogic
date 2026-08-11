@@ -332,6 +332,9 @@ if(BUILD_TESTING)
     add_subdirectory("${PROJECT_SOURCE_DIR}/src/gui/tests/")
     # Unit tests for the wire router seam (Workstream H).
     add_subdirectory("${PROJECT_SOURCE_DIR}/src/gui/route/tests/")
+    # Pure orthogonal-polyline -> segment-tree translator (wire router 3.2c);
+    # no libavoid dependency, so it runs regardless of WITH_AVOID.
+    add_subdirectory("${PROJECT_SOURCE_DIR}/src/gui/avoid/tests/")
 endif()
 
 
