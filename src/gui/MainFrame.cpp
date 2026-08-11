@@ -1754,52 +1754,71 @@ bool MainFrame::dumpAvoidRoutes(const wxString &path) {
 	cl::avoid::RoutingService svc;
 	auto *gates = gCircuit->getGates();
 
-	// Every gate is an obstacle. Inset the bbox a hair so a wire endpoint sitting
-	// on a gate edge (hotspots live on the boundary) lands just outside its own
-	// obstacle rather than inside it.
-	const float inset = 0.05f;
+	// Every gate is a rectangular obstacle (full bbox -- pins route outward from
+	// the boundary, so no inset is needed as it was in the free-point skeleton).
 	for (auto &gp : *gates) {
 		guiGate *g = gp.second;
 		if (g == NULL) continue;
 		klsBBox b = g->getBBox();
-		svc.addObstacle(gp.first, b.getLeft() + inset, b.getBottom() + inset,
-		                b.getRight() - inset, b.getTop() - inset);
+		svc.addGate(gp.first, b.getLeft(), b.getBottom(), b.getRight(), b.getTop());
 	}
 
-	// Each 2-terminal wire becomes one connector between its endpoint hotspots.
-	// Multi-terminal nets (shared trunks) wait for 3.2d's hyperedge support.
+	// Create a connection pin at each wire endpoint's hotspot and return its key,
+	// or -1 if the gate is missing. Terminals reference pins, not free points, so
+	// the hyperedge rerouter can anchor them to shapes.
+	unsigned long nextPin = 1;
+	auto pinFor = [&](const wireConnection &c) -> long {
+		auto g = gates->find(c.gid);
+		if (g == gates->end()) return -1;
+		GLPoint2f p;
+		g->second->getHotspotCoords(c.connection, p.x, p.y);
+		unsigned long key = nextPin++;
+		svc.addPin(key, c.gid, p.x, p.y);
+		return (long)key;
+	};
+
+	// 2-terminal wires -> a single connector; >= 3-terminal nets -> a hyperedge,
+	// so libavoid places shared junctions instead of routing each pin pair alone.
 	auto *wires = gCircuit->getWires();
-	std::vector<unsigned long> routed;
+	std::vector<unsigned long> conn2, hyperWires;
 	for (auto &wp : *wires) {
 		guiWire *w = wp.second;
 		if (w == NULL) continue;
 		std::vector<wireConnection> conns = w->getConnections();
-		if (conns.size() != 2) continue;
-		auto g0 = gates->find(conns[0].gid);
-		auto g1 = gates->find(conns[1].gid);
-		if (g0 == gates->end() || g1 == gates->end()) continue;
-		GLPoint2f p0, p1;
-		g0->second->getHotspotCoords(conns[0].connection, p0.x, p0.y);
-		g1->second->getHotspotCoords(conns[1].connection, p1.x, p1.y);
-		svc.addConnector(wp.first, p0.x, p0.y, p1.x, p1.y);
-		routed.push_back(wp.first);
+		if (conns.size() == 2) {
+			long a = pinFor(conns[0]), b = pinFor(conns[1]);
+			if (a < 0 || b < 0) continue;
+			svc.addConnector(wp.first, (unsigned long)a, (unsigned long)b);
+			conn2.push_back(wp.first);
+		} else if (conns.size() > 2) {
+			std::vector<unsigned long> keys;
+			bool ok = true;
+			for (const wireConnection &c : conns) {
+				long k = pinFor(c);
+				if (k < 0) { ok = false; break; }
+				keys.push_back((unsigned long)k);
+			}
+			if (!ok || keys.size() < 3) continue;
+			svc.addHyperedge(wp.first, keys);
+			hyperWires.push_back(wp.first);
+		}
 	}
 
 	svc.run();
 
-	std::sort(routed.begin(), routed.end()); // deterministic dump order
+	std::sort(conn2.begin(), conn2.end());   // deterministic dump order
+	std::sort(hyperWires.begin(), hyperWires.end());
 	std::ofstream f(path.ToStdString().c_str());
 	if (!f) return false;
-	f << "avoid-routes: " << routed.size() << " two-terminal wires, "
-	  << gates->size() << " obstacles\n";
+	f << "avoid-routes: " << conn2.size() << " two-terminal, " << hyperWires.size()
+	  << " multi-terminal (hyperedge), " << gates->size() << " obstacles\n";
 
-	// Feed every real route through the 3.2c translator and tally validity: a
-	// non-orthogonal emitted segment would mean the translator mishandled some
-	// libavoid output. This exercises the translator on real data alongside its
-	// unit suite.
+	// Feed every real route (connectors + hyperedge sub-connectors) through the
+	// 3.2c translator and tally validity: a non-orthogonal emitted segment would
+	// mean the translator mishandled some libavoid output. Exercises the
+	// translator on real data alongside its unit suite.
 	long totalSegs = 0, totalJunctions = 0, nonOrthogonal = 0;
-	for (unsigned long wid : routed) {
-		std::vector<std::pair<float, float>> pts = svc.routeOf(wid);
+	auto tally = [&](const std::vector<std::pair<float, float>> &pts) -> size_t {
 		std::vector<cl::avoid::RoutePoint> rp;
 		for (const auto &pt : pts) rp.push_back({pt.first, pt.second});
 		cl::avoid::ShapeOut shape = cl::avoid::polylineToSegments(rp);
@@ -1809,10 +1828,20 @@ bool MainFrame::dumpAvoidRoutes(const wxString &path) {
 			bool ortho = sg.vertical ? (sg.bx == sg.ex) : (sg.by == sg.ey);
 			if (!ortho) nonOrthogonal++;
 		}
-		f << "wire " << wid << " : " << pts.size() << " pts -> "
-		  << shape.segments.size() << " segs";
-		for (const auto &pt : pts) f << " (" << pt.first << "," << pt.second << ")";
-		f << "\n";
+		return shape.segments.size();
+	};
+
+	for (unsigned long wid : conn2) {
+		std::vector<std::pair<float, float>> pts = svc.routeOf(wid);
+		f << "wire " << wid << " : " << pts.size() << " pts -> " << tally(pts) << " segs\n";
+	}
+	for (unsigned long wid : hyperWires) {
+		std::vector<std::vector<std::pair<float, float>>> subs = svc.hyperedgeRoutesOf(wid);
+		std::vector<std::pair<float, float>> juncs = svc.hyperedgeJunctionsOf(wid);
+		size_t pts = 0, segs = 0;
+		for (const auto &poly : subs) { pts += poly.size(); segs += tally(poly); }
+		f << "hyperwire " << wid << " : " << subs.size() << " sub-conns, "
+		  << juncs.size() << " junctions, " << pts << " pts -> " << segs << " segs\n";
 	}
 	f << "translated: " << totalSegs << " segments, " << totalJunctions / 2
 	  << " junctions, " << nonOrthogonal << " non-orthogonal\n";

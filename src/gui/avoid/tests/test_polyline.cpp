@@ -216,6 +216,24 @@ TEST_CASE("deterministic: same input twice gives identical output") {
 	}
 }
 
+TEST_CASE("float noise on the flat axis is snapped to axis-aligned") {
+	// A "vertical" hop whose x drifts by 1e-6 (libavoid junction-stub noise).
+	ShapeOut s = polylineToSegments({{5.0f, 0.0f}, {5.000001f, 10.0f}});
+	REQUIRE(s.segments.size() == 1);
+	CHECK(s.segments[0].vertical);
+	CHECK(s.segments[0].bx == s.segments[0].ex); // strictly vertical after snap
+	requireAllInvariants(s);
+}
+
+TEST_CASE("a genuine diagonal is split into an L-bend") {
+	ShapeOut s = polylineToSegments({{0.0f, 0.0f}, {10.0f, 6.0f}});
+	REQUIRE(s.segments.size() == 2);         // one H + one V, not a diagonal
+	requireAllInvariants(s);                 // both axis-aligned, joined at corner
+	// The corner is (10,0): horizontal first, then vertical.
+	CHECK_FALSE(s.segments[0].vertical);
+	CHECK(s.segments[1].vertical);
+}
+
 TEST_CASE("invariants hold on a complex U-shaped path") {
 	ShapeOut s = polylineToSegments(
 		{{0, 0}, {0, -5}, {10, -5}, {10, -5}, {10, 5}, {5, 5}, {5, 5}});

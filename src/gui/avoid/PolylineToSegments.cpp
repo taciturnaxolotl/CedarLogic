@@ -22,6 +22,28 @@ ShapeOut polylineToSegments(const std::vector<RoutePoint>& raw) {
 	for (const RoutePoint& q : raw)
 		if (p.empty() || !samePoint(p.back(), q)) p.push_back(q);
 
+	// 1b. Orthogonalize. libavoid's routes are orthogonal, but hyperedge junction
+	//     stubs can arrive with float noise on the "flat" axis, or (rarely) a true
+	//     diagonal. Snap a near-flat hop to axis-aligned; split a genuine diagonal
+	//     into an L-bend. Everything downstream can then assume strict alignment.
+	if (p.size() >= 2) {
+		const float EPS = 1e-3f;
+		std::vector<RoutePoint> o;
+		o.push_back(p.front());
+		for (size_t i = 1; i < p.size(); i++) {
+			RoutePoint a = o.back(); // orthogonalized predecessor
+			RoutePoint b = p[i];
+			float dx = b.x - a.x, dy = b.y - a.y;
+			if (dx < 0) dx = -dx;
+			if (dy < 0) dy = -dy;
+			if (dx < EPS)      b.x = a.x;                       // near-vertical
+			else if (dy < EPS) b.y = a.y;                       // near-horizontal
+			else               o.push_back({b.x, a.y});         // diagonal -> corner
+			if (!samePoint(o.back(), b)) o.push_back(b);
+		}
+		p.swap(o);
+	}
+
 	// 2. Drop collinear interior points, so segments strictly alternate
 	//    orientation and none is a redundant straight-through. A point p[i] is
 	//    redundant iff its neighbours share its x (vertical run) or its y
