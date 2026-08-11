@@ -1189,14 +1189,30 @@ void guiWire::removeZeroLengthSegments() {
 		bool connectionsDone = false;
 		// Just hook up the connections to the first one we see...
 		//	THAT ISN'T ANOTHER STUPID ZERO-LENGTH SECTOR THAT DESERVES TO DIE
-		while (!connectionsDone) {
-			for (unsigned int i = 0; i < (isect->second).size() && !connectionsDone; i++) {
-				if (!connectionsDone && !(newSegMap[(isect->second)[i]].begin == newSegMap[(isect->second)[i]].end)) {
-					newSegMap[(isect->second)[i]].connections.insert(newSegMap[(isect->second)[i]].connections.begin(), (segWalk->second).connections.begin(), (segWalk->second).connections.end());
-					connectionsDone = true;
+		// The walk below chases the intersects chain looking for a non-zero-length
+		// segment. Guard the malformed cases -- an empty intersect vector, a
+		// dangling id, a dead-end (no further intersects), or a cycle -- which the
+		// trunk router never produces but a merged multi-terminal tree can; without
+		// these guards the chase reads past a vector / dereferences a freed node.
+		if (isect != (segWalk->second).intersects.end()) {
+			std::set<long> visitedSegs;
+			while (!connectionsDone) {
+				if ((isect->second).empty()) break;
+				for (unsigned int i = 0; i < (isect->second).size() && !connectionsDone; i++) {
+					map < long, wireSegment >::iterator nIt = newSegMap.find((isect->second)[i]);
+					if (nIt != newSegMap.end() && !(nIt->second.begin == nIt->second.end)) {
+						nIt->second.connections.insert(nIt->second.connections.begin(), (segWalk->second).connections.begin(), (segWalk->second).connections.end());
+						connectionsDone = true;
+					}
+				}
+				if (!connectionsDone) {
+					long next = (isect->second)[0];
+					map < long, wireSegment >::iterator sIt = segMap.find(next);
+					if (sIt == segMap.end() || sIt->second.intersects.empty()) break;
+					if (!visitedSegs.insert(next).second) break;
+					isect = sIt->second.intersects.begin();
 				}
 			}
-			if (!connectionsDone) isect = segMap[(isect->second)[0]].intersects.begin();
 		}
 		segWalk++;
 	}
