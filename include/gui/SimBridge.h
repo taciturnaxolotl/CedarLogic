@@ -46,6 +46,11 @@ public:
 	std::deque< klsMessage::Message > dGUItoLOGIC;
 	std::deque< klsMessage::Message > dLOGICtoGUI;
 
+	// Signaled (under mexMessages) whenever a message is queued for the logic
+	// thread, so it can block until there is work instead of polling. Bound to
+	// mexMessages; wait only with that mutex held.
+	wxCondition msgForLogic{ mexMessages };
+
 	// Guards wireStateBuffer, the batch of wire-state updates the logic thread
 	// produces for the GUI to drain.
 	wxMutex wireStateMutex;
