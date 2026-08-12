@@ -49,7 +49,6 @@
 #include "wx/docview.h"
 #include "commands.h"
 #include "autoSaveThread.h"
-#include "svgExport.h"
 #include "../version.h"
 #ifdef __APPLE__
 #include "SparkleUpdater.h"
@@ -1307,21 +1306,13 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 			wxString ext = path.SubString(path.find_last_of(".") + 1, path.length());
 
 			if (ext == "svg") {
-				bool success = false;
-#ifdef WITH_SKIA
-				// Vector SVG through the Scene seam (Skia) -- same renderer that
-				// matches the GL golden, so the export is faithful. The page is
-				// the canvas size x the chosen multiplier; SVG stays crisp anyway.
+				// Vector SVG through the Scene seam (Skia) -- the same renderer
+				// the canvas uses, so the export is faithful. The page is the
+				// canvas size x the chosen multiplier; SVG stays crisp anyway.
 				wxSize sz = currentCanvas->GetClientSize();
-				success = renderToSvgSkia(path, sz.GetWidth() * multiplier,
-				                          sz.GetHeight() * multiplier,
-				                          showGrid, useNoColor);
-#else
-				// Fallback: the legacy hand-rolled exporter.
-				float scale = multiplier / 2.0f;
-				success = SVGExporter::exportToSVG(currentCanvas, std::string(path.mb_str()),
-				                                   showGrid, useNoColor, scale);
-#endif
+				bool success = renderToSvgSkia(path, sz.GetWidth() * multiplier,
+				                               sz.GetHeight() * multiplier,
+				                               showGrid, useNoColor);
 				if (!success) {
 					wxMessageBox("Failed to export SVG file.", "Export Error", wxOK | wxICON_ERROR);
 				}

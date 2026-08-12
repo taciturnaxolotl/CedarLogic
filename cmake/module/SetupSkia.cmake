@@ -1,10 +1,12 @@
 # Skia integration (Workstream G).
 #
-# OFF by default: including this module changes nothing about the build until
-# -DWITH_SKIA=ON is passed. When on, it produces a single INTERFACE target,
-# `cedar_skia`, carrying Skia's include dirs, static libraries, required system
-# dependencies, and the WITH_SKIA / SK_GL compile definitions. Link it onto the
-# app target; guard all Skia code behind `#ifdef WITH_SKIA`.
+# Skia is REQUIRED to build the GUI app: it is the renderer, not an option. This
+# module produces a single INTERFACE target, `cedar_skia`, carrying Skia's
+# include dirs, static libraries, required system dependencies, and the
+# WITH_SKIA / SK_GL compile definitions. Link it onto the app target.
+#
+# WITH_SKIA remains defined (and always ON) because it is the compile definition
+# the sources and this module key off; it is no longer a user-facing switch.
 #
 # Where Skia comes from mirrors the USE_SYSTEM_WXWIDGETS split:
 #   USE_SYSTEM_SKIA=OFF  consume the CI-built dist from .github/workflows/skia.yml.
@@ -15,7 +17,10 @@
 #                        pkg-config, or SKIA_ROOT as a fallback. This is the path
 #                        for the Nix flake, which has no network for the cache.
 
-option(WITH_SKIA "Build CedarLogic against the Skia rendering engine (Workstream G)" OFF)
+# Not an option: the app has no other renderer. Kept as a variable so the
+# existing WITH_SKIA plumbing (compile definition, guards in this module) works
+# unchanged, and so -DWITH_SKIA=ON on existing CI invocations stays valid.
+set(WITH_SKIA ON)
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     set(USE_SYSSKIA_DEF TRUE)
