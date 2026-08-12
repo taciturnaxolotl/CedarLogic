@@ -51,8 +51,28 @@ jobs:
         shell: bash
         run: mkdir -p build/_deps
 
+      # Skia is the renderer the app actually uses; without it the build falls
+      # back to the legacy fixed-function GL path. The dist is x86 to match this
+      # 32-bit build (see cmake/skia-args/windows.gn).
+      - name: Download Skia dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          rid="$(gh run list --workflow skia.yml --branch master \
+                   --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          if [ -z "$rid" ]; then echo "no successful skia.yml run on master" >&2; exit 1; fi
+          echo "Skia dist from run $rid"
+          gh run download "$rid" -n skia-windows -D skia-dist
+          ls skia-dist/lib
+
       - name: Configure CMake
-        run: cmake -B build -A Win32 -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}"
+        shell: bash
+        run: |
+          cmake -B build -A Win32 \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
+            -DWITH_SKIA=ON -DUSE_SYSTEM_SKIA=OFF -DSKIA_ROOT="$PWD/skia-dist" \
+            -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}"
 
       - name: Build
         run: cmake --build build --config Release
@@ -89,7 +109,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake libgtk-3-dev libglu1-mesa-dev ccache
+          sudo apt-get install -y build-essential cmake libgtk-3-dev libglu1-mesa-dev ccache \
+            libgl1-mesa-dev libfontconfig1-dev
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1
@@ -104,8 +125,23 @@ jobs:
           restore-keys: |
             wxwidgets-linux-
 
+      - name: Download Skia dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rid="$(gh run list --workflow skia.yml --branch master \
+                   --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          if [ -z "$rid" ]; then echo "no successful skia.yml run on master" >&2; exit 1; fi
+          echo "Skia dist from run $rid"
+          gh run download "$rid" -n skia-linux -D skia-dist
+          ls skia-dist/lib
+
       - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DUSE_SYSTEM_WXWIDGETS=0 -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}"
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DUSE_SYSTEM_WXWIDGETS=0 \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DWITH_SKIA=ON -DUSE_SYSTEM_SKIA=OFF -DSKIA_ROOT="$PWD/skia-dist" \
+            -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}"
 
       - name: Build
         run: cmake --build build -j$(nproc)
@@ -172,6 +208,17 @@ jobs:
           restore-keys: |
             wxwidgets-macos-
 
+      - name: Download Skia dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rid="$(gh run list --workflow skia.yml --branch master \
+                   --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          if [ -z "$rid" ]; then echo "no successful skia.yml run on master" >&2; exit 1; fi
+          echo "Skia dist from run $rid"
+          gh run download "$rid" -n skia-macos -D skia-dist
+          ls skia-dist/lib
+
       - name: Configure CMake
         env:
           SPARKLE_ED_PUBLIC_KEY: ${{ secrets.SPARKLE_ED_PUBLIC_KEY }}
@@ -179,6 +226,7 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DWITH_SKIA=ON -DUSE_SYSTEM_SKIA=OFF -DSKIA_ROOT="$PWD/skia-dist" \
             -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}" \
             -DSPARKLE_ED_PUBLIC_KEY="$SPARKLE_ED_PUBLIC_KEY"
 
