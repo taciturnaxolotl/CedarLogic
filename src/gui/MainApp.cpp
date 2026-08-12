@@ -721,6 +721,24 @@ void MainApp::SetCurrentCanvas(wxGLCanvas *canvas)
 	if (!glContext)
 		glContext = new wxGLContext(canvas);
 	glContext->SetCurrent(*canvas);
+
+#ifdef __WXMSW__
+	// Turn vsync OFF (once; needs a current context). Every canvas -- main, oscope,
+	// minimap -- shares this GL context and ends its paint with SwapBuffers. With
+	// vsync on, each swap blocks the GUI thread until the next vblank (up to
+	// ~16ms), and this app repaints on demand rather than running a frame loop, so
+	// there is nothing to gain from pacing to the display. With the interval at 0
+	// SwapBuffers returns immediately (measured ~0.03ms), keeping the thread free
+	// for input and the simulation.
+	static bool s_vsyncSet = false;
+	if (!s_vsyncSet) {
+		s_vsyncSet = true;
+		typedef BOOL(WINAPI * SwapIntervalProc)(int);
+		SwapIntervalProc setSwap =
+			(SwapIntervalProc)wglGetProcAddress("wglSwapIntervalEXT");
+		if (setSwap) setSwap(0);
+	}
+#endif
 }
 
 #ifdef __WXOSX__
