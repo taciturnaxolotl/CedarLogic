@@ -184,7 +184,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 
 	wxMenu *editMenu = new wxMenu; // EDIT MENU
 	editMenu->Append(wxID_UNDO, "Undo\tCtrl+Z", "Undo last operation");
-	editMenu->Append(wxID_REDO, "Redo", "Redo last operation");
+	editMenu->Append(wxID_REDO, "Redo\tCtrl+Shift+Z", "Redo last operation");
 	editMenu->AppendSeparator();
 	editMenu->Append(Tool_NewTab, "New Tab\tCtrl+T", "New Tab");
 #ifdef __WXOSX__
@@ -216,7 +216,28 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
     
     // ... and attach this menu bar to the frame
     SetMenuBar(menuBar);
-    
+
+    // Redo on Ctrl+Shift+Z (also shown as the Redo menu accelerator) and Ctrl+Y
+    // (the Windows convention). Both are handled here via CHAR_HOOK rather than
+    // the accelerator table: the canvas holds keyboard focus and menu-bar
+    // accelerators don't reach it, while replacing the frame accelerator table
+    // would wipe every other menu shortcut (Ctrl+Z undo, Ctrl+S, ...) since wx
+    // compiles them into that same table. CHAR_HOOK sees the key at the frame
+    // first, regardless of focus, and doesn't touch that table. Windows fires an
+    // accelerator OR dispatches the key here, never both, so no double-redo.
+    Bind(wxEVT_CHAR_HOOK, [this](wxKeyEvent &e) {
+        const int k = e.GetKeyCode();
+        const bool ctrl = e.ControlDown() || e.CmdDown();
+        const bool redoY = ctrl && !e.ShiftDown() && !e.AltDown() && (k == 'Y' || k == 'y');
+        const bool redoZ = ctrl && e.ShiftDown() && !e.AltDown() && (k == 'Z' || k == 'z');
+        if (redoY || redoZ) {
+            wxCommandEvent redo(wxEVT_MENU, wxID_REDO);
+            ProcessWindowEvent(redo);
+        } else {
+            e.Skip();
+        }
+    });
+
 	//////////////////////////////////////////////////////////////////////////
     // parse a gate library
 	//////////////////////////////////////////////////////////////////////////
