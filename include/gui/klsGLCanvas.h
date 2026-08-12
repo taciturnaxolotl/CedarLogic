@@ -173,11 +173,6 @@ public:
 	GLfloat vertSpacing; // Vertical grid spacing.
 	GLfloat vColor[4]; // Vertical grid color.
 
-	// OpenGL handling routines:
-	// Setup the GL matrices for this canvas:
-	// (This needs to be called everytime that the matrices will be used.)
-	void reclaimViewport(void);
-
 	// Set the viewport (Set the left/top and right/bottom coordinates).
 	// NOTE: It will enforce a 1:1 aspect ratio, but it will make the best
 	// attempt to fit the zoom box as close as possible. Basically, it will

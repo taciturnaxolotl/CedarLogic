@@ -1631,17 +1631,6 @@ void MainFrame::load(string filename) {
 	loadCircuitFile(filename);
 }
 
-bool MainFrame::renderToPng(const wxString &path) {
-	if (currentCanvas == NULL) return false;
-	// Go through the canonical export path. getBitmap brackets the render with
-	// doingBitmapExport, which is load-bearing: the offscreen GL context is
-	// unshared on Windows, so without it the connection-point display list is a
-	// no-op and wires lose their dots. It also handles the grid-visibility state.
-	wxBitmap bmp = getBitmap(appConfig().appSettings.gridlineVisible, false, 1);
-	if (!bmp.IsOk()) return false;
-	return bmp.ConvertToImage().SaveFile(path, wxBITMAP_TYPE_PNG);
-}
-
 bool MainFrame::renderToPngSkia(const wxString &path, int width, int height) {
 #ifdef WITH_SKIA
 	if (currentCanvas == NULL) return false;
@@ -1661,7 +1650,7 @@ bool MainFrame::renderToPngSkia(const wxString &path, int width, int height) {
 }
 
 bool MainFrame::renderSingleGate(const std::string &gateName, const std::string &angle,
-                                 const wxString &path, int width, int height, bool skia) {
+                                 const wxString &path, int width, int height) {
 	if (currentCanvas == NULL || gCircuit == NULL) return false;
 
 	// Build one gate of this type through the real creation path, so its shape,
@@ -1677,8 +1666,7 @@ bool MainFrame::renderSingleGate(const std::string &gateName, const std::string 
 	currentCanvas->insertGate(g->getID(), g, 0.0f, 0.0f);
 	currentCanvas->Update();
 
-	if (skia) return renderToPngSkia(path, width, height);
-	return renderToPng(path);
+	return renderToPngSkia(path, width, height);
 }
 
 // Shared scene for the wire-router test hooks.

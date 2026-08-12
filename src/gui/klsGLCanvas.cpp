@@ -108,30 +108,6 @@ void klsGLCanvas::updateMiniMap() {
 	if (minimap != NULL) minimap->update(p1, p2);
 }
 
-// Setup the GL matrices for this canvas:
-// (This needs to be called everytime that the matrices will be used.)
-void klsGLCanvas::reclaimViewport( void ) {
-
-	// Set the projection matrix:
-	glMatrixMode (GL_PROJECTION);
-	glLoadIdentity ();
-
-	wxSize sz = GetClientSize();
-	// gluOrtho2D(left, right, bottom, top); (In world-space coords.)
-	// Use logical coordinates for the projection matrix
-	gluOrtho2D(panX, panX + (sz.GetWidth() * viewZoom), panY - (sz.GetHeight() * viewZoom), panY);
-
-	// For glViewport, we need physical pixels on HiDPI/Retina displays
-	// GetContentScaleFactor() returns 2.0 on Retina Macs, 1.0 elsewhere
-	double scaleFactor = GetContentScaleFactor();
-	glViewport(0, 0, (GLint)(sz.GetWidth() * scaleFactor), (GLint)(sz.GetHeight() * scaleFactor));
-
-	// Set the model matrix:
-	glMatrixMode (GL_MODELVIEW);
-	glLoadIdentity ();
-}
-
-
 // Set the viewport (Set the left/top and right/bottom coordinates).
 // NOTE: It will enforce a 1:1 aspect ratio, but it will make the best
 // attempt to fit the zoom box as close as possible. Basically, it will
@@ -221,7 +197,6 @@ void klsGLCanvas::wxOnPaint(wxPaintEvent& event) {
 		glInitialized = true;
 	}
 
-	reclaimViewport();
 	renderSkiaLive();
 
 	// Show the new buffer:
@@ -397,8 +372,6 @@ void klsGLCanvas::setZoom( GLdouble newZoom ) {
 
 
 void klsGLCanvas::wxOnMouseEvent(wxMouseEvent& event) {
-	reclaimViewport();
-	
 	isShiftDown = event.ShiftDown();
 	isControlDown = event.ControlDown();
 	
@@ -480,8 +453,6 @@ void klsGLCanvas::wxOnMouseEvent(wxMouseEvent& event) {
 
 
 void klsGLCanvas::wxOnMouseWheel(wxMouseEvent& event) {
-	reclaimViewport();
-
 	// Accumulate mouse wheel events until they amount
 	// to one "line", and then take them line at a time:
 	wheelRotation += event.GetWheelRotation();
@@ -604,8 +575,6 @@ void klsGLCanvas::endDrag( mouseButton whichButton ) {
 
 void klsGLCanvas::wxKeyDown(wxKeyEvent& event) {
 	wxGetApp().SetCurrentCanvas(this);
-	reclaimViewport();
-
 	// Give the subclassed handler first dibs on the event:
 	OnKeyDown( event );
 
@@ -649,8 +618,6 @@ void klsGLCanvas::wxKeyDown(wxKeyEvent& event) {
 }
 
 void klsGLCanvas::wxKeyUp(wxKeyEvent& event) {
-	reclaimViewport();
-
 	OnKeyUp( event );
 }
 

@@ -67,35 +67,6 @@ bool SkiaBackend::ensureContext() {
 	return fContext != nullptr;
 }
 
-void SkiaBackend::resetGLStateForLegacy() {
-	if (!fInterface) return;
-	// GL enums (avoid pulling a platform GL header). Restore the state the app's
-	// fixed-function GL path (the renderer-toggle fallback + shared-context
-	// canvases) assumes -- Ganesh both leaves modern-pipeline objects bound AND
-	// leaves scissor/stencil/depth/cull enabled and mutates masks/blend; a
-	// leftover scissor rect would clip the legacy path's clear and every draw.
-	const unsigned GL_ARRAY_BUFFER = 0x8892, GL_ELEMENT_ARRAY_BUFFER = 0x8893;
-	const unsigned GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE0 = 0x84C0, GL_FRAMEBUFFER = 0x8D40;
-	const unsigned GL_SCISSOR_TEST = 0x0C11, GL_STENCIL_TEST = 0x0B90;
-	const unsigned GL_DEPTH_TEST = 0x0B71, GL_CULL_FACE = 0x0B44, GL_BLEND = 0x0BE2;
-	const unsigned GL_SRC_ALPHA = 0x0302, GL_ONE_MINUS_SRC_ALPHA = 0x0303;
-	const GrGLInterface::Functions& gl = fInterface->fFunctions;
-	if (gl.fUseProgram)      gl.fUseProgram(0);
-	if (gl.fBindVertexArray) gl.fBindVertexArray(0);
-	if (gl.fBindBuffer)    { gl.fBindBuffer(GL_ARRAY_BUFFER, 0);
-	                         gl.fBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); }
-	if (gl.fActiveTexture)   gl.fActiveTexture(GL_TEXTURE0);
-	if (gl.fBindTexture)     gl.fBindTexture(GL_TEXTURE_2D, 0);
-	if (gl.fBindFramebuffer) gl.fBindFramebuffer(GL_FRAMEBUFFER, 0);
-	if (gl.fDisable)       { gl.fDisable(GL_SCISSOR_TEST); gl.fDisable(GL_STENCIL_TEST);
-	                         gl.fDisable(GL_DEPTH_TEST);   gl.fDisable(GL_CULL_FACE); }
-	if (gl.fDepthMask)       gl.fDepthMask(1);
-	if (gl.fColorMask)       gl.fColorMask(1, 1, 1, 1);
-	// The app renders with alpha blending on (e.g. the translucent grid).
-	if (gl.fEnable)          gl.fEnable(GL_BLEND);
-	if (gl.fBlendFunc)       gl.fBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-}
-
 sk_sp<SkSurface> SkiaBackend::windowSurface(int width, int height, int fboId,
                                             int sampleCount, int stencilBits) {
 	if (!ensureContext()) return nullptr;
@@ -290,7 +261,6 @@ bool skiaRenderWindow(int width, int height, int fboId,
 	draw(scene);
 	// Flush the recorded work to GL and hand back to the caller to SwapBuffers.
 	if (ctx) ctx->flushAndSubmit();
-	backend.resetGLStateForLegacy();   // leave the shared GL context fixed-function-ready
 	return true;
 }
 
@@ -371,7 +341,6 @@ bool skiaRenderWindowScene(int width, int height, int fboId,
 	}
 
 	if (ctx) ctx->flushAndSubmit();
-	backend.resetGLStateForLegacy();   // leave the shared GL context fixed-function-ready
 	return true;
 }
 
@@ -403,7 +372,6 @@ bool skiaRenderWindowCached(int width, int height, int fboId,
 	SkiaScene overlay(canvas, backend.defaultFont(), strokeScale);
 	drawOverlay(overlay);
 	if (ctx) ctx->flushAndSubmit();
-	backend.resetGLStateForLegacy();   // leave the shared GL context fixed-function-ready
 	return true;
 }
 

@@ -323,10 +323,10 @@ unsigned long long GUICanvas::renderContentKey() {
 #endif
 
 // Render the page at the LIVE camera (pan/zoom), not the bbox fit -- this is the
-// on-screen path (G3). Mirrors klsGLCanvas::reclaimViewport's ortho:
-//   gluOrtho2D(panX, panX + w*viewZoom, panY - h*viewZoom, panY), viewport in
-//   physical pixels. So device px per world unit = contentScale / viewZoom, and
-//   world y is flipped for the top-left device origin.
+// on-screen path (G3). The camera is the canvas's own pan/zoom:
+//   world x in [panX, panX + w*viewZoom], y in [panY - h*viewZoom, panY], mapped
+//   to physical pixels. So device px per world unit = contentScale / viewZoom,
+//   and world y is flipped for the top-left device origin.
 void GUICanvas::renderLiveToScene(cl::render::Scene& scene,
                                   const cl::render::RenderStyle& style) {
 	using namespace cl::render;

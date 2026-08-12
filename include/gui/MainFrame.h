@@ -155,26 +155,22 @@ public:
 	// Select a tab by index (safe, event-free), for undo/redo of tab commands
 	// whose canvas pointer can't be followed. Updates currentCanvas + minimap.
 	void showCanvasIndex(int idx);
-	// Render the current canvas to a PNG (headless --render mode). Output size
-	// follows the canvas client area, which the caller sizes before calling.
-	bool renderToPng(const wxString &path);
-
-	// Workstream G: render the current canvas to a PNG through Skia (engine-
-	// neutral Scene -> raster surface), instead of the OpenGL path above.
-	// Returns false if built without WITH_SKIA.
+	// Render the current canvas to a PNG through Skia (engine-neutral Scene ->
+	// raster surface). This is the headless --render path. Returns false if
+	// built without WITH_SKIA.
 	bool renderToPngSkia(const wxString &path, int width, int height);
 	bool renderToSvgSkia(const wxString &path, int width, int height,
 	                     bool showGrid, bool noColor);
 	bool renderToPdfSkia(const wxString &path, int width, int height,
 	                     bool showGrid, bool noColor);
 
-	// Golden/permutation test hook (headless --render-gate[-skia]): create one
-	// gate of the named type through the real GateLibrary path, rotate it by
-	// `angle` (a gparam string, e.g. "0"/"90"/"180"/"270"), and render just that
-	// gate to a PNG. `skia` picks the Skia path over OpenGL. Renders whatever the
-	// app would create, so it exercises the true shape/pins/params.
+	// Golden/permutation test hook (headless --render-gate): create one gate of
+	// the named type through the real GateLibrary path, rotate it by `angle` (a
+	// gparam string, e.g. "0"/"90"/"180"/"270"), and render just that gate to a
+	// PNG. Renders whatever the app would create, so it exercises the true
+	// shape/pins/params.
 	bool renderSingleGate(const std::string &gateName, const std::string &angle,
-	                      const wxString &path, int width, int height, bool skia);
+	                      const wxString &path, int width, int height);
 
 	// Wire-router test hook (headless --wire-shape): place two gates a fixed
 	// distance apart, connect A's first output to B's first input (which runs

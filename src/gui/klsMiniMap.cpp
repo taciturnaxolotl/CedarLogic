@@ -38,11 +38,9 @@ klsMiniMap::klsMiniMap(wxWindow *parent, wxWindowID id,
 	currentCanvas = NULL;
 }
 
+// Compute the fit box the thumbnail is drawn into (minCorner/maxCorner) and the
+// content signature that caches it. Must run before generateImageSkia().
 void klsMiniMap::setViewport() {
-	// Set the projection matrix:	
-	glMatrixMode (GL_PROJECTION);
-	glLoadIdentity ();
-
 	wxSize sz = GetClientSize();
 	float minX = FLT_MAX, minY = FLT_MAX, maxX = -FLT_MAX, maxY = -FLT_MAX;
 	// Accumulate a cheap content signature (gate ids + positions) so the Skia
@@ -107,13 +105,7 @@ void klsMiniMap::setViewport() {
 		orthoBoxBR = GLPoint2f( maxCorner.x + 0.5*(imageWidth - mapWidth), maxCorner.y );
 	}
 
-	// gluOrtho2D(left, right, bottom, top); (In world-space coords.)
-	gluOrtho2D(orthoBoxTL.x, orthoBoxBR.x, orthoBoxBR.y, orthoBoxTL.y);
-	// Use physical pixels for glViewport on HiDPI/Retina displays
-	double scaleFactor = GetContentScaleFactor();
-	glViewport(0, 0, (GLint)(sz.GetWidth() * scaleFactor), (GLint)(sz.GetHeight() * scaleFactor));
-
-	// Store minCorner and maxCorner for use in mouse handler:
+	// Store minCorner and maxCorner for use in the Skia render + mouse handler:
 	minCorner = orthoBoxTL;
 	maxCorner = orthoBoxBR;
 
@@ -125,10 +117,6 @@ void klsMiniMap::setViewport() {
 	mix(appConfig().appSettings.wireConnVisible ? 1u : 0u);
 	mixf((float)appConfig().appSettings.wireConnRadius);
 	contentSig = sig;
-
-	// Set the model matrix:
-	glMatrixMode (GL_MODELVIEW);
-	glLoadIdentity ();
 }
 
 // Render the whole circuit through Skia, via the same Scene seam the main

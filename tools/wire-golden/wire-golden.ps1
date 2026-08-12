@@ -49,7 +49,7 @@ foreach ($f in $fixtures) {
     $stem = $f.BaseName.Replace(' ', '_')
     $out = Join-Path $dest ($stem + '.png')
     $p = Start-Process $exePath -PassThru -WindowStyle Hidden -ArgumentList `
-        "--render-skia", ('"' + $f.FullName + '"'), ('"' + $out + '"'), $Width, $Height
+        "--render", ('"' + $f.FullName + '"'), ('"' + $out + '"'), $Width, $Height
     if ($p.WaitForExit(30000)) {
         Write-Host ("  {0,-28} exit={1}" -f $f.Name, $p.ExitCode)
     } else { $p.Kill(); Write-Host ("  {0,-28} TIMEOUT" -f $f.Name) }

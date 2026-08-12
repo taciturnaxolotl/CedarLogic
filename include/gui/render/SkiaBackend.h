@@ -57,12 +57,6 @@ public:
 	// text into `surface`, then flush. Renders to whatever the surface targets.
 	void probe(SkSurface* surface);
 
-	// Restore the fixed-function-friendly GL state Ganesh leaves bound (shader
-	// program, VBO/VAO, texture, framebuffer) so the app's remaining GL rendering
-	// -- the GL fallback when the Skia renderer is toggled off -- draws correctly
-	// on the shared context. Call after a Skia window frame is flushed.
-	void resetGLStateForLegacy();
-
 	// Minimap thumbnail cache (used by skiaRenderWindowCached). The cached image
 	// is reused while `key` and the size match; setMinimapCache replaces it.
 	bool minimapCacheHit(unsigned long long key, int w, int h) const;
@@ -82,7 +76,7 @@ private:
 	SkiaBackend& operator=(const SkiaBackend&);
 
 	sk_sp<GrDirectContext> fContext;
-	sk_sp<const GrGLInterface> fInterface;   // GL functions, for resetGLStateForLegacy
+	sk_sp<const GrGLInterface> fInterface;   // native GL binding Ganesh drives
 	sk_sp<SkImage> fMinimapCache;   // declared after fContext: destructs first
 	unsigned long long fMinimapKey = 0;
 	int fMinimapW = 0, fMinimapH = 0;

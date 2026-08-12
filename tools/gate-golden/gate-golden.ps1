@@ -4,8 +4,8 @@
 
 .DESCRIPTION
   Renders every library gate through the headless single-gate hook
-  (--render-gate[-skia]) across a matrix of rotations and engines, so a change
-  to the gate-drawing pipeline can be checked against a captured baseline.
+  (--render-gate) across a matrix of rotations, so a change to the gate-drawing
+  pipeline can be checked against a captured baseline.
 
   capture : render the whole matrix into -OutDir.
   compare : diff a -Candidate set against a -Baseline set, per image, using an
@@ -35,14 +35,16 @@ param(
     [string]$Candidate,     # compare: set under test
 
     [int[]]$Angles = @(0, 90, 180, 270),
-    [ValidateSet("skia", "gl")]
-    [string[]]$Engines = @("skia", "gl"),
+    # Skia is the only renderer; the parameter survives so the output filenames
+    # keep their "__<engine>" suffix (baselines captured with it still match).
+    [ValidateSet("skia")]
+    [string[]]$Engines = @("skia"),
     [int]$Size = 256,
 
     [string[]]$Gates,       # optional subset; default = every gate in GateDefs
     [int]$Throttle = 8,     # max concurrent render processes (capture)
 
-    # Directory that CONTAINS res/ (res/cl_gatedefs.xml, res/arial.glf). Pinned
+    # Directory that CONTAINS res/ (res/cl_gatedefs.xml). Pinned
     # via CEDARLOGIC_RESOURCES_DIR so every render reads a known gate library --
     # otherwise the exe's default resources dir wins and edits to the repo's
     # res/ are invisible, making the comparison meaningless. Defaults to repo root.
@@ -132,9 +134,8 @@ function Invoke-Capture {
     $jobs = foreach ($g in $gateList) {
         foreach ($a in $Angles) {
             foreach ($e in $Engines) {
-                $flag = if ($e -eq "skia") { "--render-gate-skia" } else { "--render-gate" }
                 $file = Join-Path $dest ("{0}__a{1}__{2}.png" -f $g, $a, $e)
-                [pscustomobject]@{ Gate = $g; Angle = $a; Engine = $e; Flag = $flag; File = $file }
+                [pscustomobject]@{ Gate = $g; Angle = $a; Engine = $e; Flag = "--render-gate"; File = $file }
             }
         }
     }

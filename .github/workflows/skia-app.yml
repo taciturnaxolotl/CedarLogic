@@ -86,9 +86,9 @@ jobs:
           echo "probe png size: $sz bytes"
           test "$sz" -gt 1000
 
-      # Render a real circuit through the full Scene -> Skia pipeline, and the
-      # same fixture via the GL path, for side-by-side comparison. Fail if the
-      # Skia PNG is blank/missing.
+      # Render a real circuit through the full Scene -> Skia pipeline. Skia is the
+      # only renderer, so there is nothing to compare against -- just check the
+      # PNG landed and isn't blank.
       # Best-effort (non-fatal, time-boxed): the app's headless render brings up
       # a wx frame, which can hang under headless software GL -- so a stall here
       # must not fail the job (the build + Skia probe above are the hard gates).
@@ -100,13 +100,16 @@ jobs:
         run: |
           fixture="format/tests/fixtures/Lab5.cdl"
           echo "rendering $fixture through Skia (raster, no GL window)"
-          timeout 200 xvfb-run -a ./build/CedarLogic --render-skia "$fixture" skia-circuit.png 900 650 \
+          timeout 200 xvfb-run -a ./build/CedarLogic --render "$fixture" skia-circuit.png 900 650 \
             || echo "skia circuit render exit $? (non-fatal)"
-          (ls -l skia-circuit.png && echo "skia size: $(stat -c%s skia-circuit.png)") || echo "no skia-circuit.png"
-          echo "rendering $fixture via GL (baseline)"
-          timeout 200 xvfb-run -a ./build/CedarLogic --render "$fixture" gl-circuit.png 900 650 \
-            || echo "gl circuit render exit $? (non-fatal)"
-          (ls -l gl-circuit.png) || echo "no gl-circuit.png"
+          if [ -f skia-circuit.png ]; then
+            ls -l skia-circuit.png
+            sz=$(stat -c%s skia-circuit.png)
+            echo "skia size: $sz bytes"
+            test "$sz" -gt 1000
+          else
+            echo "no skia-circuit.png"
+          fi
 
       - name: Upload test build (Linux)
         if: matrix.name == 'linux'
@@ -117,7 +120,6 @@ jobs:
             dist
             skia-probe.png
             skia-circuit.png
-            gl-circuit.png
           if-no-files-found: error
 
       # Windows: system wxWidgets isn't available, so this also FetchContent-builds

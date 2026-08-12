@@ -479,10 +479,9 @@ bool MainApp::OnInit()
     string cmdFilename;
     string renderOutput;
     int renderW = 1600, renderH = 1000;
-    bool renderSkia = false;   // --render-skia routes through Skia instead of GL
     bool renderSvg = false;    // --render-svg writes a vector SVG via Skia
     bool renderPdf = false;    // --render-pdf writes a vector PDF via Skia
-    bool renderGate = false;   // --render-gate[-skia] renders one library gate
+    bool renderGate = false;   // --render-gate renders one library gate
     bool wireShape = false;    // --wire-shape dumps a routed wire's segment map
     bool wireDrag = false;     // --wire-drag dumps a wire's segment map after a seg drag
     std::string gateName, gateAngle;
@@ -500,10 +499,10 @@ bool MainApp::OnInit()
         renderOutput = argv[6].ToStdString();
     } else if (argc >= 5 && (wxString(argv[1]) == "--render-gate" ||
                       wxString(argv[1]) == "--render-gate-skia")) {
-        // --render-gate[-skia] <GATENAME> <angle> <out.png> [W H]
+        // --render-gate <GATENAME> <angle> <out.png> [W H]. Skia is the only
+        // renderer, so --render-gate-skia is an accepted alias for the same path.
         renderMode().headlessRender = true;
         renderGate = true;
-        renderSkia = (wxString(argv[1]) == "--render-gate-skia");
         gateName = argv[2].ToStdString();
         gateAngle = argv[3].ToStdString();
         renderOutput = argv[4].ToStdString();
@@ -512,8 +511,8 @@ bool MainApp::OnInit()
                       wxString(argv[1]) == "--render-skia" ||
                       wxString(argv[1]) == "--render-svg" ||
                       wxString(argv[1]) == "--render-pdf")) {
+        // --render-skia is an accepted alias of --render (one renderer).
         renderMode().headlessRender = true;
-        renderSkia = (wxString(argv[1]) == "--render-skia");
         renderSvg = (wxString(argv[1]) == "--render-svg");
         renderPdf = (wxString(argv[1]) == "--render-pdf");
         cmdFilename = argv[2].ToStdString();
@@ -558,7 +557,7 @@ bool MainApp::OnInit()
         frame->Show(true);
         wxYield();
         bool ok = frame->renderSingleGate(gateName, gateAngle, renderOutput,
-                                          renderW, renderH, renderSkia);
+                                          renderW, renderH);
         fflush(nullptr);
         std::_Exit(ok ? 0 : 1);
     }
@@ -593,9 +592,7 @@ bool MainApp::OnInit()
             : renderSvg
             ? frame->renderToSvgSkia(renderOutput, renderW, renderH,
                                      /*showGrid=*/true, /*noColor=*/false)
-            : renderSkia
-            ? frame->renderToPngSkia(renderOutput, renderW, renderH)
-            : frame->renderToPng(renderOutput);
+            : frame->renderToPngSkia(renderOutput, renderW, renderH);
         // The PNG is written; exit immediately rather than tear down the (shown)
         // frame + autosave thread, which otherwise hangs this one-shot process.
         fflush(nullptr);
