@@ -7,6 +7,7 @@
 #include <string>
 #include <map>
 #include <wx/bitmap.h>
+#include <wx/generic/statbmpg.h>
 
 using namespace std;
 
@@ -29,7 +30,11 @@ private:
 
 	wxTextCtrl* searchField;
 	wxListBox* resultList;
-	wxStaticBitmap* previewImage;
+	// Owner-drawn (generic) static bitmap, NOT the native wxStaticBitmap: on MSW
+	// the native STATIC control won't re-blit a bitmap handle it previously held
+	// and swapped away from, so a cached preview shown once never repainted when
+	// you navigated back to it. The generic control paints via wxDC every time.
+	wxGenericStaticBitmap* previewImage;
 	string selectedGate;
 
 	struct GateEntry {

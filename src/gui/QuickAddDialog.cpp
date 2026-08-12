@@ -5,6 +5,7 @@
 #include "wx/statbmp.h"
 #include "wx/dcmemory.h"
 #include "wx/sizer.h"
+#include "wx/graphics.h"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -15,6 +16,19 @@ DECLARE_APP(MainApp)
 #define ID_SEARCH_FIELD 7770
 #define ID_RESULT_LIST 7771
 #define PREVIEW_SIZE 128
+
+// A white-cleared bitmap. Two gotchas rolled into one helper: plain
+// `wxBitmap(w,h)` is uninitialized (garbage, often black), and the default depth
+// gives it a 32-bit alpha channel that GDI drawing never fills -- so the alpha
+// stays 0 (fully transparent) and the image blanks out the moment the static
+// control repaints through its alpha path. Force 24-bit (no alpha) and clear.
+static wxBitmap blankPreview(int width, int height) {
+	wxBitmap bmp(width, height, 24);
+	wxMemoryDC dc(bmp);
+	dc.SetBackground(*wxWHITE_BRUSH);
+	dc.Clear();
+	return bmp;
+}
 
 QuickAddDialog::QuickAddDialog(wxWindow* parent)
 	: wxDialog(parent, wxID_ANY, "Add Component", wxDefaultPosition, wxSize(480, 400),
@@ -43,13 +57,8 @@ QuickAddDialog::QuickAddDialog(wxWindow* parent)
 	contentSizer->Add(resultList, 1, wxEXPAND | wxRIGHT, 12);
 
 	// Preview image on the right
-	wxBitmap blank(PREVIEW_SIZE, PREVIEW_SIZE);
-	{
-		wxMemoryDC dc(blank);
-		dc.SetBackground(*wxWHITE_BRUSH);
-		dc.Clear();
-	}
-	previewImage = new wxStaticBitmap(this, wxID_ANY, blank, wxDefaultPosition, wxSize(PREVIEW_SIZE, PREVIEW_SIZE));
+	wxBitmap blank = blankPreview(PREVIEW_SIZE, PREVIEW_SIZE);
+	previewImage = new wxGenericStaticBitmap(this, wxID_ANY, blank, wxDefaultPosition, wxSize(PREVIEW_SIZE, PREVIEW_SIZE));
 	contentSizer->Add(previewImage, 0, wxALIGN_TOP);
 
 	topSizer->Add(contentSizer, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 16);
@@ -70,18 +79,56 @@ QuickAddDialog::QuickAddDialog(wxWindow* parent)
 
 wxBitmap QuickAddDialog::renderGatePreview(const string& gateName, int width, int height) {
 	string libName = gateLibrary().gateNameToLibrary[gateName];
-	if (libName.empty()) return wxBitmap(width, height);
+	if (libName.empty()) return blankPreview(width, height);
 
 	LibraryGate& gateDef = gateLibrary().libraries[libName][gateName];
-	if (gateDef.shape.empty()) return wxBitmap(width, height);
 
-	// Find bounding box of all lines
+	// Flatten every stroke -- straight lines plus the structured arcs and circles
+	// (Workstream G) -- into segments in gate space. The old preview drew only
+	// gateDef.shape, so curved bodies and inversion bubbles went missing, and a
+	// curve-only gate (empty shape) rendered as a garbage bitmap.
+	struct Seg { float x1, y1, x2, y2; };
+	vector<Seg> segs;
+
+	for (auto& line : gateDef.shape)
+		segs.push_back({ line.x1, line.y1, line.x2, line.y2 });
+
+	// Arc/circle tessellation matches guiGate's GL path: angle in degrees from
+	// +Y increasing clockwise toward +X, point = (cx + r*sin, cy + r*cos).
+	const float DEG = 3.14159265358979323846f / 180.0f;
+
+	for (auto& a : gateDef.arcs) {
+		const int N = 48;
+		float px = a.cx + a.r * sinf(a.startDeg * DEG);
+		float py = a.cy + a.r * cosf(a.startDeg * DEG);
+		for (int i = 1; i <= N; i++) {
+			float d = (a.startDeg + a.sweepDeg * (float)i / (float)N) * DEG;
+			float x = a.cx + a.r * sinf(d), y = a.cy + a.r * cosf(d);
+			segs.push_back({ px, py, x, y });
+			px = x; py = y;
+		}
+	}
+
+	for (auto& c : gateDef.circles) {
+		int N = c.segs > 0 ? c.segs : 12;
+		float px = c.cx, py = c.cy + c.r;  // start at the top, as the GL path does
+		for (int i = 1; i <= N; i++) {
+			float d = (360.0f * (float)i / (float)N) * DEG;
+			float x = c.cx + c.r * sinf(d), y = c.cy + c.r * cosf(d);
+			segs.push_back({ px, py, x, y });
+			px = x; py = y;
+		}
+	}
+
+	if (segs.empty()) return blankPreview(width, height);
+
+	// Frame by the true extent of every stroke, not just the lines.
 	float minX = FLT_MAX, minY = FLT_MAX, maxX = -FLT_MAX, maxY = -FLT_MAX;
-	for (auto& line : gateDef.shape) {
-		minX = min({minX, line.x1, line.x2});
-		minY = min({minY, line.y1, line.y2});
-		maxX = max({maxX, line.x1, line.x2});
-		maxY = max({maxY, line.y1, line.y2});
+	for (auto& s : segs) {
+		minX = min({minX, s.x1, s.x2});
+		minY = min({minY, s.y1, s.y2});
+		maxX = max({maxX, s.x1, s.x2});
+		maxY = max({maxY, s.y1, s.y2});
 	}
 
 	float shapeW = maxX - minX;
@@ -89,39 +136,52 @@ wxBitmap QuickAddDialog::renderGatePreview(const string& gateName, int width, in
 	if (shapeW < 0.001f) shapeW = 1.0f;
 	if (shapeH < 0.001f) shapeH = 1.0f;
 
-	int margin = 12;
-	int drawW = width - 2 * margin;
-	int drawH = height - 2 * margin;
+	// Supersampled anti-aliasing: plain GDI lines are crisp but jagged, while a
+	// straight anti-aliased stroke at this size looks soft/blurry. So render at
+	// SS times the resolution with a wxGraphicsContext (GDI+/Direct2D smooths the
+	// edges), then downscale with a high-quality filter -- crisp AND smooth.
+	const int SS = 3;
+	const int W = width * SS, H = height * SS;
+	const int margin = 12 * SS;
+	const int drawW = W - 2 * margin;
+	const int drawH = H - 2 * margin;
 
 	float scale = min((float)drawW / shapeW, (float)drawH / shapeH);
 	float offsetX = margin + (drawW - shapeW * scale) / 2.0f;
 	float offsetY = margin + (drawH - shapeH * scale) / 2.0f;
 
-	wxBitmap bmp(width, height);
-	wxMemoryDC dc(bmp);
+	wxBitmap big(W, H, 24);  // 24-bit: no alpha channel (see blankPreview)
+	wxMemoryDC dc(big);
 	dc.SetBackground(*wxWHITE_BRUSH);
 	dc.Clear();
-	dc.SetPen(wxPen(*wxBLACK, 2));
 
-	for (auto& line : gateDef.shape) {
-		int x1 = (int)(offsetX + (line.x1 - minX) * scale);
-		int y1 = (int)(offsetY + (maxY - line.y1) * scale);
-		int x2 = (int)(offsetX + (line.x2 - minX) * scale);
-		int y2 = (int)(offsetY + (maxY - line.y2) * scale);
-		dc.DrawLine(x1, y1, x2, y2);
+	wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
+	if (gc) {
+		gc->SetPen(wxPen(*wxBLACK, 2.0 * SS));  // ~2px once downscaled
+		wxGraphicsPath path = gc->CreatePath();
+		for (auto& s : segs) {
+			path.MoveToPoint(offsetX + (s.x1 - minX) * scale, offsetY + (maxY - s.y1) * scale);
+			path.AddLineToPoint(offsetX + (s.x2 - minX) * scale, offsetY + (maxY - s.y2) * scale);
+		}
+		gc->StrokePath(path);
+		delete gc;  // flush the drawing into the bitmap before it's read back
+	} else {
+		dc.SetPen(wxPen(*wxBLACK, 2 * SS));
+		for (auto& s : segs) {
+			dc.DrawLine((int)(offsetX + (s.x1 - minX) * scale), (int)(offsetY + (maxY - s.y1) * scale),
+			            (int)(offsetX + (s.x2 - minX) * scale), (int)(offsetY + (maxY - s.y2) * scale));
+		}
 	}
 
-	return bmp;
+	wxImage img = big.ConvertToImage();
+	img.Rescale(width, height, wxIMAGE_QUALITY_HIGH);
+	return wxBitmap(img);
 }
 
 void QuickAddDialog::updatePreview() {
 	int sel = resultList->GetSelection();
 	if (sel == wxNOT_FOUND) {
-		wxBitmap blank(PREVIEW_SIZE, PREVIEW_SIZE);
-		wxMemoryDC dc(blank);
-		dc.SetBackground(*wxWHITE_BRUSH);
-		dc.Clear();
-		previewImage->SetBitmap(blank);
+		previewImage->SetBitmap(blankPreview(PREVIEW_SIZE, PREVIEW_SIZE));
 		return;
 	}
 
@@ -130,13 +190,10 @@ void QuickAddDialog::updatePreview() {
 	string gateName = data->GetData().ToStdString();
 
 	auto it = previewCache.find(gateName);
-	if (it != previewCache.end()) {
-		previewImage->SetBitmap(it->second);
-	} else {
-		wxBitmap bmp = renderGatePreview(gateName, PREVIEW_SIZE, PREVIEW_SIZE);
-		previewCache[gateName] = bmp;
-		previewImage->SetBitmap(bmp);
+	if (it == previewCache.end()) {
+		it = previewCache.emplace(gateName, renderGatePreview(gateName, PREVIEW_SIZE, PREVIEW_SIZE)).first;
 	}
+	previewImage->SetBitmap(it->second);
 }
 
 int QuickAddDialog::fuzzyScore(const string& query, const string& target) {
