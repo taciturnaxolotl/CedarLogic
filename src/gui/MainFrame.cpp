@@ -1407,10 +1407,27 @@ wxBitmap MainFrame::getBitmap(bool withGrid, bool noColor, int multiplier) {
 	appConfig().appSettings.gridlineVisible = withGrid;
 	renderMode().doingBitmapExport = true;
 
-	// render the image
-	// When noColor is true, it renders gates/wires as black line drawings (perfect for printing)
+	// Render through Skia into an offscreen raster surface. This replaces the old
+	// offscreen-GL readback: no second (unshared) GL context, and the same
+	// renderer as the screen, so an export matches what the canvas shows.
+	// noColor renders gates/wires as black line drawings, for printing.
 	wxSize imageSize = currentCanvas->GetClientSize();
-	wxImage circuitImage = currentCanvas->renderToImage(imageSize.GetWidth() * multiplier, imageSize.GetHeight() * multiplier, 32, noColor);
+	const int w = imageSize.GetWidth() * multiplier;
+	const int h = imageSize.GetHeight() * multiplier;
+	wxImage circuitImage(w, h);
+	{
+		GUICanvas *canvas = currentCanvas;
+		cl::render::RenderStyle style = noColor ? cl::render::RenderStyle::print()
+		                                        : cl::render::RenderStyle::screen();
+		style.showGrid = withGrid;
+		if (!cl::render::skiaRenderToRGB(w, h,
+				[canvas, &style, w, h](cl::render::Scene &scene) {
+					canvas->renderToScene(scene, style, w, h);
+				},
+				circuitImage.GetData())) {
+			circuitImage.Clear(0xFF);   // white, so a failure exports blank not garbage
+		}
+	}
 	wxBitmap circuitBitmap(circuitImage);
 
 	// restore grid display setting

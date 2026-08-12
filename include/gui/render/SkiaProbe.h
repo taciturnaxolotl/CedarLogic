@@ -29,6 +29,16 @@ bool skiaProbeToPng(const char* path, int width, int height);
 bool skiaRenderToPng(const char* path, int width, int height,
                      const std::function<void(Scene&)>& draw);
 
+// Render a scene into an offscreen raster surface (cleared to white) and copy
+// the result out as tightly packed, top-down RGB -- 3 bytes per pixel, so the
+// caller must provide width*height*3 bytes. Lets non-Skia code (bitmap export,
+// the clipboard, palette thumbnails) get pixels without a temporary file and
+// without pulling in Skia headers. Returns false if the surface or readback
+// failed.
+bool skiaRenderToRGB(int width, int height,
+                     const std::function<void(Scene&)>& draw,
+                     unsigned char* outRgb);
+
 // Render a scene straight into the currently-bound window framebuffer via Skia's
 // Ganesh GL backend, then flush (the caller presents with SwapBuffers). The GL
 // context must be current. `fboId` is the target framebuffer (0 = window).

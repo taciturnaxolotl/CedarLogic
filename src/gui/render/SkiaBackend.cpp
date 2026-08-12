@@ -229,6 +229,32 @@ bool skiaProbeToPng(const char* path, int width, int height) {
 	return SkPngEncoder::Encode(&out, pixmap, SkPngEncoder::Options{});
 }
 
+bool skiaRenderToRGB(int width, int height,
+                     const std::function<void(Scene&)>& draw,
+                     unsigned char* outRgb) {
+	if (width <= 0 || height <= 0 || !outRgb) return false;
+	sk_sp<SkSurface> surface = SkiaBackend::get().rasterSurface(width, height);
+	if (!surface) return false;
+	surface->getCanvas()->clear(SK_ColorWHITE);
+
+	SkiaScene scene(surface->getCanvas(), SkiaBackend::get().defaultFont());
+	draw(scene);
+
+	// Read back straight into a tightly packed RGB buffer: wxImage owns its data
+	// as 3-byte RGB, so let Skia do the N32 -> RGB conversion during readPixels
+	// rather than unpacking by hand.
+	SkImageInfo info = SkImageInfo::Make(width, height, kRGB_888x_SkColorType,
+	                                     kUnpremul_SkAlphaType);
+	std::vector<unsigned char> tmp((size_t)width * height * 4);
+	if (!surface->readPixels(info, tmp.data(), (size_t)width * 4, 0, 0)) return false;
+	for (size_t i = 0, n = (size_t)width * height; i < n; i++) {
+		outRgb[i * 3 + 0] = tmp[i * 4 + 0];
+		outRgb[i * 3 + 1] = tmp[i * 4 + 1];
+		outRgb[i * 3 + 2] = tmp[i * 4 + 2];
+	}
+	return true;
+}
+
 bool skiaRenderToPng(const char* path, int width, int height,
                      const std::function<void(Scene&)>& draw) {
 	sk_sp<SkSurface> surface = SkiaBackend::get().rasterSurface(width, height);
