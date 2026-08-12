@@ -13,7 +13,6 @@
 #include "Settings.h"
 #include "MainApp.h"
 #include "paramDialog.h"
-#include "GLFont/glfont2.h"
 
 // Included to use the min() and max() templates:
 #include <algorithm>
@@ -218,9 +217,6 @@ void klsGLCanvas::wxOnPaint(wxPaintEvent& event) {
 		//anti-alies the gates which looks nice.
 		//glEnable( GL_LINE_SMOOTH );
 		//End of edit
-		
-		// Load the font texture
-		guiText::loadFont(appConfig().appSettings.textFontFile);
 
 		glInitialized = true;
 	}

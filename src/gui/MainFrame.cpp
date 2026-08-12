@@ -19,7 +19,6 @@
 #include "SimBridge.h"
 #include "Settings.h"
 #include "GateLibrary.h"
-#include "guiText.h"
 #include "guiWire.h"
 #include <fstream>
 #include "MainFrame.h"
@@ -1665,14 +1664,6 @@ bool MainFrame::renderSingleGate(const std::string &gateName, const std::string 
                                  const wxString &path, int width, int height, bool skia) {
 	if (currentCanvas == NULL || gCircuit == NULL) return false;
 
-	// Ensure the GL text font's glyph metrics are loaded before any gate is
-	// created: createGate -> calcBBox -> guiText::getBoundingBox reads them, and
-	// in this windowless one-shot the canvas may not have painted (which is what
-	// normally loads the font) yet. Create() reads the metrics from the file
-	// before touching GL, so this is safe without a current context; the texture
-	// reloads at real render time.
-	guiText::loadFont(appConfig().appSettings.textFontFile);
-
 	// Build one gate of this type through the real creation path, so its shape,
 	// hotspots and params are exactly what the app would produce. createGate
 	// registers it in the circuit and stamps its id; we still add it to the
@@ -1706,7 +1697,6 @@ static ProbeScene buildProbeWire(GUICircuit *gCircuit, GUICanvas *canvas,
                                  const std::string &gateA, const std::string &gateB,
                                  const std::string &angleA, const std::string &angleB) {
 	ProbeScene sc;
-	guiText::loadFont(appConfig().appSettings.textFontFile);
 	sc.A = gCircuit->createGate(gateA, -1);
 	sc.B = gCircuit->createGate(gateB, -1);
 	if (sc.A == NULL || sc.B == NULL) { sc.A = sc.B = nullptr; return sc; }

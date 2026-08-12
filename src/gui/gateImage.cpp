@@ -16,7 +16,6 @@
 #include "wx/image.h"
 #include "wx/wx.h"
 #include "klsGLCanvas.h"
-#include "guiText.h"
 #include <fstream>
 #include <wx/dnd.h>
 #include "render/SkiaProbe.h"

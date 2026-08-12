@@ -189,9 +189,9 @@ void SkiaScene::text(Point origin, const char* utf8, float pixelHeight,
 	}
 
 	SkPaint p = fillPaint(c);
-	// The GL bitmap font anchors near the TOP of the text -- glyphs hang below the
-	// draw point, and the label hit box (guiText::getBoundingBox) is computed that
-	// way. SkPath glyphs are baseline-relative, so anchoring at the baseline would
+	// The retired GL bitmap font anchored near the TOP of the text -- glyphs hang
+	// below the draw point, and label hit boxes (TEXT_BOX_TOP/BOTTOM in guiGate.h)
+	// still assume that. SkPath glyphs are baseline-relative, so anchoring at the baseline would
 	// render the text a whole line-height too high, off its hit box. Drop the
 	// baseline by the ascent so the top of the text sits at the origin, matching
 	// the GL font and the hit box.

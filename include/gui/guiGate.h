@@ -26,7 +26,6 @@ class guiWire;
 #include "wx/glcanvas.h"
 #include "logic_values.h"
 #include "XMLParser.h"
-#include "guiText.h"
 #include "klsCollisionChecker.h"
 #include "klsMessage.h"
 #include "wx/docview.h"
@@ -419,6 +418,16 @@ protected:
 // ************************ Labels *************************
 #define SELECTED_LABEL_INTENSITY 0.50
 
+// Skia's em size runs larger than the retired GL bitmap font's nominal height,
+// so text is drawn at TEXT_HEIGHT * this to keep cap heights matching.
+#define TEXT_SKIA_SCALE 1.35f
+
+// Vertical text metrics inherited from the retired GL font, so hit boxes stay
+// where they were: glyphs hang below the draw anchor, from -TEXT_BOX_BOTTOM to
+// -TEXT_BOX_TOP times TEXT_HEIGHT.
+#define TEXT_BOX_TOP 0.28339
+#define TEXT_BOX_BOTTOM 1.41661
+
 class guiLabel : public guiGate {
 public:
 	guiLabel();
@@ -444,7 +453,8 @@ public:
 	void setGUIParam( string paramName, string value );
 
 private:
-	guiText theText;
+	// Draw anchor of the label text, in model space (calcBBox keeps it in sync).
+	GLPoint2f textPos;
 };
 
 
@@ -471,7 +481,9 @@ public:
 	void setLogicParam( string paramName, string value );
 
 private:
-	guiText theText;
+	string textString = "Text";
+	GLPoint2f textPos;
+	float textWidth = 0.0f;
 };
 
 

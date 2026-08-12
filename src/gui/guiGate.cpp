@@ -20,9 +20,7 @@
 #include "guiWire.h"
 #include "render/Scene.h"
 #include "render/RenderStyle.h"
-#ifdef WITH_SKIA
-#include "render/SkiaProbe.h"    // measuredTextWidth -- size label hit box to rendered text
-#endif
+#include "render/SkiaProbe.h"    // measuredTextWidth -- size text hit boxes to what renders
 
 DECLARE_APP(MainApp)
 
@@ -1062,8 +1060,6 @@ void guiLabel::drawToScene(cl::render::Scene& scene,
 	t.c = (float)mModel[4];  t.d = (float)mModel[5];
 	t.e = (float)mModel[12]; t.f = (float)mModel[13];
 	scene.pushTransform(t);
-	double px, py;
-	theText.getPosition(px, py);
 	std::string txt = getGUIParam("LABEL_TEXT");
 	// Tint the text red when selected -- a label has no outline to dash, so this
 	// is its only selection cue.
@@ -1072,10 +1068,8 @@ void guiLabel::drawToScene(cl::render::Scene& scene,
 		float cc = 1.0f - (float)SELECTED_LABEL_INTENSITY;
 		textColor = Color(1.0f, cc / 4.0f, cc / 4.0f, (float)SELECTED_LABEL_INTENSITY);
 	}
-	// SkFont em size runs larger than the GL font's nominal height; scale down
-	// so cap heights roughly match the golden.
-	scene.text(Point((float)px, (float)py), txt.c_str(),
-	           (float)getTextHeight() * 1.35f, textColor);
+	scene.text(Point(textPos.x, textPos.y), txt.c_str(),
+	           (float)getTextHeight() * TEXT_SKIA_SCALE, textColor);
 	scene.popTransform();
 }
 
@@ -1101,11 +1095,6 @@ void guiLabel::setGUIParam( string paramName, string value ) {
 	
 		guiGate::setGUIParam( paramName, value );
 
-		string labelText = getGUIParam("LABEL_TEXT");
-		GLdouble height = getTextHeight();
-		theText.setSize( height );
-		theText.setText( labelText );
-
 		//Sets bounding box size
 		this->calcBBox();
 	} else {
@@ -1114,24 +1103,16 @@ void guiLabel::setGUIParam( string paramName, string value ) {
 }
 
 void guiLabel::calcBBox( void ) {
-	GLbox textBBox = theText.getBoundingBox();
-	float w = fabs(textBBox.right - textBBox.left); // GLFont width (fallback)
-#ifdef WITH_SKIA
-	// Skia draws the text NARROWER than the GL font at the cap-height-matched
-	// size, so a GLFont-width box left slack on the side. Size the box to the
-	// width Skia actually renders (drawToScene uses TEXT_HEIGHT*1.35).
-	{
-		float sw = cl::render::measuredTextWidth(getGUIParam("LABEL_TEXT").c_str(),
-		                                         (float)getTextHeight() * 1.35f);
-		if (sw > 0.0f) w = sw;
-	}
-#endif
-	float dx = w / 2.0f;
-	float dy = fabs(textBBox.top - textBBox.bottom) / 2.0f;
-	theText.setPosition(-dx, +dy);              // centers the text about the origin
+	// Size the hit box to the width Skia actually renders the label at.
+	const GLdouble height = getTextHeight();
+	const float w = cl::render::measuredTextWidth(getGUIParam("LABEL_TEXT").c_str(),
+	                                              (float)height * TEXT_SKIA_SCALE);
+	const float dx = w / 2.0f;
+	const float dy = (float)((TEXT_BOX_BOTTOM - TEXT_BOX_TOP) * height / 2.0);
+	textPos = GLPoint2f(-dx, +dy);              // centers the text about the origin
 	modelBBox.reset();
-	modelBBox.addPoint( GLPoint2f(-dx, textBBox.bottom + dy) );
-	modelBBox.addPoint( GLPoint2f(+dx, textBBox.top + dy) );
+	modelBBox.addPoint( GLPoint2f(-dx, dy - (float)(TEXT_BOX_BOTTOM * height)) );
+	modelBBox.addPoint( GLPoint2f(+dx, dy - (float)(TEXT_BOX_TOP * height)) );
 
 	// Recalculate the world-space bbox:
 	updateBBoxes();
@@ -1147,9 +1128,6 @@ guiTO_FROM::guiTO_FROM() {
 	// and that wants to know that the gate's type is, which we don't know yet.
 	
 	guiGate();
-	
-	// Initialize the text object:
-	theText.setSize( TO_FROM_TEXT_HEIGHT );
 }
 
 // A custom setParam function is required because
@@ -1171,8 +1149,6 @@ void guiTO_FROM::drawToScene(cl::render::Scene& scene,
 	const std::string angle = getGUIParam("angle");
 	const bool flipped = (angle == "180" || angle == "90");
 	if (flipped) {
-		GLbox bb = theText.getBoundingBox();
-		const double textWidth = bb.right - bb.left;
 		const int direction = (getGUIType() == "TO") ? +1
 		                    : (getGUIType() == "FROM") ? -1 : 0;
 		const double dx = direction * (textWidth + FLIPPED_OFFSET);
@@ -1182,16 +1158,13 @@ void guiTO_FROM::drawToScene(cl::render::Scene& scene,
 		scene.pushTransform(r);
 	}
 
-	double px, py;
-	theText.getPosition(px, py);
-	std::string txt = theText.getText();
 	Color textColor = style.gateStroke(GateKind::Generic);
 	if (selected && style.showSelection) {   // red tint = selected (mirrors GL)
 		float cc = 1.0f - (float)SELECTED_LABEL_INTENSITY;
 		textColor = Color(1.0f, cc / 4.0f, cc / 4.0f, (float)SELECTED_LABEL_INTENSITY);
 	}
-	scene.text(Point((float)px, (float)py), txt.c_str(),
-	           (float)TO_FROM_TEXT_HEIGHT * 1.35f, textColor);
+	scene.text(Point(textPos.x, textPos.y), textString.c_str(),
+	           (float)TO_FROM_TEXT_HEIGHT * TEXT_SKIA_SCALE, textColor);
 
 	if (flipped) scene.popTransform();
 	scene.popTransform();
@@ -1201,9 +1174,7 @@ void guiTO_FROM::setLogicParam( string paramName, string value ) {
 	if( paramName == "JUNCTION_ID" ) {
 		guiGate::setLogicParam( paramName, value );
 
-		string labelText = getLogicParam("JUNCTION_ID");
-		theText.setText( labelText );
-		theText.setSize( TO_FROM_TEXT_HEIGHT );
+		textString = getLogicParam("JUNCTION_ID");
 
 		//Sets bounding box size
 		this->calcBBox();
@@ -1217,21 +1188,26 @@ void guiTO_FROM::calcBBox( void ) {
 	// Set the gate's bounding box based on the lines:
 	guiGate::calcBBox();
 
-	// Get the text's bounding box:	
-	GLbox textBBox = theText.getBoundingBox();
+	// The label's width as Skia actually renders it:
+	textWidth = cl::render::measuredTextWidth(
+		textString.c_str(), (float)TO_FROM_TEXT_HEIGHT * TEXT_SKIA_SCALE);
 
-	// Adjust the bounding box based on the text's bbox:
-	GLdouble textWidth = textBBox.right - textBBox.left;
+	// Adjust the bounding box based on the text's width:
 	if( getGUIType() == "TO" ) {
+		textPos = GLPoint2f( (float)TO_BUFFER, (float)(TO_FROM_TEXT_HEIGHT/2+0.30) );
 		GLPoint2f bR = modelBBox.getBottomRight();
-		bR.x += textWidth;
+		// Cover the label where it is actually drawn. It starts at TO_BUFFER, so
+		// extending the box by textWidth alone leaves it TO_BUFFER short and the
+		// last glyph falls outside the gate -- and so outside its hit box.
+		const float coverRight = textPos.x + textWidth;   // where the label ends
+		if( bR.x + textWidth > coverRight ) bR.x += textWidth;
+		else                                bR.x  = coverRight;
 		modelBBox.addPoint( bR );
-		theText.setPosition( TO_BUFFER, TO_FROM_TEXT_HEIGHT/2+0.30 );
 	} else if (getGUIType() == "FROM") {
 		GLPoint2f tL = modelBBox.getTopLeft();
 		tL.x -= (textWidth + FROM_BUFFER);
 		modelBBox.addPoint( tL );
-		theText.setPosition( tL.x + FROM_FIX_SHIFT, TO_FROM_TEXT_HEIGHT/2+0.30 );
+		textPos = GLPoint2f( tL.x + (float)FROM_FIX_SHIFT, (float)(TO_FROM_TEXT_HEIGHT/2+0.30) );
 	}
 
 	// Recalculate the world-space bbox:

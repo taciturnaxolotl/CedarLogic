@@ -10,7 +10,6 @@
 
 #include "klsMiniMap.h"
 #include "Settings.h"
-#include "guiText.h"
 
 #include "guiGate.h"
 #include "guiWire.h"

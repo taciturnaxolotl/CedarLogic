@@ -181,14 +181,12 @@ file(GLOB SRC_FILES
 	"${PROJECT_SOURCE_DIR}/src/logic/*.cpp"
 	"${PROJECT_SOURCE_DIR}/src/gui/command/*.cpp"
 	"${PROJECT_SOURCE_DIR}/src/gui/route/*.cpp"
-	"${PROJECT_SOURCE_DIR}/src/gui/GLFont/*.cpp"
 	"${PROJECT_SOURCE_DIR}/include/*.h"
 	"${PROJECT_SOURCE_DIR}/include/gui/*.h"
 	"${PROJECT_SOURCE_DIR}/include/gui/render/*.h"
 	"${PROJECT_SOURCE_DIR}/include/gui/route/*.h"
 	"${PROJECT_SOURCE_DIR}/include/logic/*.h"
 	"${PROJECT_SOURCE_DIR}/include/gui/command/*.h"
-	"${PROJECT_SOURCE_DIR}/include/gui/GLFont/*.h"
 )
 
 # Skia backend translation units (SkiaScene/SkiaBackend) compile only when Skia
@@ -279,7 +277,6 @@ include_directories(
 	"${PROJECT_SOURCE_DIR}/include/gui/"
 	"${PROJECT_SOURCE_DIR}/include/logic/"
 	"${PROJECT_SOURCE_DIR}/include/gui/command/"
-	"${PROJECT_SOURCE_DIR}/include/gui/GLFont/"
 	"${PROJECT_SOURCE_DIR}/format/"
 	"${CMAKE_CURRENT_BINARY_DIR}"
 )
