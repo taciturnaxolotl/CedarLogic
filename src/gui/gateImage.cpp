@@ -157,42 +157,55 @@ void gateImage::setViewport() {
 
 // Print the canvas contents to a bitmap:
 void gateImage::generateImage() {
-	glImageCtx glCtx(GATEIMAGESIZE, GATEIMAGESIZE, this);
+	// Supersampled anti-aliasing. The offscreen GL path (a software DIB context on
+	// Windows) has no multisampling, so gate outlines baked into the thumbnail
+	// came out jagged. Render several times larger with a matching line width,
+	// then downscale with a high-quality filter -- the result is smooth. (Skia
+	// already anti-aliases the canvas; this brings the palette up to par.)
+	const int SS = 4;
+	const int renderSize = GATEIMAGESIZE * SS;
+
+	glImageCtx glCtx(renderSize, renderSize, this);
 
 	// Setup the viewport for rendering:
 	setViewport();
-	// Reset the glViewport to the size of the bitmap:
-	glViewport(0, 0, GATEIMAGESIZE, GATEIMAGESIZE);
-	
+	// Reset the glViewport to the (supersampled) size of the bitmap:
+	glViewport(0, 0, renderSize, renderSize);
+
 	// Set the bitmap clear color:
 	glClearColor (1.0, 1.0, 1.0, 0.0);
 	glColor3b(0, 0, 0);
 
 	glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
-		
+
 	//TODO: Check if alpha is hardware supported, and
 	// don't enable it if not!
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_BLEND);
 
 	glTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
-	
-	//*********************************
-	//Edit by Joshua Lansford 4/09/07
-	//anti-alis ing is nice
-	glEnable( GL_LINE_SMOOTH );
-	//End of edit
+
+	// SSAA does the smoothing, so draw plain aliased lines: GL_LINE_SMOOTH would
+	// clamp the software renderer's line width to 1px, leaving the strokes too
+	// faint once downscaled. Scale the width by SS so it lands at ~1px after.
+	glDisable( GL_LINE_SMOOTH );
+	glLineWidth( (GLfloat)SS );
 
 	// Load the font texture
 	guiText::loadFont(appConfig().appSettings.textFontFile);
-	
+
 	// Do the rendering here.
 	renderMap();
 
-	// Flush the OpenGL buffer to make sure the rendering has happened:	
+	// Flush the OpenGL buffer to make sure the rendering has happened:
 	glFlush();
 
 	gImage = glCtx.getImage();
+
+	// Downscale the supersampled render -> smooth, anti-aliased thumbnail.
+	if (gImage.IsOk() && gImage.GetWidth() != GATEIMAGESIZE) {
+		gImage.Rescale(GATEIMAGESIZE, GATEIMAGESIZE, wxIMAGE_QUALITY_HIGH);
+	}
 }
 
 void gateImage::renderMap() {
