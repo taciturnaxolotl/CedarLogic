@@ -374,7 +374,17 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	SetToolBar(toolBar);
 	toolBar->Show(true);
 
-    CreateStatusBar(2);
+    // One flat field, keeping the default resize grip. Two artifacts fixed:
+    //   - the old second field (never written) left a divider down the middle,
+    //     so use a single field;
+    //   - the field's sunken 3-D border rendered as a white edge line, because
+    //     wx 3.2's native status bar doesn't theme its borders for dark mode
+    //     (wxWidgets#25521; real dark-mode support is 3.3+). wxSB_FLAT drops the
+    //     border -- and it was the border, not the grip, so the grip stays.
+    // Field 0 still carries wx's automatic menu-hover help text.
+    CreateStatusBar(1);
+    const int fieldStyles[1] = { wxSB_FLAT };
+    GetStatusBar()->SetStatusStyles(1, fieldStyles);
     SetStatusText("");
 
 	mainSizer = new wxBoxSizer( wxHORIZONTAL );
