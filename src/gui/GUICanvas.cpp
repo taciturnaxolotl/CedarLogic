@@ -371,43 +371,24 @@ bool GUICanvas::renderSkiaLive() {
 
 	GUICanvas* self = this;
 	const RenderStyle style = RenderStyle::screen();
-	// Content key + interactive overlay state, so the retained picture repaints as
-	// the hovered pin, drag box/line, or wire hover changes (the overlays follow
-	// the mouse; without this they'd be frozen in the cached SkPicture).
-	unsigned long long overlayKey = renderContentKey();
-	{
-		auto mix = [&overlayKey](unsigned long long v) { overlayKey = (overlayKey ^ v) * 1099511628211ULL; };
-		unsigned long long hh = 1469598103934665603ULL;
-		for (char ch : hotspotHighlight) hh = (hh ^ (unsigned char)ch) * 1099511628211ULL;
-		mix(hh);
-		mix(hotspotGate);
-		mix((unsigned long long)currentDragState);
-		mix(drawWireHover ? 1u : 0u);
-		if (drawWireHover || currentDragState != DRAG_NONE) {
-			GLPoint2f m = getMouseCoords(), s = getDragStartCoords();
-			unsigned a, b, c, d;
-			std::memcpy(&a, &m.x, 4); std::memcpy(&b, &m.y, 4);
-			std::memcpy(&c, &s.x, 4); std::memcpy(&d, &s.y, 4);
-			mix(((unsigned long long)a << 32) | b);
-			mix(((unsigned long long)c << 32) | d);
-		}
-		mix(potentialConnectionHotspots.size());
-		for (size_t i = 0; i < potentialConnectionHotspots.size(); i++) {
-			unsigned a, b;
-			std::memcpy(&a, &potentialConnectionHotspots[i].x, 4);
-			std::memcpy(&b, &potentialConnectionHotspots[i].y, 4);
-			mix(((unsigned long long)a << 32) | b);
-		}
-	}
+	// Key the cached circuit picture on the circuit CONTENT only. The interactive
+	// overlays (hover bulb, drag box, wire hover, ...) are drawn live on top each
+	// frame via drawOverlay below, so they follow the mouse WITHOUT invalidating
+	// the picture -- otherwise every mouse move re-recorded the whole scene, which
+	// is what let fast mouse movement starve the sim (see perf notes).
+	unsigned long long sceneKey = renderContentKey();
 	auto drawGrid = [self, style, t, scale, gMinX, gMinY, gMaxX, gMaxY](Scene& s) {
 		s.setViewport(t);
 		self->drawGridInto(s, style, scale, gMinX, gMinY, gMaxX, gMaxY);
 	};
 	auto drawScene = [self, style](Scene& s) {
 		self->drawCircuitInto(s, style);
+	};
+	auto drawOverlay = [self, t](Scene& s) {
+		s.setViewport(t);
 		self->drawOverlaysInto(s);
 	};
-	return skiaRenderWindowScene(w, h, 0, overlayKey, t, drawGrid, drawScene);
+	return skiaRenderWindowScene(w, h, 0, sceneKey, t, drawGrid, drawScene, drawOverlay);
 #else
 	return false;
 #endif
@@ -953,12 +934,26 @@ void GUICanvas::OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool Ct
 	dragselectbox->setBBox( dBox );
 	
 	if ( this->isLocked() ) return;
-	
+
+	// Hover-work throttle. OnMouseMove fires once per raw motion event -- hundreds
+	// per second during a fast sweep -- but the collision pass + hover highlight
+	// only need to refresh ~60x/sec. When not in a drag, skip the heavy work if it
+	// ran <15ms ago; this is what stops fast mouse movement from saturating the
+	// GUI thread and starving the sim's timers (the clock/oscope would visibly
+	// lag). Clicks stay accurate: mouseLeftDown runs its own collision update.
+	// Drags are never throttled -- they must track the cursor exactly.
+	if ( currentDragState == DRAG_NONE ) {
+		auto now = std::chrono::steady_clock::now();
+		if ( std::chrono::duration_cast<std::chrono::milliseconds>(now - lastHoverTime).count() < 15 )
+			return;
+		lastHoverTime = now;
+	}
+
 	// Do a collision detection on all first-level objects.
 	// The map collisionChecker.overlaps now contains
 	// all of the objects involved in any collisions.
 	collisionChecker.update();
-	
+
 	// Update a newly-dragged gate's position
 	if (currentDragState == DRAG_NEWGATE) {
 		shouldRender = true;

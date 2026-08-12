@@ -30,9 +30,13 @@ using namespace std;
 
 DECLARE_APP(MainApp)
 
+#define ID_OSCOPE_RENDER_TIMER 7790
+#define OSCOPE_RENDER_INTERVAL_MS 16   // ~60fps
+
 BEGIN_EVENT_TABLE(OscopeCanvas, wxGLCanvas)
     EVT_PAINT(OscopeCanvas::OnPaint)
     EVT_ERASE_BACKGROUND(OscopeCanvas::OnEraseBackground)
+    EVT_TIMER(ID_OSCOPE_RENDER_TIMER, OscopeCanvas::OnRenderTimer)
 END_EVENT_TABLE()
 
 OscopeCanvas::OscopeCanvas(wxWindow *parent, GUICircuit* gCircuit, wxWindowID id,
@@ -42,11 +46,25 @@ OscopeCanvas::OscopeCanvas(wxWindow *parent, GUICircuit* gCircuit, wxWindowID id
 	this->gCircuit = gCircuit;
 	m_init = false;
 	parentFrame = (OscopeFrame*) parent;
+	toGateCacheGateCount = (size_t)-1;   // force a rebuild on first UpdateData
+	dataDirty = false;
+	renderTimer = new wxTimer(this, ID_OSCOPE_RENDER_TIMER);
+	renderTimer->Start(OSCOPE_RENDER_INTERVAL_MS);
 }
 
-OscopeCanvas::~OscopeCanvas(){ 
-//	scrollTimer->Stop();
+OscopeCanvas::~OscopeCanvas(){
+	if (renderTimer) { renderTimer->Stop(); delete renderTimer; renderTimer = NULL; }
 	return;
+}
+
+// Fixed-rate repaint: coalesce all the data updates since the last tick into one
+// Refresh, and only when the panel is actually on screen.
+void OscopeCanvas::OnRenderTimer(wxTimerEvent& WXUNUSED(event)) {
+	if (dataDirty) {
+		dataDirty = false;
+		lastPaintTime = std::chrono::steady_clock::now();
+		if (IsShownOnScreen()) Refresh();
+	}
 }
 
 void OscopeCanvas::OnRender(double scaleOverride){
@@ -232,6 +250,16 @@ void OscopeCanvas::drawOscopeScene(cl::render::Scene& scene,
 	}
 	if (!vlines.empty()) scene.lines(&vlines[0], vlines.size(), gridStroke);
 
+	// Batch every waveform segment by its state colour and draw the whole scope in
+	// a handful of scene.lines() calls. The old code issued a scene.lines() call
+	// AND allocated a std::vector for every single data point (up to
+	// OSCOPE_HORIZONTAL per wire, every frame) -- that per-point churn is what made
+	// a running scope lag. Line states share three colours, so three vectors cover
+	// them; the rarer solid states (UNKNOWN/CONFLICT) stay per-point fills.
+	std::vector<Point> segZero, segOne, segHiZ;  // ZERO=black, ONE=red, HI_Z=green
+	const size_t reserveHint = (size_t)(numberOfWires * OSCOPE_HORIZONTAL);
+	segZero.reserve(reserveHint); segOne.reserve(reserveHint);
+
 	for (unsigned int i = 0; i < numberOfWires; i++) {
 		const unsigned int wireNum = i;
 		// Horizontal baseline for this wire.
@@ -247,28 +275,27 @@ void OscopeCanvas::drawOscopeScene(cl::render::Scene& scene,
 		float horizLoc = (float)OSCOPE_HORIZONTAL, y = 0.0f, lastY = 0.0f;
 		bool firstTime = true;
 		while (wireVal != (thisWire->second).rend()) {
+			std::vector<Point>* seg = nullptr;
+			Color solidColor(0, 0, 0, 1);
 			bool solid = false;
-			Color c(0, 0, 0, 1);
 			switch (*wireVal) {
-				case ZERO:     c = Color(0, 0, 0);          y = 1.0f + wireNum * 1.5f; break;
-				case ONE:      c = Color(1, 0, 0);          y = 0.0f + wireNum * 1.5f; break;
-				case HI_Z:     c = Color(0, 0.78f, 0);      y = 0.5f + wireNum * 1.5f; break;
-				case UNKNOWN:  c = Color(0.3f, 0.3f, 1.0f); y = 0.75f + wireNum * 1.5f; solid = true; break;
-				case CONFLICT: c = Color(0, 1, 1);          y = 0.75f + wireNum * 1.5f; solid = true; break;
+				case ZERO:     seg = &segZero; y = 1.0f + wireNum * 1.5f; break;
+				case ONE:      seg = &segOne;  y = 0.0f + wireNum * 1.5f; break;
+				case HI_Z:     seg = &segHiZ;  y = 0.5f + wireNum * 1.5f; break;
+				case UNKNOWN:  solidColor = Color(0.3f, 0.3f, 1.0f); y = 0.75f + wireNum * 1.5f; solid = true; break;
+				case CONFLICT: solidColor = Color(0, 1, 1);          y = 0.75f + wireNum * 1.5f; solid = true; break;
 				default: break;
 			}
 			if (solid) {
 				scene.fillRect(Point(horizLoc - 1.0f, 0.0f + wireNum * 1.5f),
-				               Point(horizLoc, y), c);
-			} else {
-				std::vector<Point> seg;
+				               Point(horizLoc, y), solidColor);
+			} else if (seg) {
 				if (!firstTime && lastY != y) {   // rising/falling edge
-					seg.push_back(Point(horizLoc, lastY));
-					seg.push_back(Point(horizLoc, y));
+					seg->push_back(Point(horizLoc, lastY));
+					seg->push_back(Point(horizLoc, y));
 				}
-				seg.push_back(Point(horizLoc, y));          // the run
-				seg.push_back(Point(horizLoc - 1.0f, y));
-				scene.lines(&seg[0], seg.size(), Stroke(c, 1.0f));
+				seg->push_back(Point(horizLoc, y));          // the run
+				seg->push_back(Point(horizLoc - 1.0f, y));
 			}
 			firstTime = false;
 			horizLoc -= 1.0f;
@@ -276,6 +303,10 @@ void OscopeCanvas::drawOscopeScene(cl::render::Scene& scene,
 			++wireVal;
 		}
 	}
+
+	if (!segZero.empty()) scene.lines(&segZero[0], segZero.size(), Stroke(Color(0, 0, 0), 1.0f));
+	if (!segOne.empty())  scene.lines(&segOne[0],  segOne.size(),  Stroke(Color(1, 0, 0), 1.0f));
+	if (!segHiZ.empty())  scene.lines(&segHiZ[0],  segHiZ.size(),  Stroke(Color(0, 0.78f, 0), 1.0f));
 }
 #endif  // WITH_SKIA
 
@@ -299,6 +330,7 @@ void OscopeCanvas::OnPaint(wxPaintEvent& event){
 
 	}
 
+
 #ifdef WITH_SKIA
 	if (appConfig().appSettings.useSkiaRenderer && OnRenderSkia()) {
 		SwapBuffers();
@@ -317,20 +349,23 @@ void OscopeCanvas::UpdateData(void){
 	//Declaration of variables
 	deque<StateType> temp;
 
-	// Log the values of all of the gates:
 	unordered_map< unsigned long, guiGate* >* gateList = gCircuit->getGates();
-	unordered_map< unsigned long, guiGate* >::iterator theGate;
-	
-	set< string > liveTOs;
-	vector < guiGate* > toGates;
-	if (parentFrame->numberOfFeeds() > 0) {
-		// Set up a list of TO gates so I only search the whole gate list once.
-		theGate = gateList->begin();
-		while (theGate != gateList->end()) {
-			if ((theGate->second)->getGUIType() == "TO") toGates.push_back(theGate->second);
-			theGate++;
+
+	// Rebuild the JUNCTION_ID -> TO gate lookup only when the gate set changes.
+	// This is called once per interim (logic) step, and a fast sim emits many per
+	// GUI drain; re-walking the whole gate list each time (the old behaviour) made
+	// the oscope -- and, because it blocks the GUI thread, the whole tick rate --
+	// lag. During a running sim the gates are static, so the cache holds.
+	if (parentFrame->numberOfFeeds() > 0 && gateList->size() != toGateCacheGateCount) {
+		toGateCache.clear();
+		for (auto& g : *gateList) {
+			if (g.second->getGUIType() == "TO")
+				toGateCache[g.second->getLogicParam("JUNCTION_ID")] = g.second;
 		}
+		toGateCacheGateCount = gateList->size();
 	}
+
+	set< string > liveTOs;
 
 	//Check to see if wire has already been added to OSCOPE
 	map< string, bool > hasBeenAdded;
@@ -338,7 +373,7 @@ void OscopeCanvas::UpdateData(void){
 	for (unsigned int i = 0; i < parentFrame->numberOfFeeds(); i++) {
 		string junctionName = parentFrame->getFeedName(i).c_str();
 		if (junctionName == NONE_STR || junctionName == "") continue;
-			
+
 		if(hasBeenAdded.find(junctionName) == hasBeenAdded.end()) {
 			hasBeenAdded[junctionName] = true;
 			// Keep track of all junction names that are still valid.
@@ -350,23 +385,12 @@ void OscopeCanvas::UpdateData(void){
 			if( stateValues.find(junctionName) == stateValues.end() ) {
 				stateValues[junctionName] = temp;
 			}
-			
-			// Get the first input in the TO's library description:
-			// (It only has one input, and that's its only connection.)
-			// Return the map of hotspot names to their coordinates:
-/*			theGate = gateList->begin();
-			while (theGate != gateList->end()) {
-				if ((theGate->second)->getGUIType() == "TO" && (theGate->second)->getLogicParam("JUNCTION_ID") == junctionName) break;
-				theGate++;
-			} */
-			// Search through our prebuilt TO gate list for this gate.
-			//	From UpdateMenu, the gate should exist.
+
+			// Look up the TO gate feeding this junction (O(1) via the cache).
 			guiGate* currentGate = NULL;
-			for (unsigned int j = 0; j < toGates.size(); j++) {
-				if (toGates[j]->getLogicParam("JUNCTION_ID") == junctionName) {
-					currentGate = toGates[j];
-					break;
-				}
+			{
+				auto it = toGateCache.find(junctionName);
+				if (it != toGateCache.end()) currentGate = it->second;
 			}
 			if (currentGate == NULL) { // Just in case of error
 				stateValues.erase(junctionName);
@@ -410,8 +434,19 @@ void OscopeCanvas::UpdateData(void){
 		}
 	}
 	
-	Refresh();
-	//Render();
+	// The trace advances one sample per step, so it looks even only if it is drawn
+	// once per sample. Repaint synchronously here when the samples are slower than
+	// the frame cap: deferring to a fixed-rate timer would re-quantise a 25ms
+	// sample onto the timer's grid (16/32/16ms...), which is visible as jitter.
+	// Faster-than-60fps sample rates fall back to the timer, which coalesces them.
+	auto now = std::chrono::steady_clock::now();
+	if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastPaintTime).count() >= 15) {
+		lastPaintTime = now;
+		dataDirty = false;
+		if (IsShownOnScreen()) { Refresh(false); Update(); }
+	} else {
+		dataDirty = true;
+	}
 }
 
 
@@ -423,6 +458,10 @@ void OscopeCanvas::OnEraseBackground(wxEraseEvent& WXUNUSED(event))
 
 void OscopeCanvas::UpdateMenu()
 {
+	// The gate structure may have changed (add/remove/renamed junction), so drop
+	// the cached TO-gate lookup; UpdateData() rebuilds it on the next call.
+	toGateCacheGateCount = (size_t)-1;
+
 	//*******************************
 	//Edit by Joshua Lansford 3/11/07
 	//This edit is to retrofit this

@@ -60,11 +60,17 @@ bool skiaRenderWindowCached(int width, int height, int fboId,
 // cleared surface and under the circuit. `camera` is the full world->device
 // transform; `drawGrid` sets its own viewport, `drawScene` must NOT (the seam
 // sets the recording matrix).
+// `drawOverlay` (optional) is drawn LIVE on top of the replayed circuit picture
+// every frame -- it must NOT be folded into `sceneKey`. This keeps interactive,
+// per-mouse-move overlays (hover bulbs, drag boxes, wire hover) out of the cached
+// picture, so moving the mouse replays the circuit instead of re-recording it.
+// Like `drawGrid`, it runs against the full camera and sets its own viewport.
 bool skiaRenderWindowScene(int width, int height, int fboId,
                            unsigned long long sceneKey,
                            const Transform& camera,
                            const std::function<void(Scene&)>& drawGrid,
-                           const std::function<void(Scene&)>& drawScene);
+                           const std::function<void(Scene&)>& drawScene,
+                           const std::function<void(Scene&)>& drawOverlay = {});
 
 // Render a scene into a vector SVG at `path`. Same callback contract as
 // skiaRenderToPng; output is resolution-independent through the same Scene seam

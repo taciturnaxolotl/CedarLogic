@@ -297,7 +297,8 @@ bool skiaRenderWindowScene(int width, int height, int fboId,
                            unsigned long long sceneKey,
                            const Transform& camera,
                            const std::function<void(Scene&)>& drawGrid,
-                           const std::function<void(Scene&)>& drawScene) {
+                           const std::function<void(Scene&)>& drawScene,
+                           const std::function<void(Scene&)>& drawOverlay) {
 	SkiaBackend& backend = SkiaBackend::get();
 	sk_sp<SkSurface> surface = backend.windowSurface(width, height, fboId);
 	if (!surface) return false;
@@ -335,6 +336,13 @@ bool skiaRenderWindowScene(int width, int height, int fboId,
 	canvas->setMatrix(SkMatrix::Translate(camera.e, camera.f));
 	canvas->drawPicture(backend.sceneCachePicture());
 	canvas->restore();
+
+	// Interactive overlays, drawn live on top of the replayed picture (not cached,
+	// not part of sceneKey) so a mouse move doesn't invalidate the circuit picture.
+	if (drawOverlay) {
+		SkiaScene overlay(canvas, backend.defaultFont());
+		drawOverlay(overlay);
+	}
 
 	if (ctx) ctx->flushAndSubmit();
 	backend.resetGLStateForLegacy();   // leave the shared GL context fixed-function-ready
