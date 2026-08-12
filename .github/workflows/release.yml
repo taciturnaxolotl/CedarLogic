@@ -14,7 +14,14 @@ env:
   VERSION: ${{ github.event.release.tag_name || github.event.inputs.tag || 'dev' }}
 
 jobs:
+  # Build (or cache-restore) the Skia dist as part of this run, so every desktop
+  # job downloads it from here rather than from a previous run's artifact, which
+  # can expire or be missing.
+  skia:
+    uses: ./.github/workflows/skia.yml
+
   build-windows:
+    needs: skia
     runs-on: windows-latest
     outputs:
       exe_size: ${{ steps.package.outputs.exe_size }}
@@ -55,16 +62,10 @@ jobs:
       # back to the legacy fixed-function GL path. The dist is x86 to match this
       # 32-bit build (see cmake/skia-args/windows.gn).
       - name: Download Skia dist
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          rid="$(gh run list --workflow skia.yml --branch master \
-                   --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
-          if [ -z "$rid" ]; then echo "no successful skia.yml run on master" >&2; exit 1; fi
-          echo "Skia dist from run $rid"
-          gh run download "$rid" -n skia-windows -D skia-dist
-          ls skia-dist/lib
+        uses: actions/download-artifact@v4
+        with:
+          name: skia-windows
+          path: skia-dist
 
       - name: Configure CMake
         shell: bash
@@ -94,6 +95,7 @@ jobs:
           path: build/CedarLogic-*-win32.exe
 
   build-linux:
+    needs: skia
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -126,15 +128,10 @@ jobs:
             wxwidgets-linux-
 
       - name: Download Skia dist
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          rid="$(gh run list --workflow skia.yml --branch master \
-                   --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
-          if [ -z "$rid" ]; then echo "no successful skia.yml run on master" >&2; exit 1; fi
-          echo "Skia dist from run $rid"
-          gh run download "$rid" -n skia-linux -D skia-dist
-          ls skia-dist/lib
+        uses: actions/download-artifact@v4
+        with:
+          name: skia-linux
+          path: skia-dist
 
       - name: Configure CMake
         run: |
@@ -158,6 +155,7 @@ jobs:
           path: build/CedarLogic-*-Linux.tar.gz
 
   build-macos:
+    needs: skia
     runs-on: macos-26
     outputs:
       dmg_name: ${{ steps.package.outputs.dmg_name }}
@@ -209,15 +207,10 @@ jobs:
             wxwidgets-macos-
 
       - name: Download Skia dist
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          rid="$(gh run list --workflow skia.yml --branch master \
-                   --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
-          if [ -z "$rid" ]; then echo "no successful skia.yml run on master" >&2; exit 1; fi
-          echo "Skia dist from run $rid"
-          gh run download "$rid" -n skia-macos -D skia-dist
-          ls skia-dist/lib
+        uses: actions/download-artifact@v4
+        with:
+          name: skia-macos
+          path: skia-dist
 
       - name: Configure CMake
         env:

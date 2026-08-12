@@ -9,6 +9,11 @@ name: Skia (build + cache)
 
 on:
   workflow_dispatch:
+  # Callable so consumers (release.yml) can depend on the dist directly instead
+  # of fishing the artifact out of some earlier run: the dist is then produced in
+  # the same run and can't be missing or expired. The build itself is skipped on
+  # a cache hit -- only the dist upload always runs.
+  workflow_call:
   push:
     paths:
       - '.github/workflows/skia.yml'
