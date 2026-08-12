@@ -22,6 +22,9 @@ class gateImage;
 #define wxDragImage wxGenericDragImage
 #include <string>
 
+// Engine-neutral rendering seam (Workstream G); defined in gui/render/.
+namespace cl { namespace render { class Scene; struct RenderStyle; struct Transform; } }
+
 #define GATEIMAGESIZE 46
 #define IMAGESIZE 48
 
@@ -37,6 +40,10 @@ public:
     virtual ~gateImage();
 
     void OnPaint(wxPaintEvent& event);
+    // Skia thumbnail render (replaces the offscreen-GL readback); returns false
+    // if the raster surface could not be produced.
+    bool generateImageSkia();
+    cl::render::Transform thumbnailTransform(int size) const;
     void mouseCallback(wxMouseEvent& event);
     void OnEnterWindow(wxMouseEvent& event) { if (!(event.LeftIsDown())) inImage = true; Refresh(); };
     void OnLeaveWindow(wxMouseEvent& event) { inImage = false; Refresh(); };

@@ -20,6 +20,9 @@
 #include <fstream>
 #include <wx/dnd.h>
 #include "glToImage.h"
+#include "render/SkiaProbe.h"
+#include "render/Scene.h"
+#include "render/RenderStyle.h"
 #include "MainFrame.h"
 
 BEGIN_EVENT_TABLE(gateImage, wxWindow)
@@ -155,8 +158,71 @@ void gateImage::setViewport() {
 	glLoadIdentity ();
 }
 
+// Fit the gate's model box into a `size`-square thumbnail, matching the ortho
+// box setViewport() builds for the GL path (0.5 world units of padding, then
+// letterboxed on the limiting axis) so the framing is identical.
+cl::render::Transform gateImage::thumbnailTransform(int size) const {
+	klsBBox box = m_gate->getModelBBox();
+	// minCorner/maxCorner follow the GL path's convention: min is (left, top),
+	// max is (right, bottom), so y decreases from min to max.
+	GLPoint2f minCorner(box.getLeft() - 0.5f, box.getTop() + 0.5f);
+	GLPoint2f maxCorner(box.getRight() + 0.5f, box.getBottom() - 0.5f);
+
+	double mapWidth = maxCorner.x - minCorner.x;
+	double mapHeight = minCorner.y - maxCorner.y;
+	if (mapWidth <= 0.0) mapWidth = 1.0;
+	if (mapHeight <= 0.0) mapHeight = 1.0;
+
+	// Square thumbnail, so the aspect is 1: pad the shorter axis.
+	double left = minCorner.x, right = maxCorner.x;
+	double top = minCorner.y, bottom = maxCorner.y;
+	if (mapWidth >= mapHeight) {
+		double pad = 0.5 * (mapWidth - mapHeight);
+		top += pad;
+		bottom -= pad;
+	} else {
+		double pad = 0.5 * (mapHeight - mapWidth);
+		left -= pad;
+		right += pad;
+	}
+
+	cl::render::Transform t;
+	t.a = (float)(size / (right - left));
+	t.c = 0.0f;
+	t.e = (float)(-left * size / (right - left));
+	t.b = 0.0f;
+	t.d = (float)(-size / (top - bottom));   // world y up -> device y down
+	t.f = (float)(top * size / (top - bottom));
+	return t;
+}
+
+// Render the thumbnail through Skia into an offscreen raster surface. Replaces
+// the offscreen-GL readback: Skia anti-aliases natively, so this needs none of
+// the supersampling the GL path used to get smooth curves.
+bool gateImage::generateImageSkia() {
+	if (m_gate == NULL) return false;
+	const int size = GATEIMAGESIZE;
+	wxImage img(size, size);
+
+	guiGate *gate = m_gate;
+	cl::render::Transform t = thumbnailTransform(size);
+	const cl::render::RenderStyle style = cl::render::RenderStyle::print();
+	if (!cl::render::skiaRenderToRGB(size, size,
+			[gate, &t, &style](cl::render::Scene &scene) {
+				scene.setViewport(t);
+				gate->drawToScene(scene, style);
+			},
+			img.GetData())) {
+		return false;
+	}
+	gImage = img;
+	return true;
+}
+
 // Print the canvas contents to a bitmap:
 void gateImage::generateImage() {
+	if (generateImageSkia()) return;
+
 	// Supersampled anti-aliasing. The offscreen GL path (a software DIB context on
 	// Windows) has no multisampling, so gate outlines baked into the thumbnail
 	// came out jagged. Render several times larger with a matching line width,
