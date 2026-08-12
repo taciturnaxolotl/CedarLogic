@@ -677,7 +677,6 @@ void MainApp::loadSettings() {
 	conf->Read("WireConnVisible", &appConfig().appSettings.wireConnVisible, true);
 	conf->Read("GridlineVisible", &appConfig().appSettings.gridlineVisible, true);
 	conf->Read("RightClickRotate", &appConfig().appSettings.rightClickRotate, true);
-	conf->Read("UseSkiaRenderer", &appConfig().appSettings.useSkiaRenderer, true);
 
 	// check screen coords
 	wxScreenDC sdc;

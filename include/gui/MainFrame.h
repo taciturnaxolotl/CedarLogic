@@ -44,7 +44,6 @@ enum
 	View_Oscope,
 	View_Gridline,
 	View_WireConn,
-	View_SkiaRenderer,
 	View_RightClickRotate,
 	View_Preferences,
 	
@@ -106,7 +105,6 @@ public:
 	void OnOscope(wxCommandEvent& event);
 	void OnViewGridline(wxCommandEvent& event);
 	void OnViewWireConn(wxCommandEvent& event);
-	void OnViewSkiaRenderer(wxCommandEvent& event);
 	void OnViewRightClickRotate(wxCommandEvent& event);
 	void OnPreferences(wxCommandEvent& event);
 	void OnPause(wxCommandEvent& event);
