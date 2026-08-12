@@ -225,6 +225,13 @@ if(MSVC)
     # Windows: emit a .pdb in Release so writeCrashTrace resolves file:line.
     target_compile_options(CedarLogic PRIVATE $<$<CONFIG:Release>:/Zi>)
     target_link_options(CedarLogic PRIVATE $<$<CONFIG:Release>:/DEBUG>)
+    # Make the process DPI-aware by merging a windowsSettings fragment into the
+    # linker's embedded application manifest (which already carries the wx
+    # Common-Controls v6 dependency -- so we merge, not add a second manifest,
+    # which would conflict). See res/dpiaware.manifest.
+    target_link_options(CedarLogic PRIVATE
+        /MANIFEST:EMBED
+        "/MANIFESTINPUT:${PROJECT_SOURCE_DIR}/res/dpiaware.manifest")
 else()
     # POSIX: -g keeps symbols so the backtrace can name functions. On Linux that
     # also needs -rdynamic to export them to the dynamic symbol table; macOS

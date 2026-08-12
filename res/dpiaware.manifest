@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  DPI-awareness fragment, merged into the linker-generated application manifest
+  via MSVC /MANIFESTINPUT (see CMakeLists.txt). Without this the process is
+  DPI-unaware, so on a scaled display Windows bitmap-upscales the whole window
+  and everything (canvas, palette, text) turns blurry. PerMonitorV2 lets wx and
+  the render paths (which already use GetContentScaleFactor) draw at the real
+  device resolution; "system" is the fallback for pre-1703 Windows.
+-->
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0" xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
+  <asmv3:application>
+    <asmv3:windowsSettings>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2, system</dpiAwareness>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true</dpiAware>
+    </asmv3:windowsSettings>
+  </asmv3:application>
+</assembly>
