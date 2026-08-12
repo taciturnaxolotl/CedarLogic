@@ -16,6 +16,8 @@
 #include "GUICircuit.h"
 #include "wx/clipbrd.h"
 #include "wx/artprov.h"
+#include "wx/bmpbndl.h"
+#include "wx/file.h"
 #include <fstream>
 #include <iomanip>
 
@@ -50,14 +52,36 @@ OscopeFrame::OscopeFrame(wxWindow *parent, GUICircuit* gCircuit)
 	oscopeToolBar->AddTool(ID_OSCOPE_LOAD, "Load", sfSymbol("folder"), "Load layout");
 	oscopeToolBar->AddTool(ID_OSCOPE_SAVE, "Save", sfSymbol("square.and.arrow.down"), "Save layout");
 #else
-	oscopeToolBar->AddTool(ID_OSCOPE_PAUSE, "Pause", wxArtProvider::GetBitmap(wxART_CROSS_MARK, wxART_TOOLBAR), "Pause/Reset", wxITEM_CHECK);
+	// Modern SVG icons via wxBitmapBundle, matching the main toolbar. The SVGs are
+	// authored with a #333333 stroke; recolor at load time so they read on both a
+	// light and a dark toolbar.
+	const wxSize oscopeIconSize(18, 18);
+	const bool oscopeDark = wxSystemSettings::GetAppearance().IsDark();
+	const wxString oscopeIconColor = oscopeDark ? "#E6E6E6" : "#333333";
+	auto svgIcon = [&](const char* name) -> wxBitmapBundle {
+		wxString path = appConfig().resourcesDir + "res/icons/" + name + ".svg";
+		wxFile f(path);
+		wxString svg;
+		if (f.IsOpened() && f.ReadAll(&svg)) {
+			svg.Replace("#333333", oscopeIconColor);
+			wxScopedCharBuffer buf = svg.utf8_str();
+			wxBitmapBundle b = wxBitmapBundle::FromSVG(buf.data(), oscopeIconSize);
+			if (b.IsOk()) return b;
+		}
+		wxBitmapBundle b = wxBitmapBundle::FromSVGFile(path, oscopeIconSize);
+		if (b.IsOk()) return b;
+		return wxBitmapBundle(wxArtProvider::GetBitmap(wxART_QUESTION, wxART_TOOLBAR));
+	};
+
+	oscopeToolBar->SetToolBitmapSize(oscopeIconSize);
+	oscopeToolBar->AddTool(ID_OSCOPE_PAUSE, "Pause", svgIcon("pause"), "Pause/Reset", wxITEM_CHECK);
 	oscopeToolBar->AddSeparator();
-	oscopeToolBar->AddTool(ID_OSCOPE_ADD, "Add Signal", wxArtProvider::GetBitmap(wxART_PLUS, wxART_TOOLBAR), "Add signal");
-	oscopeToolBar->AddTool(ID_OSCOPE_REMOVE, "Remove Signal", wxArtProvider::GetBitmap(wxART_MINUS, wxART_TOOLBAR), "Remove selected signal");
+	oscopeToolBar->AddTool(ID_OSCOPE_ADD, "Add Signal", svgIcon("plus"), "Add signal");
+	oscopeToolBar->AddTool(ID_OSCOPE_REMOVE, "Remove Signal", svgIcon("minus"), "Remove selected signal");
 	oscopeToolBar->AddSeparator();
-	oscopeToolBar->AddTool(ID_OSCOPE_EXPORT, "Export", wxArtProvider::GetBitmap(wxART_COPY, wxART_TOOLBAR), "Export to clipboard");
-	oscopeToolBar->AddTool(ID_OSCOPE_LOAD, "Load", wxArtProvider::GetBitmap(wxART_FILE_OPEN, wxART_TOOLBAR), "Load layout");
-	oscopeToolBar->AddTool(ID_OSCOPE_SAVE, "Save", wxArtProvider::GetBitmap(wxART_FILE_SAVE, wxART_TOOLBAR), "Save layout");
+	oscopeToolBar->AddTool(ID_OSCOPE_EXPORT, "Export", svgIcon("copy"), "Export to clipboard");
+	oscopeToolBar->AddTool(ID_OSCOPE_LOAD, "Load", svgIcon("open"), "Load layout");
+	oscopeToolBar->AddTool(ID_OSCOPE_SAVE, "Save", svgIcon("save"), "Save layout");
 #endif
 
 	oscopeToolBar->Realize();
