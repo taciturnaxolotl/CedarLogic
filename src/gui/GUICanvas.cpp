@@ -1506,6 +1506,12 @@ void GUICanvas::copyBlockToClipboard () {
 	myClipboard.copyBlock( gCircuit, this, selectedGates, selectedWires );
 }
 
+void GUICanvas::cutSelectionToClipboard () {
+	// Copy first -- deleteSelection() clears the selection vectors it reads from.
+	copyBlockToClipboard();
+	deleteSelection();
+}
+
 void GUICanvas::pasteBlockFromClipboard () {
 	if (this->isLocked()) return;
 	

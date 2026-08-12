@@ -213,6 +213,9 @@ public:
 	// Handle copy and paste for this canvas
 	void copyBlockToClipboard( void );
 	void pasteBlockFromClipboard( void );
+	// Cut: copy the selection to the clipboard, then delete it (one undoable
+	// deletion; the clipboard contents survive the undo).
+	void cutSelectionToClipboard( void );
 
 	// Tell the canvas which minimap it should use; sets the minimaps pointers and lists
 	void setMinimap(klsMiniMap* minimap) {
