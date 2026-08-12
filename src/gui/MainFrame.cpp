@@ -88,6 +88,7 @@ BEGIN_EVENT_TABLE(MainFrame, wxFrame)
 	
 	EVT_MENU(wxID_UNDO, MainFrame::OnUndo)
 	EVT_MENU(wxID_REDO, MainFrame::OnRedo)
+	EVT_MENU(wxID_CUT, MainFrame::OnCut)
 	EVT_MENU(wxID_COPY, MainFrame::OnCopy)
 	EVT_MENU(wxID_PASTE, MainFrame::OnPaste)
 	
@@ -184,13 +185,14 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 
 	wxMenu *editMenu = new wxMenu; // EDIT MENU
 	editMenu->Append(wxID_UNDO, "Undo\tCtrl+Z", "Undo last operation");
-	editMenu->Append(wxID_REDO, "Redo", "Redo last operation");
+	editMenu->Append(wxID_REDO, "Redo\tCtrl+Shift+Z", "Redo last operation");
 	editMenu->AppendSeparator();
 	editMenu->Append(Tool_NewTab, "New Tab\tCtrl+T", "New Tab");
 #ifdef __WXOSX__
 	editMenu->Append(Tool_CloseTab, "Close Tab\tCtrl+W", "Close current tab");
 #endif
 	editMenu->AppendSeparator();
+	editMenu->Append(wxID_CUT, "Cut\tCtrl+X", "Cut selection to clipboard");
 	editMenu->Append(wxID_COPY, "Copy\tCtrl+C", "Copy selection to clipboard");
 	editMenu->Append(wxID_PASTE, "Paste\tCtrl+V", "Paste selection from clipboard");
 	
@@ -216,7 +218,37 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
     
     // ... and attach this menu bar to the frame
     SetMenuBar(menuBar);
-    
+
+    // The canvas holds keyboard focus, and menu-bar accelerators don't reach it;
+    // meanwhile wxMSW compiles every menu accelerator into the frame's
+    // accelerator table, so SetAcceleratorTable would wipe them all. So route the
+    // edit shortcuts through a frame CHAR_HOOK, which sees the key first
+    // regardless of focus and touches no table. Windows fires an accelerator OR
+    // dispatches the key here, never both, so there's no double-firing.
+    //   Redo: Ctrl+Shift+Z and Ctrl+Y (Windows convention).
+    //   Cut / Copy / Paste: Ctrl+X / Ctrl+C / Ctrl+V.
+    Bind(wxEVT_CHAR_HOOK, [this](wxKeyEvent &e) {
+        const int k = e.GetKeyCode();
+        const bool ctrl = e.ControlDown() || e.CmdDown();
+        int cmd = 0;
+        if (ctrl && !e.AltDown()) {
+            if (e.ShiftDown()) {
+                if (k == 'Z' || k == 'z') cmd = wxID_REDO;
+            } else {
+                if      (k == 'Y' || k == 'y') cmd = wxID_REDO;
+                else if (k == 'X' || k == 'x') cmd = wxID_CUT;
+                else if (k == 'C' || k == 'c') cmd = wxID_COPY;
+                else if (k == 'V' || k == 'v') cmd = wxID_PASTE;
+            }
+        }
+        if (cmd != 0) {
+            wxCommandEvent evt(wxEVT_MENU, cmd);
+            ProcessWindowEvent(evt);
+        } else {
+            e.Skip();
+        }
+    });
+
 	//////////////////////////////////////////////////////////////////////////
     // parse a gate library
 	//////////////////////////////////////////////////////////////////////////
@@ -1074,6 +1106,10 @@ void MainFrame::switchToCanvas(GUICanvas *canvas) {
 			break;
 		}
 	}
+}
+
+void MainFrame::OnCut(wxCommandEvent& event) {
+	currentCanvas->cutSelectionToClipboard();
 }
 
 void MainFrame::OnCopy(wxCommandEvent& event) {
