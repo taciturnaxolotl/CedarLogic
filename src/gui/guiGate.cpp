@@ -20,7 +20,6 @@
 #include "guiWire.h"
 #include "render/Scene.h"
 #include "render/RenderStyle.h"
-#include "Settings.h"            // appConfig().appSettings.useSkiaRenderer
 #ifdef WITH_SKIA
 #include "render/SkiaProbe.h"    // measuredTextWidth -- size label hit box to rendered text
 #endif
@@ -197,105 +196,8 @@ unsigned long long guiGate::appearanceHash() const {
 	return h;
 }
 
-void guiGate::draw(bool color) {
-
-	GLint oldStipple = 0; // The old line stipple pattern, if needed.
-	GLint oldRepeat = 0;  // The old line stipple repeat pattern, if needed.
-	GLboolean lineStipple = false; // The old line stipple enable flag, if needed.
-
-	// Position the gate at its x and y coordinates:
-	glLoadMatrixd(mModel);
-
-
-	if( selected && color ) {
-		// Store the old line stipple pattern:
-		lineStipple = glIsEnabled( GL_LINE_STIPPLE );
-		glGetIntegerv( GL_LINE_STIPPLE_PATTERN, &oldStipple );
-		glGetIntegerv( GL_LINE_STIPPLE_REPEAT, &oldRepeat );
-	
-		// Draw the gate with dotted lines:
-		glEnable( GL_LINE_STIPPLE );
-		glLineStipple( 1, 0x9999 );
-	}
-
-	// Draw the gate:
-	glBegin(GL_LINES);
-	for( unsigned int i = 0; i < vertices.size(); i++ ) {
-		glVertex2f( vertices[i].x, vertices[i].y );
-	}
-	glEnd();
-
-	// Structured arcs: the fixed-function path has no arc primitive, so tessellate
-	// each into a line strip. Same convention as Scene::arc (degrees from +Y, CW).
-	for (unsigned int a = 0; a < arcs.size(); a++) {
-		const GateArc& arc = arcs[a];
-		const int segs = 48;
-		glBegin(GL_LINE_STRIP);
-		for (int i = 0; i <= segs; i++) {
-			float d = (arc.startDeg + arc.sweepDeg * (float)i / (float)segs) * DEG2RAD;
-			glVertex2f(arc.cx + arc.r * sin(d), arc.cy + arc.r * cos(d));
-		}
-		glEnd();
-	}
-
-	// Structured circles: reproduce the exact segs-gon the library used to bake in
-	// at parse time (same start at the top, same clockwise winding, same i<=360
-	// loop), so the fixed-function render is byte-identical to before.
-	for (unsigned int c = 0; c < circles.size(); c++) {
-		const GateCircle& circ = circles[c];
-		float lastX = circ.cx, lastY = circ.r + circ.cy;
-		float degStep = 360.0f / (float)circ.segs;
-		glBegin(GL_LINES);
-		for (float i = degStep; i <= 360; i += degStep) {
-			float rad = i * DEG2RAD;
-			float x = sin(rad) * circ.r + circ.cx, y = cos(rad) * circ.r + circ.cy;
-			glVertex2f(lastX, lastY); glVertex2f(x, y);
-			lastX = x; lastY = y;
-		}
-		glEnd();
-	}
-
-	// Draw label lines with counter-rotation so they stay upright:
-	if (!labelVertices.empty()) {
-		istringstream iss(gparams["angle"]);
-		GLfloat angle = 0;
-		iss >> angle;
-
-		if (angle != 0) {
-			float rad = angle * DEG2RAD;
-			float cosA = cos(rad);
-			float sinA = sin(rad);
-			glBegin(GL_LINES);
-			for (unsigned int i = 0; i < labelVertices.size(); i++) {
-				float x = labelVertices[i].x;
-				float y = labelVertices[i].y;
-				float rx = x * cosA + y * sinA;
-				float ry = -x * sinA + y * cosA;
-				glVertex2f(rx, ry);
-			}
-			glEnd();
-		} else {
-			glBegin(GL_LINES);
-			for (unsigned int i = 0; i < labelVertices.size(); i++) {
-				glVertex2f(labelVertices[i].x, labelVertices[i].y);
-			}
-			glEnd();
-		}
-	}
-
-	// Reset the stipple parameters:
-	if( selected && color ) {
-		// Reset the line pattern:
-		if( !lineStipple ) {
-			glDisable( GL_LINE_STIPPLE );
-		}
-		glLineStipple( oldRepeat, oldStipple );
-	}
-}
-
-// Engine-neutral mirror of the base draw(): outline vertices + label lines under
-// the gate's model transform. No OpenGL. Interactive subtypes may override to add
-// their widgets; for now they render as their outline.
+// Base gate render: outline vertices + label lines under the gate's model
+// transform. Interactive subtypes override to add their widgets on top.
 void guiGate::drawToScene(cl::render::Scene& scene,
                           const cl::render::RenderStyle& style) {
 	using namespace cl::render;
@@ -734,28 +636,6 @@ guiGateTOGGLE::guiGateTOGGLE() {
 	setGUIParam( "CLICK_BOX", "-0.76,-0.76,0.76,0.76" );
 }
 
-void guiGateTOGGLE::draw( bool color ) {
-	// Draw the default lines:
-	guiGate::draw(color);
-
-	float x1 = renderInfo_clickBox.begin.x, y1 = renderInfo_clickBox.begin.y;
-	float x2 = renderInfo_clickBox.end.x, y2 = renderInfo_clickBox.end.y;
-
-	if (!color) {
-		// B&W schematic mode: just draw the outline
-		glColor4f(0.0, 0.0, 0.0, 1.0);
-		glBegin(GL_LINE_LOOP);
-		glVertex2f(x1, y1); glVertex2f(x2, y1);
-		glVertex2f(x2, y2); glVertex2f(x1, y2);
-		glEnd();
-	} else {
-		glColor4f( (float)renderInfo_outputNum, 0.0, 0.0, 1.0 );
-		glRectd(x1, y1, x2, y2);
-	}
-
-	glColor4f( 0.0, 0.0, 0.0, 1.0 );
-}
-
 void guiGateTOGGLE::drawToScene(cl::render::Scene& scene,
                                 const cl::render::RenderStyle& style) {
 	using namespace cl::render;
@@ -842,29 +722,11 @@ guiGateKEYPAD::guiGateKEYPAD() {
 	//	param values are of type "minx,miny,maxx,maxy"
 }
 
-void guiGateKEYPAD::draw( bool color ) {
-	// Position the gate at its x and y coordinates:
-	glLoadMatrixd(mModel);
-	
-	// Add the rectangle - this is a highlight so needs done before main gate draw:
-	glColor4f( 0.0, 0.4f, 1.0, 0.3f );
-
-	//Inner Square
-	if (color) glRectd  ( renderInfo_valueBox.begin.x, renderInfo_valueBox.begin.y, 
-			renderInfo_valueBox.end.x, renderInfo_valueBox.end.y ) ;
-	
-	// Set the color back to the old color:
-	glColor4f( 0.0, 0.0, 0.0, 1.0 );
-
-	// Draw the default lines:
-	guiGate::draw(color);
-}
-
 void guiGateKEYPAD::drawToScene(cl::render::Scene& scene,
                                 const cl::render::RenderStyle& style) {
 	using namespace cl::render;
 	// The current-value cell is highlighted with a translucent blue box drawn
-	// behind the digit grid (mirrors draw(): highlight first, then the lines).
+	// behind the digit grid: highlight first, then the lines.
 	if (style.showLiveState) {
 		Transform t;
 		t.a = (float)mModel[0];  t.b = (float)mModel[1];
@@ -972,66 +834,6 @@ guiGateREGISTER::guiGateREGISTER() {
 	renderInfo_numDigitsToShow = 1;
 	setLogicParam( "CURRENT_VALUE", "0" );
 	setLogicParam( "UNKNOWN_OUTPUTS", "false" );
-}
-
-void guiGateREGISTER::draw( bool color ) {
-	// Draw the default lines:
-	guiGate::draw(color);
-
-	float diffx = renderInfo_diffx;
-	float diffy = renderInfo_diffy;
-	
-	diffx /= (double)renderInfo_numDigitsToShow; // set width of each digit
-	
-	//Inner Square for value
-	if (color) {
-		// Display box
-		glBegin( GL_LINE_LOOP );
-			glVertex2f(renderInfo_valueBox.begin.x,renderInfo_valueBox.begin.y);
-			glVertex2f(renderInfo_valueBox.begin.x,renderInfo_valueBox.end.y);
-			glVertex2f(renderInfo_valueBox.end.x,renderInfo_valueBox.end.y);
-			glVertex2f(renderInfo_valueBox.end.x,renderInfo_valueBox.begin.y);
-		glEnd();
-		
-		// Draw the number in red (or blue if inputs are not all sane)
-		if (renderInfo_drawBlue) glColor4f( 0.3f, 0.3f, 1.0, 1.0 );
-		else glColor4f( 1.0, 0.0, 0.0, 1.0 );
-
-		GLfloat lineWidthOld;
-		glGetFloatv(GL_LINE_WIDTH, &lineWidthOld);
-		glLineWidth(2.0);
-        
-		// THESE ARE ALL SEVEN SEGMENTS WITH DIFFERENTIAL COORDS.  USE THEM FOR EACH DIGIT VALUE FOR EACH DIGIT
-		//		AND INCREMENT CURRENTDIGIT.  CURRENTDIGIT=0 IS MSB.
-		glBegin( GL_LINES );
-		for (unsigned int currentDigit = 0; currentDigit < renderInfo_currentValue.size(); currentDigit++) {
-			char c = renderInfo_currentValue[currentDigit];
-			if ( c != '1' && c != '4' && c != 'B' && c != 'D' ) {
-				glVertex2f(renderInfo_valueBox.begin.x+(diffx*currentDigit)+(diffx*0.1875),renderInfo_valueBox.begin.y+(diffy*0.88462)); // TOP
-				glVertex2f(renderInfo_valueBox.begin.x+(diffx*currentDigit)+(diffx*0.8125),renderInfo_valueBox.begin.y+(diffy*0.88462)); }
-			if ( c != '0' && c != '1' && c != '7' && c != 'C' ) {
-				glVertex2f(renderInfo_valueBox.begin.x+(diffx*currentDigit)+(diffx*0.1875),renderInfo_valueBox.begin.y+(diffy*0.5)); // MID
-				glVertex2f(renderInfo_valueBox.begin.x+(diffx*currentDigit)+(diffx*0.8125),renderInfo_valueBox.begin.y+(diffy*0.5)); }
-			if ( c != '1' && c != '4' && c != '7' && c != '9' && c != 'A' && c != 'F' ) {
-				glVertex2f(renderInfo_valueBox.begin.x+(diffx*currentDigit)+(diffx*0.1875),renderInfo_valueBox.begin.y+(diffy*0.11538)); // BOTTOM
-				glVertex2f(renderInfo_valueBox.begin.x+(diffx*currentDigit)+(diffx*0.8125),renderInfo_valueBox.begin.y+(diffy*0.11538)); }
-			if ( c != '1' && c != '2' && c != '3' && c != '7' && c != 'D' ) {
-				glVertex2f(renderInfo_valueBox.begin.x+(diffx*currentDigit)+(diffx*0.1875),renderInfo_valueBox.begin.y+(diffy*0.88462)); // TL
-				glVertex2f(renderInfo_valueBox.begin.x+(diffx*currentDigit)+(diffx*0.1875),renderInfo_valueBox.begin.y+(diffy*0.5)); }
-			if ( c != '5' && c != '6' && c != 'B' && c != 'C' && c != 'E' && c != 'F' ) {
-				glVertex2f(renderInfo_valueBox.begin.x+(diffx*currentDigit)+(diffx*0.8125),renderInfo_valueBox.begin.y+(diffy*0.88462)); // TR
-				glVertex2f(renderInfo_valueBox.begin.x+(diffx*currentDigit)+(diffx*0.8125),renderInfo_valueBox.begin.y+(diffy*0.5)); }
-			if ( c != '1' && c != '3' && c != '4' && c != '5' && c != '7' && c != '9' ) {
-				glVertex2f(renderInfo_valueBox.begin.x+(diffx*currentDigit)+(diffx*0.1875),renderInfo_valueBox.begin.y+(diffy*0.11538)); // BL
-				glVertex2f(renderInfo_valueBox.begin.x+(diffx*currentDigit)+(diffx*0.1875),renderInfo_valueBox.begin.y+(diffy*0.5)); }
-			if ( c != '2' && c != 'C' && c != 'E' && c != 'F' ) {
-				glVertex2f(renderInfo_valueBox.begin.x+(diffx*currentDigit)+(diffx*0.8125),renderInfo_valueBox.begin.y+(diffy*0.11538)); // BR
-				glVertex2f(renderInfo_valueBox.begin.x+(diffx*currentDigit)+(diffx*0.8125),renderInfo_valueBox.begin.y+(diffy*0.5)); }
-		}
-		glEnd();
-		glLineWidth(lineWidthOld);
-		glColor4f( 0.0, 0.0, 0.0, 1.0 );
-	}
 }
 
 void guiGateREGISTER::drawToScene(cl::render::Scene& scene,
@@ -1170,79 +972,6 @@ guiGateLED::guiGateLED() {
 	setGUIParam( "LED_BOX", "-0.76,-0.76,0.76,0.76" );
 }
 
-void guiGateLED::draw( bool color ) {
-	StateType outputState = HI_Z;
-	
-	// Draw the default lines:
-	guiGate::draw(color);
-	
-	// Get the first connected input in the LED's library description:
-	// map i/o name to wire id
-	map< string, guiWire* >::iterator theCnk = connections.begin();
-	if( theCnk != connections.end() ) {
-		outputState = (theCnk->second)->getState()[0];
-	}
-
-	if (!color) {
-		// B&W schematic mode: outline with distinct markers for broken states
-		glColor4f(0.0, 0.0, 0.0, 1.0);
-
-		float x1 = renderInfo_ledBox.begin.x, y1 = renderInfo_ledBox.begin.y;
-		float x2 = renderInfo_ledBox.end.x, y2 = renderInfo_ledBox.end.y;
-		glBegin(GL_LINE_LOOP);
-		glVertex2f(x1, y1); glVertex2f(x2, y1);
-		glVertex2f(x2, y2); glVertex2f(x1, y2);
-		glEnd();
-
-		if (outputState == CONFLICT) {
-			// X cross-hatch
-			glBegin(GL_LINES);
-			glVertex2f(x1, y1); glVertex2f(x2, y2);
-			glVertex2f(x1, y2); glVertex2f(x2, y1);
-			glEnd();
-		}
-		else if (outputState == UNKNOWN) {
-			// Single diagonal slash
-			glBegin(GL_LINES);
-			glVertex2f(x1, y1); glVertex2f(x2, y2);
-			glEnd();
-		}
-		else if (outputState == HI_Z) {
-			// Horizontal line through center
-			float midY = (y1 + y2) / 2;
-			glBegin(GL_LINES);
-			glVertex2f(x1, midY); glVertex2f(x2, midY);
-			glEnd();
-		}
-	}
-	else {
-		switch( outputState ) {
-		case ZERO:
-			glColor4f( 0.0, 0.0, 0.0, 1.0 );
-			break;
-		case ONE:
-			glColor4f( 1.0, 0.0, 0.0, 1.0 );
-			break;
-		case HI_Z:
-			glColor4f( 0.0, 0.78f, 0.0, 1.0 );
-			break;
-		case UNKNOWN:
-			glColor4f( 0.3f, 0.3f, 1.0, 1.0 );
-			break;
-		case CONFLICT:
-			glColor4f( 0.0, 1.0, 1.0, 1.0 );
-			break;
-		}
-
-		//Inner Square
-		if (color) glRectd  ( renderInfo_ledBox.begin.x, renderInfo_ledBox.begin.y,
-				renderInfo_ledBox.end.x, renderInfo_ledBox.end.y ) ;
-	}
-
-	// Set the color back to black:
-	glColor4f( 0.0, 0.0, 0.0, 1.0 );
-}
-
 void guiGateLED::drawToScene(cl::render::Scene& scene,
                              const cl::render::RenderStyle& style) {
 	using namespace cl::render;
@@ -1325,22 +1054,6 @@ guiLabel::guiLabel() {
 	setGUIParam( "TEXT_HEIGHT", "2.0" );
 }
 
-void guiLabel::draw( bool color ) {
-	// Position the gate at its x and y coordinates:
-	glLoadMatrixd(mModel);
-	
-	// Pick the color for the text:
-	if( selected && color ) {
-		GLdouble c = 1.0 - SELECTED_LABEL_INTENSITY;
-		theText.setColor( 1.0, c / 4, c / 4, SELECTED_LABEL_INTENSITY );
-	} else {
-		theText.setColor( 0.0, 0.0, 0.0, 1.0 );
-	}
-	
-	// Draw the text:
-	theText.draw();
-}
-
 void guiLabel::drawToScene(cl::render::Scene& scene,
                            const cl::render::RenderStyle& style) {
 	using namespace cl::render;
@@ -1353,8 +1066,7 @@ void guiLabel::drawToScene(cl::render::Scene& scene,
 	theText.getPosition(px, py);
 	std::string txt = getGUIParam("LABEL_TEXT");
 	// Tint the text red when selected -- a label has no outline to dash, so this
-	// is its only selection cue (mirrors the GL path; without it selecting a text
-	// label showed no change under the Skia renderer).
+	// is its only selection cue.
 	Color textColor = style.gateStroke(GateKind::Label);
 	if (selected && style.showSelection) {
 		float cc = 1.0f - (float)SELECTED_LABEL_INTENSITY;
@@ -1403,12 +1115,12 @@ void guiLabel::setGUIParam( string paramName, string value ) {
 
 void guiLabel::calcBBox( void ) {
 	GLbox textBBox = theText.getBoundingBox();
-	float w = fabs(textBBox.right - textBBox.left); // GL width (fallback)
+	float w = fabs(textBBox.right - textBBox.left); // GLFont width (fallback)
 #ifdef WITH_SKIA
-	// Under the Skia renderer the text draws NARROWER than the GL font at the
-	// cap-height-matched size, so a GL-width box left slack on the side. Size the
-	// box to the width Skia actually renders (drawToScene uses TEXT_HEIGHT*1.35).
-	if (appConfig().appSettings.useSkiaRenderer) {
+	// Skia draws the text NARROWER than the GL font at the cap-height-matched
+	// size, so a GLFont-width box left slack on the side. Size the box to the
+	// width Skia actually renders (drawToScene uses TEXT_HEIGHT*1.35).
+	{
 		float sw = cl::render::measuredTextWidth(getGUIParam("LABEL_TEXT").c_str(),
 		                                         (float)getTextHeight() * 1.35f);
 		if (sw > 0.0f) w = sw;
@@ -1438,50 +1150,6 @@ guiTO_FROM::guiTO_FROM() {
 	
 	// Initialize the text object:
 	theText.setSize( TO_FROM_TEXT_HEIGHT );
-}
-
-void guiTO_FROM::draw( bool color ) {
-	// Draw the lines for this gate:
-	guiGate::draw();
-
-	// Position the gate at its x and y coordinates:
-	glLoadMatrixd(mModel);
-	
-	// Pick the color for the text:
-	if( selected && color ) {
-		GLdouble c = 1.0 - SELECTED_LABEL_INTENSITY;
-		theText.setColor( 1.0, c / 4, c / 4, SELECTED_LABEL_INTENSITY );
-	} else {
-		theText.setColor( 0.0, 0.0, 0.0, 1.0 );
-	}
-	
-	//********************************
-	//Edit by Joshua Lansford 04/04/07
-	//Upside down text on tos and froms
-	//isn't that exciting.
-	//This will rotate the text around
-	//before it is printed
-	if( this->getGUIParam( "angle" ) == "180" ||
-	    this->getGUIParam( "angle" ) ==  "90" ){
-		
-		//scoot the label over
-		GLbox textBBox = theText.getBoundingBox();
-		GLdouble textWidth = textBBox.right - textBBox.left;
-		int direction = 0;
-		if( getGUIType() == "TO" ) {
-			direction = +1;
-		} else if (getGUIType() == "FROM") {
-			direction = -1;
-		}
-		glTranslatef( direction * (textWidth + FLIPPED_OFFSET), 0, 0 );
-		
-		//and spin it around
-		glRotatef( 180, 0.0, 0.0, 1.0);
-	}
-	//End of Edit*********************
-	
-	// Draw the text:
-	theText.draw();
 }
 
 // A custom setParam function is required because

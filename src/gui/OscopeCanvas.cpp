@@ -15,8 +15,6 @@
 #include "OscopeFrame.h"
 #include "guiWire.h"
 
-#include "glToImage.h"
-
 #include "render/Scene.h"
 #include "render/RenderStyle.h"
 #ifdef WITH_SKIA
@@ -67,152 +65,11 @@ void OscopeCanvas::OnRenderTimer(wxTimerEvent& WXUNUSED(event)) {
 	}
 }
 
-void OscopeCanvas::OnRender(double scaleOverride){
-	
-	//Gets number of wires to render
-	//unsigned int numberOfWires = stateValues.size();
-	unsigned int numberOfWires = parentFrame->numberOfFeeds(); //<-Josh Edit using access method
-	unsigned int wireNum = 0;
-	
-	//clear window 
-	glClear(GL_COLOR_BUFFER_BIT); 
-
-	// Set the projection matrix:	
-	glMatrixMode (GL_PROJECTION);
-	glLoadIdentity ();
-
-	wxSize sz = GetClientSize();
-	// gluOrtho2D(left, right, bottom, top); (In world-space coords.)
-	
-	
-	gluOrtho2D(0, OSCOPE_HORIZONTAL, numberOfWires * 1.5, -0.25);
-	// Use physical pixels for glViewport on HiDPI/Retina displays
-	// (scaleOverride allows generateImage to force logical pixels for export)
-	double scaleFactor = (scaleOverride > 0.0) ? scaleOverride : GetContentScaleFactor();
-	glViewport(0, 0, (GLint)(sz.GetWidth() * scaleFactor), (GLint)(sz.GetHeight() * scaleFactor));
-
-	// Set the model matrix:
-	glMatrixMode (GL_MODELVIEW);
-	glLoadIdentity ();
-	
-	glColor4f( 0.0, 0.0, 0.0, 1.0 );
-	float intensity = (GLfloat) GRID_INTENSITY;
-	glColor4f( 0.0, 0.0, intensity, intensity );
-
-	
-	//Drawing Vertical Lines
-	glBegin(GL_LINES);
-		glVertex2f( OSCOPE_HORIZONTAL/10, -0.5 );
-		glVertex2f( OSCOPE_HORIZONTAL/10, numberOfWires * 1.5 );
-		
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*2, -0.5 );
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*2, numberOfWires * 1.5 );
-		
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*3, -0.5 );
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*3, numberOfWires * 1.5 );
-		
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*4, -0.5 );
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*4, numberOfWires * 1.5 );
-		
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*5, -0.5 );
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*5, numberOfWires * 1.5 );
-		
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*6, -0.5 );
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*6, numberOfWires * 1.5 );
-		
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*7, -0.5 );
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*7, numberOfWires * 1.5 );
-		
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*8, -0.5 );
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*8, numberOfWires * 1.5 );
-		
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*9, -0.5 );
-		glVertex2f( (OSCOPE_HORIZONTAL/10)*9, numberOfWires * 1.5 );
-		
-		glVertex2f( 0, -0.5 );
-		glVertex2f( 0, numberOfWires * 1.5 );
-	glEnd();
-
-	for (unsigned int i = 0; i < numberOfWires; i++) {
-		map< string, deque< StateType > >::iterator thisWire = stateValues.find(parentFrame->getFeedName(i).c_str());
-		if (thisWire == stateValues.end()) { wireNum++; continue; }
-		deque< StateType >::reverse_iterator wireVal = (thisWire->second).rbegin();
-		GLdouble horizLoc = OSCOPE_HORIZONTAL;
-		GLdouble y = 0.0, lastY = 0.0;
-		StateType theState;
-		
-		float intensity = (GLfloat) GRID_INTENSITY;
-		glColor4f( 0.0, 0.0, intensity, intensity );
-
-		//Draws Horizontal for wire
-		glBegin(GL_LINES);
-			glVertex2f( 0, (wireNum * 1.5) + 1);
-			glVertex2f( OSCOPE_HORIZONTAL, (wireNum * 1.5) + 1);
-		glEnd();
-	
-		bool firstTime = true;
-		bool solid = false;
-	
-		while(wireVal != ((thisWire->second).rend())) {
-			theState = *wireVal;
-	
-			solid = false;
-			switch( theState ) {
-			case ZERO:
-				glColor4f( 0.0, 0.0, 0.0, 1.0 );
-				y = 1.0 + wireNum * 1.5;
-				break;
-			case ONE:
-				glColor4f( 1.0, 0.0, 0.0, 1.0 );
-				y = 0.0 + wireNum * 1.5;
-				break;
-			case HI_Z:
-				glColor4f( 0.0, 0.78f, 0.0, 1.0 );
-				y = 0.5 + wireNum * 1.5;
-				break;
-			case UNKNOWN:
-				glColor4f( 0.3f, 0.3f, 1.0, 1.0 );
-				y = 0.75 + wireNum * 1.5;
-				solid = true;
-				break;
-			case CONFLICT:
-				glColor4f( 0.0, 1.0, 1.0, 1.0 );
-				y = 0.75 + wireNum * 1.5;
-				solid = true;
-				break;
-			}
-			
-			if( solid ) {
-				glRectd( horizLoc, y, horizLoc - 1.0, 0 + wireNum * 1.5) ;
-			} else {
-				glBegin(GL_LINES);
-				if(!firstTime && (lastY != y) ) {
-					// Rise:
-					glVertex2f( horizLoc, lastY );
-					glVertex2f( horizLoc, y );
-				}
-				firstTime = false;
-	
-				// Run:
-				glVertex2f( horizLoc, y );
-				glVertex2f( horizLoc - 1.0, y );
-				glEnd();
-			}
-			
-			// Move on to the next data point:
-			horizLoc -= 1.0;
-			lastY = y;
-			wireVal++;
-		}
-		wireNum++;
-	} // for
-}
-
 #ifdef WITH_SKIA
-// Render the waveforms through Skia, mirroring OnRender()'s GL drawing. The GL
-// ortho is gluOrtho2D(0, OSCOPE_HORIZONTAL, numberOfWires*1.5, -0.25) -- note it
-// is y-DOWN (top = -0.25), unlike the main canvas -- so the world->device
-// transform has a positive y scale and no flip.
+// Render the waveforms through Skia. The world box is
+// (0, -0.25) .. (OSCOPE_HORIZONTAL, numberOfWires*1.5) -- note it is y-DOWN
+// (top = -0.25), unlike the main canvas -- so the world->device transform has a
+// positive y scale and no flip.
 bool OscopeCanvas::OnRenderSkia() {
 	using namespace cl::render;
 	const unsigned int numberOfWires = parentFrame->numberOfFeeds();
@@ -331,14 +188,7 @@ void OscopeCanvas::OnPaint(wxPaintEvent& event){
 	}
 
 
-#ifdef WITH_SKIA
-	if (appConfig().appSettings.useSkiaRenderer && OnRenderSkia()) {
-		SwapBuffers();
-		return;
-	}
-#endif
-
-	OnRender();
+	OnRenderSkia();
 
 	// Show the new buffer:
 	glFlush();
@@ -571,21 +421,31 @@ void OscopeCanvas::UpdateMenu()
 	*/
 }
 
-// Print the canvas contents to a bitmap:
+// Print the canvas contents to a bitmap, via an offscreen Skia surface. Uses
+// logical (unscaled) pixels so the exported image matches the panel's size, and
+// the same world->device transform OnRenderSkia builds.
 wxImage OscopeCanvas::generateImage(){
+	using namespace cl::render;
 	wxSize sz = GetClientSize();
-	glImageCtx glCtx(sz.GetWidth(), sz.GetHeight(), this);
+	const int w = sz.GetWidth(), h = sz.GetHeight();
+	if (w <= 0 || h <= 0) return wxImage();
 
-	glClearColor (1.0, 1.0, 1.0, 0.0);
-	glColor3b(0, 0, 0);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_BLEND);
-	glEnable( GL_LINE_SMOOTH );
+	// The caller wraps this in a wxBitmap, so always hand back a valid image --
+	// blank white if the render can't run.
+	wxImage img(w, h);
+	memset(img.GetData(), 0xFF, (size_t)w * h * 3);
 
-	// Use scale 1.0 so OnRender sets glViewport to logical pixels,
-	// matching the glReadPixels dimensions in glImageCtx::getImage().
-	OnRender(1.0);
+	const unsigned int numberOfWires = parentFrame->numberOfFeeds();
+	const float worldH = numberOfWires * 1.5f + 0.25f;  // top -0.25 .. bottom nw*1.5
+	if (worldH <= 1e-3f) return img;
 
-	glFlush();
-	return glCtx.getImage();
+	Transform t;
+	t.a = (float)w / (float)OSCOPE_HORIZONTAL; t.c = 0; t.e = 0;
+	t.b = 0; t.d = (float)h / worldH; t.f = 0.25f * ((float)h / worldH);
+
+	OscopeCanvas* self = this;
+	skiaRenderToRGB(w, h, [self, &t, numberOfWires](Scene& scene) {
+			self->drawOscopeScene(scene, t, numberOfWires);
+		}, img.GetData());
+	return img;
 }

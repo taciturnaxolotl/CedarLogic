@@ -58,10 +58,7 @@ public:
 	//	and another one from the new position to pass to updateSegDrag
 	void updateConnectionPos(unsigned long gid, string connection);
 
-	void draw(bool color = true);
-
 	// Emit this wire into the engine-neutral rendering Scene (Workstream G).
-	// Mirrors draw() without OpenGL; the GL path is untouched.
 	void drawToScene(cl::render::Scene& scene,
 	                 const cl::render::RenderStyle& style);
 

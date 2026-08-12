@@ -60,8 +60,6 @@ public:
     void UpdateMenu(void);
 	void UpdateData(void);
 		
-	// Render this page (scaleOverride > 0 uses that instead of GetContentScaleFactor)
-    void OnRender(double scaleOverride = 0.0);
 #ifdef WITH_SKIA
     // G3: render the waveforms through Skia's Ganesh backend instead of GL.
     bool OnRenderSkia();

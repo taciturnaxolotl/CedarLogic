@@ -53,9 +53,6 @@ public:
 	string getGateName() { return gateName; };
 
 private:
-	void setViewport();
-	void generateImage();
-	void renderMap();
 	void update();
 	
 	guiGate* m_gate;

@@ -19,7 +19,6 @@
 #include "guiText.h"
 #include <fstream>
 #include <wx/dnd.h>
-#include "glToImage.h"
 #include "render/SkiaProbe.h"
 #include "render/Scene.h"
 #include "render/RenderStyle.h"
@@ -108,63 +107,12 @@ void gateImage::OnEraseBackground( wxEraseEvent& event ) {
 	// Do nothing, so that the palette doesn't flicker!
 }
 
-void gateImage::setViewport() {
-	// Set the projection matrix:	
-	glMatrixMode (GL_PROJECTION);
-	glLoadIdentity ();
-
-	wxSize sz = GetClientSize();
-	klsBBox m_gatebox = m_gate->getModelBBox();
-	GLPoint2f minCorner = GLPoint2f(m_gatebox.getLeft()-0.5,m_gatebox.getTop()+0.5);
-	GLPoint2f maxCorner = GLPoint2f(m_gatebox.getRight()+0.5,m_gatebox.getBottom()-0.5);
-
-	double screenAspect = (double) sz.GetHeight() / (double) sz.GetWidth();
-	double mapWidth = maxCorner.x - minCorner.x;
-	double mapHeight = minCorner.y - maxCorner.y; // max and min corner's defs are weird...
-	
-	GLPoint2f orthoBoxTL, orthoBoxBR;
-	
-	// If the map's width is the limiting factor:
-	if( screenAspect * mapWidth >= mapHeight ) {
-		// Fit to width:
-		double imageHeight = screenAspect * mapWidth;
-
-		// Set the ortho box width equal to the map width, and center the
-		// height in the box:
-		orthoBoxTL = GLPoint2f( minCorner.x, minCorner.y + 0.5*(imageHeight - mapHeight) );
-		orthoBoxBR = GLPoint2f( maxCorner.x, maxCorner.y - 0.5*(imageHeight - mapHeight) );
-	} else {
-		// Fit to height:
-		double imageWidth = mapHeight / screenAspect;
-
-		// Set the ortho box height equal to the map height, and center the
-		// width in the box:
-		orthoBoxTL = GLPoint2f( minCorner.x - 0.5*(imageWidth - mapWidth), minCorner.y );
-		orthoBoxBR = GLPoint2f( maxCorner.x + 0.5*(imageWidth - mapWidth), maxCorner.y );
-	}
-
-	// gluOrtho2D(left, right, bottom, top); (In world-space coords.)
-	gluOrtho2D(orthoBoxTL.x, orthoBoxBR.x, orthoBoxBR.y, orthoBoxTL.y);
-	// Use physical pixels for glViewport on HiDPI/Retina displays
-	double scaleFactor = GetContentScaleFactor();
-	glViewport(0, 0, (GLint)(sz.GetWidth() * scaleFactor), (GLint)(sz.GetHeight() * scaleFactor));
-
-	// Store minCorner and maxCorner for use in mouse handler:
-	minCorner = orthoBoxTL;
-	maxCorner = orthoBoxBR; 
-
-	// Set the model matrix:
-	glMatrixMode (GL_MODELVIEW);
-	glLoadIdentity ();
-}
-
-// Fit the gate's model box into a `size`-square thumbnail, matching the ortho
-// box setViewport() builds for the GL path (0.5 world units of padding, then
-// letterboxed on the limiting axis) so the framing is identical.
+// Fit the gate's model box into a `size`-square thumbnail: 0.5 world units of
+// padding, then letterboxed on the limiting axis.
 cl::render::Transform gateImage::thumbnailTransform(int size) const {
 	klsBBox box = m_gate->getModelBBox();
-	// minCorner/maxCorner follow the GL path's convention: min is (left, top),
-	// max is (right, bottom), so y decreases from min to max.
+	// minCorner is (left, top), maxCorner is (right, bottom), so y decreases from
+	// min to max.
 	GLPoint2f minCorner(box.getLeft() - 0.5f, box.getTop() + 0.5f);
 	GLPoint2f maxCorner(box.getRight() + 0.5f, box.getBottom() - 0.5f);
 
@@ -196,9 +144,8 @@ cl::render::Transform gateImage::thumbnailTransform(int size) const {
 	return t;
 }
 
-// Render the thumbnail through Skia into an offscreen raster surface. Replaces
-// the offscreen-GL readback: Skia anti-aliases natively, so this needs none of
-// the supersampling the GL path used to get smooth curves.
+// Render the thumbnail through Skia into an offscreen raster surface. Skia
+// anti-aliases natively, so no supersampling is needed for smooth curves.
 bool gateImage::generateImageSkia() {
 	if (m_gate == NULL) return false;
 	const int size = GATEIMAGESIZE;
@@ -219,72 +166,6 @@ bool gateImage::generateImageSkia() {
 	return true;
 }
 
-// Print the canvas contents to a bitmap:
-void gateImage::generateImage() {
-	if (generateImageSkia()) return;
-
-	// Supersampled anti-aliasing. The offscreen GL path (a software DIB context on
-	// Windows) has no multisampling, so gate outlines baked into the thumbnail
-	// came out jagged. Render several times larger with a matching line width,
-	// then downscale with a high-quality filter -- the result is smooth. (Skia
-	// already anti-aliases the canvas; this brings the palette up to par.)
-	const int SS = 4;
-	const int renderSize = GATEIMAGESIZE * SS;
-
-	glImageCtx glCtx(renderSize, renderSize, this);
-
-	// Setup the viewport for rendering:
-	setViewport();
-	// Reset the glViewport to the (supersampled) size of the bitmap:
-	glViewport(0, 0, renderSize, renderSize);
-
-	// Set the bitmap clear color:
-	glClearColor (1.0, 1.0, 1.0, 0.0);
-	glColor3b(0, 0, 0);
-
-	glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
-
-	//TODO: Check if alpha is hardware supported, and
-	// don't enable it if not!
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_BLEND);
-
-	glTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
-
-	// SSAA does the smoothing, so draw plain aliased lines: GL_LINE_SMOOTH would
-	// clamp the software renderer's line width to 1px, leaving the strokes too
-	// faint once downscaled. Scale the width by SS so it lands at ~1px after.
-	glDisable( GL_LINE_SMOOTH );
-	glLineWidth( (GLfloat)SS );
-
-	// Load the font texture
-	guiText::loadFont(appConfig().appSettings.textFontFile);
-
-	// Do the rendering here.
-	renderMap();
-
-	// Flush the OpenGL buffer to make sure the rendering has happened:
-	glFlush();
-
-	gImage = glCtx.getImage();
-
-	// Downscale the supersampled render -> smooth, anti-aliased thumbnail.
-	if (gImage.IsOk() && gImage.GetWidth() != GATEIMAGESIZE) {
-		gImage.Rescale(GATEIMAGESIZE, GATEIMAGESIZE, wxIMAGE_QUALITY_HIGH);
-	}
-}
-
-void gateImage::renderMap() {
-	//clear window
-	glClear(GL_COLOR_BUFFER_BIT);
-	glMatrixMode (GL_MODELVIEW);
-	glLoadIdentity ();
-	glColor4f( 0, 0, 0, 1 );
-
-	if (m_gate != NULL) m_gate->draw();
-}
-
 void gateImage::update() {
-	setViewport();
-	generateImage();
+	generateImageSkia();
 }

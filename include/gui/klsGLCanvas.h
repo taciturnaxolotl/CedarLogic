@@ -72,9 +72,6 @@ public:
     virtual ~klsGLCanvas();
 
 
-	// Print the canvas contents to a bitmap:
-	wxImage renderToImage( unsigned long width, unsigned long height, unsigned long colorDepth = 32, bool noColor = false );
-
 	//TODO: Add some scrollbars and some methods for setting the usable canvas size.
 
 	// Handle events from wxWidgets:
@@ -82,7 +79,6 @@ public:
     void wxOnCaptureLost(wxMouseCaptureLostEvent& event);
     void wxOnSize(wxSizeEvent& event);
     void wxOnEraseBackground(wxEraseEvent& event);
-    void klsGLCanvasRender( bool noColor = false );
 
     void wxOnMouseEvent(wxMouseEvent& event);
     void wxOnMouseWheel(wxMouseEvent& event);
@@ -106,10 +102,8 @@ public:
     virtual void OnKeyDown( wxKeyEvent& event ) {};
     virtual void OnKeyUp( wxKeyEvent& event ) {};
 
-    virtual void OnRender( bool noColor = false ) {};
-	// Workstream G3: render the live frame through Skia's Ganesh GL backend
-	// instead of fixed-function GL. Returns true if it painted (caller then just
-	// SwapBuffers); false falls back to OnRender(). Base is a no-op.
+	// Render the live frame through Skia's Ganesh GL backend. Returns true if it
+	// painted (caller then just SwapBuffers). Base is a no-op.
 	virtual bool renderSkiaLive() { return false; }
 	// Unwind any subclass-specific drag state on an abnormal drag end (lost mouse
 	// capture). endDrag() only clears the base flags; subclasses that track their

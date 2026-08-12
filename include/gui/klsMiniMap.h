@@ -44,12 +44,10 @@ public:
 	
 private:
 	void setViewport();
-	void generateImage();
 #ifdef WITH_SKIA
-	bool generateImageSkia();   // G3: render the minimap through Skia
+	bool generateImageSkia();   // render the minimap through Skia
 #endif
-	void renderMap();
-	
+
 	// viewport rect
 	GLPoint2f origin, endpoint;
 	

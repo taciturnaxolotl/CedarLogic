@@ -276,10 +276,10 @@ void OscopeFrame::cancelFeed( int i ){
 
 int OscopeFrame::getFeedYPos( int i ){
 	if (numberOfFeeds() == 0) return 0;
-	// Match the GL coordinate mapping from OscopeCanvas::OnRender:
-	//   gluOrtho2D(0, OSCOPE_HORIZONTAL, numberOfWires * 1.5, -0.25)
-	// Wire i occupies GL y range [i*1.5, i*1.5+1], center at i*1.5+0.5
-	// GL top = -0.25, GL bottom = n * 1.5
+	// Match the coordinate mapping OscopeCanvas::OnRenderSkia builds:
+	//   world box (0, -0.25) .. (OSCOPE_HORIZONTAL, numberOfWires * 1.5)
+	// Wire i occupies world y range [i*1.5, i*1.5+1], center at i*1.5+0.5
+	// top = -0.25, bottom = n * 1.5
 	// pixelY = (glY + 0.25) / (n * 1.5 + 0.25) * canvasHeight
 	wxSize canvasSize = theCanvas->GetClientSize();
 	int canvasHeight = canvasSize.GetHeight();

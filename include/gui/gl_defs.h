@@ -25,13 +25,8 @@ struct GLLine2f {
 	GLPoint2f end;
 };
 
-#define POINTS_PER_VERTEX 12
 #define WIRE_BBOX_THICKNESS 0.25
 #define DEG2RAD 0.0174533
 #define EQUALRANGE 0.00125
-
-#define CEDAR_GLLIST_CONNECTPOINT 1024
-
-void defineGLLists();
 
 #endif /*GL_DEFS_H_*/

@@ -14,7 +14,6 @@
 #include "MainApp.h"
 #include "paramDialog.h"
 #include "GLFont/glfont2.h"
-#include "glToImage.h"
 
 // Included to use the min() and max() templates:
 #include <algorithm>
@@ -110,58 +109,6 @@ void klsGLCanvas::updateMiniMap() {
 	if (minimap != NULL) minimap->update(p1, p2);
 }
 
-// Print the canvas contents to a bitmap:
-wxImage klsGLCanvas::renderToImage( unsigned long width, unsigned long height, unsigned long colorDepth, bool noColor ) {
-	wxGetApp().SetCurrentCanvas(this);
-	glImageCtx glCtx((int)width, (int)height, this);
-
-	// Setup the projection matrix - use canvas size for world coordinates
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	// Use canvas dimensions for world coordinates (what area we're looking at)
-	wxSize sz = GetClientSize();
-	gluOrtho2D(panX, panX + (sz.GetWidth() * viewZoom), panY - (sz.GetHeight() * viewZoom), panY);
-
-	// Set the viewport to bitmap size (resolution we're rendering at)
-	glViewport(0, 0, (GLint) width, (GLint) height);
-
-	// Set the model matrix:
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	
-	// Set the bitmap clear color:
-	glClearColor (1.0, 1.0, 1.0, 0.0);
-	glColor3b(0, 0, 0);
-
-  // Load the font texture
-  guiText::loadFont(appConfig().appSettings.textFontFile);
-    
-		
-	//TODO: Check if alpha is hardware supported, and
-	// don't enable it if not!
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_BLEND);
-	
-	//*********************************
-	//Edit by Joshua Lansford 4/05/07
-	//I placed this in here to hopefully
-	//anti-alis the the text font.
-	//however, it doesn't but it does
-	//anti-alies the gates which looks nice.
-	glEnable( GL_LINE_SMOOTH );
-	//End of edit
-		
-
-	// Do the rendering here.
-	klsGLCanvasRender( noColor );
-
-	// Flush the OpenGL buffer to make sure the rendering has happened:	
-	glFlush();
-
-	return glCtx.getImage();
-}
-
 // Setup the GL matrices for this canvas:
 // (This needs to be called everytime that the matrices will be used.)
 void klsGLCanvas::reclaimViewport( void ) {
@@ -247,125 +194,6 @@ GLPoint2f klsGLCanvas::mapToCanvas(wxPoint m) {
 	return GLPoint2f(glX, glY);
 }
 
-void klsGLCanvas::klsGLCanvasRender( bool noColor ) {
-	int w, h;
-	GetClientSize(&w, &h);
-
-	//clear window
-	glClear(GL_COLOR_BUFFER_BIT);
-	glMatrixMode (GL_MODELVIEW);
-	glLoadIdentity ();
-	glColor4f( 0, 0, 0, 1 );
-
-	// Render the background grid:
-	if( (horizOn || vertOn) && appConfig().appSettings.gridlineVisible ) {
-		// Note: since adding a very few line primitives is a small price to pay,
-		//	we not only draw the grid for the visible area, but also (PAN_STEP*viewZoom)
-		//	around the visible area.  This is so when the user pans, there will be no
-		//	flicker at the edge of the grid.
-		
-		GLfloat oldColor[4];
-		glGetFloatv( GL_CURRENT_COLOR, oldColor );
-
-		GLdouble vW = panX;
-		GLdouble vE = panX + (w * viewZoom);
-		GLdouble vS = panY - (h * viewZoom);
-		GLdouble vN = panY;
-
-		if( horizOn ) {
-			long gridSpacing = max( (long) (horizSpacing + 0.5), (long) 1 ); // Limit the grid spacing options to integer values!
-			long glSpacing = max( (long) gridSpacing, (long) (MIN_GRID_SCREEN_SPACING * viewZoom) );
-
-			long firstX = (long)(glSpacing * floor( (vW-(PAN_STEP*viewZoom)) / (float) glSpacing + 0.5 ));
-
-			glColor4fv( hColor );
-			glBegin(GL_LINES);
-			for( long x = firstX; x < vE + (PAN_STEP*viewZoom); x += glSpacing ) {
-				glVertex2f( x, vS-(PAN_STEP*viewZoom) );
-				glVertex2f( x, vN+(PAN_STEP*viewZoom) );
-			}
-			glEnd();
-		}
-
-		if( vertOn ) {
-			long gridSpacing = max( (long) (vertSpacing + 0.5), (long) 1 ); // Limit the grid spacing options to integer values!
-			long glSpacing = max( (long) gridSpacing, (long) (MIN_GRID_SCREEN_SPACING * viewZoom) );
-
-			long firstY = (long)(glSpacing * floor( (vS-(PAN_STEP*viewZoom)) / (float) glSpacing + 0.5 ));
-
-			glColor4fv( vColor );
-			glBegin(GL_LINES);
-			for( long y = firstY; y < vN + (PAN_STEP*viewZoom); y += glSpacing ) {
-				glVertex2f( vW-(PAN_STEP*viewZoom), y );
-				glVertex2f( vE+(PAN_STEP*viewZoom), y );
-			}
-			glEnd();
-		}
-
-		// Set the color back to the old color:
-		glColor4fv( oldColor );
-	}
-
-
-// Draw the canvas debugging info if requested:
-#ifdef CANVAS_DEBUG_TESTS_ON
-
-	glMatrixMode (GL_MODELVIEW);
-	glLoadIdentity ();
-
-	// Origin Marker:
-	glColor4f( 0,0,0,1 );
-	glBegin( GL_LINES );
-		glVertex2f( -20, 20 );
-		glVertex2f( 20, -20 );
-		glVertex2f( -20, -20 );
-		glVertex2f( 20, 20 );
-	glEnd();	
-
-	mouseButton whichB = BUTTON_LEFT;
-	glColor4f( 1, 0, 0, 1 );
-	if( isDragging( whichB ) ) {
-		GLPoint2f start = getDragStartCoords( whichB );
-		GLPoint2f end = getMouseCoords();
-
-		glBegin(GL_LINES);
-			glVertex2f( start.x, start.y );
-			glVertex2f( end.x, end.y );
-		glEnd();
-	}
-
-	whichB = BUTTON_MIDDLE;
-	glColor4f( 0, 1, 0, 1 );
-	if( isDragging( whichB ) ) {
-		GLPoint2f start = getDragStartCoords( whichB );
-		GLPoint2f end = getMouseCoords();
-
-		glBegin(GL_LINES);
-			glVertex2f( start.x, start.y );
-			glVertex2f( end.x, end.y );
-		glEnd();
-	}
-
-	whichB = BUTTON_RIGHT;
-	glColor4f( 0, 0, 1, 1 );
-	if( isDragging( whichB ) ) {
-		GLPoint2f start = getDragStartCoords( whichB );
-		GLPoint2f end = getMouseCoords();
-
-		glBegin(GL_LINES);
-			glVertex2f( start.x, start.y );
-			glVertex2f( end.x, end.y );
-		glEnd();
-	}
-
-#endif
-
-	// Call subclassed Render():
-	glMatrixMode (GL_MODELVIEW);
-	glLoadIdentity ();
-	OnRender( noColor );
-}
-
 
 void klsGLCanvas::wxOnPaint(wxPaintEvent& event) {
 	wxPaintDC dc(this);
@@ -394,19 +222,11 @@ void klsGLCanvas::wxOnPaint(wxPaintEvent& event) {
 		// Load the font texture
 		guiText::loadFont(appConfig().appSettings.textFontFile);
 
-		// Connection point list
-		defineGLLists();
-		
 		glInitialized = true;
 	}
 
 	reclaimViewport();
-	// G3: try the Skia live path first (on by default, toggleable in View); if it
-	// declines (not built, or the GL context couldn't be adopted), fall back to
-	// the fixed-function GL render.
-	if (!(appConfig().appSettings.useSkiaRenderer && renderSkiaLive())) {
-		klsGLCanvasRender();
-	}
+	renderSkiaLive();
 
 	// Show the new buffer:
 	glFlush();
@@ -607,17 +427,6 @@ void klsGLCanvas::wxOnMouseEvent(wxMouseEvent& event) {
 	} else if( event.MiddleDown() || event.MiddleDClick() ) {
 		beginDrag( BUTTON_MIDDLE );
 		OnMouseDown( event ); // Call the event handler.
-		if( event.MiddleDClick() ) {
-			// Debugging screen shot code.
-			// I left it in because it was nifty to have around, especially
-			// for writing documentation.	
-			// Render the canvas to a bitmap and save it:
-			wxSize sz = GetClientSize();
-			wxImage screenShot = renderToImage(sz.GetWidth(), sz.GetHeight());
-			wxBitmap myBMP( screenShot );
-			myBMP.SaveFile("screen_shot.bmp", wxBITMAP_TYPE_BMP);
-		}
-		
 	} else if( event.MiddleUp() ) {
 		endDrag( BUTTON_MIDDLE );   // forces the final pan repaint
 		OnMouseUp( event );

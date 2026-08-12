@@ -151,7 +151,6 @@ public:
 
 	void declareInput(string name) { isInput[name] = true; };
 	void declareOutput(string name) { isInput[name] = false; };
-	virtual void draw(bool color = true);
 
 	// Emit this gate into the engine-neutral rendering Scene (Workstream G).
 	// Base draws the gate outline + label lines under the model transform;
@@ -342,7 +341,6 @@ protected:
 class guiGateTOGGLE : public guiGate {
 public:
 	guiGateTOGGLE();
-	void draw( bool color = true );
 	void drawToScene(cl::render::Scene& scene,
 	                 const cl::render::RenderStyle& style) override;
 
@@ -361,7 +359,6 @@ protected:
 class guiGateKEYPAD : public guiGate {
 public:
 	guiGateKEYPAD();
-	void draw( bool color = true );
 	void drawToScene(cl::render::Scene& scene,
 	                 const cl::render::RenderStyle& style) override;
 	void setLogicParam( string paramName, string value );
@@ -377,7 +374,6 @@ private:
 class guiGateREGISTER : public guiGate {
 public:
 	guiGateREGISTER();
-	void draw( bool color = true );
 	void drawToScene(cl::render::Scene& scene,
 	                 const cl::render::RenderStyle& style) override;
 	void setGUIParam( string paramName, string value );
@@ -409,7 +405,6 @@ public:
 class guiGateLED : public guiGate {
 public:
 	guiGateLED();
-	void draw( bool color = true );
 	void drawToScene(cl::render::Scene& scene,
 	                 const cl::render::RenderStyle& style) override;
 	// The B&W markers (minimap/print) depend on the driving net's state, so fold
@@ -427,7 +422,6 @@ protected:
 class guiLabel : public guiGate {
 public:
 	guiLabel();
-	void draw( bool color = true );
 	void drawToScene(cl::render::Scene& scene,
 	                 const cl::render::RenderStyle& style) override;
 
@@ -465,7 +459,6 @@ class guiTO_FROM : public guiGate {
 public:
 	guiTO_FROM();
 
-	void draw( bool color = true );
 	void drawToScene(cl::render::Scene& scene,
 	                 const cl::render::RenderStyle& style) override;
 

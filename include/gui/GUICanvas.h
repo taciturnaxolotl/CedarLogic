@@ -157,13 +157,9 @@ public:
 	// Rotates the currently selected gates, gates being pasted, or gate being placed by 90 degrees
 	void rotateSelection();
 
-	// Render this page
-    void OnRender( bool noColor = false );
-
     // Render the whole page into the engine-neutral Scene (Workstream G): fits
     // the circuit to a device-sized viewport, draws the grid, then every gate
-    // and wire via their drawToScene(). Used by the headless Skia render path;
-    // the live GL OnRender() is untouched.
+    // and wire via their drawToScene(). Used by the headless Skia render path.
     void renderToScene(cl::render::Scene& scene, const cl::render::RenderStyle& style,
                        int deviceW, int deviceH);
 
@@ -182,8 +178,7 @@ public:
     unsigned long long renderContentKey();
     // Interactive overlays (hovered pin bulb, potential-connection bulbs, drag
     // boxes/lines, wire hover, collision boxes) drawn only in the live Skia path
-    // -- not in renderToScene, which is shared with PNG/SVG export. Mirrors the
-    // GL OnRender overlays so the Skia default keeps the same hover affordances.
+    // -- not in renderToScene, which is shared with PNG/SVG export.
     void drawOverlaysInto(cl::render::Scene& scene);
 #endif
 

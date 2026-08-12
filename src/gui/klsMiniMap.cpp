@@ -132,9 +132,8 @@ void klsMiniMap::setViewport() {
 	glLoadIdentity ();
 }
 
-// Render the whole circuit through Skia (G3), mirroring the GL renderMap() but
-// via the same Scene seam the main canvas uses -- so the minimap migrates off
-// fixed-function GL instead of fighting Skia for the shared GL context's state.
+// Render the whole circuit through Skia, via the same Scene seam the main
+// canvas uses.
 #ifdef WITH_SKIA
 bool klsMiniMap::generateImageSkia() {
 	using namespace cl::render;
@@ -152,7 +151,7 @@ bool klsMiniMap::generateImageSkia() {
 	t.b = 0; t.d = -scale; t.f = (float)( minCorner.y * scale);
 
 	klsMiniMap* self = this;
-	RenderStyle style = RenderStyle::print();   // black outlines, no grid/live (= draw(false))
+	RenderStyle style = RenderStyle::print();   // black outlines, no grid, no live state
 	// Hairline strokes: the whole circuit is shrunk to a thumbnail, so full-weight
 	// lines would collapse dense clusters into a black blob.
 	const float strokeScale = 0.5f;
@@ -189,91 +188,6 @@ bool klsMiniMap::generateImageSkia() {
 }
 #endif
 
-// Print the canvas contents to a bitmap:
-void klsMiniMap::generateImage() {
-	wxSize sz = GetClientSize();
-
-	// Setup the viewport for rendering (also stores minCorner/maxCorner, used by
-	// the Skia path below and the mouse handler):
-	setViewport();
-
-#ifdef WITH_SKIA
-	if (appConfig().appSettings.useSkiaRenderer && generateImageSkia()) return;
-#endif
-	// Reset the glViewport to the size of the bitmap:
-	double scaleFactorImg = GetContentScaleFactor();
-	glViewport(0, 0, (GLint)(sz.GetWidth() * scaleFactorImg), (GLint)(sz.GetHeight() * scaleFactorImg));
-	
-	// Set the bitmap clear color:
-	glClearColor (1.0, 1.0, 1.0, 0.0);
-	glColor3b(0, 0, 0);
-		
-	//TODO: Check if alpha is hardware supported, and
-	// don't enable it if not!
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_BLEND);
-	
-	//*********************************
-	//Edit by Joshua Lansford 4/08/07
-	//The minimap could use some anti
-	//aleasing
-	glEnable( GL_LINE_SMOOTH );
-	//End of edit
-		
-	// Load the font texture
-	guiText::loadFont(appConfig().appSettings.textFontFile);
-
-	// Do the rendering here.
-	renderMap();
-
-	// Flush the OpenGL buffer to make sure the rendering has happened:	
-	glFlush();
-	SwapBuffers();
-}
-
-void klsMiniMap::renderMap() {
-	int w, h;
-	GetClientSize(&w, &h);
-
-	//clear window
-	glClear(GL_COLOR_BUFFER_BIT);
-	glMatrixMode (GL_MODELVIEW);
-	glLoadIdentity ();
-	glColor4f( 0, 0, 0, 1 );
-	
-	// Draw the wires:
-	glMatrixMode (GL_MODELVIEW);
-	glLoadIdentity ();
-	unordered_map< unsigned long, guiWire* >::iterator thisWire = wireList->begin();
-	while( thisWire != wireList->end() ) {
-		if (thisWire->second != nullptr) {
-			(thisWire->second)->draw(false);
-		}
-		thisWire++;
-	}
-
-	// Draw the gates:
-	unordered_map< unsigned long, guiGate* >::iterator thisGate = gateList->begin();
-	while( thisGate != gateList->end() ) {
-		(thisGate->second)->draw(false);
-		thisGate++;
-	}
-	
-	if (gateList->size() == 0) return;
-	glLoadIdentity();
-	glColor4f( 1, 0, 0, 1 );
-	GLfloat lineWidthOld;
-	glGetFloatv(GL_LINE_WIDTH, &lineWidthOld);
-	glLineWidth(2.0);
-	glBegin(GL_LINE_LOOP);
-		glVertex2f( origin.x, origin.y );
-		glVertex2f( origin.x, endpoint.y );
-		glVertex2f( endpoint.x, endpoint.y );
-		glVertex2f( endpoint.x, origin.y );
-	glEnd();
-	glLineWidth(lineWidthOld);
-}
-
 void klsMiniMap::update(GLPoint2f origin, GLPoint2f endpoint) {
 	this->origin = origin;
 	this->endpoint = endpoint;
@@ -282,7 +196,10 @@ void klsMiniMap::update(GLPoint2f origin, GLPoint2f endpoint) {
 
 void klsMiniMap::OnPaint(wxPaintEvent& evt) {
 	wxGetApp().SetCurrentCanvas(this);
-	generateImage();
+	// setViewport() computes the fit box (minCorner/maxCorner) the Skia render and
+	// the mouse handler both read; it must run before generateImageSkia().
+	setViewport();
+	generateImageSkia();
 }
 
 void klsMiniMap::OnMouseEvent(wxMouseEvent& evt) {
