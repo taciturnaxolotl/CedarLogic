@@ -448,6 +448,21 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	stopTimers();
 	startTimers(TIMER_POLL_MS);
 
+	// Start the cadence pump (see MainFrame.h). One event in flight at a time, so
+	// a busy GUI thread can't accumulate a backlog of pump events.
+	Bind(wxEVT_THREAD, &MainFrame::OnSimPump, this, ID_SIM_PUMP);
+	simPumpRun = true;
+	simPumpThread = std::thread([this]() {
+		while (simPumpRun.load()) {
+			// Poll well under the step interval so a step fires close to when it is
+			// actually due; a coarse poll is what quantised the cadence (see OnTimer).
+			std::this_thread::sleep_for(std::chrono::milliseconds(2));
+			if (!simPumpRun.load()) break;
+			if (simPumpPending.exchange(true)) continue;
+			wxQueueEvent(this, new wxThreadEvent(wxEVT_THREAD, ID_SIM_PUMP));
+		}
+	});
+
 	// Setup the "Maximize Catch" flag:
 	sizeChanged = false;
 	
@@ -503,9 +518,13 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 }
 
 MainFrame::~MainFrame() {
-	
+
 	saveSettings();
-	
+
+	// Stop the cadence pump before anything it touches goes away.
+	simPumpRun = false;
+	if (simPumpThread.joinable()) simPumpThread.join();
+
 	stopTimers();
 
 	// Shut down the detached thread and wait for it to exit
@@ -940,12 +959,28 @@ void MainFrame::OnPreferences(wxCommandEvent& event) {
 	}
 }
 
-void MainFrame::OnTimer(wxTimerEvent& event) {
-	ostringstream oss;
-	if (!(currentCanvas->getCircuit()->getSimulate())) {
-		return;
-	}
-	if (simBridge().appSystemTime.Time() < appConfig().appSettings.refreshRate) return;
+// Cadence pump event (posted from simPumpThread). Runs the same work the two
+// wxTimers do, but arrives as a normal queued message so mouse/paint traffic
+// can't starve it. Gated on the timers actually running, so pause/resume and the
+// panic stop still control whether the sim advances. Both handlers are already
+// self-limiting (OnTimer no-ops until refreshRate has elapsed; OnIdle just drains
+// whatever the logic thread has queued), so the extra calls are cheap no-ops.
+void MainFrame::OnSimPump(wxThreadEvent& WXUNUSED(event)) {
+	simPumpPending = false;
+	if (simTimer && simTimer->IsRunning())   stepSimulation();
+	if (idleTimer && idleTimer->IsRunning()) drainLogicMessages();
+}
+
+void MainFrame::OnTimer(wxTimerEvent& event) { stepSimulation(); }
+
+void MainFrame::stepSimulation() {
+	if (!(currentCanvas->getCircuit()->getSimulate())) return;
+	// Step as soon as a whole step's worth of wall time has accrued. Gating on
+	// refreshRate instead quantised the sim to the GUI poll interval: a 25ms step
+	// could only land on a ~16ms grid, giving alternating 16/32ms gaps forever.
+	// Since the oscilloscope plots one sample per step, that 2:1 jitter was
+	// exactly the uneven trace (and the uneven clock on the canvas).
+	if (simBridge().appSystemTime.Time() < appConfig().timeStepMod) return;
 	simBridge().appSystemTime.Pause();
 	if (gCircuit->panic) return;
 	// Do function of number of milliseconds that passed since last step
@@ -957,7 +992,9 @@ void MainFrame::OnTimer(wxTimerEvent& event) {
 	simBridge().appSystemTime.Start(simBridge().appSystemTime.Time() % appConfig().timeStepMod);
 }
 
-void MainFrame::OnIdle(wxTimerEvent& event) {
+void MainFrame::OnIdle(wxTimerEvent& event) { drainLogicMessages(); }
+
+void MainFrame::drainLogicMessages() {
 	wxCriticalSectionLocker locker(simBridge().m_critsect);
 	// Take the whole pending batch under the lock, then process it with the lock
 	// released. The old TryLock+wxYield spin pumped the GUI event loop while

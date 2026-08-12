@@ -31,6 +31,8 @@
 class OscopeFrame;
 #include "klsMiniMap.h"
 #include "autoSaveThread.h"
+#include <thread>
+#include <atomic>
 
 enum
 {
@@ -63,7 +65,9 @@ enum
 	Help_ReportABug,
 	Help_RequestAFeature,
 	Help_DownloadLatestVersion,
-	Help_KeyboardShortcuts
+	Help_KeyboardShortcuts,
+
+	ID_SIM_PUMP
 };
 
 class MainFrame : public wxFrame {
@@ -222,6 +226,22 @@ private:
 	//Julian: Re-added timers to fix refresh error
 	wxTimer* simTimer;
 	wxTimer* idleTimer;
+
+	// Simulation cadence pump. wxTimer is WM_TIMER, which Windows only synthesizes
+	// when the message queue is EMPTY -- so mouse input and paints starve it. That
+	// froze the sim for up to 3s at a time under a fast mouse (measured), making
+	// the clock and oscope lag and then jump in catch-up bursts. This worker thread
+	// posts a normal queued event instead, which competes fairly with input.
+	// Additive: the timers stay, and the pump only runs their handlers while they
+	// are running, so pause/resume semantics are unchanged.
+	std::thread simPumpThread;
+	std::atomic<bool> simPumpRun{false};
+	std::atomic<bool> simPumpPending{false};
+	void OnSimPump(wxThreadEvent& event);
+	// The work the two timers do, callable without a timer event so the pump can
+	// drive the same cadence.
+	void stepSimulation();
+	void drainLogicMessages();
 
 #ifdef __WXOSX__
 	wxNotebook* canvasBook;
