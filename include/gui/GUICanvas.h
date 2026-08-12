@@ -274,6 +274,9 @@ private:
 
 	// When the left button was last pressed, for the click-vs-drag time dead zone.
 	std::chrono::steady_clock::time_point dragPressTime;
+	// When hover work (collision pass + highlight) last ran, to throttle it to
+	// ~60Hz on a flood of raw mouse-motion events (see OnMouseMove).
+	std::chrono::steady_clock::time_point lastHoverTime;
 	
 	bool isWithinPaste; // If we are in paste then drag_selection is enabled until drop
 	DragState currentDragState;
