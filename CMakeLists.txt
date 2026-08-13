@@ -269,6 +269,14 @@ endif()
 if(WIN32)
     target_include_directories(CedarLogic PRIVATE "${WINSPARKLE_DIR}/include")
     target_link_libraries(CedarLogic PRIVATE "${WINSPARKLE_DIR}/${WINSPARKLE_ARCH_DIR}/WinSparkle.lib")
+    # Stage the DLL beside the exe. It was only handled by install(), so a plain
+    # build produced a binary that could not start ("error while loading shared
+    # libraries") until the DLL was copied by hand.
+    add_custom_command(TARGET CedarLogic POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${WINSPARKLE_DIR}/${WINSPARKLE_ARCH_DIR}/WinSparkle.dll"
+            "$<TARGET_FILE_DIR:CedarLogic>/WinSparkle.dll"
+        COMMENT "Staging WinSparkle.dll next to the executable...")
 endif()
 
 # This is for internal headers
