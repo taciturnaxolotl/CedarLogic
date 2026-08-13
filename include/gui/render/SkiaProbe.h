@@ -17,6 +17,12 @@ namespace render {
 class Scene;  // engine-neutral sink; the callback draws into a Skia-backed one
 struct Transform;
 
+// Point the font search at the app's resources root (a path ending in '/'), so a
+// bundled face is found wherever the app was installed rather than relative to
+// whatever directory it happened to be launched from. Call before the first
+// render; unset simply means no bundled face is looked for.
+void setFontSearchDir(const char* dir);
+
 // Render the G0 proof (a stroked path + a line of text) into an offscreen raster
 // surface and write it to `path` as a PNG. No window and no GL context, so it
 // runs headless (CI, no display). Returns true on success. This is the concrete

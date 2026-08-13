@@ -6,6 +6,7 @@
 
 #include <cstdlib>
 #include <memory>
+#include <string>
 
 #include "core/SkCanvas.h"
 #include "core/SkRect.h"
@@ -46,6 +47,12 @@
 #include "gpu/ganesh/gl/GrGLDirectContext.h"
 #include "ports/SkFontMgr_directory.h"
 #include "ports/SkFontMgr_empty.h"
+#ifdef CEDAR_SKIA_FONTCONFIG
+#include "ports/SkFontMgr_fontconfig.h"
+#ifdef CEDAR_SKIA_FONTCONFIG_SCANNER
+#include "ports/SkFontScanner_FreeType.h"
+#endif
+#endif
 
 
 namespace cl {
@@ -54,7 +61,15 @@ namespace {
 // Sized GL internal format for an 8-bit RGBA framebuffer (GL_RGBA8). Declared
 // locally to avoid pulling a platform GL header into this TU.
 const unsigned int kGLRGBA8 = 0x8058;
+
+// Where a bundled face may be found, set once at startup (see setFontSearchDir).
+// Empty until then, and empty in headless tools that never call it.
+std::string gFontSearchDir;
 }  // namespace
+
+void setFontSearchDir(const char* dir) {
+	gFontSearchDir = (dir && *dir) ? dir : "";
+}
 
 SkiaBackend& SkiaBackend::get() {
 	static SkiaBackend instance;
@@ -93,12 +108,15 @@ const SkFont* SkiaBackend::defaultFont() {
 	if (fFontTried) return fFont;
 	fFontTried = true;
 
-	// This Skia is built with the custom-directory font manager only (no platform
-	// system manager), so a face has to come from a file on disk. Resolve one at
-	// runtime, most-specific first, so text works with no configuration:
-	//   1. CEDAR_FONT_FILE   -- explicit override (a single .ttf)
-	//   2. res/LabelFont.ttf -- a face bundled next to the app, if we ship one
+	// Resolve a face at runtime, most-specific first, so text works with no
+	// configuration:
+	//   1. CEDAR_FONT_FILE     -- explicit override (a single .ttf)
+	//   2. <resources>/res/LabelFont.ttf -- a face bundled with the app, if we
+	//                             ship one (setFontSearchDir supplies the root)
 	//   3. a platform system sans-serif at its well-known path
+	//   4. fontconfig, where the build has it -- the only reliable answer on
+	//      Linux, whose font layout differs per distro and is absent on NixOS
+	//   5. CEDAR_FONT_DIR      -- a directory of faces, the last resort
 	// The platform list ends on the first hit; on Windows that is real Arial,
 	// which matches the GL renderer's baked arial.glf atlas.
 	//
@@ -114,10 +132,13 @@ const SkFont* SkiaBackend::defaultFont() {
 	// schematic labels read heavier than a book weight. Matching it keeps Skia
 	// output visually identical to the legacy renderer. Regular is the fallback.
 	const char* env = std::getenv("CEDAR_FONT_FILE");
+	// The bundled face lives under the app's resources dir, which is nowhere near
+	// the working directory once the app is launched from a menu entry.
+	const std::string bundled = gFontSearchDir.empty()
+		? std::string() : gFontSearchDir + "res/LabelFont.ttf";
 	const char* candidates[] = {
 		env,
-		"res/LabelFont.ttf",
-		"LabelFont.ttf",
+		bundled.empty() ? nullptr : bundled.c_str(),
 #if defined(_WIN32)
 		"C:/Windows/Fonts/arialbd.ttf",
 		"C:/Windows/Fonts/arial.ttf",
@@ -140,6 +161,30 @@ const SkFont* SkiaBackend::defaultFont() {
 		fTypeface = fFontMgr->makeFromFile(path, 0);
 		if (fTypeface) break;
 	}
+
+#ifdef CEDAR_SKIA_FONTCONFIG
+	// Ask fontconfig for the system sans-serif. Hardcoded paths only ever covered
+	// Debian and Ubuntu; fontconfig is how every Linux answers this question, and
+	// it is the only answer on distros that have no /usr/share/fonts at all.
+	if (!fTypeface) {
+#ifdef CEDAR_SKIA_FONTCONFIG_SCANNER
+		sk_sp<SkFontMgr> fc = SkFontMgr_New_FontConfig(
+			nullptr, SkFontScanner_Make_FreeType());   // post-m124 signature
+#else
+		sk_sp<SkFontMgr> fc = SkFontMgr_New_FontConfig(nullptr);
+#endif
+		if (fc) {
+			// legacyMakeTypeface first: with a null family this is the request
+			// fontconfig actually resolves ("whatever the system defaults to"),
+			// where matchFamilyStyle wants a real family name.
+			fTypeface = fc->legacyMakeTypeface(nullptr, SkFontStyle::Bold());
+			if (!fTypeface) {
+				fTypeface = fc->matchFamilyStyle("sans-serif", SkFontStyle::Bold());
+			}
+			if (fTypeface) fFontMgr = fc;
+		}
+	}
+#endif
 
 	// Last resort: a directory of faces via CEDAR_FONT_DIR.
 	if (!fTypeface) {

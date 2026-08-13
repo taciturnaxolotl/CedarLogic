@@ -641,6 +641,9 @@ void MainApp::loadSettings() {
 	} else {
 		appConfig().resourcesDir = stdp.GetResourcesDir() + "/";
 	}
+#ifdef WITH_SKIA
+	cl::render::setFontSearchDir(appConfig().resourcesDir.c_str());
+#endif
 
 	wxFileConfig *conf = new wxFileConfig("CedarLogic");
 	wxConfigBase::Set(conf);

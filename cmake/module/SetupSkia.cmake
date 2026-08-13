@@ -122,6 +122,52 @@ else()
     target_link_libraries(cedar_skia INTERFACE GL ${CMAKE_DL_LIBS} pthread)
     if(Fontconfig_FOUND)
         target_link_libraries(cedar_skia INTERFACE Fontconfig::Fontconfig)
+        # Skia's fontconfig font manager is how the app finds a system face on
+        # Linux -- hardcoded /usr/share/fonts paths only ever matched Debian and
+        # Ubuntu, and match nothing on NixOS. The factory gained a font-scanner
+        # argument after m124 (pinned dist: one arg; nixpkgs' newer skia: two),
+        # so compile-probe both rather than assume a milestone. Neither hit
+        # leaves the app on its path list, which still works where it works.
+        include(CheckCXXSourceCompiles)
+        get_target_property(_skia_incs cedar_skia INTERFACE_INCLUDE_DIRECTORIES)
+        set(CMAKE_REQUIRED_INCLUDES ${_skia_incs} ${Fontconfig_INCLUDE_DIRS})
+        set(CMAKE_REQUIRED_QUIET TRUE)
+        # Compile only -- the definition lives in libskia, which is not on the
+        # probe's link line. SkFontMgr must be complete for sk_sp's destructor,
+        # hence the core header alongside the port one.
+        set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+        set(CMAKE_REQUIRED_FLAGS -std=c++17)   # Skia's headers require it
+        check_cxx_source_compiles("
+            #include \"core/SkFontMgr.h\"
+            #include \"ports/SkFontMgr_fontconfig.h\"
+            sk_sp<SkFontMgr> f() { return SkFontMgr_New_FontConfig(nullptr); }
+        " SKIA_FONTCONFIG_PLAIN)
+        if(NOT SKIA_FONTCONFIG_PLAIN)
+            check_cxx_source_compiles("
+                #include \"core/SkFontMgr.h\"
+                #include \"ports/SkFontMgr_fontconfig.h\"
+                #include \"ports/SkFontScanner_FreeType.h\"
+                sk_sp<SkFontMgr> f() {
+                    return SkFontMgr_New_FontConfig(nullptr,
+                                                    SkFontScanner_Make_FreeType());
+                }
+            " SKIA_FONTCONFIG_SCANNER)
+        endif()
+        unset(CMAKE_TRY_COMPILE_TARGET_TYPE)
+        unset(CMAKE_REQUIRED_FLAGS)
+        unset(CMAKE_REQUIRED_INCLUDES)
+        unset(CMAKE_REQUIRED_QUIET)
+        if(SKIA_FONTCONFIG_PLAIN OR SKIA_FONTCONFIG_SCANNER)
+            target_compile_definitions(cedar_skia INTERFACE CEDAR_SKIA_FONTCONFIG)
+            message(STATUS "Skia: system fonts via fontconfig")
+        else()
+            message(STATUS "Skia: no usable fontconfig manager; "
+                           "falling back to well-known font paths")
+        endif()
+        if(SKIA_FONTCONFIG_SCANNER)
+            target_compile_definitions(cedar_skia INTERFACE
+                CEDAR_SKIA_FONTCONFIG_SCANNER)
+        endif()
     endif()
     # wxWidgets' shared libs pull system DSOs (zlib, png, ...) that modern ld
     # won't resolve indirectly (--no-copy-dt-needed-entries default). Let a
