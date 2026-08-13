@@ -1,17 +1,25 @@
 name: Release Build
 
+# Releases are cut by pushing a tag (`task release` does the bump, tag, and
+# push). Everything after that -- builds, changelog, GitHub release, appcast,
+# npm -- happens here.
 on:
-  release:
-    types: [created]
+  push:
+    tags:
+      - v*.*.*
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Version tag (e.g., v2.3.8)'
+        description: 'Version tag to build (e.g., v2.3.8); leave empty for a dry run'
         required: false
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
-  # Extract version from tag (remove 'v' prefix if present)
-  VERSION: ${{ github.event.release.tag_name || github.event.inputs.tag || 'dev' }}
+  # The tag being released. On a tag push that is the ref itself.
+  VERSION: ${{ github.event.inputs.tag || (github.ref_type == 'tag' && github.ref_name) || 'dev' }}
 
 jobs:
   # Build (or cache-restore) the Skia dist as part of this run, so every desktop
@@ -392,7 +400,7 @@ jobs:
   upload-release:
     needs: [build-windows, build-linux, build-macos, build-wasm]
     runs-on: ubuntu-latest
-    if: github.event_name == 'release'
+    if: github.ref_type == 'tag'
     permissions:
       contents: write
       id-token: write
@@ -413,19 +421,46 @@ jobs:
         with:
           path: artifacts
 
-      - name: Upload Release Assets
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            artifacts/windows-installer/*
-            artifacts/linux-archive/*
-            artifacts/macos-dmg/*
-            artifacts/wasm-bundle/*
-
-      - name: Update Sparkle appcast
-        env:
-          RELEASE_BODY: ${{ github.event.release.body }}
+      - name: Checksums
         run: |
+          mkdir -p dist
+          cp artifacts/windows-installer/* artifacts/linux-archive/* \
+             artifacts/macos-dmg/* artifacts/wasm-bundle/* dist/
+          cd dist && sha256sum * > checksums.txt
+
+      # The announcement lives in the draft release for this tag (see
+      # `task notes`). Everything above the footer marker is hand-written and
+      # kept; the footer below it is regenerated, so re-running the workflow on
+      # a tag is idempotent.
+      - name: Assemble release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ env.VERSION }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release view "$TAG" --json body -q .body > existing.md 2>/dev/null || true
+          awk '/^<!-- footer -->$/ { exit } { print }' existing.md > prose.md
+
+          {
+            cat prose.md
+            sed -e "s|__TAG__|$TAG|g" -e "s|__VERSION__|$RELEASE_VERSION|g" \
+              .github/release-footer.md
+          } > release-notes.md
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: ${{ env.VERSION }}
+          body_path: release-notes.md
+          prerelease: ${{ contains(env.VERSION, '-') }}
+          files: dist/*
+
+      # Sparkle's "what's new" pane gets the announcement, but not the download
+      # table and checksum instructions.
+      - name: Update Sparkle appcast
+        run: |
+          RELEASE_BODY="$(cat prose.md)"
           ./scripts/update-appcast.sh \
             "${{ steps.version.outputs.version }}" \
             "${{ env.VERSION }}" \
@@ -440,7 +475,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/appcast.xml
-          git commit -m "Update appcast for ${{ env.VERSION }}" || exit 0
+          git commit -m "chore(release): update appcast for ${{ env.VERSION }}" || exit 0
           git push
 
       - name: Setup Node.js

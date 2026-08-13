@@ -1,0 +1,157 @@
+# https://taskfile.dev
+
+version: "3"
+
+vars:
+  BRANCH:
+    sh: git symbolic-ref --short HEAD 2>/dev/null || echo ""
+  JOBS:
+    sh: getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4
+  SVU: svu
+  # Release version, e.g. task release VERSION=2.6.0. Empty means svu picks it
+  # from the conventional commits since the last tag.
+  VERSION: ""
+  # Extra flags for the configure step, e.g. task build CMAKE_ARGS=-DFOO=bar
+  CMAKE_ARGS: ""
+  # A Skia dist to build against, honoured from the environment.
+  SKIA_ROOT:
+    sh: echo "${SKIA_ROOT:-}"
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  configure:
+    desc: Configure the release build (use PRESET=test|asan|release)
+    vars:
+      PRESET: '{{.PRESET | default "release"}}'
+    cmds:
+      - cmake --preset {{.PRESET}} {{if .SKIA_ROOT}}-DSKIA_ROOT="{{.SKIA_ROOT}}"{{end}} {{.CMAKE_ARGS}}
+
+  build:
+    desc: Build the app
+    vars:
+      PRESET: '{{.PRESET | default "release"}}'
+    cmds:
+      - task: configure
+        vars: { PRESET: "{{.PRESET}}" }
+      - cmake --build --preset {{.PRESET}} -j {{.JOBS}}
+
+  run:
+    desc: Build and run the app from the build tree
+    env:
+      CEDARLOGIC_RESOURCES_DIR: build/release
+    cmds:
+      - task: build
+      - '{{if eq OS "darwin"}}./build/release/CedarLogic.app/Contents/MacOS/CedarLogic{{else}}./build/release/CedarLogic{{exeExt}}{{end}} {{.CLI_ARGS}}'
+
+  test:
+    desc: Run the full test suite
+    cmds:
+      - task: build
+        vars: { PRESET: "test" }
+      - ctest --preset test {{.CLI_ARGS}}
+
+  test:asan:
+    desc: Run the test suite under AddressSanitizer/UBSan
+    cmds:
+      - task: build
+        vars: { PRESET: "asan" }
+      - ctest --preset asan {{.CLI_ARGS}}
+
+  test:logic:
+    desc: Run the wx-free logic core suite (fast)
+    cmds:
+      - cmake -S logic -B build/logic -DCMAKE_BUILD_TYPE=Debug
+      - cmake --build build/logic -j {{.JOBS}}
+      - ctest --test-dir build/logic --output-on-failure
+
+  coverage:
+    desc: Coverage report for the logic engine
+    cmds:
+      - cmake -S logic -B build/coverage -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON
+      - cmake --build build/coverage -j {{.JOBS}}
+      - ctest --test-dir build/coverage --output-on-failure
+      - gcovr --root . --filter 'logic/src/' --print-summary --html-details build/coverage/report.html
+    generates:
+      - build/coverage/report.html
+
+  wasm:
+    desc: Build the WebAssembly engine (needs emsdk on PATH)
+    dir: wasm
+    cmds:
+      - emcmake cmake -B build -DCMAKE_BUILD_TYPE=Release
+      - cmake --build build -j {{.JOBS}}
+    generates:
+      - wasm/build/cedarlogic.js
+      - wasm/build/cedarlogic.wasm
+
+  wasm:test:
+    desc: Run the WASM gate truth-table harness
+    dir: wasm
+    cmds:
+      - task: wasm
+      - node test_all_gates.mjs
+
+  package:
+    desc: Build the platform installer/archive with CPack
+    cmds:
+      - task: build
+        vars: { PRESET: "release" }
+      - cd build/release && cpack -C Release
+
+  docs:
+    desc: Generate the Doxygen docs
+    cmds:
+      - doxygen Doxyfile
+
+  clean:
+    desc: Remove build trees
+    cmds:
+      - rm -rf build/release build/test build/asan build/logic build/coverage wasm/build
+
+  notes:
+    desc: Draft the release announcement on GitHub (VERSION=x.y.z to pin it)
+    vars:
+      NEXT:
+        sh: '{{if .VERSION}}V="{{.VERSION}}"; echo "v${V#v}"{{else}}{{.SVU}} next 2>/dev/null || go run github.com/caarlos0/svu/v3@latest next{{end}}'
+    cmds:
+      - >-
+        gh release view {{.NEXT}} >/dev/null 2>&1 ||
+        gh release create {{.NEXT}} --draft --title "{{.NEXT}}" --notes ""
+      - gh release view {{.NEXT}} --web
+
+  bump:
+    desc: Stamp VERSION into CMakeLists.txt and flake.nix
+    requires:
+      vars: [VERSION_NUMBER]
+    cmds:
+      - perl -pi -e 's/^project\(CedarLogic VERSION [0-9.]+\)/project(CedarLogic VERSION {{.VERSION_NUMBER}})/' CMakeLists.txt
+      - perl -pi -e 's/^(\s*version = )"[0-9.]+";/$1"{{.VERSION_NUMBER}}";/' flake.nix
+
+  release:
+    desc: Bump, tag, and push a release (VERSION=x.y.z to pin it)
+    vars:
+      NEXT:
+        sh: '{{if .VERSION}}V="{{.VERSION}}"; echo "v${V#v}"{{else}}{{.SVU}} next 2>/dev/null || go run github.com/caarlos0/svu/v3@latest next{{end}}'
+      DRAFTED:
+        sh: gh release view {{.NEXT}} --json isDraft -q .isDraft 2>/dev/null || echo "none"
+    prompt: 'This will release {{.NEXT}} ({{if eq .DRAFTED "true"}}announcement drafted{{else}}no announcement drafted, see `task notes`{{end}}). Continue?'
+    preconditions:
+      - sh: '[ "{{.BRANCH}}" = "master" ]'
+        msg: Not on master
+      - sh: "[ $(git status --porcelain | wc -l) -eq 0 ]"
+        msg: Git is dirty
+      - sh: 'gh run list --workflow ci.yml --commit $(git rev-parse HEAD) --status success --json conclusion -q ".[0].conclusion" | grep -q success'
+        msg: CI for this commit has not passed
+    cmds:
+      - git fetch --tags
+      - task: bump
+        vars:
+          VERSION_NUMBER: '{{trimPrefix "v" .NEXT}}'
+      - 'git commit -am "chore(release): {{.NEXT}}"'
+      - git tag --annotate -m "{{.NEXT}}" {{.NEXT}}
+      - echo "Pushing {{.NEXT}}..."
+      - git push origin master --follow-tags

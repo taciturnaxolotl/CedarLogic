@@ -27,7 +27,7 @@
           { withSkia ? false }:
           pkgs.stdenv.mkDerivation {
             pname = if withSkia then "cedarlogic-skia" else "cedarlogic";
-            version = "2.3.8";
+            version = "2.4.3";
 
             src = ./.;
 
@@ -96,9 +96,15 @@
             gdb
             valgrind
             clang-tools
+            gcovr
 
             # Documentation
             doxygen
+
+            # Task runner and release tooling
+            go-task
+            svu
+            gh
 
             # Additional utilities
             git
@@ -107,10 +113,7 @@
 
           shellHook = ''
             echo "CedarLogic development environment"
-            echo "Available commands:"
-            echo "  cmake -B build -S ."
-            echo "  cmake --build build"
-            echo "  ./build/CedarLogic"
+            echo "Run 'task' to see the available commands."
             echo ""
           '';
         };
