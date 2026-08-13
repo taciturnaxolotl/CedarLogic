@@ -21,6 +21,13 @@ class SkFont;
 namespace cl {
 namespace render {
 
+// Glyph outlines are built at this reference size and scaled by
+// pixelHeight/kGlyphUnits (see SkiaScene::text). Labels ask for world units --
+// single digits -- where the font's grid fitting flattens outlines and rounds
+// advances away. Anything measuring text must use the same size, or hit boxes
+// drift from the glyphs actually drawn.
+constexpr float kGlyphUnits = 100.0f;
+
 class SkiaScene : public Scene {
 public:
 	// Neither pointer is owned; the caller keeps both alive for the SkiaScene's

@@ -420,10 +420,14 @@ float measuredTextWidth(const char* utf8, float pixelHeight) {
 	if (!utf8 || !*utf8) return 0.0f;
 	const SkFont* base = SkiaBackend::get().defaultFont();
 	if (!base) return 0.0f;
+	// Measure exactly the way SkiaScene::text draws: at kGlyphUnits, scaled down.
 	SkFont f(*base);
-	f.setSize(pixelHeight);
-	f.setLinearMetrics(true);   // match SkiaScene::text's advances
-	return (float)f.measureText(utf8, std::strlen(utf8), SkTextEncoding::kUTF8);
+	f.setSize(kGlyphUnits);
+	f.setHinting(SkFontHinting::kNone);
+	f.setLinearMetrics(true);
+	const float w = (float)f.measureText(utf8, std::strlen(utf8),
+	                                     SkTextEncoding::kUTF8);
+	return w * (pixelHeight / kGlyphUnits);
 }
 
 }  // namespace render

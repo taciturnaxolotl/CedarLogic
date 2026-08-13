@@ -164,9 +164,16 @@ void SkiaScene::fillRect(Point lo, Point hi, const Color& c) {
 void SkiaScene::text(Point origin, const char* utf8, float pixelHeight,
                      const Color& c) {
 	if (!fFont || !utf8 || !*utf8) return;
+
+	// Build the outlines at kGlyphUnits and scale them into place, rather than
+	// asking the font for `pixelHeight` directly: at the world-unit sizes labels
+	// request (~2.7) the font grid-fits the outlines into mush and rounds every
+	// advance to zero, stacking the whole string on one spot.
+	const float k = pixelHeight / kGlyphUnits;
 	SkFont f(*fFont);
-	f.setSize(pixelHeight);
-	f.setLinearMetrics(true);   // true fractional advances under the viewport scale
+	f.setSize(kGlyphUnits);
+	f.setHinting(SkFontHinting::kNone);   // outlines, not grid-fitted bitmaps
+	f.setLinearMetrics(true);             // true fractional advances
 
 	// Render the label as vector glyph paths rather than atlas glyphs. Schematic
 	// text is drawn through a live zoom, and the GPU glyph atlas re-buckets on
@@ -200,8 +207,8 @@ void SkiaScene::text(Point origin, const char* utf8, float pixelHeight,
 	// The viewport flips y (device is y-down); flip it back around the text origin
 	// so glyphs render upright rather than mirrored.
 	fCanvas->save();
-	fCanvas->translate(origin.x, origin.y + fm.fAscent);   // fAscent < 0 (above baseline)
-	fCanvas->scale(1.0f, -1.0f);
+	fCanvas->translate(origin.x, origin.y + fm.fAscent * k);  // fAscent < 0 (above baseline)
+	fCanvas->scale(k, -k);
 	fCanvas->drawPath(text, p);
 	fCanvas->restore();
 }
