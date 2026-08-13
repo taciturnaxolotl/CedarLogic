@@ -45,6 +45,7 @@
 #include "gpu/ganesh/gl/GrGLBackendSurface.h"
 #include "gpu/ganesh/gl/GrGLDirectContext.h"
 #include "ports/SkFontMgr_directory.h"
+#include "ports/SkFontMgr_empty.h"
 
 
 namespace cl {
@@ -101,9 +102,12 @@ const SkFont* SkiaBackend::defaultFont() {
 	// The platform list ends on the first hit; on Windows that is real Arial,
 	// which matches the GL renderer's baked arial.glf atlas.
 	//
-	// makeFromFile takes a full path; the "." directory argument only scopes
-	// family matching, which we don't use here.
-	fFontMgr = SkFontMgr_New_Custom_Directory(".");
+	// An EMPTY custom manager, not a directory one: makeFromFile takes a full
+	// path and needs no preloaded families, while SkFontMgr_New_Custom_Directory
+	// eagerly walks its directory tree (every file, every depth) in the
+	// constructor. Handing it "." froze the first paint for as long as the
+	// working directory was large.
+	fFontMgr = SkFontMgr_New_Custom_Empty();
 	if (!fFontMgr) return fFont;
 
 	// Bold faces first: the GL renderer's baked arial.glf atlas is bold, so
