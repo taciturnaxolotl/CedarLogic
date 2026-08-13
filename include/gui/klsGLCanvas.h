@@ -215,7 +215,6 @@ private:
 	bool isDraggingFlag[NUM_BUTTONS];
 	void setIsDragging( bool isDragging, mouseButton whichButton = BUTTON_LEFT ) { isDraggingFlag[whichButton] = isDragging; };
 
-	bool glInitialized; // Is OpenGL initialized on this canvas
 	bool deferPaint;    // suppress setPan's synchronous repaint during a compound
 	                    // camera move (e.g. zoom = setZoom + setCenter) so it
 	                    // paints once at the final state, not the intermediate one

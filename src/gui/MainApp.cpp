@@ -712,10 +712,34 @@ int MainApp::OnExit() {
 	return rc;
 }
 
+const wxGLAttributes& glCanvasAttributes()
+{
+	static const wxGLAttributes attrs = [] {
+		wxGLAttributes a;
+		a.PlatformDefaults().RGBA().DoubleBuffer().Stencil(8).EndList();
+		return a;
+	}();
+	return attrs;
+}
+
 void MainApp::SetCurrentCanvas(wxGLCanvas *canvas)
 {
-	if (!glContext)
+	if (!glContext) {
+#ifdef __WXOSX__
+		// macOS hands out a legacy 2.1 context unless asked otherwise, and there
+		// the shading language stops at GLSL 1.10 -- old enough that Skia's atlas
+		// path renderer emits gl_VertexID into a #version 110 shader, which fails
+		// to compile on every path-heavy frame before Skia falls back. 3.2 core is
+		// the newest profile macOS offers and the one Ganesh expects. Windows and
+		// Linux already hand out a modern compatibility context, so they keep the
+		// driver default.
+		wxGLContextAttrs ctxAttrs;
+		ctxAttrs.CoreProfile().EndList();
+		glContext = new wxGLContext(canvas, NULL, &ctxAttrs);
+#else
 		glContext = new wxGLContext(canvas);
+#endif
+	}
 	glContext->SetCurrent(*canvas);
 
 #ifdef __WXMSW__

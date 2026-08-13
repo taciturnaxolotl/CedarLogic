@@ -42,6 +42,12 @@ class MainFrame;
 
 using namespace std;
 
+// The pixel format every GL canvas is created with. They share one wxGLContext,
+// which is only valid for the format it was made with, so main canvas, minimap,
+// and oscope must all ask for the same one. Stencil is not optional: Skia is
+// told its render target has 8 stencil bits and clips against them.
+const wxGLAttributes& glCanvasAttributes();
+
 // ApplicationSettings moved to Settings.h with the Settings service (WS C).
 
 class MainApp : public wxApp {

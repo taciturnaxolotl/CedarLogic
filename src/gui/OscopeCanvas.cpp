@@ -38,10 +38,9 @@ END_EVENT_TABLE()
 
 OscopeCanvas::OscopeCanvas(wxWindow *parent, GUICircuit* gCircuit, wxWindowID id,
 	const wxPoint& pos, const wxSize& size, long style, const wxString& name)
-	: wxGLCanvas( parent, id, NULL, pos, size, style|wxFULL_REPAINT_ON_RESIZE|wxSUNKEN_BORDER ) {
+	: wxGLCanvas( parent, glCanvasAttributes(), id, pos, size, style|wxFULL_REPAINT_ON_RESIZE|wxSUNKEN_BORDER ) {
 
 	this->gCircuit = gCircuit;
-	m_init = false;
 	parentFrame = (OscopeFrame*) parent;
 	toGateCacheGateCount = (size_t)-1;   // force a rebuild on first UpdateData
 	dataDirty = false;
@@ -169,24 +168,7 @@ void OscopeCanvas::drawOscopeScene(cl::render::Scene& scene,
 void OscopeCanvas::OnPaint(wxPaintEvent& event){
 	wxPaintDC dc(this);
 	wxGetApp().SetCurrentCanvas(this);
-	// Init OpenGL once, but after SetCurrent
-	if (!m_init)
-	{
-		//InitGL();
-		m_init = true;
-		glClearColor (1.0, 1.0, 1.0, 0.0);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glEnable(GL_BLEND);
-
-		//*********************************
-		//Edit by Joshua Lansford 4/09/07
-		//anti-alis ing is nice
-		glEnable( GL_LINE_SMOOTH );
-		//End of edit
-
-	}
-
-
+	// Skia sets its own GL state; nothing to initialise here.
 	OnRenderSkia();
 
 	// Show the new buffer:

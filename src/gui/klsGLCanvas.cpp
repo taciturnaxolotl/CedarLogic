@@ -43,7 +43,7 @@ END_EVENT_TABLE()
 
 klsGLCanvas::klsGLCanvas(wxWindow *parent, const wxString& name, wxWindowID id,
 						const wxPoint& pos, const wxSize& size, long style ) :
-						wxGLCanvas(parent, id, NULL, pos, size, style|wxFULL_REPAINT_ON_RESIZE|wxWANTS_CHARS, name) {
+						wxGLCanvas(parent, glCanvasAttributes(), id, pos, size, style|wxFULL_REPAINT_ON_RESIZE|wxWANTS_CHARS, name) {
 
 	// Zoom and OpenGL coordinate of upper-left corner of this canvas:
 	viewZoom = DEFAULT_ZOOM;
@@ -85,7 +85,6 @@ klsGLCanvas::klsGLCanvas(wxWindow *parent, const wxString& name, wxWindowID id,
 	setVertGridColor( 0, 0, (GLfloat) GRID_INTENSITY, (GLfloat) GRID_INTENSITY );
 	disableVertGrid();
 
-	glInitialized = false;
 	deferPaint = false;
 	panning = false;
 	lastPanPaintMs = 0;
@@ -173,30 +172,9 @@ GLPoint2f klsGLCanvas::mapToCanvas(wxPoint m) {
 void klsGLCanvas::wxOnPaint(wxPaintEvent& event) {
 	wxPaintDC dc(this);
 	wxGetApp().SetCurrentCanvas(this);
-	// Init OpenGL once, but after SetCurrent
-	if (!glInitialized)
-	{
-		glClearColor (1.0, 1.0, 1.0, 0.0);
-		glColor3b(0, 0, 0);
-		glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
-		
-		//TODO: Check if alpha is hardware supported, and
-		// don't enable it if not!
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glEnable(GL_BLEND);
-		
-		//*********************************
-		//Edit by Joshua Lansford 4/05/07
-		//I placed this in here to hopefully
-		//anti-alis the the text font.
-		//however, it doesn't but it does
-		//anti-alies the gates which looks nice.
-		//glEnable( GL_LINE_SMOOTH );
-		//End of edit
-
-		glInitialized = true;
-	}
-
+	// No GL state to set up here: Skia owns the pipeline and sets clear colour,
+	// blending, and pixel store per draw. (The old fixed-function setup would
+	// also be invalid under the core profile macOS now asks for.)
 	renderSkiaLive();
 
 	// Show the new buffer:

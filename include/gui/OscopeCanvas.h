@@ -93,7 +93,6 @@ private:
 	bool dataDirty;
 	std::chrono::steady_clock::time_point lastPaintTime;
 
-	bool m_init;
 	
 	OscopeFrame* parentFrame;
 	

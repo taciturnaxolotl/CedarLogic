@@ -34,7 +34,7 @@ END_EVENT_TABLE()
 klsMiniMap::klsMiniMap(wxWindow *parent, wxWindowID id,
         const wxPoint& pos, const wxSize& size,
         long style, const wxString& name)
-		: wxGLCanvas(parent, id, NULL, pos, size, style|wxSUNKEN_BORDER, name) {
+		: wxGLCanvas(parent, glCanvasAttributes(), id, pos, size, style|wxSUNKEN_BORDER, name) {
 	currentCanvas = NULL;
 }
 
