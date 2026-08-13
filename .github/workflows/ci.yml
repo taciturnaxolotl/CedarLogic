@@ -69,8 +69,15 @@ jobs:
 
   # Full application build with the system wxWidgets, plus aggregated ctest, to
   # catch integration/compile regressions in the desktop app.
+  # Skia is required to build the app, so produce (or cache-restore) the dist in
+  # this run and hand it to the build below. Skipped entirely on a cache hit --
+  # only the dist upload always runs.
+  skia:
+    uses: ./.github/workflows/skia.yml
+
   build-linux:
     name: Full Linux build + ctest
+    needs: skia
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -79,18 +86,27 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake ninja-build \
-            libwxgtk3.2-dev libgtk-3-dev libglu1-mesa-dev ccache
+            libwxgtk3.2-dev libgtk-3-dev libglu1-mesa-dev ccache \
+            libgl1-mesa-dev libfontconfig1-dev
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1
         with:
           key: ci-linux-gcc
 
+      - name: Download Skia dist
+        uses: actions/download-artifact@v4
+        with:
+          name: skia-linux
+          path: skia-dist
+
       - name: Configure
         run: >
           cmake -S . -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Debug
           -DBUILD_TESTING=ON
+          -DWITH_SKIA=ON -DUSE_SYSTEM_SKIA=OFF
+          -DSKIA_ROOT=${{ github.workspace }}/skia-dist
           -DCMAKE_C_COMPILER_LAUNCHER=ccache
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
