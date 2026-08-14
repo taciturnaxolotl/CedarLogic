@@ -12,6 +12,9 @@
 #include "GateLibrary.h"
 #include "logic_values.h"
 #include <wx/settings.h>
+#ifdef __APPLE__
+#include "MacAppearance.h"
+#endif
 
 using namespace std;
 
@@ -26,9 +29,17 @@ END_EVENT_TABLE()
 PaletteCanvas::PaletteCanvas( wxWindow *parent, wxWindowID id, wxString &libName, const wxPoint &pos, const wxSize &size )
 	: wxScrolledWindow( parent, id, pos, size, wxSUNKEN_BORDER|wxVSCROLL|wxFULL_REPAINT_ON_RESIZE ) {
     SetBackgroundColour(* wxWHITE);
-
     SetCursor(wxCursor(wxCURSOR_ARROW));
-	SetBackgroundColour(* wxWHITE);
+
+#ifdef __APPLE__
+	// The palette is a white surface by construction: the thumbnails are
+	// black-on-white print art, so the panel can't follow the system into dark
+	// mode. Its scrollbar is a native NSScroller though, and that DOES follow --
+	// under dark mode macOS gives it the light knob meant for a dark background,
+	// which on this white panel is white on white. Pin the panel (and so the
+	// scroller inside it) to the appearance it actually paints.
+	MacForceLightAppearance(GetHandle());
+#endif
 
 #ifdef __WXMSW__
 	// On Windows the native vertical scrollbar is carved out of the client area,

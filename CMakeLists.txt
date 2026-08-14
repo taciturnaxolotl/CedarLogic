@@ -207,6 +207,7 @@ if(APPLE)
     list(APPEND SRC_FILES
         "${PROJECT_SOURCE_DIR}/src/gui/SparkleUpdater.mm"
         "${PROJECT_SOURCE_DIR}/src/gui/NativeIcons.mm"
+        "${PROJECT_SOURCE_DIR}/src/gui/MacAppearance.mm"
     )
 endif()
 
