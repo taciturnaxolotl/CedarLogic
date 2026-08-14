@@ -25,6 +25,7 @@
 
 BEGIN_EVENT_TABLE(gateImage, wxWindow)
     EVT_PAINT(gateImage::OnPaint)
+    EVT_SIZE(gateImage::OnSize)
     EVT_ENTER_WINDOW( gateImage::OnEnterWindow )
     EVT_LEAVE_WINDOW( gateImage::OnLeaveWindow )
     EVT_MOUSE_EVENTS( gateImage::mouseCallback )
@@ -40,15 +41,10 @@ gateImage::gateImage( string gateName, wxWindow *parent, wxWindowID id,
         wxWindow(parent, id, pos, size, style|wxFULL_REPAINT_ON_RESIZE, name ) {
 	m_init = false;
 	inImage = false;
+	renderedPx = 0;
 
-	m_gate = GUICircuit().createGate(gateName, 0, true);
-	if (m_gate == NULL) return;
-	m_gate->setGLcoords(0,0);
-	m_gate->calcBBox();
 	this->gateName = gateName;
 	update();
-
-	delete m_gate;
 	SetToolTip(gateLibrary().libraries[gateLibrary().gateNameToLibrary[gateName]][gateName].caption);
 }
 
@@ -57,16 +53,29 @@ gateImage::~gateImage() {
 
 void gateImage::OnPaint(wxPaintEvent &event) {
 	wxPaintDC dc(this);
-	wxBitmap gatebitmap(gImage);
-	dc.DrawBitmap(gatebitmap, 0, 0, true);	
+	// Sections other than the one on screen are never laid out, so their tiles
+	// have nothing drawn yet; the first paint after being shown is where they
+	// get it. (Rendering all ~420 of them up front just to throw most away is
+	// what this avoids.)
+	if (!gBitmap.IsOk()) update();
+	if (gBitmap.IsOk()) dc.DrawBitmap(gBitmap, 0, 0, true);
 	if (inImage) {
 		dc.SetPen(wxPen(*wxBLUE, 2, wxPENSTYLE_SOLID));
 	} else {
 		dc.SetPen(wxPen(*wxWHITE, 2, wxPENSTYLE_SOLID));
 	}
-		dc.SetBrush(wxBrush(*wxTRANSPARENT_BRUSH));
-		dc.DrawRectangle(0,0,IMAGESIZE,IMAGESIZE);
-	//event.Skip();
+	dc.SetBrush(wxBrush(*wxTRANSPARENT_BRUSH));
+	const wxSize sz = GetClientSize();   // the tile is sized by the palette, not fixed
+	dc.DrawRectangle(0, 0, sz.x, sz.y);
+}
+
+// The tile's size is chosen by the palette from the panel width, so the art has
+// to be re-rendered to match. Skia draws it from vectors, so a bigger tile is
+// genuinely bigger art rather than an upscale.
+void gateImage::OnSize(wxSizeEvent &event) {
+	update();
+	Refresh();
+	event.Skip();
 }
 
 void gateImage::mouseCallback( wxMouseEvent& event) {
@@ -108,8 +117,8 @@ void gateImage::OnEraseBackground( wxEraseEvent& event ) {
 
 // Fit the gate's model box into a `size`-square thumbnail: 0.5 world units of
 // padding, then letterboxed on the limiting axis.
-cl::render::Transform gateImage::thumbnailTransform(int size) const {
-	klsBBox box = m_gate->getModelDrawBBox();
+cl::render::Transform gateImage::thumbnailTransform(guiGate* gate, int size) const {
+	klsBBox box = gate->getModelDrawBBox();
 	// minCorner is (left, top), maxCorner is (right, bottom), so y decreases from
 	// min to max.
 	GLPoint2f minCorner(box.getLeft() - 0.5f, box.getTop() + 0.5f);
@@ -146,22 +155,43 @@ cl::render::Transform gateImage::thumbnailTransform(int size) const {
 // Render the thumbnail through Skia into an offscreen raster surface. Skia
 // anti-aliases natively, so no supersampling is needed for smooth curves.
 bool gateImage::generateImageSkia() {
-	if (m_gate == NULL) return false;
-	const int size = GATEIMAGESIZE;
-	wxImage img(size, size);
+	// Build the gate, draw it, drop it. The palette holds one of these tiles per
+	// library entry, and keeping a live guiGate in each -- for something only
+	// ever used to draw a picture -- is a lot of circuit to carry around.
+	guiGate *gate = GUICircuit().createGate(gateName, 0, true);
+	if (gate == NULL) return false;
+	gate->setGLcoords(0, 0);
+	gate->calcBBox();
 
-	guiGate *gate = m_gate;
-	cl::render::Transform t = thumbnailTransform(size);
+	// Render at device pixels, not logical ones: the tile is drawn on whatever
+	// display the window is on, and rasterising at logical size means the OS
+	// upscales it on a Retina screen. The bitmap carries the scale so it still
+	// occupies `side` logical pixels.
+	const wxSize client = GetClientSize();
+	if (client.x <= 0 || client.y <= 0) return false;   // not laid out yet
+	const double scale = GetContentScaleFactor();
+	const int side = wxMax(8, wxMin(client.x, client.y) - 2);
+	const int px = wxMax(8, (int)(side * scale + 0.5));
+	// Layout settles over several size events (the panel columns, then the
+	// scrollbar appearing and narrowing them). Only the last one changes the
+	// picture, so redraw on a genuine change of size and not on each pass.
+	if (px == renderedPx) return true;
+	renderedPx = px;
+
+	wxImage img(px, px);
+	cl::render::Transform t = thumbnailTransform(gate, px);
 	const cl::render::RenderStyle style = cl::render::RenderStyle::print();
-	if (!cl::render::skiaRenderToRGB(size, size,
+	const bool ok = cl::render::skiaRenderToRGB(px, px,
 			[gate, &t, &style](cl::render::Scene &scene) {
 				scene.setViewport(t);
 				gate->drawToScene(scene, style);
 			},
-			img.GetData())) {
-		return false;
-	}
+			img.GetData());
+	delete gate;
+	if (!ok) return false;
+
 	gImage = img;
+	gBitmap = wxBitmap(img, -1, scale);
 	return true;
 }
 

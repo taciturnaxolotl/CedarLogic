@@ -23,7 +23,14 @@ DECLARE_APP(MainApp)
 
 BEGIN_EVENT_TABLE(PaletteCanvas, wxScrolledWindow)
   EVT_PAINT(PaletteCanvas::OnPaint)
+  EVT_SIZE(PaletteCanvas::OnSize)
 END_EVENT_TABLE()
+
+// How many tiles fit across `width` pixels of client area, at least one.
+static int columnsForWidth( int width ) {
+	int cols = width / ( IMAGESIZE + 2 );
+	return cols > 0 ? cols : 1;
+}
 
 
 PaletteCanvas::PaletteCanvas( wxWindow *parent, wxWindowID id, wxString &libName, const wxPoint &pos, const wxSize &size )
@@ -43,11 +50,10 @@ PaletteCanvas::PaletteCanvas( wxWindow *parent, wxWindowID id, wxString &libName
 
 #ifdef __WXMSW__
 	// On Windows the native vertical scrollbar is carved out of the client area,
-	// and the palette is sized to exactly three gate columns -- so when the bar
-	// appears it lands on top of the last column. Reserve its width in the
-	// panel's minimum so the gates and the bar sit side by side. (macOS uses
-	// overlay scrollbars that take no layout space and already render correctly,
-	// so this is Windows-only.)
+	// so without room set aside it lands on top of the last column of gates.
+	// Reserve its width on top of three columns' worth, which is the narrowest
+	// the palette should ever get. (macOS overlay scrollbars take no layout
+	// space, so this is Windows-only.)
 	int sbWidth = wxSystemSettings::GetMetric( wxSYS_VSCROLL_X );
 	if ( sbWidth <= 0 ) sbWidth = 17;
 	const int contentW = 3 * ( IMAGESIZE + 2 ) + 2;  // 3 bordered columns + row border
@@ -56,6 +62,7 @@ PaletteCanvas::PaletteCanvas( wxWindow *parent, wxWindowID id, wxString &libName
 
 	libraryName = libName.ToStdString();
 	gateSizer = NULL;
+	tileSide = IMAGESIZE;
 	
 	init = false;
 	activate = true;
@@ -69,18 +76,17 @@ void PaletteCanvas::OnPaint( wxPaintEvent &event ) {
 	wxPaintDC dc(this);
 	if (!init) {
 	   	map < string, LibraryGate >::iterator gateWalk = gateLibrary().libraries[libraryName].begin();
-		int counter = 0;
-		wxBoxSizer* lineSizer = NULL;
-		gateSizer = new wxBoxSizer( wxVERTICAL );
+		// A grid sizer whose tiles fill their cells. The panel is as wide as the
+		// section dropdown above it, which is not a whole number of tiles, and
+		// the remainder used to pile up as a bare strip down the right-hand side
+		// -- what the scrollbar sat in front of until it hid itself. Spending it
+		// on bigger art beats spending it on gaps: the thumbnails are vector
+		// drawings, so they gain detail rather than just scale up.
+		gateSizer = new wxGridSizer( columnsForWidth( GetClientSize().x ), 0, 0 );
 		while (gateWalk != gateLibrary().libraries[libraryName].end()) {
-			if (!(counter%3)) {
-				lineSizer = new wxBoxSizer( wxHORIZONTAL );
-				gateSizer->Add( lineSizer, wxSizerFlags(0).Border(wxALL, 1) );			
-			}	
 			gateImage* newGate = new gateImage((gateWalk->first), this, wxID_ANY, wxDefaultPosition, wxSize(IMAGESIZE, IMAGESIZE));
 			gates.push_back(newGate);
-			lineSizer->Add( newGate, wxSizerFlags(0).Border(wxALL, 1) );
-			counter++;
+			gateSizer->Add( newGate, wxSizerFlags(1).Expand() );
 			gateWalk++;
 		}
 		this->SetSizer( gateSizer );
@@ -99,6 +105,26 @@ void PaletteCanvas::OnPaint( wxPaintEvent &event ) {
 		activate = false;
 	}
 }
+// Re-column on resize, and keep the tiles square: the grid divides the width
+// between its columns, and each tile's height has to follow that width or the
+// cells stop being square and the art letterboxes inside them.
+void PaletteCanvas::OnSize( wxSizeEvent &event ) {
+	if ( gateSizer != NULL && !gates.empty() ) {
+		const int width = GetClientSize().x;
+		const int cols = columnsForWidth( width );
+		const int side = wxMax( IMAGESIZE, width / cols );
+		if ( cols != gateSizer->GetCols() || side != tileSide ) {
+			tileSide = side;
+			gateSizer->SetCols( cols );
+			for ( unsigned int i = 0; i < gates.size(); i++ )
+				gates[i]->SetMinSize( wxSize( side, side ) );
+			Layout();
+			FitInside();
+		}
+	}
+	event.Skip();
+}
+
 void PaletteCanvas::Activate() {
 	activate = true;
 }

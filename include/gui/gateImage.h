@@ -40,10 +40,11 @@ public:
     virtual ~gateImage();
 
     void OnPaint(wxPaintEvent& event);
+    void OnSize(wxSizeEvent& event);
     // Skia thumbnail render (replaces the offscreen-GL readback); returns false
     // if the raster surface could not be produced.
     bool generateImageSkia();
-    cl::render::Transform thumbnailTransform(int size) const;
+    cl::render::Transform thumbnailTransform(guiGate* gate, int size) const;
     void mouseCallback(wxMouseEvent& event);
     void OnEnterWindow(wxMouseEvent& event) { if (!(event.LeftIsDown())) inImage = true; Refresh(); };
     void OnLeaveWindow(wxMouseEvent& event) { inImage = false; Refresh(); };
@@ -55,11 +56,11 @@ public:
 private:
 	void update();
 	
-	guiGate* m_gate;
-
 	string gateName;
 	bool inImage;
 	wxImage gImage;
+	wxBitmap gBitmap;   // gImage at the display's scale factor
+	int renderedPx;     // device-pixel size gBitmap was drawn at
 	
 	wxDragImage* m_dragImage;
 	bool m_init;

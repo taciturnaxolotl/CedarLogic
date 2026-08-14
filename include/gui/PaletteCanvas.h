@@ -23,10 +23,12 @@ public:
 virtual	~PaletteCanvas();
 
     void OnPaint( wxPaintEvent &event );
+    void OnSize( wxSizeEvent &event );
 	void Activate( void );
 	
 private:
-	wxBoxSizer* gateSizer;
+	wxGridSizer* gateSizer;
+	int tileSide;   // current tile edge in logical px; see OnSize
 	vector< gateImage* > gates;
 	string libraryName;
 	bool init;
