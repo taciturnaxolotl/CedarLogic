@@ -72,7 +72,13 @@
               libGLU
               mesa
               catch2_3
-              fontconfig   # Skia's fontconfig font manager: the app's font lookup
+              # This Skia links system libraries rather than vendoring them, so
+              # the app link needs them too: fontconfig for the font manager,
+              # libwebp for the webp codec, harfbuzz-subset for PDF font
+              # subsetting. See the tail of cmake/module/SetupSkia.cmake.
+              fontconfig
+              libwebp
+              harfbuzzFull
             ]);
 
             cmakeFlags = [

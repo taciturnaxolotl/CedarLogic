@@ -120,6 +120,7 @@ else()
     # not. Bare "GL" defers to -lGL at link time (find_package(OpenGL) runs after
     # this module).
     find_package(Fontconfig QUIET)
+    find_package(PkgConfig QUIET)   # may already be found above; harmless
     target_link_libraries(cedar_skia INTERFACE GL ${CMAKE_DL_LIBS} pthread)
     if(Fontconfig_FOUND)
         target_link_libraries(cedar_skia INTERFACE Fontconfig::Fontconfig)
@@ -174,4 +175,28 @@ else()
     # won't resolve indirectly (--no-copy-dt-needed-entries default). Let a
     # linked .so's DT_NEEDED satisfy them instead of listing each by hand.
     target_link_options(cedar_skia INTERFACE "LINKER:--copy-dt-needed-entries")
+
+    # Skia's own third-party dependencies. The CI dist vendors them: they sit as
+    # archives beside libskia and the glob above already picked them up. A Skia
+    # built against SYSTEM libraries (the Nix flake, a distro package) ships no
+    # such archives, and the app is what links libskia.a, so its references land
+    # here. wxWidgets' DT_NEEDED covers the common ones (png, jpeg, zlib, expat,
+    # freetype); these two it does not pull, and their absence only shows up at
+    # the very end of the app link:
+    #   libwebpdemux    <- webp_decode.SkWebpCodec.o
+    #   harfbuzz-subset <- pdf.SkPDFSubsetFont.o (font subsetting for PDF export)
+    if(PkgConfig_FOUND)
+        if(NOT EXISTS "${SKIA_ROOT}/lib/libwebp.a")
+            pkg_check_modules(SKIA_WEBP QUIET libwebpdemux libwebp)
+            if(SKIA_WEBP_FOUND)
+                target_link_libraries(cedar_skia INTERFACE ${SKIA_WEBP_LINK_LIBRARIES})
+            endif()
+        endif()
+        if(NOT EXISTS "${SKIA_ROOT}/lib/libharfbuzz.a")
+            pkg_check_modules(SKIA_HB QUIET harfbuzz-subset)
+            if(SKIA_HB_FOUND)
+                target_link_libraries(cedar_skia INTERFACE ${SKIA_HB_LINK_LIBRARIES})
+            endif()
+        endif()
+    endif()
 endif()
