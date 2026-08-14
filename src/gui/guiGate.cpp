@@ -1115,12 +1115,18 @@ void guiLabel::calcBBox( void ) {
 	const GLdouble height = getTextHeight();
 	const float w = cl::render::measuredTextWidth(getGUIParam("LABEL_TEXT").c_str(),
 	                                              (float)height * TEXT_SKIA_SCALE);
+	// Box what is actually drawn, in both directions: scene.text() hangs the
+	// string from the top of its capitals, and its height is as font-dependent
+	// as its width. The two constants this used to size itself with described a
+	// bitmap font that was retired with the GL renderer, and no longer matched
+	// the face Skia resolves -- so the text sat outside its own hit box.
+	const float h = cl::render::measuredTextHeight((float)height * TEXT_SKIA_SCALE);
 	const float dx = w / 2.0f;
-	const float dy = (float)((TEXT_BOX_BOTTOM - TEXT_BOX_TOP) * height / 2.0);
-	textPos = GLPoint2f(-dx, +dy);              // centers the text about the origin
+	const float dy = h / 2.0f;
+	textPos = GLPoint2f(-dx, +dy);              // draw point = top of the text
 	modelBBox.reset();
-	modelBBox.addPoint( GLPoint2f(-dx, dy - (float)(TEXT_BOX_BOTTOM * height)) );
-	modelBBox.addPoint( GLPoint2f(+dx, dy - (float)(TEXT_BOX_TOP * height)) );
+	modelBBox.addPoint( GLPoint2f(-dx, -dy) );
+	modelBBox.addPoint( GLPoint2f(+dx, +dy) );
 
 	// Recalculate the world-space bbox:
 	updateBBoxes();
@@ -1199,10 +1205,14 @@ void guiTO_FROM::calcBBox( void ) {
 	// The label's width as Skia actually renders it:
 	textWidth = cl::render::measuredTextWidth(
 		textString.c_str(), (float)TO_FROM_TEXT_HEIGHT * TEXT_SKIA_SCALE);
+	// Half the drawn height: the draw point is the top of the text, so putting it
+	// here centres the label on the pin line rather than hanging it above.
+	const float textTop = 0.5f * cl::render::measuredTextHeight(
+		(float)TO_FROM_TEXT_HEIGHT * TEXT_SKIA_SCALE);
 
 	// Adjust the bounding box based on the text's width:
 	if( getGUIType() == "TO" ) {
-		textPos = GLPoint2f( (float)TO_BUFFER, (float)(TO_FROM_TEXT_HEIGHT/2+0.30) );
+		textPos = GLPoint2f( (float)TO_BUFFER, textTop );
 		GLPoint2f bR = modelBBox.getBottomRight();
 		// Cover the label where it is actually drawn. It starts at TO_BUFFER, so
 		// extending the box by textWidth alone leaves it TO_BUFFER short and the
@@ -1215,7 +1225,7 @@ void guiTO_FROM::calcBBox( void ) {
 		GLPoint2f tL = modelBBox.getTopLeft();
 		tL.x -= (textWidth + FROM_BUFFER);
 		modelBBox.addPoint( tL );
-		textPos = GLPoint2f( tL.x + (float)FROM_FIX_SHIFT, (float)(TO_FROM_TEXT_HEIGHT/2+0.30) );
+		textPos = GLPoint2f( tL.x + (float)FROM_FIX_SHIFT, textTop );
 	}
 
 	// Recalculate the world-space bbox:

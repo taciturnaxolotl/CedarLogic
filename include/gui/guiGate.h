@@ -436,11 +436,6 @@ protected:
 // so text is drawn at TEXT_HEIGHT * this to keep cap heights matching.
 #define TEXT_SKIA_SCALE 1.35f
 
-// Vertical text metrics inherited from the retired GL font, so hit boxes stay
-// where they were: glyphs hang below the draw anchor, from -TEXT_BOX_BOTTOM to
-// -TEXT_BOX_TOP times TEXT_HEIGHT.
-#define TEXT_BOX_TOP 0.28339
-#define TEXT_BOX_BOTTOM 1.41661
 
 class guiLabel : public guiGate {
 public:

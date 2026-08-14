@@ -206,18 +206,19 @@ void SkiaScene::text(Point origin, const char* utf8, float pixelHeight,
 	}
 
 	SkPaint p = fillPaint(c);
-	// The retired GL bitmap font anchored near the TOP of the text -- glyphs hang
-	// below the draw point, and label hit boxes (TEXT_BOX_TOP/BOTTOM in guiGate.h)
-	// still assume that. SkPath glyphs are baseline-relative, so anchoring at the baseline would
-	// render the text a whole line-height too high, off its hit box. Drop the
-	// baseline by the ascent so the top of the text sits at the origin, matching
-	// the GL font and the hit box.
+	// `origin` is the top of the CAPITALS, not the baseline and not the ascent
+	// line: glyphs hang below the draw point, and callers box them with
+	// measuredTextHeight() on that understanding. Cap height is the line a reader
+	// sees as the top of the text; ascent sits above it by however much room the
+	// face leaves for accents, which differs enough between faces to shift the
+	// text clean out of its own hit box when the resolved font changes.
 	SkFontMetrics fm;
 	f.getMetrics(&fm);
+	const float capHeight = fm.fCapHeight > 0.0f ? fm.fCapHeight : -fm.fAscent;
 	// The viewport flips y (device is y-down); flip it back around the text origin
 	// so glyphs render upright rather than mirrored.
 	fCanvas->save();
-	fCanvas->translate(origin.x, origin.y + fm.fAscent * k);  // fAscent < 0 (above baseline)
+	fCanvas->translate(origin.x, origin.y - capHeight * k);   // -> the baseline
 	fCanvas->scale(k, -k);
 	fCanvas->drawPath(text, p);
 	fCanvas->restore();

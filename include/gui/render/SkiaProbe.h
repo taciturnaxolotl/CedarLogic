@@ -112,6 +112,10 @@ bool skiaRenderToPdf(const char* path, int width, int height,
 // Returns 0 if no font is available. Keeps Skia headers out of the caller.
 float measuredTextWidth(const char* utf8, float pixelHeight);
 
+// The height that same text occupies: top of the capitals down past the
+// descenders, so a caller can box exactly what gets drawn.
+float measuredTextHeight(float pixelHeight);
+
 }  // namespace render
 }  // namespace cl
 

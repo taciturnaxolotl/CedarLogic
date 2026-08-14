@@ -27,6 +27,7 @@
 #include "encode/SkPngEncoder.h"
 #include "render/SkiaProbe.h"
 #include "render/SkiaScene.h"
+#include "core/SkFontMetrics.h"
 #include "core/SkFontMgr.h"
 #include "core/SkFontStyle.h"
 #include "core/SkImageInfo.h"
@@ -473,6 +474,21 @@ float measuredTextWidth(const char* utf8, float pixelHeight) {
 	const float w = (float)f.measureText(utf8, std::strlen(utf8),
 	                                     SkTextEncoding::kUTF8);
 	return w * (pixelHeight / kGlyphUnits);
+}
+
+float measuredTextHeight(float pixelHeight) {
+	const SkFont* base = SkiaBackend::get().defaultFont();
+	if (!base) return 0.0f;
+	SkFont f(*base);
+	f.setSize(kGlyphUnits);
+	f.setHinting(SkFontHinting::kNone);
+	f.setLinearMetrics(true);
+	SkFontMetrics fm;
+	f.getMetrics(&fm);
+	// What SkiaScene::text actually covers: it hangs the text from the top of
+	// the capitals, so the drawn box runs from there down past the descenders.
+	const float capHeight = fm.fCapHeight > 0.0f ? fm.fCapHeight : -fm.fAscent;
+	return (capHeight + fm.fDescent) * (pixelHeight / kGlyphUnits);
 }
 
 }  // namespace render
