@@ -34,7 +34,7 @@ jobs:
     outputs:
       exe_size: ${{ steps.package.outputs.exe_size }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Get version
         id: version
@@ -55,7 +55,7 @@ jobs:
           variant: sccache
 
       - name: Cache wxWidgets
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/_deps
           key: wxwidgets-windows-${{ hashFiles('CMakeLists.txt') }}
@@ -70,7 +70,7 @@ jobs:
       # back to the legacy fixed-function GL path. The dist is x86 to match this
       # 32-bit build (see cmake/skia-args/windows.gn).
       - name: Download Skia dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: skia-windows
           path: skia-dist
@@ -97,7 +97,7 @@ jobs:
           echo "exe_size=$EXE_SIZE" >> $GITHUB_OUTPUT
 
       - name: Upload Windows Installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-installer
           path: build/CedarLogic-*-win32.exe
@@ -106,7 +106,7 @@ jobs:
     needs: skia
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Get version
         id: version
@@ -128,7 +128,7 @@ jobs:
           key: linux-gcc
 
       - name: Cache wxWidgets
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/_deps
           key: wxwidgets-linux-${{ hashFiles('CMakeLists.txt') }}
@@ -136,7 +136,7 @@ jobs:
             wxwidgets-linux-
 
       - name: Download Skia dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: skia-linux
           path: skia-dist
@@ -157,7 +157,7 @@ jobs:
           cpack -G TGZ
 
       - name: Upload Linux Archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-archive
           path: build/CedarLogic-*-Linux.tar.gz
@@ -170,7 +170,7 @@ jobs:
       dmg_size: ${{ steps.sparkle_sign.outputs.dmg_size }}
       sparkle_signature: ${{ steps.sparkle_sign.outputs.signature }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Get version
         id: version
@@ -207,7 +207,7 @@ jobs:
           key: macos-clang
 
       - name: Cache wxWidgets
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/_deps
           key: wxwidgets-macos-${{ hashFiles('CMakeLists.txt') }}
@@ -215,7 +215,7 @@ jobs:
             wxwidgets-macos-
 
       - name: Download Skia dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: skia-macos
           path: skia-dist
@@ -340,7 +340,7 @@ jobs:
           echo "signature=$SIGNATURE" >> $GITHUB_OUTPUT
 
       - name: Upload macOS DMG
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-dmg
           path: build/CedarLogic-*-Darwin.dmg
@@ -348,7 +348,7 @@ jobs:
   build-wasm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Get version
         id: version
@@ -358,7 +358,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Setup Emscripten
-        uses: mymindstorm/setup-emsdk@v14
+        uses: emscripten-core/setup-emsdk@v16
         with:
           version: latest
           actions-cache-folder: emsdk-cache
@@ -392,7 +392,7 @@ jobs:
           tar -czf ../CedarLogic-${VERSION}-wasm.tar.gz .
 
       - name: Upload WASM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wasm-bundle
           path: CedarLogic-*-wasm.tar.gz
@@ -405,7 +405,7 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: master
 
@@ -417,7 +417,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -448,7 +448,7 @@ jobs:
           } > release-notes.md
 
       - name: Publish release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.VERSION }}
           name: ${{ env.VERSION }}
@@ -479,7 +479,7 @@ jobs:
           git push
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
