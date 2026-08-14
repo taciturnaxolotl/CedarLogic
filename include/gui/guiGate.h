@@ -215,6 +215,19 @@ public:
 	void updateConnectionMerges( void );
 	
 	klsBBox getModelBBox( void ) { return modelBBox; };
+	// Everything the gate paints, decorations included -- what to frame a picture
+	// of the gate with (see calcBBox). Unioned with the hit box because the
+	// subclasses that override calcBBox (guiLabel, guiTO_FROM) size themselves
+	// around rendered text and extend only that one.
+	// NB the empty checks: addBBox on a reset box folds in its FLT_MAX sentinels
+	// and yields an infinite box, which would scale a thumbnail to nothing.
+	klsBBox getModelDrawBBox( void ) {
+		if( modelDrawBBox.empty() ) return modelBBox;
+		if( modelBBox.empty() ) return modelDrawBBox;
+		klsBBox box = modelDrawBBox;
+		box.addBBox( modelBBox );
+		return box;
+	};
 
 	// World-space bbox of the gate BODY only (no hotspot pins). The collision
 	// bbox (getBBox) is expanded by setBBox->makeValidBBox to enclose the hotspot
@@ -318,6 +331,7 @@ protected:
 
 	// Model space bounding box:
 	klsBBox modelBBox;
+	klsBBox modelDrawBBox;
 	klsBBox selectionBBox; // world-space body bbox (no hotspots), for selection
 	
 	vector<GLPoint2f> vertices;

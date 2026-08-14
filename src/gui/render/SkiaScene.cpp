@@ -151,7 +151,17 @@ void SkiaScene::arc(Point center, float radius, float startDeg, float sweepDeg,
 	const SkRect oval = SkRect::MakeLTRB(center.x - radius, center.y - radius,
 	                                     center.x + radius, center.y + radius);
 	SkPath path;
-	path.addArc(oval, 90.0f - startDeg, -sweepDeg);
+	if (std::fabs(sweepDeg) >= 360.0f) {
+		// A whole turn is a circle, and must be asked for as one. Skia only
+		// nudges the start and stop vectors apart for sweeps just UNDER a full
+		// turn; at exactly 360 they stay coincident and the arc emits no
+		// geometry at all -- whether it does is down to how the start angle
+		// rounds, so of the eight -360 bubbles on a NANDX8 four drew and four
+		// vanished. The gate library has 17 of these.
+		path.addOval(oval);
+	} else {
+		path.addArc(oval, 90.0f - startDeg, -sweepDeg);
+	}
 	fCanvas->drawPath(path, strokePaint(s, strokeDevScale()));
 }
 

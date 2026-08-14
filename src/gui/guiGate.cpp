@@ -332,7 +332,6 @@ void guiGate::calcBBox( void ) {
 	// only geometry that's farther than PIN_ZONE from every hotspot keeps the body
 	// (its edge sits ~1 unit out) while dropping the pin stubs and bubbles.
 	const float PIN_ZONE = 0.9f;
-	bool excludePins = true;
 	auto nearHotspot = [this, PIN_ZONE](const GLPoint2f& p) -> bool {
 		for (const auto& kv : hotspots) {
 			if (!kv.second) continue;
@@ -342,39 +341,48 @@ void guiGate::calcBBox( void ) {
 		}
 		return false;
 	};
-	auto addBody = [&](const GLPoint2f& p) {
-		if (!excludePins || !nearHotspot(p)) modelBBox.addPoint(p);
-	};
 
 	// `labelOnly == false` bounds the body; `true` bounds the labels.
-	auto accumulate = [&](bool labelOnly) {
+	// `excludePins` drops the pin/bubble decorations (the hit box wants that; a
+	// picture of the gate does not).
+	auto accumulate = [&](bool labelOnly, klsBBox& target, bool excludePins) {
+		auto add = [&](const GLPoint2f& p) {
+			if (!excludePins || !nearHotspot(p)) target.addPoint(p);
+		};
 		// vertices/labelVertices are split by insertLine's isLabel flag.
 		const std::vector<GLPoint2f>& verts = labelOnly ? labelVertices : vertices;
-		for (unsigned int i = 0; i < verts.size(); i++) addBody( verts[i] );
+		for (unsigned int i = 0; i < verts.size(); i++) add( verts[i] );
 		for (unsigned int a = 0; a < arcs.size(); a++) {
 			const GateArc& arc = arcs[a];
 			if (arc.isLabel != labelOnly) continue;
 			const int segs = 24;
 			for (int i = 0; i <= segs; i++) {
 				float d = (arc.startDeg + arc.sweepDeg * (float)i / (float)segs) * DEG2RAD;
-				addBody( GLPoint2f(arc.cx + arc.r * sin(d), arc.cy + arc.r * cos(d)) );
+				add( GLPoint2f(arc.cx + arc.r * sin(d), arc.cy + arc.r * cos(d)) );
 			}
 		}
 		for (unsigned int c = 0; c < circles.size(); c++) {
 			const GateCircle& circ = circles[c];
 			if (circ.isLabel != labelOnly) continue;
-			addBody( GLPoint2f(circ.cx - circ.r, circ.cy - circ.r) );
-			addBody( GLPoint2f(circ.cx + circ.r, circ.cy + circ.r) );
+			add( GLPoint2f(circ.cx - circ.r, circ.cy - circ.r) );
+			add( GLPoint2f(circ.cx + circ.r, circ.cy + circ.r) );
 		}
 	};
 
 	modelBBox.reset();
-	accumulate( /*labelOnly=*/false );          // body, pins/bubbles excluded
-	if (modelBBox.empty()) {                     // pin-dominated (tiny) gate: keep all body
-		excludePins = false;
-		accumulate( false );
-	}
-	if (modelBBox.empty()) accumulate( true );   // label-only element -> use labels
+	accumulate( /*labelOnly=*/false, modelBBox, /*excludePins=*/true );
+	if (modelBBox.empty())                       // pin-dominated (tiny) gate: keep all body
+		accumulate( false, modelBBox, false );
+	if (modelBBox.empty())                       // label-only element -> use labels
+		accumulate( true, modelBBox, false );
+
+	// Everything the gate actually paints -- body, pin stubs, inversion bubbles,
+	// labels. The hit box above deliberately drops the decorations, so it is the
+	// wrong rectangle to frame a picture with: the palette thumbnails were cut
+	// off by exactly the pins and bubbles it throws away.
+	modelDrawBBox.reset();
+	accumulate( false, modelDrawBBox, false );
+	accumulate( true, modelDrawBBox, false );
 
 	// Recalculate the world-space bbox:
 	updateBBoxes();

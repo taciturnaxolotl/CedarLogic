@@ -109,7 +109,7 @@ void gateImage::OnEraseBackground( wxEraseEvent& event ) {
 // Fit the gate's model box into a `size`-square thumbnail: 0.5 world units of
 // padding, then letterboxed on the limiting axis.
 cl::render::Transform gateImage::thumbnailTransform(int size) const {
-	klsBBox box = m_gate->getModelBBox();
+	klsBBox box = m_gate->getModelDrawBBox();
 	// minCorner is (left, top), maxCorner is (right, bottom), so y decreases from
 	// min to max.
 	GLPoint2f minCorner(box.getLeft() - 0.5f, box.getTop() + 0.5f);
