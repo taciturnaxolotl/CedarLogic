@@ -369,7 +369,11 @@ bool GUICanvas::renderSkiaLive() {
 	const float gMaxY = (float)py;
 
 	GUICanvas* self = this;
-	const RenderStyle style = RenderStyle::screen();
+	RenderStyle style = RenderStyle::screen();
+	// View > Display Gridlines. The screen style defaults the grid on and the
+	// export paths set showGrid themselves, so without this the live canvas was
+	// the one renderer that never consulted the setting.
+	style.showGrid = appConfig().appSettings.gridlineVisible;
 	// Key the cached circuit picture on the circuit CONTENT only. The interactive
 	// overlays (hover bulb, drag box, wire hover, ...) are drawn live on top each
 	// frame via drawOverlay below, so they follow the mouse WITHOUT invalidating
