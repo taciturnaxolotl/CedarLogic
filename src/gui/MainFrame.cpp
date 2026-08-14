@@ -22,6 +22,7 @@
 #include "guiWire.h"
 #include <fstream>
 #include "MainFrame.h"
+#include "AutosaveStore.h"
 #include "wx/filedlg.h"
 #include "wx/timer.h"
 #include "wx/wfstream.h"
@@ -47,7 +48,6 @@
 #include "SettingsDialog.h"
 #include "wx/docview.h"
 #include "commands.h"
-#include "autoSaveThread.h"
 #include "../version.h"
 #ifdef __APPLE__
 #include "SparkleUpdater.h"
@@ -112,6 +112,7 @@ BEGIN_EVENT_TABLE(MainFrame, wxFrame)
     
 	EVT_TIMER(TIMER_ID, MainFrame::OnTimer)
 	EVT_TIMER(IDLETIMER_ID, MainFrame::OnIdle)
+	EVT_TIMER(AUTOSAVE_TIMER_ID, MainFrame::OnAutosaveTimer)
 
 #ifndef __WXOSX__
 	EVT_AUINOTEBOOK_PAGE_CHANGED(NOTEBOOK_ID, MainFrame::OnNotebookPage)
@@ -430,7 +431,6 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	SetSizer( mainSizer);
 		
 	threadLogic *thread = CreateThread();
-	autoSaveThread *autoThread = CreateSaveThread();
 	
     if ( thread->Run() != wxTHREAD_NO_ERROR )
     {
@@ -487,24 +487,17 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	doOpenFile = (cmdFilename.size() > 0);
 	this->openedFilename = cmdFilename;
 
-	if (ifstream(CRASH_FILENAME)) {
-		wxMessageDialog dialog(this, "Oops! It seems like there may have been a crash.\nWould you like to try to recover your work?", "Recover File", wxYES_DEFAULT | wxYES_NO | wxICON_QUESTION);
-		if (dialog.ShowModal() == wxID_YES)
-		{
-			doOpenFile = false;
-			openedFilename = "Recovered File";
-			load(CRASH_FILENAME);
-			this->SetTitle(VERSION_TITLE() + " - " + openedFilename);
-		}
-		removeTempFile();
-	}
+	offerRecovery();
 
-	if (autoThread->Run() != wxTHREAD_NO_ERROR)
-	{
-		wxLogError("Autosave thread not started!");
-	}
+	// Autosave on the GUI thread. It used to run on its own thread, which walked
+	// every gate and wire to serialise them while the main thread was free to be
+	// editing the same lists, and finished with a wx GUI call from off the GUI
+	// thread. A timer handler runs between events, so it cannot overlap an edit
+	// -- which is also why the old `handlingEvent` flag is gone: it was a check,
+	// not a lock, and the main thread could start work right after it was read.
+	autosaveTimer = new wxTimer(this, AUTOSAVE_TIMER_ID);
+	autosaveTimer->Start(autosaveIntervalMs());
 	currentTempNum = 0;
-	handlingEvent = false;
 	wxInitAllImageHandlers(); //Julian: Added to allow saving all types of image files
 
 	// Colin: for testing dynamic gates
@@ -523,7 +516,6 @@ MainFrame::~MainFrame() {
 
 	// Shut down the detached thread and wait for it to exit
 	simBridge().logicThread->Delete();
-	simBridge().saveThread->Delete();
 
 	
 	simBridge().m_semAllDone.Wait();
@@ -573,19 +565,6 @@ threadLogic *MainFrame::CreateThread()
     return thread;
 }
 
-autoSaveThread *MainFrame::CreateSaveThread()
-{
-	autoSaveThread *thread = new autoSaveThread();
-	if (thread->Create() != wxTHREAD_NO_ERROR)
-	{
-		wxLogError("Can't create autosave thread!");
-	}
-
-	wxCriticalSectionLocker enter(simBridge().m_critsect);
-	simBridge().saveThread = thread;
-
-	return thread;
-}
 
 
 // event handlers
@@ -615,7 +594,6 @@ void MainFrame::OnClose(wxCloseEvent& event) {
 	// termination seems to allow time for whatever needs to clean up
 	// so that the application terminates normally.  KAS 4/26/07
 	static bool destroy = false;
-	handlingEvent = true;
 	
 	pauseTimers();
 
@@ -646,7 +624,6 @@ void MainFrame::OnClose(wxCloseEvent& event) {
 	}
 	else
 	{
-		handlingEvent = false;
 	}
 
 	//Edit by Joshua Lansford 10/18/07
@@ -677,7 +654,6 @@ void MainFrame::OnAbout(wxCommandEvent& WXUNUSED(event)) {
 }
 
 void MainFrame::OnNew(wxCommandEvent& event) {
-	handlingEvent = true;
 
 	if (commandProcessor->IsDirty()) {
 		wxMessageDialog dialog( this, "Circuit has not been saved.  Would you like to save it?", "Save Circuit", wxYES_DEFAULT|wxYES_NO|wxCANCEL|wxICON_QUESTION);
@@ -721,12 +697,10 @@ void MainFrame::OnNew(wxCommandEvent& event) {
 
 	resumeTimers(TIMER_POLL_MS);
 
-	handlingEvent = false;
 }
 
 void MainFrame::OnOpen(wxCommandEvent& event) {
 	
-	handlingEvent = true;
 
 	currentCanvas->getCircuit()->setSimulate(false);
 	if (commandProcessor->IsDirty()) {
@@ -737,7 +711,6 @@ void MainFrame::OnOpen(wxCommandEvent& event) {
 			break;
 		case wxID_CANCEL:
 			currentCanvas->getCircuit()->setSimulate(true);
-			handlingEvent = false;
 			return;
 		}			
 	}
@@ -760,7 +733,6 @@ void MainFrame::OnOpen(wxCommandEvent& event) {
 
 	resumeTimers(TIMER_POLL_MS);
 
-	handlingEvent = false;
 }
 //Edit by Joshua Lansford 2/15/07
 //Purpose of edit:  by obstracting the loading of
@@ -813,8 +785,8 @@ void MainFrame::loadCircuitFile( string fileName ){
 
 	// Offer to migrate an older file to the latest format up front. Declining
 	// leaves it undecided, so the same choice is offered again when they save.
-	// Skip the crash-recovery file.
-	if ((loadedFileFormat == 1 || loadedFileFormat == 2) && fileName != CRASH_FILENAME
+	// A recovery snapshot is always current-format, so this never fires for one.
+	if ((loadedFileFormat == 1 || loadedFileFormat == 2)
 	    && !renderMode().headlessRender) {
 		wxString v = (loadedFileFormat == 1) ? "V1" : "V2";
 		wxMessageDialog dialog(this,
@@ -878,7 +850,6 @@ int MainFrame::chooseSaveFormat() {
 }
 
 void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) {
-	handlingEvent = true;
 
 	wxString caption = "Save circuit";
 	wxString wildcard = "Circuit files (*.cdl)|*.cdl";
@@ -888,7 +859,7 @@ void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) {
 	if (dialog.ShowModal() == wxID_OK) {
 		wxString path = dialog.GetPath();
 		int format = chooseSaveFormat();
-		if (format == -1) { handlingEvent = false; return; }  // user cancelled
+		if (format == -1) return;  // user cancelled
 		bool success = save((string)path, format);
 		if (success || lastSaveError.rfind("Warning:", 0) == 0) {
 			if (!success)
@@ -902,7 +873,6 @@ void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) {
 			wxMessageBox(errorMsg, "Save Error", wxOK | wxICON_ERROR, this);
 		}
 	}
-	handlingEvent = false;
 }
 
 void MainFrame::OnOscope(wxCommandEvent& WXUNUSED(event)) {
@@ -1072,7 +1042,6 @@ void MainFrame::OnUndo(wxCommandEvent& event) {
 	// lists and fire core messages; with a running simulation the step timer is
 	// concurrently syncing wire state and repainting (MT_DONESTEP), and the two
 	// race and crash. Pausing the sim by hand avoids it, and so does this.
-	handlingEvent = true;
 	pauseTimers();
 	// Switch to the page this command affects, so an undo on another tab is shown
 	// where it happens instead of silently changing an off-screen page.
@@ -1082,12 +1051,10 @@ void MainFrame::OnUndo(wxCommandEvent& event) {
 	// Tab commands can't be followed by pointer; they name a page to show after.
 	if (cmd != NULL) { int p = cmd->pageToShow(true); if (p >= 0) showCanvasIndex(p); }
 	resumeTimers(TIMER_POLL_MS);
-	handlingEvent = false;
 	currentCanvas->Update();
 }
 
 void MainFrame::OnRedo(wxCommandEvent& event) {
-	handlingEvent = true;
 	pauseTimers();
 	// The redo target is the command just after the current position; switch to
 	// its page before re-doing it (see OnUndo).
@@ -1104,7 +1071,6 @@ void MainFrame::OnRedo(wxCommandEvent& event) {
 	commandProcessor->Redo();
 	if (cmd != NULL) { int p = cmd->pageToShow(false); if (p >= 0) showCanvasIndex(p); }
 	resumeTimers(TIMER_POLL_MS);
-	handlingEvent = false;
 	currentCanvas->Update();
 }
 
@@ -1311,7 +1277,6 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 }
 
 void MainFrame::OnExportLegacy(wxCommandEvent& event) {
-	handlingEvent = true;
 
 	wxString caption = "Export v1.x Compatible Circuit";
 	wxString wildcard = "Circuit files (*.cdl)|*.cdl";
@@ -1350,12 +1315,10 @@ void MainFrame::OnExportLegacy(wxCommandEvent& event) {
 			}
 		}
 	}
-	handlingEvent = false;
 }
 
 // Export a copy in the v2 (pre-v3 XML) format without changing the open file.
 void MainFrame::OnExportV2(wxCommandEvent& event) {
-	handlingEvent = true;
 
 	wxString wildcard = "Circuit files (*.cdl)|*.cdl";
 	wxFileDialog dialog(this, "Export v2 (legacy XML) Circuit", wxEmptyString, "",
@@ -1378,7 +1341,6 @@ void MainFrame::OnExportV2(wxCommandEvent& event) {
 			             "Export Error", wxOK | wxICON_ERROR);
 		}
 	}
-	handlingEvent = false;
 }
 
 void MainFrame::OnCopyToClipboard(wxCommandEvent& event) {
@@ -1569,9 +1531,61 @@ void MainFrame::resumeTimers(int at) {
 
 //Julian: All of the following functions were added to support autosave functionality.
 
+// Three minutes by default. The environment override exists so the recovery
+// path can be exercised in seconds rather than by waiting out a real interval.
+int MainFrame::autosaveIntervalMs() {
+	const char* seconds = getenv("CEDAR_AUTOSAVE_SECONDS");
+	const int s = seconds ? atoi(seconds) : 0;
+	return (s > 0 ? s : 180) * 1000;
+}
+
+// Offer back anything a session that died left behind. Each entry names the
+// document it was taken from and when, because "there may have been a crash" is
+// no help to someone deciding whether it is worth recovering.
+void MainFrame::offerRecovery() {
+	std::vector<AutosaveEntry> pending = autosaveStore::findRecoverable();
+	for (unsigned int i = 0; i < pending.size(); i++) {
+		const AutosaveEntry& entry = pending[i];
+		wxString of = entry.originalPath.empty()
+			? wxString("a circuit that was never saved")
+			: wxFileName(entry.originalPath).GetFullName();
+		wxString message =
+			"CedarLogic closed unexpectedly with unsaved work.\n\n"
+			"Recover " + of + "?\n"
+			"Last autosaved " + entry.takenAt + ".";
+		wxMessageDialog dialog(this, message, "Recover Work",
+		                       wxYES_DEFAULT | wxYES_NO | wxICON_QUESTION);
+		if (dialog.ShowModal() == wxID_YES) {
+			doOpenFile = false;
+			load(entry.snapshotPath);
+			// Deliberately NOT the recovered document's path: the snapshot is
+			// not that file, and Save must not quietly overwrite the last good
+			// copy on disk with it. Leaving this empty sends Ctrl+S to Save As,
+			// where the original name is offered as the default.
+			openedFilename = "";
+			recoveredFrom = entry.originalPath;
+			SetTitle(VERSION_TITLE() + " - recovered " + of);
+			commandProcessor->MarkAsSaved();   // recovered state is the baseline
+		}
+		autosaveStore::discard(entry);
+	}
+}
+
+// Fires on the GUI thread every AUTOSAVE_INTERVAL_MS. Nothing else can be part
+// way through an edit here, so the circuit is safe to walk.
+void MainFrame::OnAutosaveTimer(wxTimerEvent& WXUNUSED(event)) {
+	if (!fileIsDirty()) return;
+	autosave();
+}
+
 void MainFrame::autosave() {
-	// Attempt to autosave - if it fails, the user can still manually save
-	save(CRASH_FILENAME);
+	// Best effort: if it fails the user can still save by hand. Worth knowing
+	// about while developing, hence the log rather than a silent drop.
+	if (save(autosaveStore::snapshotPath())) {
+		autosaveStore::writeRecord(openedFilename.ToStdString());
+	} else {
+		wxLogDebug("Autosave failed: %s", lastSaveError.c_str());
+	}
 }
 
 bool MainFrame::save(string filename, int format) {
@@ -1611,12 +1625,9 @@ bool MainFrame::fileIsDirty() {
 }
 
 void MainFrame::removeTempFile() {
-	remove(CRASH_FILENAME.c_str());
+	autosaveStore::clearOwn();
 }
 
-bool MainFrame::isHandlingEvent() {
-	return handlingEvent;
-}
 
 void MainFrame::lock() {
 	for (unsigned int i = 0; i < canvases.size(); i++) {

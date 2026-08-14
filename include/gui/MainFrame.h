@@ -30,7 +30,6 @@
 //#include "OscopeFrame.h"
 class OscopeFrame;
 #include "klsMiniMap.h"
-#include "autoSaveThread.h"
 #include <thread>
 #include <atomic>
 
@@ -47,6 +46,7 @@ enum
 	
     TIMER_ID,
     IDLETIMER_ID,
+    AUTOSAVE_TIMER_ID,
     TOOLBAR_ID,
     NOTEBOOK_ID,
     
@@ -88,6 +88,7 @@ public:
 	void OnCopyToClipboard(wxCommandEvent& event);
 	void OnTimer(wxTimerEvent& event);
 	void OnIdle(wxTimerEvent& event);
+	void OnAutosaveTimer(wxTimerEvent& event);
 	void OnSize(wxSizeEvent& event);
 #ifdef __WXOSX__
 	void OnNotebookPage(wxBookCtrlEvent& event);
@@ -138,9 +139,9 @@ public:
 
 	//Julian: Added functions to help with auto save functionality
 	void autosave();
+	void offerRecovery();
 	bool fileIsDirty();
 	void removeTempFile();
-	bool isHandlingEvent();
 	void lock();
 	void unlock();
 	// format: 1 = v1 XML, 2 = v2 XML, 3 = v3 S-expression (the default).
@@ -197,7 +198,6 @@ public:
 private:
     // helper function - creates a new thread (but doesn't run it)
 	threadLogic *CreateThread();
-	autoSaveThread *CreateSaveThread(); //Julian
 	
 
 	vector< GUICanvas* > canvases;
@@ -217,6 +217,11 @@ private:
 	//Julian: Re-added timers to fix refresh error
 	wxTimer* simTimer;
 	wxTimer* idleTimer;
+	// Autosave runs on the GUI thread, between events -- see OnAutosaveTimer.
+	// Three minutes, as the retired autosave thread used; CEDAR_AUTOSAVE_SECONDS
+	// overrides it, which is how the recovery flow gets tested without waiting.
+	wxTimer* autosaveTimer;
+	static int autosaveIntervalMs();
 
 	// Simulation cadence pump. wxTimer is WM_TIMER, which Windows only synthesizes
 	// when the message queue is EMPTY -- so mouse input and paints starve it. That
@@ -250,9 +255,10 @@ private:
 	bool saveFormatDecided = false;  // user has answered the keep-or-migrate prompt for this file
 	unsigned int currentTempNum;
 
-	bool handlingEvent; //Julian: Prevents autosaving from occuring during an open/new/saveas/etc...
-	const string CRASH_FILENAME = "crashfile.temp"; //Julian: Filename to check.
 	string lastSaveError; // Detailed error message from last save attempt
+	// Document a recovered snapshot came from, for the Save As default name.
+	// Empty unless this session started by recovering something.
+	string recoveredFrom;
 	
 	wxSlider* timeStepModSlider;
 	wxStaticText* timeStepModVal;

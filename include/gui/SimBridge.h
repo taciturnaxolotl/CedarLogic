@@ -2,7 +2,7 @@
    Project: CEDAR Logic Simulator
 
    SimBridge: the state the GUI thread and the background threads (threadLogic,
-   autoSaveThread) coordinate through. Extracted from the MainApp God-singleton
+   the logic thread) coordinate through. Extracted from the MainApp God-singleton
    (Workstream C); reach it via simBridge() instead of wxGetApp().
 
    ---- Threading model ----------------------------------------------------
@@ -27,7 +27,6 @@
 #include "logic_values.h"
 
 class threadLogic;
-class autoSaveThread;
 
 class SimBridge {
 public:
@@ -64,7 +63,6 @@ public:
 	bool m_waitingUntilAllDone = false;
 
 	threadLogic* logicThread = nullptr;
-	autoSaveThread* saveThread = nullptr;
 };
 
 // The process-wide GUI<->logic bridge. Lives for the whole run; constructed on

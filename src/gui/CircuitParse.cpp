@@ -15,6 +15,7 @@
 #include "OscopeFrame.h"
 #include "MainApp.h"
 #include <fstream>
+#include <wx/file.h>
 #include <sstream>
 #include <cerrno>
 #include <cstring>
@@ -805,62 +806,74 @@ bool CircuitParse::saveCircuitLegacy(string filename, vector< GUICanvas* > glc, 
 }
 
 // Write text to disk, translating errno into a friendly lastError on failure.
+//
+// The write is atomic: the text goes to a temporary file beside the target and
+// is renamed over it only once it is safely on disk. Truncating the target and
+// streaming into it -- what this used to do -- means a crash, a full disk or a
+// pulled USB stick partway through destroys the file the user already had, with
+// no copy anywhere. With a rename the save either happens completely or leaves
+// the previous file exactly as it was.
+//
+// wxTempFile does the fiddly parts: the temporary lands in the SAME directory
+// (so the rename cannot cross filesystems and fall back to a copy), it inherits
+// the original's permissions on Unix, Flush() is fsync(), and Commit() is
+// rename()/MoveFileEx().
 bool CircuitParse::writeToFile(const string &filename, const string &text) {
 	lastError = "";
 
-	errno = 0;
-	ofstream outfile(filename.c_str());
-	if (!outfile.good()) {
-		int errnum = errno;
+	// Translate errno into something a student can act on. Shared by every step
+	// below; `stage` names what failed when errno has nothing useful to add.
+	auto describe = [this](int errnum, const char* stage) {
 		if (errnum == EACCES || errnum == EPERM) {
 			lastError = "Permission denied. You don't have write access to this location.";
 		} else if (errnum == ENOSPC) {
 			lastError = "Disk full. Free up space and try again.";
+		} else if (errnum == EDQUOT) {
+			lastError = "Disk quota exceeded. Free up space or request more quota.";
 		} else if (errnum == EROFS) {
 			lastError = "Read-only filesystem. Choose a different location.";
 		} else if (errnum == ENOENT) {
 			lastError = "Directory doesn't exist. Check the file path.";
+		} else if (errnum == EIO) {
+			lastError = "I/O error. Check your disk or network connection.";
 		} else if (errnum != 0) {
-			lastError = string("Cannot open file: ") + strerror(errnum);
+			lastError = string(stage) + ": " + strerror(errnum);
 		} else {
-			lastError = "Cannot open file for writing.";
+			lastError = stage;
 		}
+	};
+
+	errno = 0;
+	wxTempFile out;
+	if (!out.Open(filename)) {
+		describe(errno, "Cannot open file for writing");
+		return false;
+	}
+
+	// Raw bytes, not the wxString overload: that one re-encodes through the
+	// current locale, and a label with a non-ASCII character in it would not
+	// survive the round trip byte for byte.
+	errno = 0;
+	if (!out.Write(text.data(), text.size())) {
+		describe(errno, "Write operation failed");
+		out.Discard();          // leave the original untouched
+		return false;
+	}
+
+	// fsync before the rename: without it the rename can land while the new
+	// file's contents are still only in the page cache, which after a power cut
+	// leaves an intact-looking file full of nothing.
+	errno = 0;
+	if (!out.Flush()) {
+		describe(errno, "Could not flush the file to disk");
+		out.Discard();
 		return false;
 	}
 
 	errno = 0;
-	outfile << text;
-	if (outfile.fail()) {
-		int errnum = errno;
-		outfile.close();
-		if (errnum == ENOSPC) {
-			lastError = "Disk full while writing. The file may be incomplete.";
-		} else if (errnum == EIO) {
-			lastError = "I/O error while writing. Check your disk or network connection.";
-		} else if (errnum != 0) {
-			lastError = string("Write failed: ") + strerror(errnum);
-		} else {
-			lastError = "Write operation failed.";
-		}
-		return false;
-	}
-
-	errno = 0;
-	outfile.close();
-	if (outfile.fail()) {
-		int errnum = errno;
-		if (errnum == ENOSPC) {
-			lastError = "Disk full while closing file. The file may be incomplete.";
-		} else if (errnum == EIO) {
-			lastError = "I/O error while closing file. Data may not be saved correctly.";
-		} else if (errnum == EDQUOT) {
-			lastError = "Disk quota exceeded. Free up space or request more quota.";
-		} else if (errnum != 0) {
-			lastError = string("Error closing file: ") + strerror(errnum);
-		} else {
-			lastError = "Failed to close file properly. Data may not be saved.";
-		}
-		return false;
+	if (!out.Commit()) {
+		describe(errno, "Could not replace the existing file");
+		return false;   // Commit() cleans up its own temporary
 	}
 
 	return true;

@@ -21,7 +21,6 @@
 #include "wx/fs_zip.h"
 #include "wx/glcanvas.h"
 #include "threadLogic.h"
-#include "autoSaveThread.h"
 #include "logic_values.h"
 #include "LibraryParse.h"
 #include "gl_defs.h"
