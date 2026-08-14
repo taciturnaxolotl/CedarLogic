@@ -15,6 +15,7 @@ public:
 	bool getGridlineVisible() const;
 	bool getRightClickRotate() const;
 	int getRefreshRate() const;
+	int getAutosaveSeconds() const;   // 0 = off
 
 private:
 	wxCheckBox* wireConnVisibleCtrl;
@@ -22,6 +23,7 @@ private:
 	wxCheckBox* gridlineVisibleCtrl;
 	wxCheckBox* rightClickRotateCtrl;
 	wxSpinCtrl* refreshRateCtrl;
+	wxSpinCtrl* autosaveMinutesCtrl;
 };
 
 #endif

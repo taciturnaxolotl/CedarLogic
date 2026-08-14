@@ -671,6 +671,7 @@ void MainApp::loadSettings() {
 	conf->Read("FrameLeft", &appConfig().appSettings.mainFrameLeft, 20);
 	conf->Read("FrameTop", &appConfig().appSettings.mainFrameTop, 20);
 	conf->Read("RefreshRate", &appConfig().appSettings.refreshRate, 16); // ms (~60 FPS)
+	conf->Read("AutosaveSeconds", &appConfig().appSettings.autosaveSeconds, 180);
 	conf->Read("TimeStep", &appConfig().appSettings.timePerStep, 25); // ms
 	appConfig().timeStepMod = appConfig().appSettings.timePerStep;
 	conf->Read("WireConnRadius", &appConfig().appSettings.wireConnRadius, 0.18f);

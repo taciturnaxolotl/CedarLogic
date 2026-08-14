@@ -226,6 +226,7 @@ private:
 	// overrides it, which is how the recovery flow gets tested without waiting.
 	wxTimer* autosaveTimer;
 	static int autosaveIntervalMs();
+	void applyAutosaveInterval();
 
 	// Simulation cadence pump. wxTimer is WM_TIMER, which Windows only synthesizes
 	// when the message queue is EMPTY -- so mouse input and paints starve it. That

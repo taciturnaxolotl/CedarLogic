@@ -497,7 +497,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	// -- which is also why the old `handlingEvent` flag is gone: it was a check,
 	// not a lock, and the main thread could start work right after it was read.
 	autosaveTimer = new wxTimer(this, AUTOSAVE_TIMER_ID);
-	autosaveTimer->Start(autosaveIntervalMs());
+	applyAutosaveInterval();
 	currentTempNum = 0;
 	wxInitAllImageHandlers(); //Julian: Added to allow saving all types of image files
 
@@ -946,6 +946,8 @@ void MainFrame::OnPreferences(wxCommandEvent& event) {
 		appConfig().appSettings.gridlineVisible = dlg.getGridlineVisible();
 		appConfig().appSettings.rightClickRotate = dlg.getRightClickRotate();
 		appConfig().appSettings.refreshRate = dlg.getRefreshRate();
+		appConfig().appSettings.autosaveSeconds = dlg.getAutosaveSeconds();
+		applyAutosaveInterval();
 
 		// The same two settings are reachable from the View menu; keep its
 		// checkmarks in step with what the dialog just wrote.
@@ -1507,6 +1509,7 @@ void MainFrame::saveSettings() {
 	conf->Write("FrameTop", GetPosition().y);
 	conf->Write("TimeStep", appConfig().timeStepMod);
 	conf->Write("RefreshRate", settings.refreshRate);
+	conf->Write("AutosaveSeconds", settings.autosaveSeconds);
 	conf->Write("LastDirectory", lastDirectory);
 	conf->Write("WireConnRadius", settings.wireConnRadius);
 	conf->Write("WireConnVisible", settings.wireConnVisible);
@@ -1575,12 +1578,23 @@ void MainFrame::resumeTimers(int at) {
 
 //Julian: All of the following functions were added to support autosave functionality.
 
-// Three minutes by default. The environment override exists so the recovery
-// path can be exercised in seconds rather than by waiting out a real interval.
+// The Preferences setting, in milliseconds. CEDAR_AUTOSAVE_SECONDS overrides it
+// so the recovery path can be exercised without waiting out a real interval or
+// disturbing the user's own preference.
 int MainFrame::autosaveIntervalMs() {
-	const char* seconds = getenv("CEDAR_AUTOSAVE_SECONDS");
-	const int s = seconds ? atoi(seconds) : 0;
-	return (s > 0 ? s : 180) * 1000;
+	const char* override = getenv("CEDAR_AUTOSAVE_SECONDS");
+	const int seconds = override ? atoi(override)
+	                             : appConfig().appSettings.autosaveSeconds;
+	return seconds > 0 ? seconds * 1000 : 0;   // 0 = off
+}
+
+// Start, restart or stop the timer to match the current setting. Called at
+// startup and whenever Preferences is accepted.
+void MainFrame::applyAutosaveInterval() {
+	if (!autosaveTimer) return;
+	const int ms = autosaveIntervalMs();
+	autosaveTimer->Stop();
+	if (ms > 0) autosaveTimer->Start(ms);
 }
 
 // Offer back anything a session that died left behind. Each entry names the

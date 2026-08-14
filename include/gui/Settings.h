@@ -24,6 +24,7 @@ struct ApplicationSettings {
 	int mainFrameTop;
 	int timePerStep;
 	int refreshRate;
+	int autosaveSeconds;   // 0 disables autosave entirely
 	float wireConnRadius;
 	bool wireConnVisible;
 	bool gridlineVisible;
