@@ -40,3 +40,6 @@ __pycache__/
 
 # Task's fingerprint cache
 .task/
+
+# Autosave/crash-recovery file written by the app into its working directory
+crashfile.temp
