@@ -11,7 +11,7 @@ SettingsDialog::SettingsDialog(wxWindow* parent)
 
 	auto& settings = appConfig().appSettings;
 
-	wxFlexGridSizer* grid = new wxFlexGridSizer(4, 2, 8, 12);
+	wxFlexGridSizer* grid = new wxFlexGridSizer(5, 2, 8, 12);
 	grid->AddGrowableCol(1, 1);
 
 	grid->Add(new wxStaticText(this, wxID_ANY, "Wire Connection Points"), 0, wxALIGN_CENTER_VERTICAL);
@@ -28,6 +28,11 @@ SettingsDialog::SettingsDialog(wxWindow* parent)
 	gridlineVisibleCtrl->SetValue(settings.gridlineVisible);
 	grid->Add(gridlineVisibleCtrl, 0, wxALIGN_CENTER_VERTICAL);
 
+	grid->Add(new wxStaticText(this, wxID_ANY, "Right-Click Rotates Gates"), 0, wxALIGN_CENTER_VERTICAL);
+	rightClickRotateCtrl = new wxCheckBox(this, wxID_ANY, "");
+	rightClickRotateCtrl->SetValue(settings.rightClickRotate);
+	grid->Add(rightClickRotateCtrl, 0, wxALIGN_CENTER_VERTICAL);
+
 	grid->Add(new wxStaticText(this, wxID_ANY, "Refresh Rate (FPS)"), 0, wxALIGN_CENTER_VERTICAL);
 	int currentFps = (settings.refreshRate > 0) ? 1000 / settings.refreshRate : 60;
 	refreshRateCtrl = new wxSpinCtrl(this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 10, 1000, currentFps);
@@ -43,6 +48,7 @@ SettingsDialog::SettingsDialog(wxWindow* parent)
 bool SettingsDialog::getWireConnVisible() const { return wireConnVisibleCtrl->GetValue(); }
 double SettingsDialog::getWireConnRadius() const { return wireConnRadiusCtrl->GetValue(); }
 bool SettingsDialog::getGridlineVisible() const { return gridlineVisibleCtrl->GetValue(); }
+bool SettingsDialog::getRightClickRotate() const { return rightClickRotateCtrl->GetValue(); }
 int SettingsDialog::getRefreshRate() const {
 	int fps = refreshRateCtrl->GetValue();
 	return (fps > 0) ? 1000 / fps : 16;

@@ -93,8 +93,7 @@ BEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(View_Oscope, MainFrame::OnOscope)
     EVT_MENU(View_Gridline, MainFrame::OnViewGridline)
     EVT_MENU(View_WireConn, MainFrame::OnViewWireConn)
-    EVT_MENU(View_RightClickRotate, MainFrame::OnViewRightClickRotate)
-    EVT_MENU(View_Preferences, MainFrame::OnPreferences)
+    EVT_MENU(wxID_PREFERENCES, MainFrame::OnPreferences)
     
 	EVT_TOOL(Tool_Pause, MainFrame::OnPause)
 	EVT_TOOL(Tool_Step, MainFrame::OnStep)
@@ -148,23 +147,30 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	fileMenu->Append(wxID_SAVE, "&Save\tCtrl+S", "Save circuit");
 	fileMenu->Append(wxID_SAVEAS, "Save &As\tCtrl+Shift+S", "Save circuit");
 	fileMenu->AppendSeparator();
+	// Tabs are documents, not edits -- they belong beside New and Open.
+	fileMenu->Append(Tool_NewTab, "New &Tab\tCtrl+T", "Open a new tab");
+	fileMenu->Append(Tool_CloseTab, "&Close Tab\tCtrl+W", "Close the current tab");
+	fileMenu->AppendSeparator();
 	fileMenu->Append(File_Export, "Export as Image...\tCtrl+E", "Export or copy circuit image");
 	fileMenu->Append(File_ExportV2, "Export as V2 (legacy XML)...", "Save a copy in the pre-V3 XML format");
 	fileMenu->Append(File_ExportLegacy, "Export as V1.x Compatible...", "Save a copy in the oldest format");
 	fileMenu->AppendSeparator();
-	fileMenu->Append(wxID_EXIT, "E&xit\tAlt+X", "Quit this program");
+	// Stock id with no label: wx supplies the platform's own wording and
+	// accelerator ("Quit\tCtrl+Q", and macOS moves it to the application menu).
+	fileMenu->Append(wxID_EXIT);
 
     wxMenu *viewMenu = new wxMenu; // VIEW MENU
-    viewMenu->Append(View_Oscope, "&Oscope\tCtrl+G", "Show the Oscope");
-    wxMenu *settingsMenu = new wxMenu;
-    settingsMenu->AppendCheckItem(View_Gridline, "Display Gridlines", "Toggle gridline display");
-    settingsMenu->AppendCheckItem(View_WireConn, "Display Wire Connection Points", "Toggle wire connection points");
-    settingsMenu->AppendCheckItem(View_RightClickRotate, "Right-Click Rotate", "Toggle right-click to rotate gates");
-    settingsMenu->AppendSeparator();
-    settingsMenu->Append(View_Preferences, "Preferences...\tCtrl+,", "Open preferences dialog");
+    // Zoom is on the toolbar and the keyboard but was never in a menu, so it was
+    // undiscoverable. Same ids as the toolbar tools -- wx routes tool and menu
+    // commands through the same event, so the existing handlers pick these up.
+    viewMenu->Append(Tool_ZoomIn, "Zoom &In\tCtrl+=", "Zoom in");
+    viewMenu->Append(Tool_ZoomOut, "Zoom &Out\tCtrl+-", "Zoom out");
     viewMenu->AppendSeparator();
-    viewMenu->AppendSubMenu(settingsMenu, "Settings");
-    
+    viewMenu->AppendCheckItem(View_Gridline, "Display &Gridlines", "Toggle gridline display");
+    viewMenu->AppendCheckItem(View_WireConn, "Display &Wire Connection Points", "Toggle wire connection points");
+    viewMenu->AppendSeparator();
+    viewMenu->Append(View_Oscope, "&Oscope\tCtrl+G", "Show the Oscope");
+
     wxMenu *helpMenu = new wxMenu; // HELP MENU
     helpMenu->Append(wxID_HELP_CONTENTS, "&Contents...\tF1", "Show Help system");
 	helpMenu->Append(Help_KeyboardShortcuts, "&Keyboard Shortcuts...", "Show keyboard shortcuts");
@@ -183,15 +189,16 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	editMenu->Append(wxID_UNDO, "Undo\tCtrl+Z", "Undo last operation");
 	editMenu->Append(wxID_REDO, "Redo\tCtrl+Shift+Z", "Redo last operation");
 	editMenu->AppendSeparator();
-	editMenu->Append(Tool_NewTab, "New Tab\tCtrl+T", "New Tab");
-#ifdef __WXOSX__
-	editMenu->Append(Tool_CloseTab, "Close Tab\tCtrl+W", "Close current tab");
-#endif
-	editMenu->AppendSeparator();
 	editMenu->Append(wxID_CUT, "Cut\tCtrl+X", "Cut selection to clipboard");
 	editMenu->Append(wxID_COPY, "Copy\tCtrl+C", "Copy selection to clipboard");
 	editMenu->Append(wxID_PASTE, "Paste\tCtrl+V", "Paste selection from clipboard");
-	
+	editMenu->AppendSeparator();
+	// wxID_PREFERENCES, not an id of our own: that is what makes macOS lift this
+	// into the application menu as "Settings..." with its usual Cmd+, -- which
+	// is where a Mac user looks for it, rather than under View. Windows and GTK
+	// keep it here at the foot of Edit, which is their convention.
+	editMenu->Append(wxID_PREFERENCES, "&Preferences...\tCtrl+,", "Open preferences dialog");
+
     // now append the freshly created menu to the menu bar...
     wxMenuBar *menuBar = new wxMenuBar();
     menuBar->Append(fileMenu, "&File");
@@ -199,10 +206,9 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
     menuBar->Append(viewMenu, "&View");
     menuBar->Append(helpMenu, "&Help");
 
-    // set checkmarks on settings menu
+    // set checkmarks on the view toggles
     menuBar->Check(View_Gridline, appConfig().appSettings.gridlineVisible);
     menuBar->Check(View_WireConn, appConfig().appSettings.wireConnVisible);
-    menuBar->Check(View_RightClickRotate, appConfig().appSettings.rightClickRotate);
     
     // ... and attach this menu bar to the frame
     SetMenuBar(menuBar);
@@ -918,22 +924,19 @@ void MainFrame::OnViewWireConn(wxCommandEvent& event) {
 	if (currentCanvas != NULL) currentCanvas->Update();
 }
 
-void MainFrame::OnViewRightClickRotate(wxCommandEvent& event) {
-	appConfig().appSettings.rightClickRotate = event.IsChecked();
-}
-
 void MainFrame::OnPreferences(wxCommandEvent& event) {
 	SettingsDialog dlg(this);
 	if (dlg.ShowModal() == wxID_OK) {
 		appConfig().appSettings.wireConnVisible = dlg.getWireConnVisible();
 		appConfig().appSettings.wireConnRadius = (float)dlg.getWireConnRadius();
 		appConfig().appSettings.gridlineVisible = dlg.getGridlineVisible();
+		appConfig().appSettings.rightClickRotate = dlg.getRightClickRotate();
 		appConfig().appSettings.refreshRate = dlg.getRefreshRate();
 
-		// Sync menu checkmarks
+		// The same two settings are reachable from the View menu; keep its
+		// checkmarks in step with what the dialog just wrote.
 		GetMenuBar()->Check(View_Gridline, appConfig().appSettings.gridlineVisible);
 		GetMenuBar()->Check(View_WireConn, appConfig().appSettings.wireConnVisible);
-		GetMenuBar()->Check(View_RightClickRotate, appConfig().appSettings.rightClickRotate);
 
 		if (currentCanvas != NULL) currentCanvas->Update();
 	}
@@ -2011,9 +2014,7 @@ void MainFrame::OnKeyboardShortcuts(wxCommandEvent& event) {
 
 	addHeader(grid, "Tabs");
 	addRow(grid, mod + "+T", "New Tab");
-#ifdef __WXOSX__
 	addRow(grid, mod + "+W", "Close Tab");
-#endif
 
 	topSizer->Add(grid, 1, wxALL | wxEXPAND, 16);
 	topSizer->Add(dlg.CreateButtonSizer(wxOK), 0, wxALIGN_CENTER | wxBOTTOM, 12);

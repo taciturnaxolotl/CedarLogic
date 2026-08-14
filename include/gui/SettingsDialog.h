@@ -13,12 +13,14 @@ public:
 	bool getWireConnVisible() const;
 	double getWireConnRadius() const;
 	bool getGridlineVisible() const;
+	bool getRightClickRotate() const;
 	int getRefreshRate() const;
 
 private:
 	wxCheckBox* wireConnVisibleCtrl;
 	wxSpinCtrlDouble* wireConnRadiusCtrl;
 	wxCheckBox* gridlineVisibleCtrl;
+	wxCheckBox* rightClickRotateCtrl;
 	wxSpinCtrl* refreshRateCtrl;
 };
 
