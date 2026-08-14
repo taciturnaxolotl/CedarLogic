@@ -26,6 +26,7 @@
 #include "wx/splitter.h"
 #include "threadLogic.h"
 #include "GUICanvas.h"
+#include "FileLock.h"
 #include "GUICircuit.h"
 //#include "OscopeFrame.h"
 class OscopeFrame;
@@ -129,6 +130,9 @@ public:
 	void PauseSim( void );
 	
 	void loadCircuitFile( string fileName );
+	// asCopy loads the contents but claims neither the path nor its lock, so
+	// Save goes to Save As and cannot overwrite what another session has open.
+	void loadCircuitFile( string fileName, bool asCopy );
 	void openFileFromFinder( const wxString& fileName );
 
 	//Julian: Added to simplify timer use
@@ -259,6 +263,9 @@ private:
 	// Document a recovered snapshot came from, for the Save As default name.
 	// Empty unless this session started by recovering something.
 	string recoveredFrom;
+	// Held for as long as this window has a document open; released on close,
+	// and moved by Save As. Advisory -- see FileLock.h.
+	FileLock documentLock;
 	
 	wxSlider* timeStepModSlider;
 	wxStaticText* timeStepModVal;

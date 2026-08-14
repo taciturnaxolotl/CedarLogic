@@ -23,6 +23,7 @@
 #include <fstream>
 #include "MainFrame.h"
 #include "AutosaveStore.h"
+#include "FileLock.h"
 #include "wx/filedlg.h"
 #include "wx/timer.h"
 #include "wx/wfstream.h"
@@ -513,6 +514,10 @@ MainFrame::~MainFrame() {
 	if (simPumpThread.joinable()) simPumpThread.join();
 
 	stopTimers();
+	if (autosaveTimer) autosaveTimer->Stop();
+	// Ours no longer: a lock outliving the session that took it is the thing
+	// everyone else's users complain about.
+	documentLock.release();
 
 	// Shut down the detached thread and wait for it to exit
 	simBridge().logicThread->Delete();
@@ -742,10 +747,41 @@ void MainFrame::OnOpen(wxCommandEvent& event) {
 //it starts, that cedarls can load that file
 //by calling this method.
 void MainFrame::loadCircuitFile( string fileName ){
+	loadCircuitFile(fileName, false);
+}
+
+void MainFrame::loadCircuitFile( string fileName, bool asCopy ){
 	wxString path = fileName;
-	
-	openedFilename = path;
-	this->SetTitle(VERSION_TITLE() + " - " + path );
+
+	// Someone else editing this? Advisory only -- we can still open it, and
+	// still save over it. The point is that both people find out now rather
+	// than by losing an afternoon's work to whoever saves last.
+	const std::string holder = asCopy ? std::string() : FileLock::heldBy(fileName);
+	if (!holder.empty() && !renderMode().headlessRender) {
+		wxMessageDialog dialog(this,
+			"This circuit is already open elsewhere:\n\n    " + wxString(holder) +
+			"\n\nIf you both save it, whoever saves last wins and the other's "
+			"work is lost.\n\nOpen a copy instead? (Save will then ask where to "
+			"put it, leaving the original alone.)",
+			"Circuit Already Open",
+			wxYES_NO | wxCANCEL | wxYES_DEFAULT | wxICON_EXCLAMATION);
+		dialog.SetYesNoCancelLabels("Open a Copy", "Open Anyway", "Cancel");
+		const int answer = dialog.ShowModal();
+		if (answer == wxID_CANCEL) return;
+		if (answer == wxID_YES) {
+			// A copy: load the contents but hold no path, so Save goes to Save
+			// As and cannot land on the file the other session is editing.
+			loadCircuitFile(fileName, /*asCopy=*/true);
+			return;
+		}
+	}
+
+	openedFilename = asCopy ? "" : path;
+	// Not in a headless render: that is a read-only pass over the file, and
+	// taking the lock there would stomp on whoever actually has it open.
+	if (!asCopy && !renderMode().headlessRender) documentLock.acquire(fileName);
+	this->SetTitle(VERSION_TITLE() + " - " +
+	               (asCopy ? wxFileName(path).GetFullName() + " (copy)" : path));
 	// Clear the queues under the lock -- the logic thread drains dGUItoLOGIC
 	// concurrently, so an unlocked flush races it.
 	{
@@ -851,10 +887,15 @@ int MainFrame::chooseSaveFormat() {
 
 void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) {
 
+	// After a recovery the circuit has no path of its own; suggest the name of
+	// the document it was recovered from rather than making them retype it.
 	wxString caption = "Save circuit";
 	wxString wildcard = "Circuit files (*.cdl)|*.cdl";
-	wxString defaultFilename = "";
+	wxString defaultFilename = recoveredFrom.empty()
+		? wxString("") : wxFileName(recoveredFrom).GetFullName();
 	wxFileDialog dialog(this, caption, wxEmptyString, defaultFilename, wildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+	if (!recoveredFrom.empty())
+		dialog.SetDirectory(wxFileName(recoveredFrom).GetPath());
 	dialog.SetDirectory(lastDirectory);
 	if (dialog.ShowModal() == wxID_OK) {
 		wxString path = dialog.GetPath();
@@ -866,6 +907,9 @@ void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) {
 				wxMessageBox(lastSaveError, "Save Warning", wxOK | wxICON_WARNING, this);
 			removeTempFile();
 			openedFilename = path;
+			// The document moved, so the lock follows it: drop the old one and
+			// mark the new file as ours.
+			documentLock.acquire(path.ToStdString());
 			this->SetTitle(VERSION_TITLE() + " - " + path );
 			commandProcessor->MarkAsSaved();
 		} else {
