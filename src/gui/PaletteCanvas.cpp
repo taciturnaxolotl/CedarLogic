@@ -89,19 +89,25 @@ void PaletteCanvas::OnPaint( wxPaintEvent &event ) {
 			gateSizer->Add( newGate, wxSizerFlags(1).Expand() );
 			gateWalk++;
 		}
-		this->SetSizer( gateSizer );
+		// The grid takes only the height its rows need; anything left over collects
+		// under the last row instead of being shared out between the rows (which
+		// stretches the tiles and pushes their art off centre).
+		wxBoxSizer* outer = new wxBoxSizer( wxVERTICAL );
+		outer->Add( gateSizer, wxSizerFlags(0).Expand() );
+		outer->AddStretchSpacer( 1 );
+		this->SetSizer( outer );
 		// Fine scroll rate: the scroll unit is the smallest step the wheel and
 		// the scrollbar thumb move by. It used to be a whole gate row
 		// (IMAGESIZE+1), which made scrolling lurch a row at a time; a small step
 		// gives smooth wheel scrolling and a fine-grained drag.
 		this->SetScrollRate(0, 16);
-		gateSizer->Layout();
+		Layout();          // the window's sizer, which now wraps the grid
 		init = true;
 	}
 	if (activate) {
 		this->FitInside();
 		this->Scroll(0,0); // reset position because the sizer is dumb
-		gateSizer->Layout();
+		Layout();
 		activate = false;
 	}
 }

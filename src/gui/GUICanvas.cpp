@@ -1605,19 +1605,24 @@ klsCommand * GUICanvas::createGateConnectionCommand(IDType gate1Id, const string
 	}
 }
 
+// One step clockwise on screen. The world is y-up, so the model matrix turns
+// counter-clockwise for a rising angle -- stepping the stored angle DOWN is what
+// reads as clockwise to the user. The angle values keep their meaning, so this
+// changes only the order repeated presses walk through them; saved circuits and
+// the file format are untouched.
+static float rotatedClockwise(const std::string& current) {
+	istringstream iss(current);
+	float angle = 0.0f;
+	iss >> angle;
+	return fmod(angle - 90.0f + 360.0f, 360.0f);
+}
+
 void GUICanvas::rotateSelection() {
-	// Rotate by 90 degrees clockwise
-	const float ROTATION_STEP = 90.0f;
 
 	// If we're placing a gate from quick add menu, rotate that gate
 	if (currentDragState == DRAG_NEWGATE && newDragGate != nullptr) {
-		istringstream iss(newDragGate->getGUIParam("angle"));
-		float currentAngle = 0.0f;
-		iss >> currentAngle;
-
-		float newAngle = fmod(currentAngle + ROTATION_STEP, 360.0f);
 		ostringstream oss;
-		oss << newAngle;
+		oss << rotatedClockwise(newDragGate->getGUIParam("angle"));
 		newDragGate->setGUIParam("angle", oss.str());
 		return;
 	}
@@ -1638,13 +1643,8 @@ void GUICanvas::rotateSelection() {
 			}
 			if (hasConnections) continue;
 
-			istringstream iss(gate->getGUIParam("angle"));
-			float currentAngle = 0.0f;
-			iss >> currentAngle;
-
-			float newAngle = fmod(currentAngle + ROTATION_STEP, 360.0f);
 			ostringstream oss;
-			oss << newAngle;
+			oss << rotatedClockwise(gate->getGUIParam("angle"));
 			gate->setGUIParam("angle", oss.str());
 		}
 		return;
@@ -1666,13 +1666,8 @@ void GUICanvas::rotateSelection() {
 
 			// Only rotate if gate has no connections
 			if (!hasConnections) {
-				istringstream iss(gateWalk->second->getGUIParam("angle"));
-				float currentAngle = 0.0f;
-				iss >> currentAngle;
-
-				float newAngle = fmod(currentAngle + ROTATION_STEP, 360.0f);
 				ostringstream oss;
-				oss << newAngle;
+				oss << rotatedClockwise(gateWalk->second->getGUIParam("angle"));
 				gateWalk->second->setGUIParam("angle", oss.str());
 			}
 		}

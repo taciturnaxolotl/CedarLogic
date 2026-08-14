@@ -58,7 +58,15 @@ void gateImage::OnPaint(wxPaintEvent &event) {
 	// get it. (Rendering all ~420 of them up front just to throw most away is
 	// what this avoids.)
 	if (!gBitmap.IsOk()) update();
-	if (gBitmap.IsOk()) dc.DrawBitmap(gBitmap, 0, 0, true);
+	// Centre the art in the tile. The picture is square and the tile need not be
+	// (the palette's grid hands its rows any spare height), so drawing at the
+	// origin would pile all of that slack against the bottom edge.
+	if (gBitmap.IsOk()) {
+		const wxSize tile = GetClientSize();
+		dc.DrawBitmap(gBitmap,
+		              (tile.x - gBitmap.GetLogicalWidth()) / 2,
+		              (tile.y - gBitmap.GetLogicalHeight()) / 2, true);
+	}
 	if (inImage) {
 		dc.SetPen(wxPen(*wxBLUE, 2, wxPENSTYLE_SOLID));
 	} else {
