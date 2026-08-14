@@ -17,16 +17,46 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
-        # withSkia builds against the Skia rendering engine (Workstream G).
-        # The hermetic Nix build has no network for the CI Skia cache, so it
-        # uses a system Skia (USE_SYSTEM_SKIA=ON) -- exactly the shape of the
-        # existing USE_SYSTEM_WXWIDGETS path. This is gated behind the
-        # cedarlogic-skia variant so the default build never depends on Skia,
-        # and stays buildable even before nixpkgs' skia GL support is confirmed.
+        # Skia, cut to CedarLogic's feature set.
+        #
+        # A Nix build is sandboxed with no network, so it cannot use the CI dist
+        # that skia.yml publishes -- Skia has to come from nixpkgs. nixpkgs'
+        # `skia` is m144, twenty Chrome milestones past the pin, and does not
+        # compile against this code (Ganesh's headers moved under gpu/ganesh/).
+        # `skia-aseprite` IS the pin: the same aseprite/skia ref that
+        # cmake/skia-args builds. It is packaged for Aseprite though, so re-cut
+        # it with the args this app needs (SVG + PDF export, the custom font
+        # managers) and install the headers Aseprite has no use for.
+        #
+        # This diverges from the stock derivation, so it is a cache miss and
+        # builds Skia from source -- which is why .github/workflows/nix.yml runs
+        # on flake changes and a weekly schedule rather than on every push.
+        skia = pkgs.skia-aseprite.overrideAttrs (old: {
+          pname = "skia-cedarlogic";
+          configurePhase = ''
+            runHook preConfigure
+            gn gen lib --args="is_debug=false is_official_build=true skia_use_system_icu=false skia_enable_svg=true skia_enable_pdf=true skia_use_expat=true skia_enable_fontmgr_custom_empty=true skia_enable_fontmgr_custom_directory=true extra_cflags=[\"-I${pkgs.harfbuzzFull.dev}/include/harfbuzz\"]"
+            runHook postConfigure
+          '';
+          # The stock install copies only what Aseprite includes. Add the export
+          # headers (SkSVGCanvas, SkPDFDocument, SkPngEncoder) this app needs.
+          installPhase = old.installPhase + ''
+            shopt -s globstar
+            cp -r --parents -t $out/ \
+              include/svg/**/*.h \
+              include/docs/**/*.h \
+              include/encode/**/*.h
+          '';
+        });
+
+        # Skia is the renderer, not an option: there is one package and it always
+        # builds against Skia. No pkg-config file comes out of the override, so
+        # this takes the SKIA_ROOT path (USE_SYSTEM_SKIA=OFF), the same one
+        # Windows, macOS, and CI use with the dist.
         mkCedarLogic =
-          { withSkia ? false }:
+          { }:
           pkgs.stdenv.mkDerivation {
-            pname = if withSkia then "cedarlogic-skia" else "cedarlogic";
+            pname = "cedarlogic";
             version = "2.4.3";
 
             src = ./.;
@@ -36,23 +66,20 @@
               pkg-config
             ];
 
-            buildInputs =
-              (with pkgs; [
-                wxGTK32
-                libGL
-                libGLU
-                mesa
-                catch2_3
-              ])
-              ++ pkgs.lib.optional withSkia pkgs.skia;
+            buildInputs = [ skia ] ++ (with pkgs; [
+              wxGTK32
+              libGL
+              libGLU
+              mesa
+              catch2_3
+              fontconfig   # Skia's fontconfig font manager: the app's font lookup
+            ]);
 
             cmakeFlags = [
               "-DUSE_SYSTEM_WXWIDGETS=ON"
+              "-DUSE_SYSTEM_SKIA=OFF"
+              "-DSKIA_ROOT=${skia}"
               "-DCMAKE_BUILD_TYPE=Release"
-            ]
-            ++ pkgs.lib.optionals withSkia [
-              "-DWITH_SKIA=ON"
-              "-DUSE_SYSTEM_SKIA=ON"
             ];
 
             # Patch CMakeLists.txt to use system Catch2 instead of FetchContent
@@ -85,7 +112,6 @@
         packages = {
           default = self.packages.${system}.cedarlogic;
           cedarlogic = mkCedarLogic { };
-          cedarlogic-skia = mkCedarLogic { withSkia = true; };
         };
 
         devShells.default = pkgs.mkShell {

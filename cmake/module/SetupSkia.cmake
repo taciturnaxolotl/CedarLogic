@@ -9,13 +9,14 @@
 # the sources and this module key off; it is no longer a user-facing switch.
 #
 # Where Skia comes from mirrors the USE_SYSTEM_WXWIDGETS split:
-#   USE_SYSTEM_SKIA=OFF  consume the CI-built dist from .github/workflows/skia.yml.
-#                        Point SKIA_ROOT at the extracted artifact (it holds
-#                        include/ and lib/). This is the path for Windows, macOS,
-#                        and CI, which restore that dist from cache.
-#   USE_SYSTEM_SKIA=ON   find a system Skia (hermetic Nix, distro packages) via
-#                        pkg-config, or SKIA_ROOT as a fallback. This is the path
-#                        for the Nix flake, which has no network for the cache.
+#   USE_SYSTEM_SKIA=OFF  consume a dist tree at SKIA_ROOT: the CI artifact from
+#                        .github/workflows/skia.yml (`task skia` fetches one), or
+#                        the flake's re-cut skia-aseprite, which is the same
+#                        milestone. This is the path for Windows, macOS, CI, and
+#                        Nix -- everything that pins aseprite-m124.
+#   USE_SYSTEM_SKIA=ON   find a system Skia through pkg-config, with SKIA_ROOT as
+#                        a fallback. For distro packages, which track whatever
+#                        milestone they track; expect API drift.
 
 # Not an option: the app has no other renderer. Kept as a variable so the
 # existing WITH_SKIA plumbing (compile definition, guards in this module) works

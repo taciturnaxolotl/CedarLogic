@@ -1,0 +1,49 @@
+name: Nix
+
+# The flake is the one target that does not consume the CI Skia dist: a Nix
+# build is sandboxed with no network, so it re-cuts nixpkgs' skia-aseprite (the
+# same aseprite-m124 ref the dist pins) with this app's feature set. That
+# override is a binary-cache miss, so the job builds Skia from source and takes
+# the better part of an hour -- too slow to hang off every push, and the flake
+# changes rarely enough that it doesn't need to. This runs when the flake or the
+# Skia setup changes, on demand, and weekly to catch nixpkgs moving underneath.
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'cmake/module/SetupSkia.cmake'
+      - '.github/workflows/nix.yml'
+  pull_request:
+    paths:
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'cmake/module/SetupSkia.cmake'
+  schedule:
+    - cron: '0 6 * * 1'   # Mondays, 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: nix build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: "experimental-features = nix-command flakes"
+
+      - name: Build the flake
+        run: nix build .# --print-build-logs
