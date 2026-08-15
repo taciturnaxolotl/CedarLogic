@@ -57,7 +57,7 @@
           { }:
           pkgs.stdenv.mkDerivation {
             pname = "cedarlogic";
-            version = "2.4.3";
+            version = "3.0.0";
 
             src = ./.;
 
