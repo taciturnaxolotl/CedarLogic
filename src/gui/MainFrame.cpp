@@ -132,8 +132,12 @@ wxPrintData *g_printData = (wxPrintData*) NULL;
 MainFrame::MainFrame(const wxString& title, string cmdFilename)
        : wxFrame(NULL, wxID_ANY, title, wxDefaultPosition, wxSize(1800,900))
 {
-    // set the frame icon
-    //SetIcon(wxICON(sample));
+#ifdef __WXMSW__
+    // Frame icon (title bar, taskbar button, Alt-Tab). Loaded by name from the
+    // resource compiled in via icon.rc. macOS takes it from the bundle and Linux
+    // from the .desktop file, so neither needs this.
+    SetIcon(wxICON(appicon));
+#endif
 	currentCanvas = nullptr;
 
 	// Set default locations

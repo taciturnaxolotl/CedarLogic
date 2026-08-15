@@ -315,6 +315,11 @@ if(UNIX AND NOT APPLE)
 endif()
 
 if (WIN32)
+    # Compile icon.rc into the exe. Without it the binary carries no RT_GROUP_ICON
+    # and Explorer/taskbar/Alt-Tab fall back to the generic executable icon.
+    enable_language(RC)
+    target_sources(CedarLogic PRIVATE "${PROJECT_SOURCE_DIR}/icon.rc")
+
     target_compile_options(CedarLogic PRIVATE /MP)
     target_compile_definitions(CedarLogic PRIVATE
 	"WIN32"
