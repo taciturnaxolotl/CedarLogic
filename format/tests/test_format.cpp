@@ -35,9 +35,6 @@ TEST_CASE("CircuitFile round-trips through the v3 format") {
 
 	Page pg;
 	pg.index = 0;
-	pg.hasViewport = true;
-	pg.viewTopLeft = { -113.179, 16.25 };
-	pg.viewBottomRight = { -24.4457, -30.3 };
 
 	GateInstance toggle;
 	toggle.uuid = "3f9a";

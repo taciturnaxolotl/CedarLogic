@@ -199,11 +199,6 @@ void CircuitParse::applyCircuitFile(const cl::CircuitFile &cf) {
 			gCanvas = gCanvases[pg.index];
 		}
 
-		if (pg.hasViewport) {
-			gCanvas->setViewport(GLPoint2f(pg.viewTopLeft.x, pg.viewTopLeft.y),
-			                     GLPoint2f(pg.viewBottomRight.x, pg.viewBottomRight.y));
-		}
-
 		// A gate's pin connections live on the wires; collect them per gate so a
 		// gate is created with the same (pin -> wire ids) list the old gate-side
 		// <input>/<output> blocks carried. Direction is irrelevant here — the old
@@ -467,11 +462,6 @@ static cl::CircuitFile buildCircuitFile(vector<GUICanvas*> &glc) {
 	for (unsigned int i = 0; i < glc.size(); i++) {
 		cl::Page pg;
 		pg.index = (int)i;
-		GLPoint2f topLeft, bottomRight;
-		glc[i]->getViewport(topLeft, bottomRight);
-		pg.hasViewport = true;
-		pg.viewTopLeft = { topLeft.x, topLeft.y };
-		pg.viewBottomRight = { bottomRight.x, bottomRight.y };
 		for (const auto &entry : *glc[i]->getGateList())
 			pg.gates.push_back(buildGate(entry.second));
 		for (const auto &entry : *glc[i]->getWireList())

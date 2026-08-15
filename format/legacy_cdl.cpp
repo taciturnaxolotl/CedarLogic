@@ -166,14 +166,8 @@ Page readPage(const XmlNode &p) {
 			pg.gates.push_back(readGate(c));
 		} else if (c.name == "wire") {
 			pg.wires.push_back(readWire(c));
-		} else if (c.name == "PageViewport") {
-			std::vector<double> v = nums(c.text); // x1,y1,x2,y2
-			if (v.size() >= 4) {
-				pg.hasViewport = true;
-				pg.viewTopLeft = { v[0], v[1] };
-				pg.viewBottomRight = { v[2], v[3] };
-			}
 		}
+		// <PageViewport> is ignored: pan/zoom is view state, not circuit content.
 	}
 	return pg;
 }

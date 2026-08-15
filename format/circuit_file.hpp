@@ -81,14 +81,10 @@ struct WireInstance {
 
 struct Page {
 	int index = 0;
-	bool hasViewport = false;         // the saved pan/zoom rectangle, if any
-	XY viewTopLeft, viewBottomRight;
 	std::vector<GateInstance> gates;
 	std::vector<WireInstance> wires;
 	bool operator==(const Page &o) const {
-		return index == o.index && hasViewport == o.hasViewport &&
-		       viewTopLeft == o.viewTopLeft && viewBottomRight == o.viewBottomRight &&
-		       gates == o.gates && wires == o.wires;
+		return index == o.index && gates == o.gates && wires == o.wires;
 	}
 };
 
