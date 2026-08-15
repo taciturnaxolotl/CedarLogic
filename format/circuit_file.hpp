@@ -1,6 +1,5 @@
 #pragma once
 
-#include <limits>
 #include <string>
 #include <vector>
 
@@ -88,96 +87,13 @@ struct Page {
 	}
 };
 
-// A gate's definition, embedded in the file so a circuit stays self-contained:
-// if the gate is missing from the user's library at load time it is rebuilt from
-// this copy. A gate still present in the library is used as-is -- the live
-// library wins, so this is a fallback for gone gates, not a version override.
-// Mirrors the GUI's LibraryGate, kept GUI/core-independent.
-
-struct HotspotDef {
-	std::string name;
-	bool isInput = true;
-	double x = 0, y = 0;
-	bool inverted = false;
-	std::string eInput;
-	int busLines = 1;
-	bool operator==(const HotspotDef &o) const {
-		return name == o.name && isInput == o.isInput && x == o.x && y == o.y &&
-		       inverted == o.inverted && eInput == o.eInput && busLines == o.busLines;
-	}
-};
-
-struct LineDef {
-	double x1 = 0, y1 = 0, x2 = 0, y2 = 0;
-	bool isLabel = false;
-	bool operator==(const LineDef &o) const {
-		return x1 == o.x1 && y1 == o.y1 && x2 == o.x2 && y2 == o.y2 && isLabel == o.isLabel;
-	}
-};
-
-// Structured curve primitives (Workstream G). Embedded gate defs carry these so a
-// circuit still renders smooth curves if its gate is later dropped from the
-// library. Angles: degrees from +Y clockwise (the renderer's convention).
-struct ArcDef {
-	double cx = 0, cy = 0, r = 1, startDeg = 0, sweepDeg = 360;
-	bool isLabel = false;
-	bool operator==(const ArcDef &o) const {
-		return cx == o.cx && cy == o.cy && r == o.r &&
-		       startDeg == o.startDeg && sweepDeg == o.sweepDeg && isLabel == o.isLabel;
-	}
-};
-
-struct CircleDef {
-	double cx = 0, cy = 0, r = 1;
-	int segs = 12;
-	bool isLabel = false;
-	bool operator==(const CircleDef &o) const {
-		return cx == o.cx && cy == o.cy && r == o.r && segs == o.segs && isLabel == o.isLabel;
-	}
-};
-
-struct DlgParamDef {
-	std::string label;
-	std::string name;
-	std::string type = "STRING";
-	bool isGui = true;
-	// Range bounds for INT/FLOAT params; the sentinels mean "unbounded" and match
-	// the library's lgDlgParam defaults. Serialized only when set to a real bound.
-	float rMin = std::numeric_limits<float>::lowest();
-	float rMax = std::numeric_limits<float>::max();
-	bool operator==(const DlgParamDef &o) const {
-		return label == o.label && name == o.name && type == o.type &&
-		       isGui == o.isGui && rMin == o.rMin && rMax == o.rMax;
-	}
-};
-
-struct GateDef {
-	std::string name;
-	std::string caption;
-	std::string guiType;
-	std::string logicType;
-	std::vector<HotspotDef> hotspots;
-	std::vector<LineDef> shape;
-	std::vector<ArcDef> arcs;       // structured curves (Workstream G)
-	std::vector<CircleDef> circles; // structured circles / inversion bubbles
-	std::vector<DlgParamDef> dlgParams;
-	std::vector<Param> params;   // gui vs logic distinguished by Param::gui
-	bool operator==(const GateDef &o) const {
-		return name == o.name && caption == o.caption && guiType == o.guiType &&
-		       logicType == o.logicType && hotspots == o.hotspots && shape == o.shape &&
-		       arcs == o.arcs && circles == o.circles &&
-		       dlgParams == o.dlgParams && params == o.params;
-	}
-};
-
 struct CircuitFile {
 	int formatVersion = 3;
 	std::string generator;
-	std::vector<GateDef> usedGates;   // every gate the circuit uses, embedded
 	std::vector<Page> pages;
 	bool operator==(const CircuitFile &o) const {
 		return formatVersion == o.formatVersion && generator == o.generator &&
-		       usedGates == o.usedGates && pages == o.pages;
+		       pages == o.pages;
 	}
 };
 
