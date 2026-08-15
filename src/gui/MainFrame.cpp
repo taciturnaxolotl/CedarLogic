@@ -1601,6 +1601,11 @@ void MainFrame::applyAutosaveInterval() {
 // document it was taken from and when, because "there may have been a crash" is
 // no help to someone deciding whether it is worth recovering.
 void MainFrame::offerRecovery() {
+	// A headless render is a one-shot pass with nobody at the keyboard, so a
+	// prompt there hangs the process instead of asking anyone anything. Leave
+	// the snapshots for the next real session to offer.
+	if (renderMode().headlessRender) return;
+
 	std::vector<AutosaveEntry> pending = autosaveStore::findRecoverable();
 	for (unsigned int i = 0; i < pending.size(); i++) {
 		const AutosaveEntry& entry = pending[i];
@@ -1615,12 +1620,13 @@ void MainFrame::offerRecovery() {
 		                       wxYES_DEFAULT | wxYES_NO | wxICON_QUESTION);
 		if (dialog.ShowModal() == wxID_YES) {
 			doOpenFile = false;
-			load(entry.snapshotPath);
-			// Deliberately NOT the recovered document's path: the snapshot is
-			// not that file, and Save must not quietly overwrite the last good
-			// copy on disk with it. Leaving this empty sends Ctrl+S to Save As,
-			// where the original name is offered as the default.
-			openedFilename = "";
+			// As a copy, which is exactly what a snapshot is: it leaves
+			// openedFilename empty and takes no lock on the snapshot file. The
+			// path is deliberately NOT the recovered document's -- the snapshot
+			// is not that file, and Save must not quietly overwrite the last
+			// good copy on disk with it. Empty sends Ctrl+S to Save As, where
+			// the original name is offered as the default.
+			loadCircuitFile(entry.snapshotPath, /*asCopy=*/true);
 			recoveredFrom = entry.originalPath;
 			SetTitle(VERSION_TITLE() + " - recovered " + of);
 			commandProcessor->MarkAsSaved();   // recovered state is the baseline
