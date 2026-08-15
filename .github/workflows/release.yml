@@ -46,7 +46,20 @@ jobs:
           echo "Building version: $VERSION"
 
       - name: Install NSIS
-        run: choco install nsis -y
+        shell: pwsh
+        run: |
+          # The Chocolatey feed 503s now and then, and choco still exits 0 after
+          # installing nothing. The run then spends nine minutes compiling before
+          # cpack is the one to find out. Ride out the blip, and make a missing
+          # compiler this step's problem rather than Package's.
+          $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          foreach ($attempt in 1..3) {
+            choco install nsis -y --no-progress
+            if (Test-Path $makensis) { break }
+            Write-Host "::warning::NSIS missing after attempt $attempt; retrying"
+            if ($attempt -lt 3) { Start-Sleep -Seconds (20 * $attempt) }
+          }
+          if (-not (Test-Path $makensis)) { throw "NSIS did not install: $makensis is missing" }
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1
