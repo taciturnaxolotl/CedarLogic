@@ -1,7 +1,7 @@
 name: Skia app build (verify)
 
 # Verifies the Skia binding (SkiaScene / SkiaBackend) actually compiles and
-# links: builds CedarLogic with -DWITH_SKIA=ON against the Skia dist produced by
+# links: builds CedarLogic against the Skia dist produced by
 # skia.yml. The binding TUs are linked into the executable, so the linker must
 # resolve their Skia symbols -- proving both compile and link, without needing a
 # call site yet. This closes G0.
@@ -67,7 +67,7 @@ jobs:
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_TESTING=OFF \
-            -DWITH_SKIA=ON -DUSE_SYSTEM_SKIA=OFF \
+            -DUSE_SYSTEM_SKIA=OFF \
             -DSKIA_ROOT="$PWD/skia-dist"
           cmake --build build
           cmake --install build --prefix "$PWD/dist"
@@ -131,7 +131,7 @@ jobs:
         run: |
           cmake -S . -B build -G "Visual Studio 17 2022" -A Win32 \
             -DBUILD_TESTING=OFF \
-            -DWITH_SKIA=ON -DUSE_SYSTEM_SKIA=OFF \
+            -DUSE_SYSTEM_SKIA=OFF \
             -DSKIA_ROOT="$PWD/skia-dist"
           cmake --build build --config Release
           cmake --install build --config Release --prefix "$PWD/dist"

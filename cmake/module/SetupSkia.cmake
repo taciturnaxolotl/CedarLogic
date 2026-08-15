@@ -5,8 +5,8 @@
 # include dirs, static libraries, required system dependencies, and the
 # WITH_SKIA / SK_GL compile definitions. Link it onto the app target.
 #
-# WITH_SKIA remains defined (and always ON) because it is the compile definition
-# the sources and this module key off; it is no longer a user-facing switch.
+# WITH_SKIA survives only as a compile definition, for the `#ifdef WITH_SKIA`
+# guards in the Skia TUs; it is not a build option.
 #
 # Where Skia comes from mirrors the USE_SYSTEM_WXWIDGETS split:
 #   USE_SYSTEM_SKIA=OFF  consume a dist tree at SKIA_ROOT: the CI artifact from
@@ -17,11 +17,6 @@
 #   USE_SYSTEM_SKIA=ON   find a system Skia through pkg-config, with SKIA_ROOT as
 #                        a fallback. For distro packages, which track whatever
 #                        milestone they track; expect API drift.
-
-# Not an option: the app has no other renderer. Kept as a variable so the
-# existing WITH_SKIA plumbing (compile definition, guards in this module) works
-# unchanged, and so -DWITH_SKIA=ON on existing CI invocations stays valid.
-set(WITH_SKIA ON)
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     set(USE_SYSSKIA_DEF TRUE)
@@ -35,13 +30,8 @@ set(SKIA_ROOT "" CACHE PATH
     "Root of a Skia dist (contains include/ and lib/); required when \
 USE_SYSTEM_SKIA=OFF, optional fallback when ON")
 
-if(NOT WITH_SKIA)
-    return()
-endif()
-
-# NB: Skia (m124) requires C++17. CedarLogic's CMAKE_CXX_STANDARD is raised to
-# 17 in the top-level CMakeLists when WITH_SKIA is on; C++17 is source-
-# compatible with the existing C++11 code.
+# NB: Skia (m124) requires C++17, raised per-source on the Skia TUs in the
+# top-level CMakeLists; C++17 is source-compatible with the existing C++11 code.
 
 add_library(cedar_skia INTERFACE)
 target_compile_definitions(cedar_skia INTERFACE WITH_SKIA SK_GL)
@@ -65,7 +55,7 @@ endif()
 if(NOT _skia_found)
     if(NOT SKIA_ROOT)
         message(FATAL_ERROR
-            "WITH_SKIA is ON but Skia was not found. Set -DSKIA_ROOT=<dir> to a "
+            "Skia was not found. Set -DSKIA_ROOT=<dir> to a "
             "Skia dist containing include/ and lib/ (build one with the Skia CI "
             "workflow), or set -DUSE_SYSTEM_SKIA=ON with a pkg-config 'skia'.")
     endif()

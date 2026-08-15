@@ -52,10 +52,9 @@ endif()
 # The Skia lib is built /MT, so the whole app must link /MT too or the link
 # fails (LNK2038/LNK2005). CMAKE_MSVC_RUNTIME_LIBRARY only works under policy
 # CMP0091, which cmake_minimum_required(3.11) leaves OLD and which did not take
-# effect reliably here -- so for the Skia build, rewrite /MD -> /MT directly in
-# the flag variables (the pre-CMP0091 idiom). This reaches the app and every
-# subdirectory. The default build is untouched.
-if(WITH_SKIA AND MSVC)
+# effect reliably here -- so rewrite /MD -> /MT directly in the flag variables
+# (the pre-CMP0091 idiom). This reaches the app and every subdirectory.
+if(MSVC)
     foreach(flag_var
         CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
         CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
@@ -79,14 +78,14 @@ set(USE_SYSTEM_WXWIDGETS "${USE_SYSWX_DEF}" CACHE BOOL
     "Use the system version of wxWidgets or build it from soruce")
 
 if (USE_SYSTEM_WXWIDGETS)
-    if(WIN32 AND WITH_SKIA)
+    if(WIN32)
         # A prebuilt system wxWidgets links its own libjpeg, which collides
         # (LNK2005 on _jpeg_*) with the libjpeg-turbo Skia's PDF backend needs.
         # The only fix is to drop wx's JPEG (wxUSE_LIBJPEG=OFF), which requires a
         # from-source wx -- impossible with a prebuilt system one. Fail clearly
         # rather than at link time.
         message(FATAL_ERROR
-            "WITH_SKIA on Windows requires the bundled wxWidgets "
+            "Windows requires the bundled wxWidgets "
             "(-DUSE_SYSTEM_WXWIDGETS=OFF): a prebuilt system wxWidgets links a "
             "libjpeg that collides with Skia's (LNK2005).")
     endif()
@@ -121,7 +120,7 @@ else()
     # Skia's is the only libjpeg; the app exposes PNG/SVG/PDF export instead of
     # JPEG (a poor format for line-art schematics anyway). wxTIFF pulls jpeglib.h
     # for JPEG-in-TIFF, so it must go too -- the app never reads/writes TIFF.
-    if(WIN32 AND WITH_SKIA)
+    if(WIN32)
         set(wxUSE_LIBJPEG OFF)
         set(wxUSE_LIBTIFF OFF)
     endif()
@@ -189,18 +188,15 @@ file(GLOB SRC_FILES
 	"${PROJECT_SOURCE_DIR}/include/gui/command/*.h"
 )
 
-# Skia backend translation units (SkiaScene/SkiaBackend) compile only when Skia
-# is in the build; guarded internally by #ifdef WITH_SKIA as well. Only these TUs
-# include Skia and need C++17, so raise the standard per-source rather than on the
-# whole target: the legacy app code keeps its historical standard, avoiding C++17
+# Skia backend translation units (SkiaScene/SkiaBackend). Only these TUs include
+# Skia and need C++17, so raise the standard per-source rather than on the whole
+# target: the legacy app code keeps its historical standard, avoiding C++17
 # clashes there (e.g. std::byte vs windows.h's 'byte' under `using namespace
 # std`). They stay in the app target so their Skia symbols get linked.
-if(WITH_SKIA)
-    file(GLOB SKIA_SRC_FILES "${PROJECT_SOURCE_DIR}/src/gui/render/*.cpp")
-    list(APPEND SRC_FILES ${SKIA_SRC_FILES})
-    set_source_files_properties(${SKIA_SRC_FILES} PROPERTIES
-        COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,/std:c++17,-std=c++17>")
-endif()
+file(GLOB SKIA_SRC_FILES "${PROJECT_SOURCE_DIR}/src/gui/render/*.cpp")
+list(APPEND SRC_FILES ${SKIA_SRC_FILES})
+set_source_files_properties(${SKIA_SRC_FILES} PROPERTIES
+    COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,/std:c++17,-std=c++17>")
 
 # macOS: Add Objective-C++ sources
 if(APPLE)
@@ -251,10 +247,8 @@ target_link_libraries(CedarLogic PRIVATE
 )
 
 # Skia carries its own includes, static libs, system deps, and the WITH_SKIA/
-# SK_GL defines. The target only exists when -DWITH_SKIA=ON (see SetupSkia).
-if(TARGET cedar_skia)
-    target_link_libraries(CedarLogic PRIVATE cedar_skia)
-endif()
+# SK_GL defines.
+target_link_libraries(CedarLogic PRIVATE cedar_skia)
 
 # macOS: Link Sparkle framework
 if(APPLE)

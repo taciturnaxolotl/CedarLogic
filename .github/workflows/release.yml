@@ -93,7 +93,7 @@ jobs:
         run: |
           cmake -B build -A Win32 \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
-            -DWITH_SKIA=ON -DUSE_SYSTEM_SKIA=OFF -DSKIA_ROOT="$PWD/skia-dist" \
+            -DUSE_SYSTEM_SKIA=OFF -DSKIA_ROOT="$PWD/skia-dist" \
             -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}"
 
       - name: Build
@@ -158,7 +158,7 @@ jobs:
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DUSE_SYSTEM_WXWIDGETS=0 \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DWITH_SKIA=ON -DUSE_SYSTEM_SKIA=OFF -DSKIA_ROOT="$PWD/skia-dist" \
+            -DUSE_SYSTEM_SKIA=OFF -DSKIA_ROOT="$PWD/skia-dist" \
             -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}"
 
       - name: Build
@@ -240,7 +240,7 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DWITH_SKIA=ON -DUSE_SYSTEM_SKIA=OFF -DSKIA_ROOT="$PWD/skia-dist" \
+            -DUSE_SYSTEM_SKIA=OFF -DSKIA_ROOT="$PWD/skia-dist" \
             -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}" \
             -DSPARKLE_ED_PUBLIC_KEY="$SPARKLE_ED_PUBLIC_KEY"
 
