@@ -133,6 +133,18 @@ std::vector<AutosaveEntry> findRecoverable() {
 			continue;
 		}
 
+		// Nobody comes back for a month-old crash, and a pid the system has
+		// since handed to some other program reads as "still running" forever,
+		// so without an age limit that record would never be cleaned up.
+		wxDateTime modified;
+		if (wxFileName(recordFor(id)).GetTimes(NULL, &modified, NULL) &&
+		    modified.IsEarlierThan(wxDateTime::Now() - wxTimeSpan::Days(30))) {
+			removeIfPresent(snapshotFor(id));
+			removeIfPresent(pendingFor(id));
+			removeIfPresent(recordFor(id));
+			continue;
+		}
+
 		// The session is gone, so a half-written snapshot of its is only litter.
 		removeIfPresent(pendingFor(id));
 

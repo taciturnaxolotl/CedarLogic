@@ -60,7 +60,7 @@ void clearOwn();
 // Snapshots from other sessions that are no longer running. Sessions whose
 // process is still alive are skipped: those are other copies of the app at
 // work, not wreckage. Entries whose snapshot has vanished are skipped too, and
-// their orphaned records cleaned up.
+// their orphaned records cleaned up, as is anything older than a month.
 std::vector<AutosaveEntry> findRecoverable();
 
 // Forget one entry once it has been recovered or declined.
