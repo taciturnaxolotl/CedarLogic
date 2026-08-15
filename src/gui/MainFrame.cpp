@@ -852,12 +852,17 @@ void MainFrame::OnSave(wxCommandEvent& event) {
 		int format = chooseSaveFormat();
 		if (format == -1) return;  // user cancelled
 		bool success = save((string)openedFilename, format);
+		// The work is on disk under its own name, so the snapshot is now the
+		// older copy of the two. Dropping it keeps a later crash from offering
+		// to "recover" something staler than the file they already have.
 		if (success) {
+			removeTempFile();
 			commandProcessor->MarkAsSaved();
 		} else if (lastSaveError.rfind("Warning:", 0) == 0) {
 			// The file was written, but with a caveat (e.g. bus features can't be
 			// represented in v1.x). Treat it as saved.
 			wxMessageBox(lastSaveError, "Save Warning", wxOK | wxICON_WARNING, this);
+			removeTempFile();
 			commandProcessor->MarkAsSaved();
 		} else {
 			wxString errorMsg = "Failed to save file:\n\n" + lastSaveError;
