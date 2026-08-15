@@ -697,6 +697,7 @@ void MainFrame::OnNew(wxCommandEvent& event) {
 	removeTempFile();
 	currentTempNum++;
     openedFilename = "";
+	recoveredFrom = "";
 	loadedFileFormat = 3;  // a fresh circuit saves as v3
 	saveFormatDecided = false;
 
@@ -777,6 +778,7 @@ void MainFrame::loadCircuitFile( string fileName, bool asCopy ){
 	}
 
 	openedFilename = asCopy ? "" : path;
+	recoveredFrom = "";   // whatever was recovered before, this is not it
 	// Not in a headless render: that is a read-only pass over the file, and
 	// taking the lock there would stomp on whoever actually has it open.
 	if (!asCopy && !renderMode().headlessRender) documentLock.acquire(fileName);
@@ -894,9 +896,10 @@ void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) {
 	wxString defaultFilename = recoveredFrom.empty()
 		? wxString("") : wxFileName(recoveredFrom).GetFullName();
 	wxFileDialog dialog(this, caption, wxEmptyString, defaultFilename, wildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-	if (!recoveredFrom.empty())
-		dialog.SetDirectory(wxFileName(recoveredFrom).GetPath());
-	dialog.SetDirectory(lastDirectory);
+	// Where it came from beats where they last were: the point of a recovery is
+	// to put the work back roughly where they lost it.
+	dialog.SetDirectory(recoveredFrom.empty()
+		? lastDirectory : wxFileName(recoveredFrom).GetPath());
 	if (dialog.ShowModal() == wxID_OK) {
 		wxString path = dialog.GetPath();
 		int format = chooseSaveFormat();
@@ -907,6 +910,7 @@ void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) {
 				wxMessageBox(lastSaveError, "Save Warning", wxOK | wxICON_WARNING, this);
 			removeTempFile();
 			openedFilename = path;
+			recoveredFrom = "";   // it has a home of its own now
 			// The document moved, so the lock follows it: drop the old one and
 			// mark the new file as ours.
 			documentLock.acquire(path.ToStdString());
