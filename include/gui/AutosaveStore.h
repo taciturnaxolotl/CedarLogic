@@ -41,6 +41,14 @@ namespace autosaveStore {
 // lifetime of the process.
 std::string snapshotPath();
 
+// Where a snapshot being written goes, and how it is put in place afterwards.
+// A snapshot is written here and then renamed over snapshotPath(), so a crash
+// part way through the write leaves the last good snapshot alone instead of
+// replacing it with half a file -- which is the one moment this whole feature
+// exists for. commitPending() reports whether the rename took.
+std::string pendingPath();
+bool commitPending();
+
 // Record what the current snapshot is of. Called on each successful autosave;
 // `originalPath` may be empty for a circuit that has never been saved.
 void writeRecord(const std::string& originalPath);

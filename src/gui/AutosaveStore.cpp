@@ -37,6 +37,10 @@ wxString snapshotFor(const wxString& id) {
 	return wxFileName(storeDir(), id + ".cdl").GetFullPath();
 }
 
+wxString pendingFor(const wxString& id) {
+	return wxFileName(storeDir(), id + ".cdl.part").GetFullPath();
+}
+
 wxString recordFor(const wxString& id) {
 	return wxFileName(storeDir(), id + ".txt").GetFullPath();
 }
@@ -74,6 +78,15 @@ std::string snapshotPath() {
 	return snapshotFor(sessionId()).ToStdString();
 }
 
+std::string pendingPath() {
+	return pendingFor(sessionId()).ToStdString();
+}
+
+bool commitPending() {
+	return wxRenameFile(pendingFor(sessionId()), snapshotFor(sessionId()),
+	                    /*overwrite=*/true);
+}
+
 void writeRecord(const std::string& originalPath) {
 	const wxString path = recordFor(sessionId());
 	wxTextFile file;
@@ -93,6 +106,7 @@ void writeRecord(const std::string& originalPath) {
 
 void clearOwn() {
 	removeIfPresent(snapshotFor(sessionId()));
+	removeIfPresent(pendingFor(sessionId()));
 	removeIfPresent(recordFor(sessionId()));
 }
 
@@ -118,6 +132,9 @@ std::vector<AutosaveEntry> findRecoverable() {
 		    wxProcess::Exists((int)entry.pid)) {
 			continue;
 		}
+
+		// The session is gone, so a half-written snapshot of its is only litter.
+		removeIfPresent(pendingFor(id));
 
 		// A record with no snapshot has nothing to offer; tidy it away rather
 		// than promising the user a file that is not there.

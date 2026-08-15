@@ -1639,10 +1639,15 @@ void MainFrame::OnAutosaveTimer(wxTimerEvent& WXUNUSED(event)) {
 void MainFrame::autosave() {
 	// Best effort: if it fails the user can still save by hand. Worth knowing
 	// about while developing, hence the log rather than a silent drop.
-	if (save(autosaveStore::snapshotPath())) {
+	if (!save(autosaveStore::pendingPath())) {
+		wxLogDebug("Autosave failed: %s", lastSaveError.c_str());
+		return;
+	}
+	// The record names the snapshot only once the snapshot is really there.
+	if (autosaveStore::commitPending()) {
 		autosaveStore::writeRecord(openedFilename.ToStdString());
 	} else {
-		wxLogDebug("Autosave failed: %s", lastSaveError.c_str());
+		wxLogDebug("Autosave failed: could not replace the previous snapshot");
 	}
 }
 
