@@ -2,7 +2,6 @@
    Project: CEDAR Logic Simulator
 
    FileLock: advisory "someone else has this open" marker for circuit files.
-   See docs/RFC-crash-recovery.md.
 
    Nothing here prevents a write -- an advisory lock cannot, and a lab share
    full of stale locks nobody can clear is worse than no locks at all. What it

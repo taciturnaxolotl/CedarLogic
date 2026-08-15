@@ -2,7 +2,7 @@
    Project: CEDAR Logic Simulator
 
    AutosaveStore: where crash-recovery snapshots live, and what is known about
-   them. See docs/RFC-crash-recovery.md.
+   them.
 
    Snapshots go in the user's own data directory rather than beside the document
    or in the working directory. The working directory is wherever the app

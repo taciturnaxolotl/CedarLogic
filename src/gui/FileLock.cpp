@@ -1,7 +1,7 @@
 /*****************************************************************************
    Project: CEDAR Logic Simulator
 
-   FileLock: see FileLock.h and docs/RFC-crash-recovery.md.
+   FileLock: see FileLock.h.
 *****************************************************************************/
 
 #include "FileLock.h"

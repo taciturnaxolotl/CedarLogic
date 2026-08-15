@@ -1,7 +1,7 @@
 /*****************************************************************************
    Project: CEDAR Logic Simulator
 
-   AutosaveStore: see AutosaveStore.h and docs/RFC-crash-recovery.md.
+   AutosaveStore: see AutosaveStore.h.
 *****************************************************************************/
 
 #include "AutosaveStore.h"
