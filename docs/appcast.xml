@@ -7,33 +7,115 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 2.4.3</title>
-      <pubDate>Sat, 04 Apr 2026 04:03:41 +0000</pubDate>
-      <sparkle:version>2.4.3</sparkle:version>
-      <sparkle:shortVersionString>2.4.3</sparkle:shortVersionString>
+      <title>Version 3.0.0</title>
+      <pubDate>Sat, 15 Aug 2026 04:25:51 +0000</pubDate>
+      <sparkle:version>3.0.0</sparkle:version>
+      <sparkle:shortVersionString>3.0.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<p>fixed a bug with xor gates causing them to be partly rotated</p>
-<p><img width="353" height="289" alt="image" src="https://github.com/user-attachments/assets/1bdace5e-1ea0-4814-b531-a6bdc2b32b59" /></p>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.4.2...v2.4.3</p>]]></description>
+      <description><![CDATA[<p>CedarLogic v3.0.0 is the largest release the project has had in quite a while. There is a brand new renderer, a new circuit file format, and a long list of fixes to many many different parts of the app.</p>
+<h2>Everything draws through Skia now</h2>
+<p>The fixed-function OpenGL renderer is gone and replaced with Skia! Gates, wires, text, the minimap, the oscilloscope, and the gate palette all render through [Skia](https://skia.org), the same 2D engine behind Chrome.</p>
+<p>Curved gate bodies are now actually curved, text stays sharp instead of getting blurry as you zoom in, and the gate thumbnails in the palette are anti-aliased.</p>
+<p>Panning is a replay of a cached scene instead of a full redraw, so dragging around a large circuit is much smoother now.</p>
+<p>Vector export is now a first class citizen with much less hackery then before.</p>
+<h2>A new circuit format</h2>
+<p>Saved circuits use a new S-expression `.cdl` format (v3) inspired by KiCAD. It is designed to be human readable, is lossless about wire routing (contains the whole segment tree now instead of a flattened polyline), and is more easier to build a parser for.</p>
+<p>v1 and v2 files are still able to load, with a migration notice for breaking changes. Conversion to v3 is opt-in per file and CedarLogic not silently overwrite an older version without explicit confirmation.</p>
+<p>There are still export options for the v1 and v2 xml file formats.</p>
+<h2>Undo and redo</h2>
+<p>Undo and redo now jump to the page the command was made on, including adding and deleting tabs, and parameter-dialog edits land on the proper page now. Redo after a paste no longer crashes on a freed gate.</p>
+<p>The edit menu's keyboard shortcuts were also adjusted: adding Ctrl+Shift+Z as an additional redo hotkey and adding Cut!</p>
+<h2>Atomicity</h2>
+<p>The Autosave system was rewritten. Saves are now atomic, so a crash mid-write can no longer truncate a circuit, and the autosave now runs on the GUI thread against a snapshot preventing simulation races.</p>
+<p>There is a proper lock on files as well preventing two conflicting Cedarlogic sessions.</p>
+<h2>Crash logs and stack traces!</h2>
+<p>A crash now writes a symbolized stack trace and opens a pre-filled GitHub issue, with the report copied to your clipboard as well. Windows catches unhandled exceptions; macOS and Linux catch fatal signals. If CedarLogic goes down without a dialog it will also let you know the next time you start the program.</p>
+<h2>Interface</h2>
+<p>The menu bar is reorganized to better fit where applications place their items nowadays.</p>
+<p>The toolbar sports a new set of SVG icons on Windows and Linux.</p>
+<p>Gate thumbnails in the palette are bigger, fill the column width, and are properly centered in their tiles.</p>
+<p>Rotation is now clockwise, which is the direction everyone expected it to go.</p>
+<p>On macOS the palette scrollbar is now readable in dark mode.</p>
+<h2>Fixes</h2>
+<ul>
+  <li>The simulation keeps a steady cadence while the GUI is busy.</li>
+  <li>The palette scrollbar no longer overlaps the gates, and scrolling is smoother.</li>
+  <li><code>DECODER</code> produced the wrong number of outputs; it is now 2^n.</li>
+  <li>Starting with an empty gate library no longer crashes.</li>
+  <li>Quitting exits cleanly instead of hanging in framework teardown.</li>
+  <li>Status bar white-line artifacts are gone in both light and dark mode.</li>
+  <li>Gates no longer vanish on pages opened before the first paint.</li>
+  <li>Moving a wire whose gate has gone missing no longer inserts phantom gates.</li>
+  <li>The Windows build links the WinSparkle library matching its architecture, so auto-update works on the 32-bit build.</li>
+  <li>Fonts come from fontconfig on Linux rather than a scan of the working directory, so the app draws text wherever you launched it from.</li>
+  <li>Glyph outlines are built at a fixed reference size, so text does not shift as you zoom.</li>
+</ul>
+<h2>Under the hood</h2>
+<p>`MainApp`'s globals are now proper services (settings, gate library, and the GUI/logic bridge). Gates come from a registry with a typed parameter schema instead of a giant if-else megacase and the logic thread wakes on a condition variable rather than polling every millisecond. Collision checks run through a spatial grid. There is a wire-router seam with its own trunk router and tests, headless `--render` modes for golden-image testing, and a proper CI test suite (doctest, CTest, CMake presets) covering a subset of gates. The half-finished `simulator/` rewrite is retired.</p>
+<p>Skia is now a required dependency, pinned to a milestone and built and cached per platform in CI, with `task skia:download` to fetch a prebuilt one. There is a `Taskfile.yaml` and a Nix devshell, so `task build`, `task test`, and `task release` do the obvious things. See</p>
+<p>[Building](https://github.com/taciturnaxolotl/CedarLogic/blob/master/docs/Building.md).</p>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.4.3...v3.0.0</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.4.3/CedarLogic-2.4.3-Darwin.dmg"
-        sparkle:edSignature="zTXXPmYAhMtxDlRIzYX6/x4VTHanKiAKJ2CJ/7qcN78jgc5ZRjcAhymAy0Lluv0SvylzMs1Mz+hF5BszRqicDA=="
-        length="8905649"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.0.0/CedarLogic-3.0.0-Darwin.dmg"
+        sparkle:edSignature="ZhRtDpOQ4MfAbYC4//eXBJmN65PEOa7djQm6VcPN7aEVNRZDxAwaLpRJlrtR4A16IF5VqosFCNQ/RuYaafCACw=="
+        length="14277299"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 2.4.3</title>
-      <pubDate>Sat, 04 Apr 2026 04:03:41 +0000</pubDate>
-      <sparkle:version>2.4.3</sparkle:version>
-      <sparkle:shortVersionString>2.4.3</sparkle:shortVersionString>
-      <description><![CDATA[<p>fixed a bug with xor gates causing them to be partly rotated</p>
-<p><img width="353" height="289" alt="image" src="https://github.com/user-attachments/assets/1bdace5e-1ea0-4814-b531-a6bdc2b32b59" /></p>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.4.2...v2.4.3</p>]]></description>
+      <title>Version 3.0.0</title>
+      <pubDate>Sat, 15 Aug 2026 04:25:51 +0000</pubDate>
+      <sparkle:version>3.0.0</sparkle:version>
+      <sparkle:shortVersionString>3.0.0</sparkle:shortVersionString>
+      <description><![CDATA[<p>CedarLogic v3.0.0 is the largest release the project has had in quite a while. There is a brand new</p>
+<p>renderer, a new circuit file format, and a long list of fixes to many many different parts of the app.</p>
+<h2>Everything draws through Skia now</h2>
+<p>The fixed-function OpenGL renderer is gone and replaced with Skia! Gates, wires, text, the minimap, the oscilloscope, and the gate palette all render through [Skia](https://skia.org), the same 2D engine behind Chrome.</p>
+<p>Curved gate bodies are now actually curved, text stays sharp instead of getting blurry as you zoom in, and the gate thumbnails in the palette are anti-aliased.</p>
+<p>Panning is a replay of a cached scene instead of a full redraw, so dragging around a large circuit is much smoother now.</p>
+<p>Vector export is now a first class citizen with much less hackery then before.</p>
+<h2>A new circuit format</h2>
+<p>Saved circuits use a new S-expression `.cdl` format (v3) inspired by KiCAD. It is designed to be human readable, is lossless about wire routing (contains the whole segment tree now instead of a flattened polyline), and is more easier to build a parser for.</p>
+<p>v1 and v2 files are still able to load, with a migration notice for breaking changes. Conversion to v3 is opt-in per file and CedarLogic not silently overwrite an older version without explicit confirmation.</p>
+<p>There are still export options for the v1 and v2 xml file formats.</p>
+<h2>Undo and redo</h2>
+<p>Undo and redo now jump to the page the command was made on, including adding and deleting tabs, and parameter-dialog edits land on the proper page now. Redo after a paste no longer crashes on a freed gate.</p>
+<p>The edit menu's keyboard shortcuts were also adjusted: adding Ctrl+Shift+Z as an additional redo hotkey and adding Cut!</p>
+<h2>Atomicity</h2>
+<p>The Autosave system was rewritten. Saves are now atomic, so a crash mid-write can no longer</p>
+<p>truncate a circuit, and the autosave now runs on the GUI thread against a snapshot preventing simulation races.</p>
+<p>There is a proper lock on files as well preventing two conflicting Cedarlogic sessions.</p>
+<h2>Crash logs and stack traces!</h2>
+<p>A crash now writes a symbolized stack trace and opens a pre-filled GitHub issue, with the report copied to your clipboard as well. Windows catches unhandled exceptions; macOS and Linux catch fatal signals. If CedarLogic goes down without a dialog it will also let you know the next time you start the program.</p>
+<h2>Interface</h2>
+<p>The menu bar is reorganized to better fit where applications place their items nowadays.</p>
+<p>The toolbar sports a new set of SVG icons on Windows and Linux.</p>
+<p>Gate thumbnails in the palette are bigger, fill the column width, and are properly centered in their tiles.</p>
+<p>Rotation is now clockwise, which is the direction everyone expected it to go.</p>
+<p>On macOS the palette scrollbar is now readable in dark mode.</p>
+<h2>Fixes</h2>
+<ul>
+  <li>The simulation keeps a steady cadence while the GUI is busy.</li>
+  <li>The palette scrollbar no longer overlaps the gates, and scrolling is smoother.</li>
+  <li><code>DECODER</code> produced the wrong number of outputs; it is now 2^n.</li>
+  <li>Starting with an empty gate library no longer crashes.</li>
+  <li>Quitting exits cleanly instead of hanging in framework teardown.</li>
+  <li>Status bar white-line artifacts are gone in both light and dark mode.</li>
+  <li>Gates no longer vanish on pages opened before the first paint.</li>
+  <li>Moving a wire whose gate has gone missing no longer inserts phantom gates.</li>
+  <li>The Windows build links the WinSparkle library matching its architecture, so auto-update works on the 32-bit build.</li>
+  <li>Fonts come from fontconfig on Linux rather than a scan of the working directory, so the app draws text wherever you launched it from.</li>
+  <li>Glyph outlines are built at a fixed reference size, so text does not shift as you zoom.</li>
+</ul>
+<h2>Under the hood</h2>
+<p>`MainApp`'s globals are now proper services (settings, gate library, and the GUI/logic bridge). Gates come from a registry with a typed parameter schema instead of a giant if-else megacase and the logic thread wakes on a condition variable rather than polling every millisecond. Collision checks run through a spatial grid. There is a wire-router seam with its own trunk router and tests, headless `--render` modes for golden-image testing, and a proper CI test suite (doctest, CTest, CMake presets) covering a subset of gates. The half-finished `simulator/` rewrite is retired.</p>
+<p>Skia is now a required dependency, pinned to a milestone and built and cached per platform in CI, with `task skia:download` to fetch a prebuilt one. There is a `Taskfile.yaml` and a Nix devshell, so `task build`, `task test`, and `task release` do the obvious things. See</p>
+<p>[Building](https://github.com/taciturnaxolotl/CedarLogic/blob/master/docs/Building.md).</p>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v2.4.3...v3.0.0</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v2.4.3/CedarLogic-2.4.3-win32.exe"
-        length="10654104"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.0.0/CedarLogic-3.0.0-win32.exe"
+        length="14571671"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
