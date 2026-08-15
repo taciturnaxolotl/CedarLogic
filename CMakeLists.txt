@@ -31,7 +31,7 @@ include(ResourceTools)
 include(VsSourceGroups)
 include(GNUInstallDirs)
 
-# Skia rendering engine (Workstream G). OFF by default -- a no-op until wired up.
+# Skia rendering engine (Workstream G). Required: it is the renderer.
 include(SetupSkia)
 
 ##
