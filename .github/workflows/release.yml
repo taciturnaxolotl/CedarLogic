@@ -405,9 +405,13 @@ jobs:
       contents: write
       id-token: write
     steps:
+      # RELEASE_TOKEN is an admin-owned PAT. The default GITHUB_TOKEN cannot
+      # push the appcast commit: master's ruleset requires signatures and
+      # passing status checks, and only repository admins bypass it.
       - uses: actions/checkout@v7
         with:
           ref: master
+          token: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Get version
         id: version
