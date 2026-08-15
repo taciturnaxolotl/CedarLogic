@@ -60,6 +60,12 @@ bool readRecord(const wxString& path, AutosaveEntry* out) {
 	return true;
 }
 
+// wxRemoveFile complains to the log when the file was never there, which is the
+// ordinary case on a clean exit that never autosaved anything.
+void removeIfPresent(const wxString& path) {
+	if (wxFileName::FileExists(path)) wxRemoveFile(path);
+}
+
 }  // namespace
 
 namespace autosaveStore {
@@ -86,8 +92,8 @@ void writeRecord(const std::string& originalPath) {
 }
 
 void clearOwn() {
-	wxRemoveFile(snapshotFor(sessionId()));
-	wxRemoveFile(recordFor(sessionId()));
+	removeIfPresent(snapshotFor(sessionId()));
+	removeIfPresent(recordFor(sessionId()));
 }
 
 std::vector<AutosaveEntry> findRecoverable() {
@@ -127,8 +133,8 @@ std::vector<AutosaveEntry> findRecoverable() {
 }
 
 void discard(const AutosaveEntry& entry) {
-	if (!entry.snapshotPath.empty()) wxRemoveFile(entry.snapshotPath);
-	if (!entry.recordPath.empty())   wxRemoveFile(entry.recordPath);
+	if (!entry.snapshotPath.empty()) removeIfPresent(entry.snapshotPath);
+	if (!entry.recordPath.empty())   removeIfPresent(entry.recordPath);
 }
 
 }  // namespace autosaveStore
