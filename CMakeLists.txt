@@ -6,6 +6,15 @@ cmake_minimum_required(VERSION 3.11)
 # Studio solution.
 project(CedarLogic VERSION 3.0.1)
 
+# The Windows build ships 32-bit and the Skia dist is built target_cpu="x86". A
+# 64-bit configure succeeds and only fails at link, with a wall of unresolved
+# Skia symbols, so reject it here instead.
+if(WIN32 AND NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
+    message(FATAL_ERROR
+        "CedarLogic builds 32-bit on Windows. Configure with -A Win32 on Visual "
+        "Studio generators, or point CMake at a 32-bit toolchain.")
+endif()
+
 # macOS: Enable Objective-C++ for Sparkle updater (.mm files)
 if(APPLE)
     enable_language(OBJCXX)

@@ -50,7 +50,7 @@ tasks:
     vars:
       PRESET: '{{.PRESET | default "release"}}'
     cmds:
-      - cmake --preset {{.PRESET}} {{if .SKIA_ROOT}}-DSKIA_ROOT="{{.SKIA_ROOT}}"{{end}} {{.CMAKE_ARGS}}
+      - cmake --preset {{.PRESET}} {{if eq OS "windows"}}-A Win32{{end}} {{if .SKIA_ROOT}}-DSKIA_ROOT="{{.SKIA_ROOT}}"{{end}} {{.CMAKE_ARGS}}
 
   build:
     desc: Build the app
