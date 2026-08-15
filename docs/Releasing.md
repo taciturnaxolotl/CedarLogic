@@ -41,13 +41,13 @@ are only fixes, and a major bump on a `!` or `BREAKING CHANGE:` footer.
 To pick the version yourself, pass it to either task:
 
 ```bash
-task notes VERSION=3.0.0
-task release VERSION=3.0.0
+task notes -- 3.0.0
+task release -- 3.0.0
 ```
 
-The `v` is optional, `3.0.0` and `v3.0.0` both land on the tag `v3.0.0`. Pass
-the same version to both, or the announcement ends up drafted against a tag
-nobody releases.
+The `v` is optional, `3.0.0` and `v3.0.0` both land on the tag `v3.0.0`, and
+`VERSION=3.0.0` works too if you would rather name it. Pass the same version to
+both, or the announcement ends up drafted against a tag nobody releases.
 
 ## What the tag triggers
 

@@ -8,8 +8,8 @@ vars:
   JOBS:
     sh: getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4
   SVU: svu
-  # Release version, e.g. task release VERSION=2.6.0. Empty means svu picks it
-  # from the conventional commits since the last tag.
+  # Release version: `task release -- 2.6.0`, or VERSION=2.6.0. Empty means svu
+  # picks it from the conventional commits since the last tag.
   VERSION: ""
   # Extra flags for the configure step, e.g. task build CMAKE_ARGS=-DFOO=bar
   CMAKE_ARGS: ""
@@ -135,10 +135,10 @@ tasks:
       - rm -rf build/release build/test build/asan build/logic build/coverage wasm/build
 
   notes:
-    desc: Draft the release announcement on GitHub (VERSION=x.y.z to pin it)
+    desc: Draft the release announcement on GitHub (`-- x.y.z` to pin it)
     vars:
       NEXT:
-        sh: '{{if .VERSION}}V="{{.VERSION}}"; echo "v${V#v}"{{else}}{{.SVU}} next 2>/dev/null || go run github.com/caarlos0/svu/v3@latest next{{end}}'
+        sh: '{{$v := .VERSION | default .CLI_ARGS}}{{if $v}}V="{{$v}}"; echo "v${V#v}"{{else}}{{.SVU}} next 2>/dev/null || go run github.com/caarlos0/svu/v3@latest next{{end}}'
     cmds:
       - >-
         gh release view {{.NEXT}} >/dev/null 2>&1 ||
@@ -154,10 +154,10 @@ tasks:
       - perl -pi -e 's/^(\s*version = )"[0-9.]+";/$1"{{.VERSION_NUMBER}}";/' flake.nix
 
   release:
-    desc: Bump, tag, and push a release (VERSION=x.y.z to pin it)
+    desc: Bump, tag, and push a release (`-- x.y.z` to pin it)
     vars:
       NEXT:
-        sh: '{{if .VERSION}}V="{{.VERSION}}"; echo "v${V#v}"{{else}}{{.SVU}} next 2>/dev/null || go run github.com/caarlos0/svu/v3@latest next{{end}}'
+        sh: '{{$v := .VERSION | default .CLI_ARGS}}{{if $v}}V="{{$v}}"; echo "v${V#v}"{{else}}{{.SVU}} next 2>/dev/null || go run github.com/caarlos0/svu/v3@latest next{{end}}'
       DRAFTED:
         sh: gh release view {{.NEXT}} --json isDraft -q .isDraft 2>/dev/null || echo "none"
     prompt: 'This will release {{.NEXT}} ({{if eq .DRAFTED "true"}}announcement drafted{{else}}no announcement drafted, see `task notes`{{end}}). Continue?'
