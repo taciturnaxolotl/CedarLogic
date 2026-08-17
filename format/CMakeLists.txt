@@ -16,6 +16,8 @@ add_library(CircuitFile STATIC
 	"${PROJECT_SOURCE_DIR}/circuit_file_io.hpp"
 	"${PROJECT_SOURCE_DIR}/legacy_cdl.cpp"
 	"${PROJECT_SOURCE_DIR}/legacy_cdl.hpp"
+	"${PROJECT_SOURCE_DIR}/numeric.cpp"
+	"${PROJECT_SOURCE_DIR}/numeric.hpp"
 	"${PROJECT_SOURCE_DIR}/migrate.cpp"
 	"${PROJECT_SOURCE_DIR}/migrate.hpp"
 )

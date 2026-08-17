@@ -1,5 +1,7 @@
 #include "legacy_cdl.hpp"
 
+#include "numeric.hpp"
+
 #include <sstream>
 #include <stdexcept>
 
@@ -90,13 +92,13 @@ struct XmlReader {
 	}
 };
 
-std::vector<double> nums(const std::string &csv) {
+std::vector<double> nums(const std::string &csv, const char *what) {
 	std::vector<double> out;
 	std::stringstream ss(csv);
 	std::string tok;
 	while (std::getline(ss, tok, ',')) {
 		tok = trim(tok);
-		if (!tok.empty()) out.push_back(std::stod(tok));
+		if (!tok.empty()) out.push_back(parseDouble(tok, what));
 	}
 	return out;
 }
@@ -105,7 +107,7 @@ GateInstance readGate(const XmlNode &g) {
 	GateInstance gi;
 	gi.uuid = g.childText("ID");
 	gi.libName = g.childText("type");
-	std::vector<double> pos = nums(g.childText("position"));
+	std::vector<double> pos = nums(g.childText("position"), "<position>");
 	if (pos.size() >= 2) gi.at = { pos[0], pos[1] };
 	for (const XmlNode &c : g.kids) {
 		if (c.name != "gparam" && c.name != "lparam") continue;
@@ -113,7 +115,7 @@ GateInstance readGate(const XmlNode &g) {
 		std::string name = c.text.substr(0, sp);
 		std::string value = (sp == std::string::npos) ? "" : c.text.substr(sp + 1);
 		if (name == "angle" && c.name == "gparam") {
-			gi.angle = value.empty() ? 0.0 : std::stod(value);
+			gi.angle = value.empty() ? 0.0 : parseDouble(value, "<gparam>angle");
 		} else {
 			gi.params.push_back({ name, value, c.name == "gparam" });
 		}
@@ -135,7 +137,7 @@ WireInstance readWire(const XmlNode &w) {
 		WireSegment s;
 		s.vertical = (seg.name == "vsegment");
 		s.id = seg.childText("ID");
-		std::vector<double> p = nums(seg.childText("points"));
+		std::vector<double> p = nums(seg.childText("points"), "<points>");
 		if (p.size() >= 4) {
 			s.begin = { p[0], p[1] };
 			s.end = { p[2], p[3] };

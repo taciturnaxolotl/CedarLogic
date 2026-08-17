@@ -4,6 +4,10 @@
 #include "circuit_file_io.hpp"
 #include "sexpr.hpp"
 
+#include <algorithm>
+#include <stdexcept>
+#include <string>
+
 using namespace cl;
 
 TEST_CASE("S-expression round-trips through write then parse") {
@@ -105,4 +109,20 @@ TEST_CASE("Reading rejects a non-cedarlogic document") {
 
 TEST_CASE("Reading rejects malformed input") {
 	CHECK_THROWS(readCircuitFile("(cedarlogic (version 3"));  // unbalanced
+}
+
+TEST_CASE("Malformed numbers report their context, not std::stod's") {
+	const std::string doc =
+	    "(cedarlogic (version 3) (generator \"t\")"
+	    " (page 0 (gate \"AA_AND2\" (uuid \"1\") (at foo 0) (angle 0))))";
+	CHECK_THROWS_WITH_AS(readCircuitFile(doc),
+	                     doctest::Contains("malformed number \"foo\" in (at ...)"),
+	                     std::runtime_error);
+}
+
+TEST_CASE("Trailing junk on a number is an error, not a prefix") {
+	const std::string doc =
+	    "(cedarlogic (version 3) (generator \"t\")"
+	    " (page 0 (gate \"AA_AND2\" (uuid \"1\") (at 3abc 0) (angle 0))))";
+	CHECK_THROWS_AS(readCircuitFile(doc), std::runtime_error);
 }

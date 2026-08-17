@@ -1,4 +1,5 @@
 #include "circuit_file_io.hpp"
+#include "numeric.hpp"
 #include "sexpr.hpp"
 
 #include <cmath>
@@ -125,7 +126,7 @@ static std::string kvStr(const SNode &n, const std::string &name) {
 }
 
 static double kvNum(const SNode &n, const std::string &name) {
-	return std::stod(item(reqChild(n, name), 1));
+	return parseDouble(item(reqChild(n, name), 1), "(" + name + " ...)");
 }
 
 static GateInstance readGate(const SNode &n) {
@@ -133,7 +134,7 @@ static GateInstance readGate(const SNode &n) {
 	g.libName = item(n, 1);
 	g.uuid = kvStr(n, "uuid");
 	const SNode &at = reqChild(n, "at");
-	g.at = { std::stod(item(at, 1)), std::stod(item(at, 2)) };
+	g.at = { parseDouble(item(at, 1), "(at ...)"), parseDouble(item(at, 2), "(at ...)") };
 	g.angle = kvNum(n, "angle");
 	for (const SNode &c : n.items)
 		if (c.isList() && (c.head() == "gparam" || c.head() == "lparam"))
@@ -151,12 +152,12 @@ static WireInstance readWire(const SNode &n) {
 		seg.id = item(s, 1);
 		seg.vertical = (item(s, 2) == "v");
 		const SNode &pts = reqChild(s, "pts");
-		seg.begin = { std::stod(item(pts, 1)), std::stod(item(pts, 2)) };
-		seg.end = { std::stod(item(pts, 3)), std::stod(item(pts, 4)) };
+		seg.begin = { parseDouble(item(pts, 1), "(pts ...)"), parseDouble(item(pts, 2), "(pts ...)") };
+		seg.end = { parseDouble(item(pts, 3), "(pts ...)"), parseDouble(item(pts, 4), "(pts ...)") };
 		for (const SNode &c : s.items) {
 			if (!c.isList()) continue;
 			if (c.head() == "connect") seg.connects.push_back({ item(c, 1), item(c, 2) });
-			else if (c.head() == "cross") seg.intersections.push_back({ std::stod(item(c, 1)), item(c, 2) });
+			else if (c.head() == "cross") seg.intersections.push_back({ parseDouble(item(c, 1), "(cross ...)"), item(c, 2) });
 		}
 		w.segments.push_back(std::move(seg));
 	}
@@ -178,7 +179,7 @@ CircuitFile readCircuitFile(const std::string &text) {
 	for (const SNode &c : root.items) {
 		if (!c.isList() || c.head() != "page") continue;
 		Page pg;
-		pg.index = std::stoi(item(c, 1));
+		pg.index = static_cast<int>(parseLong(item(c, 1), "(page ...)"));
 		for (const SNode &e : c.items) {
 			if (!e.isList()) continue;
 			if (e.head() == "gate") pg.gates.push_back(readGate(e));
