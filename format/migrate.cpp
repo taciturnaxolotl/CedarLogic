@@ -93,7 +93,10 @@ void applyDecoderWidth(CircuitFile &cf, std::vector<MigrationNotice> &out) {
 					} catch (...) {
 					}
 				}
-			if (inBits <= 0) continue;
+			// The upper bound keeps `1 << inBits` defined. It is far past anything
+			// buildable -- a 30-bit decoder would want a billion outputs -- so a
+			// value above it is a corrupt or hostile file, not a wide decoder.
+			if (inBits <= 0 || inBits > 30) continue;
 
 			int buggy = inBits * inBits; // old: ceil(pow(inBits, 2))
 			int fixed = 1 << inBits;     // new: 2^inBits

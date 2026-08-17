@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 
+#include "circuit_file_io.hpp"
 #include "migrate.hpp"
 
 using namespace cl;
@@ -136,4 +137,21 @@ TEST_CASE("loadCircuit passes a v3 document through without migrating") {
 	LoadResult r = loadCircuit(v3);
 	CHECK(r.source == SourceFormat::SexprV3);
 	CHECK(r.notices.empty());
+}
+
+TEST_CASE("An absurd INPUT_BITS does not reach the shift") {
+	// 1 << 31 is undefined behavior, and in practice went negative and flagged
+	// nearly every output. INPUT_BITS comes straight from the file, unbounded.
+	const std::string v3 =
+	    "(cedarlogic (version 3) (generator \"t\")"
+	    " (page 0 (gate \"BE_DECODER_3x8\" (uuid \"1\") (at 0 0) (angle 0)"
+	    " (lparam \"INPUT_BITS\" \"31\"))))";
+	CircuitFile cf = readCircuitFile(v3);
+	CHECK(migrate(cf).empty());
+
+	CircuitFile huge = readCircuitFile(
+	    "(cedarlogic (version 3) (generator \"t\")"
+	    " (page 0 (gate \"BE_DECODER_3x8\" (uuid \"1\") (at 0 0) (angle 0)"
+	    " (lparam \"INPUT_BITS\" \"999999\"))))");
+	CHECK(migrate(huge).empty());
 }
