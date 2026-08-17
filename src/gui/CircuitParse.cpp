@@ -32,6 +32,7 @@
 #include "guiWire.h"
 #include "GUICircuit.h"
 #include "GUICanvas.h"
+#include <algorithm>
 #include <map>
 #include <set>
 #include <unordered_map>
@@ -413,6 +414,24 @@ static cl::CircuitFile buildCircuitFile(vector<GUICanvas*> &glc) {
 			pg.gates.push_back(buildGate(entry.second));
 		for (const auto &entry : *glc[i]->getWireList())
 			if (entry.second != nullptr) pg.wires.push_back(buildWire(entry.second));
+		// Both lists come out of unordered_map iteration, so without this two
+		// saves of an unchanged circuit reshuffle and every .cdl diff is noise.
+		// Order carries no meaning in the format, so sorting by id is free.
+		auto byNumericId = [](const string &a, const string &b) {
+			const unsigned long long x = strtoull(a.c_str(), nullptr, 10);
+			const unsigned long long y = strtoull(b.c_str(), nullptr, 10);
+			return x != y ? x < y : a < b;
+		};
+		std::sort(pg.gates.begin(), pg.gates.end(),
+		          [&](const cl::GateInstance &a, const cl::GateInstance &b) {
+			          return byNumericId(a.uuid, b.uuid);
+		          });
+		std::sort(pg.wires.begin(), pg.wires.end(),
+		          [&](const cl::WireInstance &a, const cl::WireInstance &b) {
+			          const string x = a.ids.empty() ? string() : a.ids.front();
+			          const string y = b.ids.empty() ? string() : b.ids.front();
+			          return byNumericId(x, y);
+		          });
 		cf.pages.push_back(std::move(pg));
 	}
 	return cf;
