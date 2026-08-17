@@ -171,6 +171,11 @@ void CircuitParse::applyCircuitFile(const cl::CircuitFile &cf) {
 	if (gateLibrary().libraries.size() == 0) return;
 
 	for (const cl::Page &pg : cf.pages) {
+		// A page index is an index into the canvas vector, so a negative one is
+		// not merely invalid, it reads out of bounds. Files never carry one; a
+		// corrupt or hand-edited file can.
+		if (pg.index < 0) continue;
+
 		// Reuse the canvas for this page index, or grow the set to reach it.
 		if (pg.index > (int)(gCanvases.size() - 1)) {
 			gCanvas = new GUICanvas(gCanvases[0]->GetParent(), gCanvases[0]->getCircuit(),
