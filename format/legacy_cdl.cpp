@@ -113,6 +113,7 @@ std::vector<double> nums(const std::string &csv, const char *what) {
 GateInstance readGate(const XmlNode &g) {
 	GateInstance gi;
 	gi.uuid = g.childText("ID");
+	requireId(gi.uuid, "<gate><ID>", /*allowEmpty=*/false);
 	gi.libName = g.childText("type");
 	std::vector<double> pos = nums(g.childText("position"), "<position>");
 	if (pos.size() >= 2) gi.at = { pos[0], pos[1] };
@@ -135,7 +136,10 @@ WireInstance readWire(const XmlNode &w) {
 	// A wire's <ID> holds one or more whitespace-separated IDs (bus lines).
 	std::istringstream ids(w.childText("ID"));
 	std::string id;
-	while (ids >> id) wi.ids.push_back(id);
+	while (ids >> id) {
+		requireId(id, "<wire><ID>", /*allowEmpty=*/false);
+		wi.ids.push_back(id);
+	}
 
 	const XmlNode *shape = w.find("shape");
 	if (!shape) return wi;
@@ -144,6 +148,7 @@ WireInstance readWire(const XmlNode &w) {
 		WireSegment s;
 		s.vertical = (seg.name == "vsegment");
 		s.id = seg.childText("ID");
+		requireId(s.id, "<hsegment><ID>");
 		std::vector<double> p = nums(seg.childText("points"), "<points>");
 		if (p.size() >= 4) {
 			s.begin = { p[0], p[1] };
@@ -151,13 +156,17 @@ WireInstance readWire(const XmlNode &w) {
 		}
 		for (const XmlNode &c : seg.kids) {
 			if (c.name == "connection") {
+				requireId(c.childText("GID"), "<connection><GID>");
 				s.connects.push_back({ c.childText("GID"), c.childText("name") });
 			} else if (c.name == "intersection") {
 				// "<isectPoint> <isectSegID>"
 				std::istringstream iss(c.text);
 				double at = 0;
 				std::string other;
-				if (iss >> at >> other) s.intersections.push_back({ at, other });
+				if (iss >> at >> other) {
+					requireId(other, "<intersection>");
+					s.intersections.push_back({ at, other });
+				}
 			}
 		}
 		wi.segments.push_back(std::move(s));

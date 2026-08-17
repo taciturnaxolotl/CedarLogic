@@ -2,6 +2,7 @@
 #include <doctest/doctest.h>
 
 #include "circuit_file_io.hpp"
+#include "migrate.hpp"
 #include "sexpr.hpp"
 
 #include <algorithm>
@@ -41,14 +42,14 @@ TEST_CASE("CircuitFile round-trips through the v3 format") {
 	pg.index = 0;
 
 	GateInstance toggle;
-	toggle.uuid = "3f9a";
+	toggle.uuid = "1001";
 	toggle.libName = "AA_TOGGLE";
 	toggle.at = { -8, 0 };
 	toggle.params = { { "OUTPUT_NUM", "1" } };
 	pg.gates.push_back(toggle);
 
 	GateInstance andGate;
-	andGate.uuid = "b21c";
+	andGate.uuid = "1002";
 	andGate.libName = "AA_AND2";
 	andGate.at = { 12, -4 };
 	andGate.angle = 90;
@@ -56,20 +57,20 @@ TEST_CASE("CircuitFile round-trips through the v3 format") {
 	pg.gates.push_back(andGate);
 
 	WireInstance wire;
-	wire.ids = { "77e0" };
+	wire.ids = { "2001" };
 	WireSegment s0;
 	s0.id = "0";
 	s0.vertical = false;
 	s0.begin = { -5, 0 };
 	s0.end = { 3, 0 };
-	s0.connects = { { "3f9a", "OUT_0" } };
+	s0.connects = { { "1001", "OUT_0" } };
 	s0.intersections = { { 3, "1" } }; // meets segment 1 at x=3
 	WireSegment s1;
 	s1.id = "1";
 	s1.vertical = true;
 	s1.begin = { 3, 0 };
 	s1.end = { 3, 1 };
-	s1.connects = { { "b21c", "IN_0" } };
+	s1.connects = { { "1002", "IN_0" } };
 	s1.intersections = { { 0, "0" } };
 	wire.segments = { s0, s1 };
 	pg.wires.push_back(wire);
@@ -168,4 +169,53 @@ TEST_CASE("A real document stays well inside the nesting cap") {
 		else if (c == ')') depth--;
 	}
 	CHECK(worst == 5);
+}
+
+TEST_CASE("A leading UTF-8 byte order mark does not hide the format") {
+	const std::string doc =
+	    "(cedarlogic (version 3) (generator \"t\")"
+	    " (page 0 (gate \"AA_AND2\" (uuid \"1\") (at 0 0) (angle 0))))";
+	CHECK(detectFormat("\xEF\xBB\xBF" + doc) == SourceFormat::SexprV3);
+	LoadResult r = loadCircuit("\xEF\xBB\xBF" + doc);
+	REQUIRE(r.file.pages.size() == 1);
+	CHECK(r.file.pages[0].gates.size() == 1);
+}
+
+TEST_CASE("Content after the document is an error, not something to ignore") {
+	const std::string doc =
+	    "(cedarlogic (version 3) (generator \"t\") (page 0))";
+	CHECK_NOTHROW(readCircuitFile(doc));
+	CHECK_NOTHROW(readCircuitFile(doc + "  \n\t "));   // trailing space is fine
+	CHECK_THROWS_WITH_AS(readCircuitFile(doc + doc), doctest::Contains("trailing content"),
+	                     std::runtime_error);
+	CHECK_THROWS_AS(readCircuitFile(doc + " garbage"), std::runtime_error);
+}
+
+TEST_CASE("A segment orientation other than h or v is an error") {
+	auto doc = [](const char *orient) {
+		return std::string("(cedarlogic (version 3) (generator \"t\") (page 0 (wire (ids \"1\")"
+		                   " (seg \"0\" ") + orient + " (pts 0 0 1 0)))))";
+	};
+	CHECK_NOTHROW(readCircuitFile(doc("h")));
+	CHECK_NOTHROW(readCircuitFile(doc("v")));
+	CHECK_THROWS_WITH_AS(readCircuitFile(doc("V")), doctest::Contains("is not h or v"),
+	                     std::runtime_error);
+	CHECK_THROWS_AS(readCircuitFile(doc("sideways")), std::runtime_error);
+}
+
+TEST_CASE("An id that is not a decimal integer is an error") {
+	// Two such ids both convert to 0 downstream, so one object silently replaces
+	// the other. Refusing the document is the only way the user hears about it.
+	CHECK_THROWS_WITH_AS(
+	    readCircuitFile("(cedarlogic (version 3) (generator \"t\") (page 0"
+	                    " (gate \"AA_AND2\" (uuid \"alpha\") (at 0 0) (angle 0))))"),
+	    doctest::Contains("not a decimal integer"), std::runtime_error);
+	CHECK_THROWS_AS(
+	    readCircuitFile("(cedarlogic (version 3) (generator \"t\") (page 0"
+	                    " (wire (ids \"\") (seg \"0\" h (pts 0 0 1 0)))))"),
+	    std::runtime_error);
+	// A segment label may be absent. Legacy documents leave it out.
+	CHECK_NOTHROW(loadCircuit("<circuit><page 0><wire><ID>5</ID><shape>"
+	                          "<hsegment><points>0,0,1,0</points></hsegment>"
+	                          "</shape></wire></page 0></circuit>"));
 }

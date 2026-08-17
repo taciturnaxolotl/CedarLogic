@@ -15,6 +15,15 @@ namespace cl {
 // They are also stricter than std::stod: trailing junk is an error rather than
 // a value. "3abc" is a malformed coordinate, not 3.
 
+// Check that an identifier is a decimal integer. Ids are strings in the model and
+// integers everywhere they are used, so one that does not convert becomes 0 and
+// silently aliases two objects onto each other. Throws std::runtime_error.
+//
+// An empty id is refused only where the id is an identity that other things point
+// at, which is a gate uuid or a wire id. A segment label may be absent: legacy
+// documents leave it out, and it means nothing outside its own wire.
+void requireId(const std::string &text, const std::string &what, bool allowEmpty = true);
+
 // `what` is the context shown in the message, e.g. "(at ...)" or "<position>".
 double parseDouble(const std::string &text, const std::string &what);
 long parseLong(const std::string &text, const std::string &what);

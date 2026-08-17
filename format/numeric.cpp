@@ -22,6 +22,15 @@ bool onlySpaceLeft(const char *p) {
 
 } // namespace
 
+void requireId(const std::string &text, const std::string &what, bool allowEmpty) {
+	if (text.empty()) {
+		if (allowEmpty) return;
+		bad(text, what, "empty identifier");
+	}
+	for (char c : text)
+		if (c < '0' || c > '9') bad(text, what, "identifier is not a decimal integer");
+}
+
 double parseDouble(const std::string &text, const std::string &what) {
 	errno = 0;
 	char *end = nullptr;

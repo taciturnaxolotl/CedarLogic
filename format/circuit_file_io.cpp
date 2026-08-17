@@ -133,6 +133,7 @@ static GateInstance readGate(const SNode &n) {
 	GateInstance g;
 	g.libName = item(n, 1);
 	g.uuid = kvStr(n, "uuid");
+	requireId(g.uuid, "(uuid ...)", /*allowEmpty=*/false);
 	const SNode &at = reqChild(n, "at");
 	g.at = { parseDouble(item(at, 1), "(at ...)"), parseDouble(item(at, 2), "(at ...)") };
 	g.angle = kvNum(n, "angle");
@@ -145,11 +146,15 @@ static GateInstance readGate(const SNode &n) {
 static WireInstance readWire(const SNode &n) {
 	WireInstance w;
 	if (const SNode *ids = n.child("ids"))
-		for (size_t i = 1; i < ids->items.size(); i++) w.ids.push_back(item(*ids, i));
+		for (size_t i = 1; i < ids->items.size(); i++) {
+			w.ids.push_back(item(*ids, i));
+			requireId(w.ids.back(), "(ids ...)", /*allowEmpty=*/false);
+		}
 	for (const SNode &s : n.items) {
 		if (!s.isList() || s.head() != "seg") continue;
 		WireSegment seg;
 		seg.id = item(s, 1);
+		requireId(seg.id, "(seg ...)");
 		const std::string &orient = item(s, 2);
 		if (orient != "h" && orient != "v")
 			throw std::runtime_error("circuit file: segment orientation \"" + orient +
@@ -160,8 +165,13 @@ static WireInstance readWire(const SNode &n) {
 		seg.end = { parseDouble(item(pts, 3), "(pts ...)"), parseDouble(item(pts, 4), "(pts ...)") };
 		for (const SNode &c : s.items) {
 			if (!c.isList()) continue;
-			if (c.head() == "connect") seg.connects.push_back({ item(c, 1), item(c, 2) });
-			else if (c.head() == "cross") seg.intersections.push_back({ parseDouble(item(c, 1), "(cross ...)"), item(c, 2) });
+			if (c.head() == "connect") {
+				seg.connects.push_back({ item(c, 1), item(c, 2) });
+				requireId(seg.connects.back().gateUuid, "(connect ...)");
+			} else if (c.head() == "cross") {
+				seg.intersections.push_back({ parseDouble(item(c, 1), "(cross ...)"), item(c, 2) });
+				requireId(seg.intersections.back().segment, "(cross ...)");
+			}
 		}
 		w.segments.push_back(std::move(seg));
 	}

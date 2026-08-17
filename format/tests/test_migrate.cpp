@@ -132,7 +132,7 @@ TEST_CASE("loadCircuit passes a v3 document through without migrating") {
 	// Minimal valid v3 doc with a decoder that would trip the legacy handler if run.
 	const std::string v3 =
 	    "(cedarlogic (version 3) (generator \"t\")"
-	    " (page 0 (gate \"BE_DECODER_3x8\" (uuid \"x\") (at 0 0) (angle 0)"
+	    " (page 0 (gate \"BE_DECODER_3x8\" (uuid \"7\") (at 0 0) (angle 0)"
 	    " (lparam \"INPUT_BITS\" \"3\"))))";
 	LoadResult r = loadCircuit(v3);
 	CHECK(r.source == SourceFormat::SexprV3);
