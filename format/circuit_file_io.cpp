@@ -150,7 +150,11 @@ static WireInstance readWire(const SNode &n) {
 		if (!s.isList() || s.head() != "seg") continue;
 		WireSegment seg;
 		seg.id = item(s, 1);
-		seg.vertical = (item(s, 2) == "v");
+		const std::string &orient = item(s, 2);
+		if (orient != "h" && orient != "v")
+			throw std::runtime_error("circuit file: segment orientation \"" + orient +
+			                         "\" is not h or v");
+		seg.vertical = (orient == "v");
 		const SNode &pts = reqChild(s, "pts");
 		seg.begin = { parseDouble(item(pts, 1), "(pts ...)"), parseDouble(item(pts, 2), "(pts ...)") };
 		seg.end = { parseDouble(item(pts, 3), "(pts ...)"), parseDouble(item(pts, 4), "(pts ...)") };
