@@ -45,6 +45,7 @@
 #include "wx/settings.h"
 #include "wx/file.h"
 #include "CircuitParse.h"
+#include "migrate.hpp"   // cl::LoadResult, held across the validate/apply split
 #include "OscopeFrame.h"
 #include "SettingsDialog.h"
 #include "wx/docview.h"
@@ -781,6 +782,18 @@ void MainFrame::loadCircuitFile( string fileName, bool asCopy ){
 		}
 	}
 
+	// Read and validate before touching the open document. Everything below this
+	// point is destructive -- it clears the canvases and rebinds the window to the
+	// new path -- so a file we cannot open has to fail here, while the user's
+	// circuit is still on screen and still bound to its own filename.
+	cl::LoadResult loaded;
+	string loadError;
+	if (!CircuitParse::readCircuit(path.ToStdString(), loaded, loadError)) {
+		if (!renderMode().headlessRender)
+			wxMessageBox(wxString(loadError), "Load Error", wxOK | wxICON_ERROR, this);
+		return;
+	}
+
 	openedFilename = asCopy ? "" : path;
 	recoveredFrom = "";   // whatever was recovered before, this is not it
 	// Not in a headless render: that is a read-only pass over the file, and
@@ -806,7 +819,7 @@ void MainFrame::loadCircuitFile( string fileName, bool asCopy ){
 	}
 	
     CircuitParse cirp(path.ToStdString(), canvases);
-	canvases = cirp.parseFile();
+	canvases = cirp.applyLoaded(loaded);
 	loadedFileFormat = cirp.getLoadedFormatCode();
 	saveFormatDecided = false;  // a freshly opened file hasn't been answered yet
 

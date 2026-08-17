@@ -18,7 +18,7 @@ using namespace std;
 
 class GUICanvas;
 class XMLParser;
-namespace cl { struct CircuitFile; struct WireInstance; }
+namespace cl { struct CircuitFile; struct WireInstance; struct LoadResult; }
 
 // used for parsing inputs and outputs
 class gateConnector {
@@ -45,8 +45,17 @@ public:
 	virtual ~CircuitParse();
 	
 	void loadFile(string);
+
+	// Read and validate a circuit file without touching any open document: the
+	// two ways a load can fail (a file from a newer major version, and a file
+	// that will not parse) both land here, before anything is cleared. Returns
+	// false and fills `error` with a message fit to show the user.
+	static bool readCircuit(const string &path, cl::LoadResult &out, string &error);
+
+	// Build the canvases from an already-read circuit. Destructive: the caller
+	// must have cleared the open document first.
 	//JV - Changed to return new canvases
-	vector<GUICanvas*> parseFile();
+	vector<GUICanvas*> applyLoaded(const cl::LoadResult &loaded);
 	bool saveCircuit(string, vector< GUICanvas* >, unsigned int currPage = 0);
 	// Save the v3 S-expression format (built from the GUI via the format model).
 	bool saveCircuitV3(string, vector< GUICanvas* >, unsigned int currPage = 0);

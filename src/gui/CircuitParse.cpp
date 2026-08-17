@@ -124,10 +124,10 @@ static string extractVersion(const string &text) {
 	return text.substr(a, b - a);
 }
 
-vector<GUICanvas*> CircuitParse::parseFile() {
+bool CircuitParse::readCircuit(const string &path, cl::LoadResult &out, string &error) {
 	// Read the whole file; the format library detects v1/v2/v3, skips the v2
 	// decoy, runs migrations, and hands back a plain circuit model plus notices.
-	ifstream in(fileName.c_str(), ios::in | ios::binary);
+	ifstream in(path.c_str(), ios::in | ios::binary);
 	ostringstream buf;
 	buf << in.rdbuf();
 	string text = buf.str();
@@ -136,20 +136,21 @@ vector<GUICanvas*> CircuitParse::parseFile() {
 	string version = extractVersion(text);
 	if (!version.empty() && hasBreakingVersion(version, VERSION_NUMBER_STRING()) &&
 	    !renderMode().headlessRender) {
-		wxMessageBox("This file was made with a newer version of Cedar Logic. "
-			"Go to 'Help\\Download Latest Version...' to open this file."
-			"Close CedarLogic without saving to avoid overwriting your work!!!", "Version Error!");
-		return gCanvases;
+		error = "This file was made with a newer version of Cedar Logic.\n\n"
+		        "Go to 'Help\\Download Latest Version...' to open it.";
+		return false;
 	}
 
-	cl::LoadResult loaded;
 	try {
-		loaded = cl::loadCircuit(text);
+		out = cl::loadCircuit(text);
 	} catch (const std::exception &e) {
-		wxMessageBox(wxString("Could not read this circuit file:\n") + e.what(),
-		             "Load Error", wxOK | wxICON_ERROR);
-		return gCanvases;
+		error = string("Could not read this circuit file:\n\n") + e.what();
+		return false;
 	}
+	return true;
+}
+
+vector<GUICanvas*> CircuitParse::applyLoaded(const cl::LoadResult &loaded) {
 	switch (loaded.source) {
 	case cl::SourceFormat::XmlV1: loadedFormatCode = 1; break;
 	case cl::SourceFormat::XmlV2: loadedFormatCode = 2; break;
