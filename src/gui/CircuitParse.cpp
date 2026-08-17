@@ -184,20 +184,24 @@ void CircuitParse::applyCircuitFile(const cl::CircuitFile &cf) {
 	// If no library was loaded, then we can't make gates from one.
 	if (gateLibrary().libraries.size() == 0) return;
 
-	for (const cl::Page &pg : cf.pages) {
-		// A page index is an index into the canvas vector, so a negative one is
-		// not merely invalid, it reads out of bounds. Files never carry one; a
-		// corrupt or hand-edited file can.
-		if (pg.index < 0) continue;
+	// A page index is an index into the canvas vector. A negative one reads out
+	// of bounds, and an enormous one would have us allocate a canvas per step to
+	// reach it, so both are refused. Files never carry either; a corrupt or
+	// hand-edited one can.
+	const int kMaxPageIndex = 255;
 
-		// Reuse the canvas for this page index, or grow the set to reach it.
-		if (pg.index > (int)(gCanvases.size() - 1)) {
-			gCanvas = new GUICanvas(gCanvases[0]->GetParent(), gCanvases[0]->getCircuit(),
-			                        wxID_ANY, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS);
-			gCanvases.push_back(gCanvas);
-		} else {
-			gCanvas = gCanvases[pg.index];
+	for (const cl::Page &pg : cf.pages) {
+		if (pg.index < 0 || pg.index > kMaxPageIndex) continue;
+
+		// Grow the set until this index exists, then use it. Growing one canvas
+		// at a time regardless of the index put page 5 of a {0,5} file onto page
+		// 1: the content silently moved. Honor what the file says instead.
+		while (pg.index > (int)(gCanvases.size() - 1)) {
+			gCanvases.push_back(new GUICanvas(gCanvases[0]->GetParent(),
+			                                  gCanvases[0]->getCircuit(), wxID_ANY,
+			                                  wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS));
 		}
+		gCanvas = gCanvases[pg.index];
 
 		// A gate's pin connections live on the wires; collect them per gate so a
 		// gate is created with the same (pin -> wire ids) list the old gate-side
@@ -419,6 +423,7 @@ static cl::CircuitFile buildCircuitFile(vector<GUICanvas*> &glc) {
 			pg.gates.push_back(buildGate(entry.second));
 		for (const auto &entry : *glc[i]->getWireList())
 			if (entry.second != nullptr) pg.wires.push_back(buildWire(entry.second));
+
 		// Both lists come out of unordered_map iteration, so without this two
 		// saves of an unchanged circuit reshuffle and every .cdl diff is noise.
 		// Order carries no meaning in the format, so sorting by id is free.
