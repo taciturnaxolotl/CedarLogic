@@ -172,7 +172,18 @@ vector<GUICanvas*> CircuitParse::applyLoaded(const cl::LoadResult &loaded) {
 	}
 
 	applyCircuitFile(loaded.file);
-	if (!renderMode().headlessRender) showMigrationNotices(loaded.notices);
+	std::vector<cl::MigrationNotice> all = loaded.notices;
+	all.insert(all.end(), applyNotices.begin(), applyNotices.end());
+	if (renderMode().headlessRender) {
+		// A one-shot render has no one to show a dialog to, but the notices are
+		// the only record that the file lost something on the way in. Print them
+		// where a script can see them instead of dropping them.
+		for (const cl::MigrationNotice &n : all)
+			cerr << (n.severity == cl::Severity::Warning ? "warning: " : "note: ")
+			     << n.summary << endl;
+	} else {
+		showMigrationNotices(all);
+	}
 
 	gCanvas->getCircuit()->getOscope()->UpdateMenu();
 	return gCanvases;
@@ -223,6 +234,23 @@ void CircuitParse::applyCircuitFile(const cl::CircuitFile &cf) {
 			}
 		}
 
+		// A type the library does not have still becomes a gate, but one with no
+		// shape and no pins: invisible on the canvas and unclickable. Say so,
+		// rather than leaving the user to wonder where the gate went.
+		for (const cl::GateInstance &g : pg.gates) {
+			const auto &owner = gateLibrary().gateNameToLibrary;
+			auto known = owner.find(g.libName);
+			if (known != owner.end() && !known->second.empty()) continue;
+			cl::MigrationNotice n;
+			n.severity = cl::Severity::Warning;
+			n.gateUuid = g.uuid;
+			n.libName = g.libName;
+			n.summary = "Unknown gate type: " + (g.libName.empty() ? string("(none)") : g.libName);
+			n.detail = "No gate of this type is in the loaded library, so it cannot be drawn "
+			           "or simulated. It is kept in the circuit and written back out on save.";
+			applyNotices.push_back(std::move(n));
+		}
+
 		// Create every gate (and, through its connectors, its wires).
 		for (const cl::GateInstance &g : pg.gates) {
 			vector<parameter> params;
@@ -247,14 +275,33 @@ void CircuitParse::applyCircuitFile(const cl::CircuitFile &cf) {
 
 // Rebuild one wire's segment tree from the model and set it on the guiWire,
 // mirroring what the old per-wire XML walk did (minus the parsing).
+// Why a wire in the document never reached the canvas. Wires are created while
+// walking the gates, so one that names no gate we created is never made at all.
+static string wireDropReason(const cl::WireInstance &w) {
+	if (w.ids.empty()) return "it carries no id";
+	for (const cl::WireSegment &s : w.segments)
+		if (!s.connects.empty())
+			return "the gates it connects to are not on this page";
+	return "it connects to nothing";
+}
+
 void CircuitParse::applyWireShape(const cl::WireInstance &w) {
 	vector<IDType> ids;
 	for (const string &id : w.ids) ids.push_back(strtoull(id.c_str(), nullptr, 10));
-	if (ids.empty()) return;
 
 	GUICircuit *gCircuit = gCanvas->getCircuit();
-	// The wire must already exist (it was created while connecting its gates).
-	if (gCircuit->getWires()->find(ids.front()) == gCircuit->getWires()->end()) return;
+	const bool made = !ids.empty() &&
+	                  gCircuit->getWires()->find(ids.front()) != gCircuit->getWires()->end();
+	if (!made) {
+		cl::MigrationNotice n;
+		n.severity = cl::Severity::Warning;
+		n.summary = "Wire " + (w.ids.empty() ? string("(no id)") : w.ids.front()) +
+		            " could not be loaded, because " + wireDropReason(w);
+		n.detail = "The wire and its routing are not in the circuit. Redraw it, or fix the "
+		           "file so that every connection names a gate on the same page.";
+		applyNotices.push_back(std::move(n));
+		return;
+	}
 
 	map<long, wireSegment> shape;
 	for (const cl::WireSegment &ms : w.segments) {

@@ -18,7 +18,8 @@ using namespace std;
 
 class GUICanvas;
 class XMLParser;
-namespace cl { struct CircuitFile; struct WireInstance; struct LoadResult; }
+namespace cl { struct CircuitFile; struct WireInstance; }
+#include "migrate.hpp"   // cl::LoadResult and cl::MigrationNotice, held by value below
 
 // used for parsing inputs and outputs
 class gateConnector {
@@ -56,6 +57,11 @@ public:
 	// must have cleared the open document first.
 	//JV - Changed to return new canvases
 	vector<GUICanvas*> applyLoaded(const cl::LoadResult &loaded);
+
+	// What applying the document cost: an unknown gate type, a wire that could
+	// not be attached. These were silent until now, which is how a circuit could
+	// come back missing a wire with nothing said about it.
+	const std::vector<cl::MigrationNotice> &getApplyNotices() const { return applyNotices; }
 	bool saveCircuit(string, vector< GUICanvas* >, unsigned int currPage = 0);
 	// Save the v3 S-expression format (built from the GUI via the format model).
 	bool saveCircuitV3(string, vector< GUICanvas* >, unsigned int currPage = 0);
@@ -75,6 +81,7 @@ private:
 
 	vector< GUICanvas* > gCanvases;
 	GUICanvas* gCanvas;
+	std::vector<cl::MigrationNotice> applyNotices;
 
 	// Takes the pieces of gate info found in parseFile and implements them
 	void parseGateToSend(string type, string ID, string position, vector < gateConnector > &inputs, vector < gateConnector > &outputs, vector < parameter > &params);
