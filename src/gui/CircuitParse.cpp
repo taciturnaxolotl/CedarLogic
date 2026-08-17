@@ -146,6 +146,13 @@ bool CircuitParse::readCircuit(const string &path, cl::LoadResult &out, string &
 	} catch (const std::exception &e) {
 		error = string("Could not read this circuit file:\n\n") + e.what();
 		return false;
+	} catch (...) {
+		// Belt and braces. A bad file must never take the app down, and the
+		// typed handler above is not enough on its own: in the app binary a
+		// std::exception thrown inside libCircuitFile does not match it, so
+		// without this the throw unwinds past OnInit and wx terminates.
+		error = "Could not read this circuit file: it is malformed or truncated.";
+		return false;
 	}
 	return true;
 }

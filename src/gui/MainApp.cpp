@@ -574,6 +574,10 @@ bool MainApp::OnInit()
                 cl::loadCircuit(ss.str());
             } catch (const std::exception &) {
                 std::_Exit(1);
+            } catch (...) {
+                // See CircuitParse::readCircuit: in this binary the typed
+                // handler alone does not catch a throw from libCircuitFile.
+                std::_Exit(1);
             }
         }
         // Realize + size the window so the canvas has a client size, load the
