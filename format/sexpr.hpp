@@ -40,7 +40,9 @@ struct SNode {
 std::string writeSexpr(const SNode &root);
 
 // Parse the first top-level S-expression in text. Throws std::runtime_error on
-// malformed input (unbalanced parens, unterminated string).
-SNode parseSexpr(const std::string &text);
+// malformed input (unbalanced parens, unterminated string). When `end` is given,
+// it receives the offset one past the last byte consumed, so a caller can check
+// what follows the document.
+SNode parseSexpr(const std::string &text, size_t *end = nullptr);
 
 } // namespace cl

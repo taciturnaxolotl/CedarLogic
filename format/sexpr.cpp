@@ -142,9 +142,10 @@ struct Parser {
 
 } // namespace
 
-SNode parseSexpr(const std::string &text) {
+SNode parseSexpr(const std::string &text, size_t *end) {
 	Parser p(text);
 	SNode n = p.parseNode();
+	if (end) *end = p.i;
 	return n;
 }
 

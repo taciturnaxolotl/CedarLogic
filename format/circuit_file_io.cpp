@@ -165,9 +165,16 @@ static WireInstance readWire(const SNode &n) {
 }
 
 CircuitFile readCircuitFile(const std::string &text) {
-	SNode root = parseSexpr(text);
+	size_t end = 0;
+	SNode root = parseSexpr(text, &end);
 	if (!root.isList() || root.head() != "cedarlogic")
 		throw std::runtime_error("circuit file: not a (cedarlogic ...) document");
+
+	// A document is one node. Anything after it means the file was truncated,
+	// concatenated, or written by something that did not understand the format,
+	// and reading only the first half of it silently is worse than refusing.
+	if (text.find_first_not_of(" \t\r\n", end) != std::string::npos)
+		throw std::runtime_error("circuit file: trailing content after the document");
 
 	CircuitFile cf;
 	cf.formatVersion = static_cast<int>(kvNum(root, "version"));
