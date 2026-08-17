@@ -183,8 +183,12 @@ Page readPage(const XmlNode &p) {
 
 } // namespace
 
+size_t bomLength(const std::string &text) {
+	return text.compare(0, 3, "\xEF\xBB\xBF") == 0 ? 3 : 0;
+}
+
 SourceFormat detectFormat(const std::string &text) {
-	size_t i = text.find_first_not_of(" \t\r\n");
+	size_t i = text.find_first_not_of(" \t\r\n", bomLength(text));
 	if (i == std::string::npos) return SourceFormat::Unknown;
 	if (text[i] == '(')
 		return text.find("cedarlogic") != std::string::npos ? SourceFormat::SexprV3

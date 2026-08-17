@@ -149,13 +149,16 @@ std::vector<MigrationNotice> migrate(CircuitFile &cf) {
 LoadResult loadCircuit(const std::string &text) {
 	LoadResult r;
 	r.source = detectFormat(text);
+	// The readers start at the first real byte, so a byte order mark never
+	// reaches them. Detection already looked past it.
+	const std::string body = text.substr(bomLength(text));
 	switch (r.source) {
 	case SourceFormat::SexprV3:
-		r.file = readCircuitFile(text); // already the target format; no migration
+		r.file = readCircuitFile(body); // already the target format; no migration
 		break;
 	case SourceFormat::XmlV1:
 	case SourceFormat::XmlV2:
-		r.file = readLegacyCdl(text);
+		r.file = readLegacyCdl(body);
 		r.notices = migrate(r.file);
 		break;
 	default:
