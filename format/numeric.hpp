@@ -19,4 +19,11 @@ namespace cl {
 double parseDouble(const std::string &text, const std::string &what);
 long parseLong(const std::string &text, const std::string &what);
 
+// The nesting limit both parsers enforce. A well-formed document reaches 5
+// levels in v3 and 7 in v1/v2, and neither grows with circuit size: gates,
+// pages, and wire segments widen a level, they never add one. The cap exists
+// because both parsers recurse per level, so an unbounded file is a stack
+// overflow waiting to happen.
+constexpr int kMaxDepth = 64;
+
 } // namespace cl

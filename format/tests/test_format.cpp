@@ -126,3 +126,46 @@ TEST_CASE("Trailing junk on a number is an error, not a prefix") {
 	    " (page 0 (gate \"AA_AND2\" (uuid \"1\") (at 3abc 0) (angle 0))))";
 	CHECK_THROWS_AS(readCircuitFile(doc), std::runtime_error);
 }
+
+TEST_CASE("Nesting is capped so a hostile file cannot overflow the stack") {
+	// Far past the 5 levels a well-formed v3 document reaches. Without the cap
+	// this recurses once per paren and dies on the stack instead of throwing.
+	std::string deep = "(cedarlogic";
+	deep.append(100000, '(');
+	CHECK_THROWS_WITH_AS(parseSexpr(deep), doctest::Contains("nesting too deep"),
+	                     std::runtime_error);
+}
+
+TEST_CASE("A real document stays well inside the nesting cap") {
+	CircuitFile cf;
+	cf.generator = "t";
+	Page pg;
+	GateInstance g;
+	g.uuid = "1";
+	g.libName = "AA_AND2";
+	pg.gates.push_back(g);
+	WireInstance w;
+	w.ids = { "10" };
+	WireSegment s;
+	s.id = "0";
+	s.connects.push_back({ "1", "OUT" });
+	s.intersections.push_back({ 1.5, "1" });
+	w.segments.push_back(s);
+	pg.wires.push_back(w);
+	cf.pages.push_back(pg);
+
+	// Deepest v3 nesting is (cedarlogic (page (wire (seg (pts ...))))) = 5.
+	const std::string text = writeCircuitFile(cf);
+	int depth = 0, worst = 0;
+	bool inString = false;
+	for (size_t i = 0; i < text.size(); i++) {
+		const char c = text[i];
+		if (inString) {
+			if (c == '\\') i++;
+			else if (c == '"') inString = false;
+		} else if (c == '"') inString = true;
+		else if (c == '(') worst = std::max(worst, ++depth);
+		else if (c == ')') depth--;
+	}
+	CHECK(worst == 5);
+}

@@ -1,5 +1,7 @@
 #include "sexpr.hpp"
 
+#include "numeric.hpp"
+
 #include <stdexcept>
 
 namespace cl {
@@ -74,6 +76,7 @@ namespace {
 struct Parser {
 	const std::string &s;
 	size_t i = 0;
+	int depth = 0;
 
 	explicit Parser(const std::string &text) : s(text) {}
 
@@ -110,6 +113,12 @@ struct Parser {
 	}
 
 	SNode parseList() {
+		// The parser recurses per level, so an unbounded file is a stack overflow.
+		// A well-formed v3 document reaches 5 levels and does not grow with the size
+		// of the circuit; see cl::kMaxDepth.
+		if (++depth > kMaxDepth) throw std::runtime_error("sexpr: nesting too deep");
+		struct Pop { int &d; ~Pop() { --d; } } pop{ depth };
+
 		i++; // opening paren
 		SNode node = SNode::list();
 		while (true) {

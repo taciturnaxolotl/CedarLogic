@@ -38,6 +38,7 @@ std::string trim(const std::string &s) {
 struct XmlReader {
 	const std::string &s;
 	size_t i = 0;
+	int depth = 0;
 	explicit XmlReader(const std::string &t) : s(t) {}
 
 	static bool isSpace(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; }
@@ -61,6 +62,12 @@ struct XmlReader {
 	}
 
 	XmlNode parseElement() {
+		// Both parsers recurse per level, so an unbounded file is a stack overflow.
+		// A well-formed v1/v2 document reaches 7 levels and does not grow with the
+		// size of the circuit; see cl::kMaxDepth.
+		if (++depth > kMaxDepth) throw std::runtime_error("cdl: nesting too deep");
+		struct Pop { int &d; ~Pop() { --d; } } pop{ depth };
+
 		XmlNode node;
 		node.name = readTagBody(); // open tag, e.g. "gate" or "page 0"
 		std::string text;
