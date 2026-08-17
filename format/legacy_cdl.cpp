@@ -115,8 +115,10 @@ GateInstance readGate(const XmlNode &g) {
 	gi.uuid = g.childText("ID");
 	requireId(gi.uuid, "<gate><ID>", /*allowEmpty=*/false);
 	gi.libName = g.childText("type");
+	if (gi.libName.empty()) throw std::runtime_error("cdl: <gate> has no <type>");
 	std::vector<double> pos = nums(g.childText("position"), "<position>");
-	if (pos.size() >= 2) gi.at = { pos[0], pos[1] };
+	if (pos.size() < 2) throw std::runtime_error("cdl: <position> needs two numbers");
+	gi.at = { pos[0], pos[1] };
 	for (const XmlNode &c : g.kids) {
 		if (c.name != "gparam" && c.name != "lparam") continue;
 		size_t sp = c.text.find(' ');
@@ -150,10 +152,9 @@ WireInstance readWire(const XmlNode &w) {
 		s.id = seg.childText("ID");
 		requireId(s.id, "<hsegment><ID>");
 		std::vector<double> p = nums(seg.childText("points"), "<points>");
-		if (p.size() >= 4) {
-			s.begin = { p[0], p[1] };
-			s.end = { p[2], p[3] };
-		}
+		if (p.size() < 4) throw std::runtime_error("cdl: <points> needs four numbers");
+		s.begin = { p[0], p[1] };
+		s.end = { p[2], p[3] };
 		for (const XmlNode &c : seg.kids) {
 			if (c.name == "connection") {
 				requireId(c.childText("GID"), "<connection><GID>");
@@ -163,10 +164,11 @@ WireInstance readWire(const XmlNode &w) {
 				std::istringstream iss(c.text);
 				double at = 0;
 				std::string other;
-				if (iss >> at >> other) {
-					requireId(other, "<intersection>");
-					s.intersections.push_back({ at, other });
-				}
+				if (!(iss >> at >> other))
+					throw std::runtime_error("cdl: <intersection> needs a coordinate and a "
+					                         "segment id");
+				requireId(other, "<intersection>");
+				s.intersections.push_back({ at, other });
 			}
 		}
 		wi.segments.push_back(std::move(s));
