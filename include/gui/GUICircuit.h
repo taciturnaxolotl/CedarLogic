@@ -25,6 +25,11 @@
 using namespace std;
 
 class GUICanvas;
+// How many steps in a row the core must finish late before the simulation is
+// called overloaded. Chosen to ride out a hitch without hiding a circuit that
+// genuinely cannot keep up.
+const int kLateStepsBeforePanic = 5;
+
 class GUICircuit;
 class OscopeFrame;
 class guiGate;
@@ -93,6 +98,18 @@ public:
 	int lastTimeMod;
 	int lastNumSteps;
 	int lastTime;
+	// The step now in flight is making up for a stall (the app was in the
+	// background, or the machine slept), so it is expected to be slow and is not
+	// evidence that the circuit is too heavy to simulate.
+	bool catchingUp = false;
+	// Consecutive steps the core has finished late. One slow step means nothing:
+	// a GC pause, another program, a scheduler hiccup. Sustained lateness is what
+	// "overloaded" means.
+	int lateSteps = 0;
+	// How long the core spent on the last step. Compared against the wall time
+	// that passed, this separates the two reasons a gap can be large: the core
+	// was grinding (overloaded) or nothing was running at all (stalled).
+	int lastLogicTime = 0;
 	
 private:
 	unordered_map< unsigned long, guiGate* > gateList;

@@ -72,6 +72,12 @@ DECLARE_APP(MainApp)
 // a finer poll just means smaller, more frequent steps -- not a faster sim.
 static const int TIMER_POLL_MS = 8;
 
+// The most steps one catch-up is allowed to run. Anything beyond this is time
+// the app was not running for (backgrounded, or the machine asleep), and there
+// is nothing to be gained by simulating it: the user was not watching, and the
+// work would take longer than the gap it is chasing.
+static const int MAX_CATCHUP_STEPS = 10;
+
 BEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(wxID_EXIT,  MainFrame::OnQuit)
     EVT_MENU(wxID_ABOUT, MainFrame::OnAbout)
@@ -1008,13 +1014,36 @@ void MainFrame::stepSimulation() {
 	if (simBridge().appSystemTime.Time() < appConfig().timeStepMod) return;
 	simBridge().appSystemTime.Pause();
 	if (gCircuit->panic) return;
-	// Do function of number of milliseconds that passed since last step
-	gCircuit->lastTime = simBridge().appSystemTime.Time();
-	gCircuit->lastTimeMod = appConfig().timeStepMod;
-	gCircuit->lastNumSteps = simBridge().appSystemTime.Time() / appConfig().timeStepMod;
-	gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_STEPSIM, new klsMessage::Message_STEPSIM(simBridge().appSystemTime.Time() / appConfig().timeStepMod)));
+
+	const long step = appConfig().timeStepMod;
+	long elapsed = simBridge().appSystemTime.Time();
+
+	// Cap how much wall time a single step is allowed to make up. The clock runs
+	// whether or not the app does, so backgrounding the window or sleeping the
+	// machine hands the next step the whole gap at once. Simulating minutes of
+	// circuit takes longer than the minutes took to pass, which is precisely what
+	// the overload check measures, so an uncapped catch-up reported an overload
+	// every time the user came back. Past the cap, drop the backlog instead: the
+	// simulation resumes where it left off rather than racing to a wall clock
+	// nobody was watching.
+	const long maxCatchUp = step * MAX_CATCHUP_STEPS;
+	const bool over = elapsed > maxCatchUp;
+	// A large gap has two possible causes, and they need opposite treatment. If
+	// the core spent that time working, the circuit is genuinely too heavy and
+	// the overload check must still see it. If the core was idle, nothing was
+	// running and there is nothing to report. Compare the gap against the work.
+	const bool coreWasBusy = gCircuit->lastLogicTime * 2 >= elapsed;
+	const bool stalled = over && !coreWasBusy;
+	if (over) elapsed = maxCatchUp;  // cap either way, so one step cannot spiral
+
+	gCircuit->lastTime = (int)elapsed;
+	gCircuit->lastTimeMod = (int)step;
+	gCircuit->lastNumSteps = (int)(elapsed / step);
+	gCircuit->catchingUp = stalled;
+	gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_STEPSIM, new klsMessage::Message_STEPSIM(elapsed / step)));
 	currentCanvas->getCircuit()->setSimulate(false);
-	simBridge().appSystemTime.Start(simBridge().appSystemTime.Time() % appConfig().timeStepMod);
+	// After a dropped backlog the leftover is meaningless, so start clean.
+	simBridge().appSystemTime.Start(stalled ? 0 : elapsed % step);
 }
 
 void MainFrame::OnIdle(wxTimerEvent& event) { drainLogicMessages(); }
@@ -1064,7 +1093,11 @@ void MainFrame::drainLogicMessages() {
 		//see the location were pausing is set to true
 		//for further explination in GUICircuit::parseMessage
 		if( !gCircuit->pausing ){
-			wxMessageBox("Overloading simulator: please increase time per step and then resume simulation.", "Error - overload", wxOK | wxICON_ERROR, NULL);
+			// Say it in the status bar rather than a modal box. The simulation has
+			// already stopped and the toolbar shows play, so the user can see that
+			// something happened; a dialog on top of that only demands a click.
+			SetStatusText("Simulation paused: the circuit needs more time per step. "
+			              "Raise 'Sim step' on the toolbar, then press play.");
 		}
 		gCircuit->pausing = false;
 	}
@@ -1554,6 +1587,9 @@ void MainFrame::ResumeExecution() {
 }
 
 void MainFrame::PauseSim() {
+	// Whatever the last stop was about, the user has decided; clear the notice.
+	SetStatusText("");
+	gCircuit->lateSteps = 0;
 	if (toolBar->GetToolState(Tool_Pause)) {
 		simTimer->Stop();
 		simBridge().appSystemTime.Start(0);

@@ -235,8 +235,20 @@ void GUICircuit::parseMessage(klsMessage::Message message) {
 		case klsMessage::MT_DONESTEP: { // DONESTEP
 			simulate = true;
 			int logicTime = message.as<klsMessage::Message_DONESTEP>().logicTime;
-			// Panic if core isn't keeping up, keep a 3ms buffer...
-			panic = (logicTime > lastTime+3) || panic;
+			// Did the core take longer than the wall time it was catching up on?
+			// Keep a 3ms buffer. A step that was making up for a stall is exempt:
+			// it was handed a pile of work on purpose and being slow is the point.
+			lastLogicTime = logicTime;
+			const bool late = (logicTime > lastTime + 3) && !catchingUp;
+			lateSteps = late ? lateSteps + 1 : 0;
+			catchingUp = false;
+			// Only call it an overload once the core has been late repeatedly.
+			// A single slow step is noise, and the old check fired on the first
+			// one, which is why waking a sleeping laptop raised an alert.
+			if (lateSteps >= kLateStepsBeforePanic) {
+				panic = true;
+				lateSteps = 0;
+			}
 			// Now we can send the waiting messages
 			for (unsigned int i = 0; i < messageQueue.size(); i++) sendMessageToCore(messageQueue[i]);
 			messageQueue.clear();
