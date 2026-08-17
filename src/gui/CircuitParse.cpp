@@ -113,6 +113,11 @@ static void showMigrationNotices(const std::vector<cl::MigrationNotice> &notices
 	             wxOK | (anyWarning ? wxICON_EXCLAMATION : wxICON_INFORMATION));
 }
 
+// The application version written into a v2 export: the last release whose Save
+// default was v2, so the file names the format it is in rather than the build
+// that produced it.
+static const char *LAST_V2_VERSION_STRING = "2.4.3";
+
 // Pull the <version> value out of a legacy document (if present) for the
 // newer-major-version guard. Returns "" when there is no version tag.
 static string extractVersion(const string &text) {
@@ -476,8 +481,12 @@ bool CircuitParse::saveCircuit(string filename, vector< GUICanvas* > glc, unsign
 
 	mParse = new XMLParser(ossCircuit);
 
+	// The tag records the format's lineage, not which binary wrote the file, and
+	// readers compare only its major component. Writing our own version here
+	// made the export useless: every CedarLogic 2.x refuses a file claiming 3.x,
+	// and 1.x never reads this far -- it stops at the decoy above.
 	mParse->openTag("version");
-	mParse->writeTag("version", VERSION_NUMBER_STRING());
+	mParse->writeTag("version", LAST_V2_VERSION_STRING);
 	mParse->closeTag("version");
 
 	mParse->openTag("circuit");
