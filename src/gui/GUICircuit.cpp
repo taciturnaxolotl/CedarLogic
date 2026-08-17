@@ -58,12 +58,23 @@ void GUICircuit::reInitializeLogicCircuit() {
 }
 
 guiGate* GUICircuit::createGate(string gateName, long id, bool noOscope) {
-	string libName = gateLibrary().gateNameToLibrary[gateName];
-	
+	// Look the name up without inserting it. operator[] on these maps used to add
+	// an entry for every unknown gate a file named, so after one bad file the app
+	// treated that name as a real, empty gate type for the rest of the session.
+	string libName;
+	LibraryGate gateDef;
+	auto owner = gateLibrary().gateNameToLibrary.find(gateName);
+	if (owner != gateLibrary().gateNameToLibrary.end()) {
+		libName = owner->second;
+		auto lib = gateLibrary().libraries.find(libName);
+		if (lib != gateLibrary().libraries.end()) {
+			auto def = lib->second.find(gateName);
+			if (def != lib->second.end()) gateDef = def->second;
+		}
+	}
+
 	if (id == -1) id = getNextAvailableGateID();
 	guiGate* newGate = NULL;
-	LibraryGate gateDef = gateLibrary().libraries[libName][gateName];
-	//gateLibrary().libraries[libName].getGate(gateName, gateDef);
 	
 
 	string ggt = gateDef.guiType;
