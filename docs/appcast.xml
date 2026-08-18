@@ -7,31 +7,33 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 3.0.1</title>
-      <pubDate>Sat, 15 Aug 2026 12:17:41 +0000</pubDate>
-      <sparkle:version>3.0.1</sparkle:version>
-      <sparkle:shortVersionString>3.0.1</sparkle:shortVersionString>
+      <title>Version 3.0.2</title>
+      <pubDate>Tue, 18 Aug 2026 03:57:50 +0000</pubDate>
+      <sparkle:version>3.0.2</sparkle:version>
+      <sparkle:shortVersionString>3.0.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<p>Minor patch release fixing some bugs with the autosave and recovery system</p>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.0.0...v3.0.1</p>]]></description>
+      <description><![CDATA[<p>Fixed a bunch of small bugs and published a proper specification for the `.cdl` format. Also windows embed the app icon in the exe properly now! v2.x export was fixed as well from exporting the wrong generation version which would cause CedarLogic v2.x to panic on the major version bump.</p>
+<p>With the release of the `.cdl` specification multiple small parser bugs were discovered and patched as well.</p>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.0.1...v3.0.2</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.0.1/CedarLogic-3.0.1-Darwin.dmg"
-        sparkle:edSignature="w6rjHngijO6zAs6Fyo/MDwvSEsvKP48nkldnHjHqzwECu8pqYN8xhaWcRNULF7KdUXk0I+seRU322BFRiEeKAQ=="
-        length="14278024"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.0.2/CedarLogic-3.0.2-Darwin.dmg"
+        sparkle:edSignature="n2g/mq5UUucbd9KzwxtwWh/0SlOVPc2tOuXAyVw2HS0fHQpVVPSS4iZVY7+N8PwMU5vSviN/kR5NUJm8YKdNCg=="
+        length="14301502"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 3.0.1</title>
-      <pubDate>Sat, 15 Aug 2026 12:17:41 +0000</pubDate>
-      <sparkle:version>3.0.1</sparkle:version>
-      <sparkle:shortVersionString>3.0.1</sparkle:shortVersionString>
-      <description><![CDATA[<p>Minor patch release fixing some bugs with the autosave and recovery system</p>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.0.0...v3.0.1</p>]]></description>
+      <title>Version 3.0.2</title>
+      <pubDate>Tue, 18 Aug 2026 03:57:50 +0000</pubDate>
+      <sparkle:version>3.0.2</sparkle:version>
+      <sparkle:shortVersionString>3.0.2</sparkle:shortVersionString>
+      <description><![CDATA[<p>Fixed a bunch of small bugs and published a proper specification for the `.cdl` format. Also windows embed the app icon in the exe properly now! v2.x export was fixed as well from exporting the wrong generation version which would cause CedarLogic v2.x to panic on the major version bump.</p>
+<p>With the release of the `.cdl` specification multiple small parser bugs were discovered and patched as well.</p>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.0.1...v3.0.2</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.0.1/CedarLogic-3.0.1-win32.exe"
-        length="14572513"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.0.2/CedarLogic-3.0.2-win32.exe"
+        length="14589716"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
