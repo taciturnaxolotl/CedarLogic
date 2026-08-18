@@ -174,6 +174,8 @@ tasks:
         vars:
           VERSION_NUMBER: '{{trimPrefix "v" .NEXT}}'
       - 'git commit -am "chore(release): {{.NEXT}}"'
-      - git tag --annotate -m "{{.NEXT}}" {{.NEXT}}
+      # --sign, not just --annotate: commit.gpgsign does not cover tags, so
+      # without it the release tag lands on GitHub unverified next to signed commits.
+      - git tag --sign -m "{{.NEXT}}" {{.NEXT}}
       - echo "Pushing {{.NEXT}}..."
       - git push origin master --follow-tags
