@@ -32,6 +32,7 @@
 #include "guiWire.h"
 #include "GUICircuit.h"
 #include "GUICanvas.h"
+#include "command/cmdSetParams.h"
 #include <algorithm>
 #include <map>
 #include <set>
@@ -348,6 +349,18 @@ void CircuitParse::parseGateToSend(string type, string ID, string position, vect
 	guiGate* newGate = gCanvas->getCircuit()->createGate( type, id, true );
 	if (newGate == NULL) return; // IN CASE OF ERROR
 	gCanvas->insertGate(id, newGate, x, y);
+
+	// Push the library's logic_params into the core first, the way cmdCreateGate
+	// does when a gate is placed by hand. createGate only records them on the GUI
+	// gate; without this the core keeps its constructor defaults for anything the
+	// file doesn't happen to name. That is how a loaded D flip-flop came up with
+	// synchronous set/clear: Gate_REGISTER defaults SYNC_SET/SYNC_CLEAR to true,
+	// and only the library says otherwise. The file's own params follow below and
+	// still win.
+	cmdSetParams libparams(gCanvas->getCircuit(), id,
+		paramSet(newGate->getAllGUIParams(), newGate->getAllLogicParams()), true);
+	libparams.Do();
+
 	for (unsigned int i = 0; i < params.size(); i++) {
 		if (!(params[i].isGUI)) {
 			newGate->setLogicParam( params[i].paramName, params[i].paramValue );

@@ -751,6 +751,56 @@ TEST_CASE("JKFF synchronous set waits for a clock edge") {
 	CHECK(c.getWireState(wQ) == ONE);    // edge applies the sync set
 }
 
+TEST_CASE("A REGISTER wired as a D flip-flop presets and resets asynchronously") {
+	// The library's D flip-flops (AE_DFF_LOW and friends) are a 1-bit REGISTER
+	// with these five params. SYNC_LOAD stays true -- D is captured on the edge --
+	// while set and clear are asynchronous, and the two settings must not be read
+	// off each other: folding them together is what made preset/reset wait for a
+	// clock edge once (issue #34).
+	Circuit c;
+	IDType ff = c.newGate("REGISTER");
+	c.setGateParameter(ff, "INPUT_BITS", "1");
+	c.setGateParameter(ff, "NO_HOLD", "true");
+	c.setGateParameter(ff, "SYNC_LOAD", "true");
+	c.setGateParameter(ff, "SYNC_SET", "false");
+	c.setGateParameter(ff, "SYNC_CLEAR", "false");
+
+	IDType dD = makeDriver(c, 0), dClk = makeDriver(c, 0);
+	IDType dSet = makeDriver(c, 0), dClear = makeDriver(c, 0);
+	IDType wD = c.newWire(), wClk = c.newWire(), wSet = c.newWire(),
+	       wClear = c.newWire(), wQ = c.newWire();
+	c.connectGateOutput(dD, "OUT_0", wD);         c.connectGateInput(ff, "IN_0", wD);
+	c.connectGateOutput(dClk, "OUT_0", wClk);     c.connectGateInput(ff, "clock", wClk);
+	c.connectGateOutput(dSet, "OUT_0", wSet);     c.connectGateInput(ff, "set", wSet);
+	c.connectGateOutput(dClear, "OUT_0", wClear); c.connectGateInput(ff, "clear", wClear);
+	c.connectGateOutput(ff, "OUT_0", wQ);
+
+	stepN(c, 5);
+	REQUIRE(c.getWireState(wQ) == ZERO);
+
+	// Preset with the clock parked low: Q goes high with no edge in sight.
+	c.setGateParameter(dSet, "OUTPUT_NUM", "1");
+	stepN(c, 5);
+	CHECK(c.getWireState(wQ) == ONE);
+	c.setGateParameter(dSet, "OUTPUT_NUM", "0");
+	stepN(c, 5);
+	CHECK(c.getWireState(wQ) == ONE); // releasing preset leaves Q where it was
+
+	// Reset, likewise with no clock edge.
+	c.setGateParameter(dClear, "OUTPUT_NUM", "1");
+	stepN(c, 5);
+	CHECK(c.getWireState(wQ) == ZERO);
+	c.setGateParameter(dClear, "OUTPUT_NUM", "0");
+	stepN(c, 5);
+
+	// D is still synchronous: it only reaches Q on the rising edge.
+	c.setGateParameter(dD, "OUTPUT_NUM", "1");
+	stepN(c, 5);
+	CHECK(c.getWireState(wQ) == ZERO);
+	pulseClock(c, dClk);
+	CHECK(c.getWireState(wQ) == ONE);
+}
+
 TEST_CASE("System time advances one unit per step") {
 	Circuit c;
 	CHECK(c.getSystemTime() == 0);
