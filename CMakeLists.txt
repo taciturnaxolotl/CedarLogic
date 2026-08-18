@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.11)
 
 # Name project, and set version. If updating version, change it here, and then re-generate your Visual
 # Studio solution.
-project(CedarLogic VERSION 3.0.1)
+project(CedarLogic VERSION 3.0.2)
 
 # The Windows build ships 32-bit and the Skia dist is built target_cpu="x86". A
 # 64-bit configure succeeds and only fails at link, with a wall of unresolved
