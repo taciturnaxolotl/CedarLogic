@@ -13,3 +13,7 @@ To build the source code yourself, [clone the repo](https://docs.github.com/en/r
 and read the [Building](./docs/Building.md) instructions.
 
 Building doc also includes a few notes for development.
+
+## File format
+
+[CDL-Format](./docs/CDL-Format.md) defines the specification for the `.cdl` file
