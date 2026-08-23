@@ -844,6 +844,20 @@ void MainFrame::loadCircuitFile( string fileName, bool asCopy ){
 
 	removeTempFile();
 
+	// Frame the circuit the way Space does, once the notebook has laid the pages
+	// out -- setZoomAll fits to the client size, and right after a load that size
+	// is still whatever the pages were created with.
+	if (!renderMode().headlessRender) {
+		CallAfter([this]() {
+			for (unsigned int i = 0; i < canvases.size(); i++) {
+				if (canvases[i]->GetClientSize().GetWidth() <= 0) continue;
+				canvases[i]->setZoomAll();
+			}
+			if (currentCanvas != NULL) currentCanvas->Update();
+			Refresh();
+		});
+	}
+
 	// Offer to migrate an older file to the latest format up front. Declining
 	// leaves it undecided, so the same choice is offered again when they save.
 	// A recovery snapshot is always current-format, so this never fires for one.
