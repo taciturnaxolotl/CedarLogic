@@ -12,8 +12,7 @@
 #include "SimBridge.h"
 #include "GateLibrary.h"
 #include "MainApp.h"
-#include "GUICanvas.h"
-#include "OscopeFrame.h"
+#include "guiGate.h"
 #include "guiWire.h"
 
 DECLARE_APP(MainApp)
@@ -137,7 +136,7 @@ guiGate* GUICircuit::createGate(string gateName, long id, bool noOscope) {
 	
 	// Update the OScope with the new info:
 	if(ggt == "TO" && !noOscope) {
-		myOscope->UpdateMenu();
+		if (observer) observer->oscopeSignalsChanged();
 	}
 	
 	return newGate;
@@ -171,7 +170,7 @@ void GUICircuit::deleteGate(unsigned long gid, bool waitToUpdate) {
 	//Call Update Oscope
 	if(updateMenu)
 	{
-		myOscope->UpdateMenu();
+		if (observer) observer->oscopeSignalsChanged();
 	}		
 }
 
@@ -273,12 +272,12 @@ void GUICircuit::parseMessage(klsMessage::Message message) {
 			messageQueue.clear();
 			// Sync wire states and always refresh
 			syncWireStates();
-			gCanvas->Refresh();
+			if (observer) observer->circuitRedrawNeeded();
 			break;
 		}
 		case klsMessage::MT_COMPLETE_INTERIM_STEP: {// COMPLETE INTERIM STEP - UPDATE OSCOPE
 			syncWireStates();
-			myOscope->UpdateData();
+			if (observer) observer->oscopeDataAdded();
 			break;
 		}
 		default:

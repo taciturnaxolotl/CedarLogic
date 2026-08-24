@@ -31,6 +31,7 @@
 //#include "OscopeFrame.h"
 class OscopeFrame;
 #include "klsMiniMap.h"
+#include "CircuitObserver.h"
 #include <thread>
 #include <atomic>
 
@@ -68,7 +69,10 @@ enum
 	ID_SIM_PUMP
 };
 
-class MainFrame : public wxFrame {
+// MainFrame is the desktop's CircuitObserver: it owns both the canvas and the
+// oscilloscope, so it is the natural place to turn the circuit's notifications
+// back into wx calls.
+class MainFrame : public wxFrame, public CircuitObserver {
 public:
     // ctor(s)
     MainFrame(const wxString& title, string cmdFilename = "");
@@ -87,6 +91,11 @@ public:
 	void OnExportLegacy(wxCommandEvent& event);
 	void OnExportV2(wxCommandEvent& event);
 	void OnCopyToClipboard(wxCommandEvent& event);
+	// CircuitObserver -- the circuit's notifications, turned back into wx calls.
+	void circuitRedrawNeeded() override;
+	void oscopeDataAdded() override;
+	void oscopeSignalsChanged() override;
+
 	void OnTimer(wxTimerEvent& event);
 	void OnIdle(wxTimerEvent& event);
 	void OnAutosaveTimer(wxTimerEvent& event);

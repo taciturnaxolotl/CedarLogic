@@ -471,6 +471,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	oscopePanel = new OscopeFrame(rightSplitter, gCircuit);
 	oscopePanel->Hide();
 	gCircuit->setOscope(oscopePanel);
+	gCircuit->setObserver(this);
 	
 	toolBar->Realize();
 
@@ -1010,6 +1011,18 @@ void MainFrame::OnSimPump(wxThreadEvent& WXUNUSED(event)) {
 	simPumpPending = false;
 	if (simTimer && simTimer->IsRunning())   stepSimulation();
 	if (idleTimer && idleTimer->IsRunning()) drainLogicMessages();
+}
+
+void MainFrame::circuitRedrawNeeded() {
+	if (currentCanvas != NULL) currentCanvas->Refresh();
+}
+
+void MainFrame::oscopeDataAdded() {
+	if (oscopePanel != NULL) oscopePanel->UpdateData();
+}
+
+void MainFrame::oscopeSignalsChanged() {
+	if (oscopePanel != NULL) oscopePanel->UpdateMenu();
 }
 
 void MainFrame::OnTimer(wxTimerEvent& event) { stepSimulation(); }

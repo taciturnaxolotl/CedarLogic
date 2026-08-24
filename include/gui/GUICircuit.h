@@ -20,6 +20,7 @@
 #include <memory>
 #include <unordered_map>
 #include "wx/docview.h"
+#include "CircuitObserver.h"
 #include "gl_wrapper.h"
 #include "klsMessage.h"
 #include "logic_values.h"
@@ -121,6 +122,10 @@ public:
 	
 	OscopeFrame* getOscope() { return myOscope; };
 	void setOscope(OscopeFrame* of) { myOscope = of; };
+
+	// The shell listening for redraw/oscope notifications. Null means nobody is
+	// watching, which is a perfectly good state (headless render, tests).
+	void setObserver(CircuitObserver* o) { observer = o; };
 	
 	void setCurrentCanvas(GUICanvas* gc) { gCanvas = gc; };
 	GUICanvas* getCurrentCanvas() { return gCanvas; };
@@ -154,6 +159,7 @@ private:
 	unsigned long nextWireID;
 	
 	OscopeFrame* myOscope;
+	CircuitObserver* observer = nullptr;
 	GUICanvas* gCanvas;
 
 	bool   m_init;
