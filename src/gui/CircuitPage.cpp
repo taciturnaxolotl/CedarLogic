@@ -248,4 +248,11 @@ void CircuitPage::clearPage() {
 	collisionChecker.clear();
 	gateList.clear();
 	wireList.clear();
+
+	// Clearing the checker drops the page's own proxies along with the circuit,
+	// so put them back. Without this a freshly cleared page cannot be clicked
+	// on at all: the pointer and the rubber-band box are how hit testing and
+	// drag-select reach the index.
+	collisionChecker.addObject(mouse);
+	collisionChecker.addObject(dragselectbox);
 }

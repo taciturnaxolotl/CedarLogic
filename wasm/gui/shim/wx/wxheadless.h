@@ -14,6 +14,7 @@
 #include <string>
 #include <sstream>
 #include <cstdint>
+#include <vector>
 
 // ---------------------------------------------------------------- macros ---
 
@@ -174,22 +175,87 @@ private:
 	wxString fName;
 };
 
+// A working undo stack, not a stub. CedarLogic's commands already know how to
+// undo themselves -- that is what klsCommand is -- so the browser gets undo and
+// redo from the same objects the desktop uses, and needs only somewhere to keep
+// them.
 class wxCommandProcessor {
 public:
-	virtual ~wxCommandProcessor() {}
-	virtual bool Submit(wxCommand *cmd, bool = true) {
-		return cmd && cmd->Do();
+	virtual ~wxCommandProcessor() { ClearCommands(); }
+
+	virtual bool Submit(wxCommand *cmd, bool storeIt = true) {
+		if (!cmd) return false;
+		if (!cmd->Do()) { delete cmd; return false; }
+		if (!storeIt || !cmd->CanUndo()) { delete cmd; return true; }
+
+		fUndo.push_back(cmd);
+		// A new edit makes the redo branch unreachable.
+		for (wxCommand *c : fRedo) delete c;
+		fRedo.clear();
+		return true;
 	}
+
+	virtual bool Undo() {
+		if (fUndo.empty()) return false;
+		wxCommand *cmd = fUndo.back();
+		if (!cmd->Undo()) return false;
+		fUndo.pop_back();
+		fRedo.push_back(cmd);
+		return true;
+	}
+
+	virtual bool Redo() {
+		if (fRedo.empty()) return false;
+		wxCommand *cmd = fRedo.back();
+		if (!cmd->Do()) return false;
+		fRedo.pop_back();
+		fUndo.push_back(cmd);
+		return true;
+	}
+
+	bool CanUndo() const { return !fUndo.empty(); }
+	bool CanRedo() const { return !fRedo.empty(); }
+
+	wxString GetUndoMenuLabel() const {
+		return fUndo.empty() ? wxString() : fUndo.back()->GetName();
+	}
+	wxString GetRedoMenuLabel() const {
+		return fRedo.empty() ? wxString() : fRedo.back()->GetName();
+	}
+
+	void ClearCommands() {
+		for (wxCommand *c : fUndo) delete c;
+		for (wxCommand *c : fRedo) delete c;
+		fUndo.clear();
+		fRedo.clear();
+	}
+
+	void Initialize() {}
+	void SetEditMenu(void *) {}
+
+private:
+	std::vector<wxCommand *> fUndo;
+	std::vector<wxCommand *> fRedo;
 };
 
 class wxDocument {
 public:
-	virtual ~wxDocument() {}
+	virtual ~wxDocument() { delete fCommands; }
+
+	wxCommandProcessor *GetCommandProcessor() const {
+		if (!fCommands) fCommands = new wxCommandProcessor();
+		return fCommands;
+	}
+	void SetCommandProcessor(wxCommandProcessor *cp) {
+		if (fCommands != cp) delete fCommands;
+		fCommands = cp;
+	}
 	virtual bool OnNewDocument() { return true; }
 	void Modify(bool m) { fModified = m; }
 	bool IsModified() const { return fModified; }
 private:
 	bool fModified = false;
+	mutable wxCommandProcessor *fCommands = nullptr;
 };
 
 // ------------------------------------------------------------- gui shell ---
@@ -250,6 +316,24 @@ public:
 };
 
 class wxHtmlHelpController : public wxHelpController {};
+
+// -------------------------------------------------- live modifier state ---
+
+// wxGetKeyState polls the keyboard. A browser cannot: modifiers arrive with
+// events and nowhere else. So the shell records what it last saw here, and the
+// one caller that polls (the clipboard's paste-counter suppression) reads it.
+#define WXK_SHIFT 306
+
+namespace cedar_shim {
+inline bool &shiftHeld() {
+	static bool held = false;
+	return held;
+}
+}  // namespace cedar_shim
+
+inline bool wxGetKeyState(int key) {
+	return key == WXK_SHIFT && cedar_shim::shiftHeld();
+}
 
 // ------------------------------------------------------------- messages ---
 

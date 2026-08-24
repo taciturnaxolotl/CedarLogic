@@ -98,6 +98,7 @@ public:
 
 	// Where a drag with this button began, and whether one is under way.
 	virtual GLPoint2f dragStart(input::Button button) const = 0;
+	virtual GLPoint2f dragEnd(input::Button button) const = 0;
 	virtual bool isDragging(input::Button button) const = 0;
 	virtual void beginDrag(input::Button button) = 0;
 	virtual void endDrag(input::Button button) = 0;

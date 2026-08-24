@@ -43,7 +43,9 @@ add_definitions(-D_PRODUCTION_)
 set(CORE_SRC
 	"${REPO}/src/gui/CanvasCamera.cpp"
 	"${REPO}/src/gui/CircuitPage.cpp"
+	"${REPO}/src/gui/CircuitPageInput.cpp"
 	"${REPO}/src/gui/CircuitParse.cpp"
+	"${REPO}/src/gui/klsClipboard.cpp"
 	"${REPO}/src/gui/GUICircuit.cpp"
 	"${REPO}/src/gui/guiGate.cpp"
 	"${REPO}/src/gui/guiWire.cpp"
@@ -56,6 +58,7 @@ set(CORE_SRC
 	"${REPO}/src/gui/Settings.cpp"
 	"${REPO}/src/gui/SimBridge.cpp"
 	"${REPO}/src/gui/route/TrunkRouter.cpp"
+	"${REPO}/src/gui/PaletteDrag.cpp"
 	"${REPO}/src/gui/RenderMode.cpp"
 	"${REPO}/src/version.cpp"
 )

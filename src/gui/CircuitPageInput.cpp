@@ -37,14 +37,8 @@ void CircuitPage::clearCircuit() {
 	preMove.clear();
 	preMoveWire.clear();
 
-	CircuitPage::clearPage();
+	clearPage();
 
-	// Add mouse object to collision checker
-	collisionChecker.addObject( mouse );
-	
-	// Add drag selection box to collision checker
-	collisionChecker.addObject( dragselectbox );
-	
 	hotspotHighlight = "";
 	potentialConnectionHotspots.clear();
 	drawWireHover = false;
@@ -133,6 +127,15 @@ void CircuitPage::drawOverlaysInto(cl::render::Scene& scene) {
 					               Color(0.4f, 0.1f, 0.0f, 0.3f));
 			}
 		}
+	}
+}
+
+// A press routes by button; the two halves diverge immediately.
+void CircuitPage::OnMouseDown(const input::PointerEvent& event) {
+	if (event.button == input::Button::Left) {
+		mouseLeftDown(event);
+	} else if (event.button == input::Button::Right) {
+		mouseRightDown(event);
 	}
 }
 

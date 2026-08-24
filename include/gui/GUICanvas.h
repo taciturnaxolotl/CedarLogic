@@ -77,6 +77,9 @@ public:
 	GLPoint2f dragStart(input::Button b) const override {
 		return const_cast<GUICanvas *>(this)->getDragStartCoords(toMouseButton(b));
 	}
+	GLPoint2f dragEnd(input::Button b) const override {
+		return const_cast<GUICanvas *>(this)->getDragEndCoords(toMouseButton(b));
+	}
 	bool isDragging(input::Button b) const override {
 		return const_cast<GUICanvas *>(this)->klsGLCanvas::isDragging(toMouseButton(b));
 	}
