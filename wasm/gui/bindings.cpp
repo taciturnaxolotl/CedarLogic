@@ -100,10 +100,12 @@ public:
 
 	// --- CircuitObserver ---------------------------------------------------
 
-	// The circuit says "repaint" when wire states change. Without this the page
-	// only redrew when something else happened to dirty it -- so a running
-	// circuit sat still until the pointer moved over the canvas.
-	void circuitRedrawNeeded() override { fDirty = true; }
+	// The circuit asks for a repaint after every step, whether or not anything
+	// it drew actually changed -- so this is recorded separately from an edit or
+	// a camera move. isDirty() settles it by comparing the content signature,
+	// which is what stops an idle circuit from re-recording and re-drawing sixty
+	// times a second for nothing.
+	void circuitRedrawNeeded() override { fSimDirty = true; }
 
 	// No oscilloscope in the shell yet; a running circuit still generates
 	// samples, and this is where they will land.
@@ -291,8 +293,24 @@ public:
 	double worldX(int px, int py) const { return fCamera.mapToWorld(px, py).x; }
 	double worldY(int px, int py) const { return fCamera.mapToWorld(px, py).y; }
 
-	// Whether anything has changed since the last render.
-	bool isDirty() const { return fDirty; }
+	// Whether the next frame would look different from the last one.
+	//
+	// An edit, a camera move, or anything touching the interactive overlays
+	// answers yes outright: the overlays are drawn live and are not part of the
+	// content signature. A simulation step only counts if it actually changed
+	// something a viewer could see, which renderContentKey() answers by folding
+	// every gate's and wire's appearance into one number -- the same signature
+	// the desktop keys its retained picture on.
+	bool isDirty() {
+		if (fDirty) return true;
+		if (!fSimDirty) return false;
+
+		if (renderContentKey() == fLastContentKey) {
+			fSimDirty = false;
+			return false;
+		}
+		return true;
+	}
 
 	// Every gate type the library knows, so the shell can build a palette
 	// without a second copy of the gate list.
@@ -471,7 +489,9 @@ public:
 		cl::render::RenderStyle style = cl::render::RenderStyle::screen();
 		renderLiveToScene(fScene, style, fCamera, contentScale);
 		drawOverlaysInto(fScene);
+		fLastContentKey = renderContentKey();
 		fDirty = false;
+		fSimDirty = false;
 	}
 
 	// The page background the current style asks for, as a CSS colour. The shell
@@ -504,6 +524,10 @@ private:
 	int fViewW = 0;
 	int fViewH = 0;
 	bool fDirty = true;
+	// A simulation step asked for a repaint; whether it earns one depends on
+	// whether the content signature moved.
+	bool fSimDirty = false;
+	unsigned long long fLastContentKey = 0;
 
 	// The logic core, run inline rather than on a thread.
 	threadLogic* fLogic = nullptr;

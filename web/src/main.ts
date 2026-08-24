@@ -7,7 +7,7 @@
 
 import { loadEngine, toArray, type Document, type EngineModule } from "./engine.ts";
 import { replay } from "./scene.ts";
-import { WheelAccumulator } from "./wheel.ts";
+import { WheelReader } from "./wheel.ts";
 
 const $ = <T extends HTMLElement>(sel: string): T =>
   document.querySelector<T>(sel) ?? (() => { throw new Error(`missing ${sel}`); })();
@@ -36,6 +36,7 @@ function startFrameLoop(module: EngineModule, doc: Document): void {
   let lastW = -1;
   let lastH = -1;
   let lastFrameTime = performance.now();
+  let drawMs = 0;
 
   const frame = (): void => {
     const now = performance.now();
@@ -62,6 +63,7 @@ function startFrameLoop(module: EngineModule, doc: Document): void {
     }
 
     if (doc.isDirty() && width > 0 && height > 0) {
+      const drawStart = performance.now();
       doc.render(ratio);
 
       const cmds = new Float32Array(module.HEAPF32.buffer, doc.sceneData(), doc.sceneLength());
@@ -73,7 +75,10 @@ function startFrameLoop(module: EngineModule, doc: Document): void {
       // replayer must not scale it again.
       replay(ctx, cmds, strings, { pixelRatio: 1, font: "ui-monospace, monospace" });
 
-      updateReadout(doc);
+      // A rolling average of the frames that actually drew, so the readout
+      // reports the cost of a redraw rather than the idle gaps between them.
+      drawMs = drawMs * 0.9 + (performance.now() - drawStart) * 0.1;
+      updateReadout(doc, drawMs);
     }
 
     requestAnimationFrame(frame);
@@ -115,7 +120,7 @@ function bindSimulation(doc: Document): void {
   sync();
 }
 
-function updateReadout(doc: Document): void {
+function updateReadout(doc: Document, drawMs: number): void {
   const zoom = doc.getZoom();
   // Zoom is world units per pixel, so a smaller number is closer in. Show the
   // reciprocal, which is what a person means by "200%".
@@ -124,7 +129,8 @@ function updateReadout(doc: Document): void {
   readoutEl.textContent =
     `${doc.gateCount()} gates · ${doc.wireCount()} wires` +
     (selected > 0 ? ` · ${selected} selected` : "") +
-    ` · ${percent}%`;
+    ` · ${percent}%` +
+    (drawMs >= 0.05 ? ` · ${drawMs.toFixed(1)}ms` : "");
 }
 
 // ─── camera ──────────────────────────────────────────────────────────────────
@@ -148,7 +154,7 @@ function bindInput(doc: Document): void {
   // The one deviation is Ctrl. The desktop pans vertically with it, but a
   // browser reports a trackpad pinch as a Ctrl-held wheel event and there is no
   // way to tell the two apart -- so Ctrl zooms here, and pinch works.
-  const wheelLines = new WheelAccumulator();
+  const wheel = new WheelReader();
 
   canvas.addEventListener(
     "wheel",
@@ -156,7 +162,7 @@ function bindInput(doc: Document): void {
       e.preventDefault();
       const [px, py] = at(e);
 
-      const lines = wheelLines.take(e);
+      const lines = wheel.take(e);
       if (lines.x === 0 && lines.y === 0) return;
 
       if (e.metaKey) {

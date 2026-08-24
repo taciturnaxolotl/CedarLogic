@@ -1,0 +1,68 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>replay bench</title>
+<style>body{font:13px ui-monospace,monospace;margin:1rem}canvas{border:1px solid #ccc}</style>
+<pre id="out">running…</pre>
+<canvas id="c" width="1000" height="800"></canvas>
+<script type="module">
+// A development page, not part of the app: it reads the format fixtures through
+// Vite's /@fs/ escape hatch, so it only works against this checkout on a dev
+// server. It exists so "feels slow" can be answered with a number, and so a
+// change to scene.ts can be measured before and after rather than eyeballed.
+//
+// A bare page, so the measurement is the replay and not the shell around it.
+const log = (s) => (document.querySelector("#out").textContent += "\n" + s);
+document.querySelector("#out").textContent = "loading engine…";
+
+const { default: factory } = await import("/engine/cedarlogic-gui.js");
+const M = await factory();
+const { replay } = await import("/src/scene.ts");
+
+const doc = new M.Document();
+doc.setViewportSize(1000, 800);
+
+for (const name of ["Lab5", "lab6"]) {
+  const text = await (await fetch(`/@fs/Users/kierank/code/github/cedarlogic/format/tests/fixtures/${name}.cdl`)).text();
+  const t0 = performance.now();
+  doc.loadCircuit(text);
+  const loadMs = performance.now() - t0;
+  doc.zoomAll();
+
+  const ctx = document.querySelector("#c").getContext("2d");
+  const strings = [];
+  const once = () => {
+    doc.render(1);
+    const cmds = new Float32Array(M.HEAPF32.buffer, doc.sceneData(), doc.sceneLength());
+    const sv = doc.sceneStrings();
+    strings.length = 0;
+    for (let i = 0; i < sv.size(); i++) strings.push(sv.get(i));
+    sv.delete();
+    ctx.fillStyle = doc.background();
+    ctx.fillRect(0, 0, 1000, 800);
+    replay(ctx, cmds, strings, { pixelRatio: 1, font: "ui-monospace, monospace" });
+    return cmds.length;
+  };
+
+  // Count the draw calls and path vertices the replay actually issues, so a
+  // slow frame can be attributed rather than guessed at.
+  let strokes = 0, fills = 0, verts = 0;
+  const proto = CanvasRenderingContext2D.prototype;
+  const wrap = (name, bump) => { const o = proto[name]; proto[name] = function (...a) { bump(); return o.apply(this, a); }; return () => (proto[name] = o); };
+  const undo = [
+    wrap("stroke", () => strokes++),
+    wrap("fill", () => fills++),
+    wrap("moveTo", () => verts++),
+    wrap("lineTo", () => verts++),
+  ];
+  const floats = once();
+  undo.forEach((u) => u());
+  log(`   draw calls: ${strokes} stroke + ${fills} fill · ${verts} vertices`);
+  for (let i = 0; i < 5; i++) once();
+  const t1 = performance.now();
+  const N = 30;
+  for (let i = 0; i < N; i++) once();
+  const frameMs = (performance.now() - t1) / N;
+  log(`${name}: load ${loadMs.toFixed(0)}ms · ${doc.gateCount()}g/${doc.wireCount()}w · ${floats} floats · record+replay ${frameMs.toFixed(2)}ms`);
+}
+log("done");
+</script>
