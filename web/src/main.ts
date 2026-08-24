@@ -7,7 +7,7 @@
 
 import { loadEngine, toArray, type Document, type EngineModule } from "./engine.ts";
 import { replay } from "./scene.ts";
-import { looksLikeTrackpad } from "./wheel.ts";
+import { WheelAccumulator } from "./wheel.ts";
 
 const $ = <T extends HTMLElement>(sel: string): T =>
   document.querySelector<T>(sel) ?? (() => { throw new Error(`missing ${sel}`); })();
@@ -137,62 +137,41 @@ function bindInput(doc: Document): void {
   const mods = (e: MouseEvent | KeyboardEvent): [boolean, boolean, boolean, boolean] =>
     [e.shiftKey, e.ctrlKey, e.altKey, e.metaKey];
 
-  // Wheel input is two devices wearing one event, and they want opposite
-  // things: a mouse wheel should zoom (as the desktop does), a trackpad's
-  // two-finger drag should pan (as every other canvas app does).
+  // The wheel, as klsGLCanvas::wxOnMouseWheel handles it. Rotation accumulates
+  // into whole lines (see wheel.ts), and then:
   //
-  // Which device the wheel events are coming from. Remembered rather than
-  // decided per event: see wheel.ts.
-  let isTrackpad = false;
-
-  // Zoom in whole steps, so a wheel notch is exactly one ZOOM_STEP and matches
-  // the desktop. A pinch arrives as a flurry of small deltas, so they
-  // accumulate and spend themselves a step at a time rather than jumping a full
-  // step per event.
-  let zoomAccumulator = 0;
-
-  const zoomBy = (amount: number, px: number, py: number): void => {
-    zoomAccumulator += amount;
-    const notches = Math.trunc(zoomAccumulator);
-    if (notches === 0) return;
-    zoomAccumulator -= notches;
-    doc.zoomAt(notches, px, py);
-  };
+  //   plain scroll   zoom one step about the cursor
+  //   Cmd            pan, in the direction of the scroll -- including a
+  //                  two-finger trackpad drag, which is how you translate
+  //   Shift          pan horizontally, for a mouse with only one wheel
+  //
+  // The one deviation is Ctrl. The desktop pans vertically with it, but a
+  // browser reports a trackpad pinch as a Ctrl-held wheel event and there is no
+  // way to tell the two apart -- so Ctrl zooms here, and pinch works.
+  const wheelLines = new WheelAccumulator();
 
   canvas.addEventListener(
     "wheel",
     (e) => {
       e.preventDefault();
       const [px, py] = at(e);
-      isTrackpad = looksLikeTrackpad(e, isTrackpad);
 
-      // A pinch arrives as a wheel event with ctrl held -- the browser's way of
-      // saying "the user means zoom", whatever the device. Cmd works too, so
-      // zooming does not depend on a gesture some trackpads make awkward.
-      // The divisor sets how much pinch travel makes one zoom step; a full
-      // comfortable pinch should be worth a few, not a fraction of one.
-      if (e.ctrlKey || e.metaKey) {
-        zoomBy(-e.deltaY / 20, px, py);
+      const lines = wheelLines.take(e);
+      if (lines.x === 0 && lines.y === 0) return;
+
+      if (e.metaKey) {
+        doc.scrollPan(lines.x, lines.y);
         return;
       }
-
-      if (isTrackpad) {
-        // One CSS pixel of finger travel is one pixel of world at any zoom, so
-        // the schematic tracks the fingers exactly.
-        const zoom = doc.getZoom();
-        doc.translatePan(e.deltaX * zoom, -e.deltaY * zoom);
-        return;
-      }
-
-      // Shift and a wheel pans sideways, the usual convention for a mouse with
-      // only one wheel.
       if (e.shiftKey) {
-        const zoom = doc.getZoom();
-        doc.translatePan(e.deltaY * zoom, 0);
+        // The desktop turns vertical rotation into horizontal pan here.
+        doc.scrollPan(lines.y, 0);
         return;
       }
 
-      zoomBy(e.deltaY < 0 ? 1 : -1, px, py);
+      // One step per event, however many lines arrived at once -- the desktop
+      // takes the sign and no more.
+      if (lines.y !== 0) doc.zoomAt(Math.sign(lines.y), px, py);
     },
     { passive: false },
   );
@@ -441,7 +420,7 @@ async function main(): Promise<void> {
 
   const types = toArray(doc.gateTypes());
   setStatus(`${types.length} gate types · open a .cdl or drop one here`);
-  hintEl.textContent = "two-finger drag or middle-drag pans · pinch or \u2318-scroll zooms · space fits · +/\u2212 zooms";
+  hintEl.textContent = "scroll zooms · \u2318-scroll or middle-drag pans · space fits · delete removes · r rotates";
 
   buildPalette(doc, types);
   // A handle for poking at the engine from the console. Harmless in production

@@ -1,37 +1,53 @@
-// Traces from real devices, so the classifier is judged on what browsers
-// actually report rather than on what the spec permits.
-import { looksLikeTrackpad } from "./wheel.ts";
+// The accumulator, against traces from real devices.
+import { WheelAccumulator, WHEEL_DELTA } from "./wheel.ts";
 import assert from "node:assert/strict";
 
-const run = (events) => events.reduce((verdict, e) =>
-  looksLikeTrackpad({ deltaX: 0, deltaMode: 0, ...e }, verdict), false);
-
-const cases = [
-  // The one that was broken: a straight two-finger drag has no horizontal
-  // component at all, and Chrome rounds its deltas to integers.
-  ["trackpad, straight down", [-2, -6, -11, -14, -12, -7, -3].map((deltaY) => ({ deltaY })), true],
-  ["trackpad, straight up", [3, 9, 15, 13, 6].map((deltaY) => ({ deltaY })), true],
-  ["trackpad, diagonal", [{ deltaY: -8, deltaX: 3 }, { deltaY: -11, deltaX: 5 }], true],
-  ["trackpad, fractional", [{ deltaY: -4.5 }, { deltaY: -9.25 }], true],
-  // A flick's later deltas get large; the verdict must survive them.
-  ["trackpad flick", [{ deltaY: -3 }, { deltaY: -20 }, { deltaY: -140 }, { deltaY: -95 }], true],
-
-  ["mouse, one notch", [{ deltaY: 120 }], false],
-  ["mouse, several notches", [{ deltaY: -120 }, { deltaY: -120 }, { deltaY: -240 }], false],
-  ["mouse, line mode", [{ deltaY: -3, deltaMode: 1 }], false],
-  ["mouse, page mode", [{ deltaY: -1, deltaMode: 2 }], false],
-
-  // Plugging a mouse in after using the trackpad must switch back.
-  ["trackpad then mouse", [{ deltaY: -6 }, { deltaY: -8 }, { deltaY: 120 }], false],
-  ["mouse then trackpad", [{ deltaY: 120 }, { deltaY: -6 }], true],
-];
+const feed = (events) => {
+  const acc = new WheelAccumulator();
+  let x = 0, y = 0;
+  for (const e of events) {
+    const lines = acc.take({ deltaX: 0, deltaY: 0, deltaMode: 0, ...e });
+    x += lines.x;
+    y += lines.y;
+  }
+  return { x, y };
+};
 
 let failed = 0;
-for (const [name, events, expected] of cases) {
-  const got = run(events);
-  const ok = got === expected;
+const check = (name, got, expected) => {
+  const ok = got.x === expected.x && got.y === expected.y;
   if (!ok) failed++;
-  console.log(`${ok ? "✓" : "✗"} ${name.padEnd(26)} -> ${got ? "trackpad" : "mouse"}${ok ? "" : `  EXPECTED ${expected ? "trackpad" : "mouse"}`}`);
-}
+  console.log(`${ok ? "✓" : "✗"} ${name.padEnd(38)} ${JSON.stringify(got)}${ok ? "" : `  EXPECTED ${JSON.stringify(expected)}`}`);
+};
+
+// One mouse notch is one line, and it zooms in (scrolling away is positive).
+check("mouse, one notch away", feed([{ deltaY: -WHEEL_DELTA }]), { x: 0, y: 1 });
+check("mouse, one notch toward", feed([{ deltaY: WHEEL_DELTA }]), { x: 0, y: -1 });
+check("mouse, three notches", feed([{ deltaY: -WHEEL_DELTA }, { deltaY: -WHEEL_DELTA }, { deltaY: -WHEEL_DELTA }]), { x: 0, y: 3 });
+
+// A trackpad's small deltas must build up rather than each counting as a step.
+// These seven sum to 55: not yet a line.
+check("trackpad, short drag (no line yet)", feed([-2, -6, -11, -14, -12, -7, -3].map((deltaY) => ({ deltaY }))), { x: 0, y: 0 });
+
+// Sustained dragging does reach whole lines, and only whole ones.
+const long = Array.from({ length: 30 }, () => ({ deltaY: -12 }));  // 360 total
+check("trackpad, long drag", feed(long), { x: 0, y: 3 });
+
+// Horizontal travel accumulates on its own axis.
+check("trackpad, sideways", feed(Array.from({ length: 20 }, () => ({ deltaX: -12 }))), { x: 2, y: 0 });
+
+// The remainder is kept, so two half-lines make one line rather than none.
+check("remainder carries across events", feed([{ deltaY: -70 }, { deltaY: -70 }]), { x: 0, y: 1 });
+
+// Reversing spends the pending remainder before it counts the other way, which
+// is what wx does: 70 forward then 140 back leaves -70, still short of a line.
+// Without this a jittery finger would step back and forth around a boundary.
+check("reversing cancels the remainder", feed([{ deltaY: -70 }, { deltaY: 140 }]), { x: 0, y: 0 });
+check("reversing far enough does step", feed([{ deltaY: -70 }, { deltaY: 260 }]), { x: 0, y: -1 });
+
+// Line mode: one reported line is one line.
+check("mouse, line mode", feed([{ deltaY: -1, deltaMode: 1 }]), { x: 0, y: 1 });
+check("mouse, page mode", feed([{ deltaY: -2, deltaMode: 2 }]), { x: 0, y: 2 });
+
 assert.equal(failed, 0, `${failed} case(s) failed`);
-console.log(`\n${cases.length} cases pass`);
+console.log("\nall cases pass");

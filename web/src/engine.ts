@@ -77,6 +77,8 @@ export interface Document {
   translatePan(dx: number, dy: number): void;
   /** Zoom by wheel notches about a CSS-pixel point, keeping it under the cursor. */
   zoomAt(notches: number, px: number, py: number): void;
+  /** Pan by whole scroll lines, using the desktop's PAN_STEP. */
+  scrollPan(linesX: number, linesY: number): void;
   /** Fit the whole circuit to the view. */
   zoomAll(): void;
   worldX(px: number, py: number): number;

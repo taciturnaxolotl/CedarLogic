@@ -263,6 +263,14 @@ public:
 		fCamera.zoomToMouse(notches, fCamera.mapToWorld(px, py));
 	}
 
+	// Pan by whole scroll lines, the way the desktop's wheel handler does: one
+	// line is PAN_STEP pixels' worth of world at the current zoom. The constant
+	// stays here rather than in the shell so the two cannot drift.
+	void scrollPan(int linesX, int linesY) {
+		const GLdouble amount = PAN_STEP * fCamera.getZoom();
+		fCamera.translatePan(amount * linesX, amount * linesY);
+	}
+
 	// Fit the whole circuit to the view, the way the desktop's spacebar does.
 	void zoomAll() {
 		klsBBox world;
@@ -572,6 +580,7 @@ EMSCRIPTEN_BINDINGS(cedarlogic_gui) {
 		.function("panY", &Document::panY)
 		.function("translatePan", &Document::translatePan)
 		.function("zoomAt", &Document::zoomAt)
+		.function("scrollPan", &Document::scrollPan)
 		.function("zoomAll", &Document::zoomAll)
 		.function("worldX", &Document::worldX)
 		.function("worldY", &Document::worldY)
