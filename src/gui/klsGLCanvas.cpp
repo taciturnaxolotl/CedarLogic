@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "klsGLCanvas.h"
+#include "klsMiniMap.h"
 #include <cstdlib>
 #include "Settings.h"
 #include "MainApp.h"

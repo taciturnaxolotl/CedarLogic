@@ -30,7 +30,7 @@ class guiWire;
 #include "klsMessage.h"
 #include "wx/docview.h"
 
-#include "RamPopupDialog.h"
+class RamPopupDialog;   // pointer member only; the dialog header pulls in wx
 
 using namespace std;
 
@@ -518,6 +518,13 @@ public:
 	//	processor object to assign the setparameters command to.  gc is
 	//	a GUICircuit pointer
 	virtual void doParamsDialog( void* gc, wxCommandProcessor* wxcmd );
+
+	// Tell an open memory viewer that cells changed -- `all` when the whole
+	// memory was replaced rather than a cell or two. The gate model must not
+	// know what kind of window is watching, so this is defined per target:
+	// src/gui/guiGateDialogs.cpp drives RamPopupDialog on the desktop, and
+	// wasm/gui/desktop_stubs.cpp leaves it to the browser shell.
+	void notifyMemoryChanged( bool all );
 	
 	//Destructor for cleaning up private vars
 	virtual ~guiGateRAM();

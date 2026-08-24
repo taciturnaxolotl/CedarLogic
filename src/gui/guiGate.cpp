@@ -16,7 +16,6 @@
 #include "wx/wx.h"
 #include "MainApp.h"
 #include "klsCollisionChecker.h"
-#include "paramDialog.h"
 #include "guiWire.h"
 #include "render/Scene.h"
 #include "render/RenderStyle.h"
@@ -613,20 +612,6 @@ void guiGate::saveGateLegacy(XMLParser* xparse) {
 	xparse->closeTag("gate");
 }
 
-void guiGate::doParamsDialog( void* gc, wxCommandProcessor* wxcmd ) {
-	if (gateLibrary().libraries[libName][libGateName].dlgParams.size() == 0) return;
-#ifdef __WXOSX__
-	paramDialog* myDialog = new paramDialog("Parameters", gc, this, wxcmd);
-	myDialog->Bind(wxEVT_WINDOW_MODAL_DIALOG_CLOSED, [myDialog](wxWindowModalDialogEvent&) {
-		myDialog->Destroy();
-	});
-	myDialog->ShowWindowModal();
-#else
-	paramDialog myDialog("Parameters", gc, this, wxcmd);
-	myDialog.SetFocus();
-	myDialog.ShowModal();
-#endif
-}
 
 // *********************** guiGateTOGGLE *************************
 
@@ -1243,22 +1228,8 @@ guiGateRAM::guiGateRAM(){
 	ramPopupDialog = NULL;
 }
 
-guiGateRAM::~guiGateRAM(){	
-	//Destroy is how you 'delete' wxwidget objects
-	if( ramPopupDialog != NULL ){
-		ramPopupDialog->Destroy();
-		ramPopupDialog = NULL;
-	}
-}
 
 
-void guiGateRAM::doParamsDialog( void* gc, wxCommandProcessor* wxcmd ){
-	if( ramPopupDialog == NULL ){
-		ramPopupDialog = new RamPopupDialog( this, addressBits, (GUICircuit*)gc );
-		ramPopupDialog->updateGridDisplay();
-	}
-	ramPopupDialog->Show( true );
-}
 
 //Saves the ram contents to the circuit file
 //when the circuit saves
@@ -1299,8 +1270,7 @@ void guiGateRAM::setLogicParam( string paramName, string value ){
 		unsigned long address = 0;
 		addressiss >> address;
 		lastRead = address;
-		if( ramPopupDialog != NULL )
-			ramPopupDialog->updateGridDisplay();
+		notifyMemoryChanged( false );
 	}else if( paramName.substr( 0, 8 ) == "Address:" ){
 		istringstream addressiss( paramName.substr( 8 ) );
 		unsigned long address = 0;
@@ -1309,13 +1279,11 @@ void guiGateRAM::setLogicParam( string paramName, string value ){
 		unsigned long data = 0;
 		dataiss >> data;
 		memory[ address ] = data;
-		if( ramPopupDialog != NULL )
-			ramPopupDialog->updateGridDisplay();
+		notifyMemoryChanged( false );
 		lastWritten = address;
 	}else if( paramName == "MemoryReset" ){
 		memory.clear();
-		if( ramPopupDialog != NULL )
-		    ramPopupDialog->notifyAllChanged();
+		notifyMemoryChanged( true );
 	}else if( paramName == "ADDRESS_BITS" ) {
 		istringstream dataiss( value );
 		dataiss >> addressBits;

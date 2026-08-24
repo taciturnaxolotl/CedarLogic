@@ -25,6 +25,11 @@ struct GLLine2f {
 	GLPoint2f end;
 };
 
+// Background grid appearance. Shared by every renderer that draws it: the
+// legacy GL canvas, CircuitPage's Scene path, and the oscope.
+#define GRID_INTENSITY 0.08
+#define MIN_GRID_SCREEN_SPACING 13
+
 #define WIRE_BBOX_THICKNESS 0.25
 #define DEG2RAD 0.0174533
 #define EQUALRANGE 0.00125

@@ -26,6 +26,8 @@ class cmdPasteBlock;
 
 #include "MainApp.h"
 #include "klsGLCanvas.h"
+#include "klsMiniMap.h"   // an inline setMinimap() below calls into it
+#include "CircuitPage.h"
 #include "GUICircuit.h"
 #include "klsCollisionChecker.h"
 #include "wireSegment.h"
@@ -98,8 +100,6 @@ struct ConnectionSource {
 // a few pixels while the button is down still selects rather than nudging.
 #define DRAG_START_TIME_MS 85
 
-#define GRID_INTENSITY 0.08
-#define MIN_GRID_SCREEN_SPACING 13
 
 #define ZOOM_ALL_MARGIN 0.25
 
@@ -119,7 +119,10 @@ namespace cl { namespace render { class Scene; struct RenderStyle; struct Transf
 // Class GUICanvas, inherits from klsGLCanvas for basic scroll/zoom/viewport functionality
 //		all event handling is passed to this subclass in GL coordinates.
 //		GUICanvas handles all gate and wire manipulation.
-class GUICanvas: public klsGLCanvas
+// The wx half is klsGLCanvas (window, input, GL context); the page half --
+// gate/wire lists and how they draw -- is CircuitPage, which carries no
+// toolkit so the browser build can render the same page.
+class GUICanvas: public klsGLCanvas, public CircuitPage
 {
 public:
     GUICanvas( wxWindow *parent, GUICircuit* gCircuit, wxWindowID id = wxID_ANY,
@@ -158,9 +161,9 @@ public:
 	// Rotates the currently selected gates, gates being pasted, or gate being placed by 90 degrees
 	void rotateSelection();
 
-    // Render the whole page into the engine-neutral Scene (Workstream G): fits
-    // the circuit to a device-sized viewport, draws the grid, then every gate
-    // and wire via their drawToScene(). Used by the headless Skia render path.
+    // These three forward to CircuitPage, supplying the grid spacing this canvas
+    // holds as a klsGLCanvas. drawCircuitInto and renderContentKey need nothing
+    // from the canvas and are inherited as-is.
     void renderToScene(cl::render::Scene& scene, const cl::render::RenderStyle& style,
                        int deviceW, int deviceH);
 
@@ -174,9 +177,7 @@ public:
                            float gMinX, float gMinY, float gMaxX, float gMaxY);
     void drawGridInto(cl::render::Scene& scene, const cl::render::RenderStyle& style,
                       float scale, float gMinX, float gMinY, float gMaxX, float gMaxY);
-    void drawCircuitInto(cl::render::Scene& scene, const cl::render::RenderStyle& style);
 #ifdef WITH_SKIA
-    unsigned long long renderContentKey();
     // Interactive overlays (hovered pin bulb, potential-connection bulbs, drag
     // boxes/lines, wire hover, collision boxes) drawn only in the live Skia path
     // -- not in renderToScene, which is shared with PNG/SVG export.
@@ -269,9 +270,8 @@ private:
 	// Pointer to the main application graphic circuit
 	GUICircuit* gCircuit;
 
-	// Maps of the gates and wires on this page
-	unordered_map< unsigned long, guiGate* > gateList;
-	unordered_map< unsigned long, guiWire* > wireList;
+	// gateList and wireList -- the maps of gates and wires on this page -- are
+	// inherited from CircuitPage.
 	vector < unsigned long > selectedGates;
 	vector < unsigned long > selectedWires;
 
