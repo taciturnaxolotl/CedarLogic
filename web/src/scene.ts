@@ -67,15 +67,24 @@ export function replay(
   };
 
   // Stroke width is in device pixels, but the canvas transform is in world
-  // units, so a nominal width would be scaled by the zoom. Undo that: read the
-  // current horizontal scale and divide, which keeps a 1px line 1px at any zoom
-  // -- the same thing the GL and Skia backends do.
+  // units, so a nominal width would be scaled by the zoom. Undo that, which
+  // keeps a 1px line 1px at any zoom -- the same thing the GL and Skia backends
+  // do.
+  //
+  // The scale is the length of the transformed unit-x vector, not `a` alone: a
+  // gate rotated a quarter turn has a == 0, and reading `a` made its strokes a
+  // full world unit wide -- black bars across the schematic.
+  const currentScale = (): number => {
+    const t = ctx.getTransform();
+    return Math.hypot(t.a, t.b) || 1;
+  };
+
   const applyStroke = (): void => {
     ctx.strokeStyle = readColor();
     const width = cmds[i++];
     const cap = cmds[i++];
     const dashed = cmds[i++];
-    const scale = Math.abs(ctx.getTransform().a) || 1;
+    const scale = currentScale();
     ctx.lineWidth = width / scale;
     ctx.lineCap = CAPS[cap] ?? "butt";
     ctx.setLineDash(dashed ? DASH_PATTERN.map((d) => d / scale) : []);

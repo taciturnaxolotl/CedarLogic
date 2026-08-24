@@ -6,7 +6,10 @@ import { defineConfig } from "vite";
 // web/ root to read it.
 export default defineConfig({
   server: {
-    fs: { allow: [".", "../wasm"] },
+    // The engine is read straight out of its build directory, and the format
+    // fixtures are handy to drag in while developing. Both live outside web/,
+    // which Vite refuses to serve without saying so.
+    fs: { allow: [".", "../wasm", "../format"] },
   },
   build: {
     target: "es2022",

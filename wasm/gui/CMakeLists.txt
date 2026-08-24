@@ -89,6 +89,14 @@ target_include_directories(cedarlogic-gui PRIVATE
 	"${REPO}/format"
 )
 
+# The format layer reports a file it cannot read by throwing, and the shell
+# turns that into a message rather than a crash -- so the build needs real
+# exceptions. -fwasm-exceptions is the native WebAssembly mechanism (Chrome 95+,
+# Firefox 131+, Safari 15.2+), which costs far less in size and speed than
+# emscripten's JavaScript-based emulation. It must be set for compiling and
+# linking both.
+target_compile_options(cedarlogic-gui PRIVATE -fwasm-exceptions)
+
 # Stand in for <GL/gl.h> everywhere, the way src/gui/tests does for its headless
 # suites: the geometry still names GLfloat, but nothing calls OpenGL.
 target_compile_options(cedarlogic-gui PRIVATE
@@ -98,6 +106,7 @@ set_target_properties(cedarlogic-gui PROPERTIES
 	SUFFIX ".js"
 	LINK_FLAGS "\
 		--bind \
+		-fwasm-exceptions \
 		--embed-file ${REPO}/res/cl_gatedefs.xml@/res/cl_gatedefs.xml \
 		-s MODULARIZE=1 \
 		-s EXPORT_ES6=1 \

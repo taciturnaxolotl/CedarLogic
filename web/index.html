@@ -3,21 +3,37 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CedarLogic — web core spike</title>
+    <title>CedarLogic</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div id="app">
-      <aside id="palette">
+      <header>
         <h1>CedarLogic</h1>
-        <p class="subtitle">desktop core, compiled to wasm</p>
-        <div id="status" role="status">loading engine…</div>
+        <div class="actions">
+          <button id="open" type="button">Open…</button>
+          <button id="save" type="button">Save</button>
+          <button id="clear" type="button">New</button>
+        </div>
+        <div class="spacer"></div>
+        <div id="readout" aria-live="polite"></div>
+      </header>
+
+      <aside id="palette">
+        <label class="search">
+          <input id="filter" type="search" placeholder="Filter gates" autocomplete="off" />
+        </label>
         <ul id="gates"></ul>
       </aside>
+
       <main>
-        <canvas id="canvas"></canvas>
+        <canvas id="canvas" tabindex="0"></canvas>
+        <div id="hint">wheel zooms · space fits · drag with middle or space</div>
       </main>
+
+      <div id="status" role="status"></div>
     </div>
+    <input id="file" type="file" accept=".cdl" hidden />
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -21,6 +21,15 @@ export interface Document {
   addGate(type: string, x: number, y: number): number;
   /** The page background the render style asks for, as a CSS colour. */
   background(): string;
+  /** Read a .cdl. Returns "" on success, or a message. Migrates legacy files. */
+  loadCircuit(text: string): string;
+  /** The circuit as v3 .cdl text. */
+  saveCircuit(): string;
+  /** Anything the last load wanted to say. Silence means a clean read. */
+  loadNotices(): VectorLike<string>;
+  clearCircuit(): void;
+  gateCount(): number;
+  wireCount(): number;
   /** Tell the camera how big the drawing surface is, in CSS pixels. */
   setViewportSize(width: number, height: number): void;
   getZoom(): number;
