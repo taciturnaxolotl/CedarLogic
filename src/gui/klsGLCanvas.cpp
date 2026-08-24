@@ -46,9 +46,9 @@ klsGLCanvas::klsGLCanvas(wxWindow *parent, const wxString& name, wxWindowID id,
 						const wxPoint& pos, const wxSize& size, long style ) :
 						wxGLCanvas(parent, glCanvasAttributes(), id, pos, size, style|wxFULL_REPAINT_ON_RESIZE|wxWANTS_CHARS, name) {
 
-	// Zoom and OpenGL coordinate of upper-left corner of this canvas:
-	viewZoom = DEFAULT_ZOOM;
-	panX = panY = 0.0;
+	// The camera defaults to DEFAULT_ZOOM at the origin; it needs this window to
+	// answer viewport questions.
+	camera.setHost(this);
 
 	autoScrollEnable();
 	
@@ -112,61 +112,11 @@ void klsGLCanvas::updateMiniMap() {
 // NOTE: It will enforce a 1:1 aspect ratio, but it will make the best
 // attempt to fit the zoom box as close as possible. Basically, it will
 // fit the longest side to the window, and center the rest.
-void klsGLCanvas::setViewport( GLPoint2f topLeft, GLPoint2f bottomRight ) {
-	wxSize sz = GetClientSize();
-	double sAspect = (double) sz.GetHeight() / (double) sz.GetWidth();
-
-	double newWidth = bottomRight.x - topLeft.x;
-	double newHeight = topLeft.y - bottomRight.y;
-	double aspect = newHeight / newWidth;
-	
-	bool useWidth = aspect < sAspect; // Use the width as the limiting factor.
-	
-	double newZoom = 1.0;
-	GLPoint2f newPan;
-	
-	if( useWidth ) {
-		// The box width determines the new zoom factor:
-		newZoom = newWidth / sz.GetWidth();
-
-		// The x coordinate is the edge of the box:
-		newPan.x = topLeft.x;
-
-		// The y coordinate must center the box:
-		newPan.y = topLeft.y + 0.5 * (sz.GetHeight() * newZoom - newHeight); // y + (1/2 of the leftover margins)
-	} else {
-		// The box height determines the new zoom factor:
-		newZoom = newHeight / sz.GetHeight();
-
-		// The y coordinate is the edge of the box:
-		newPan.y = topLeft.y;
-
-		// The x coordinate must center the box:
-		newPan.x = topLeft.x - 0.5 * (sz.GetWidth() * newZoom - newWidth); // x - (1/2 of the leftover margins)
-	}
-
-	// Set the new viewport:
-	setZoom( newZoom );
-	setPan( newPan.x, newPan.y );
-}
 
 
-void klsGLCanvas::getViewport( GLPoint2f& p1, GLPoint2f& p2 ) {
-	wxSize sz = GetClientSize();
-	p1.x = panX;
-	p1.y = panY;
-	p2.x = panX + (sz.GetWidth()*viewZoom);
-	p2.y = panY - (sz.GetHeight()*viewZoom);
-}
 
 GLPoint2f klsGLCanvas::mapToCanvas(wxPoint m) {
-	int w, h;
-	GetClientSize(&w, &h);
-
-	float glX = panX + (m.x * viewZoom);
-	float glY = panY - (m.y * viewZoom);
-
-	return GLPoint2f(glX, glY);
+	return camera.mapToWorld(m.x, m.y);
 }
 
 
@@ -218,57 +168,49 @@ void klsGLCanvas::wxOnSize(wxSizeEvent& event)
 }
 
 
-void klsGLCanvas::getPan( GLdouble &x, GLdouble &y ) {
-	x = this->panX;
-	y = this->panY;
+
+
+// --- CameraHost ------------------------------------------------------------
+
+int klsGLCanvas::cameraViewportWidth() const {
+	return const_cast<klsGLCanvas*>(this)->GetClientSize().GetWidth();
 }
 
+int klsGLCanvas::cameraViewportHeight() const {
+	return const_cast<klsGLCanvas*>(this)->GetClientSize().GetHeight();
+}
 
-void klsGLCanvas::setPan( GLdouble newX, GLdouble newY ) {
-	// Clamp the panning ranges:
-	newX = max(newX, MIN_PAN);
-	newX = min(newX, MAX_PAN);
-
-	newY = max(newY, MIN_PAN);
-	newY = min(newY, MAX_PAN);
-
-	// Set the new pan values:
-	panX = newX;
-	panY = newY;
-
-	// Reset the mouse coordinates to the new pan settings, and call OnMouseMove()
-	// because the mouse's gl coords have changed. During a middle-drag pan we skip
-	// OnMouseMove -- its collision/hover work is irrelevant to panning and would
-	// run every mouse-move (twice, with the caller's own call), stuttering the
-	// drag; setMouseCoords still runs so the next drag delta is computed correctly.
+// The camera moved, so the mouse's world coordinates changed even though the
+// mouse did not. During a middle-drag pan we recompute them but skip the
+// subclass's hover/collision work: it is irrelevant to panning and would run on
+// every mouse-move (twice, with the caller's own call), stuttering the drag.
+void klsGLCanvas::cameraPointerFollowed() {
 	setMouseCoords();
-	if (!panning) {
-		input::PointerEvent pe;
-		pe.pos = getMouseCoords();
-		pe.mods.shift = isShiftDown;
-		pe.mods.ctrl = isControlDown;
-		OnMouseMove(pe);
-	}
-	updateMiniMap();
+	if (panning) return;
 
-	// During a compound camera move (zoom = setZoom + setCenter, each of which
-	// calls setPan) skip the repaint until the final state, so we don't flash the
-	// intermediate frame.
-	if (deferPaint) return;
+	input::PointerEvent pe;
+	pe.pos = getMouseCoords();
+	pe.mods.shift = isShiftDown;
+	pe.mods.ctrl = isControlDown;
+	OnMouseMove(pe);
+}
+
+void klsGLCanvas::cameraRepaint() {
+	updateMiniMap();
 
 	// While panning, throttle the synchronous repaint to ~frame rate. A real
 	// mouse fires moves far faster than we can paint; without this each move
 	// forces a full synchronous paint and they back up, so the view lags the
-	// cursor. Intermediate moves still update panX/panY above, so no motion is
-	// lost -- the next painted frame just uses the latest position. endDrag forces
-	// a final paint so the last move always lands.
+	// cursor. Intermediate moves still update the camera, so no motion is lost --
+	// the next painted frame just uses the latest position. endDrag forces a
+	// final paint so the last move always lands.
 	if (panning) {
 		wxLongLong now = wxGetLocalTimeMillis();
 		if ((now - lastPanPaintMs).GetValue() < 12) return;
 		lastPanPaintMs = now;
 	}
 
-	Refresh(); // Obviously it needs refreshed after a pan.
+	Refresh();
 	// Force an immediate repaint rather than a deferred WM_PAINT. On Windows
 	// WM_PAINT is the lowest-priority message, so during a drag it gets starved
 	// by the flood of mouse-move events the canvas receives (the minimap stays
@@ -278,24 +220,6 @@ void klsGLCanvas::setPan( GLdouble newX, GLdouble newY ) {
 }
 
 
-//Julian: Added to assist in zoom to mouse
-void klsGLCanvas::setCenter(GLdouble newX, GLdouble newY)
-{
-	GLPoint2f topLeft;
-	GLPoint2f bottomRight;
-	GLPoint2f center;
-
-	getViewport(topLeft, bottomRight);
-	center = getCenter();
-
-	setPan(newX - (center.x - topLeft.x), newY - (center.y - topLeft.y));
-}
-
-void klsGLCanvas::translatePan( GLdouble relX, GLdouble relY ) {
-	GLdouble x, y;
-	getPan(x, y);
-	setPan( x + relX, y + relY );
-}
 
 
 void klsGLCanvas::OnScrollTimer(wxTimerEvent& event) {
@@ -336,27 +260,6 @@ void klsGLCanvas::OnScrollTimer(wxTimerEvent& event) {
 }
 
 
-void klsGLCanvas::setZoom( GLdouble newZoom ) {
-	// Clamp the newZoom factor within the allowed zoom
-	// sizes:
-	newZoom = max(newZoom, MIN_ZOOM);
-	newZoom = min(newZoom, MAX_ZOOM);
-
-	GLPoint2f center = getCenter();
-	GLPoint2f topLeft;
-	GLPoint2f bottomRight;
-	getViewport(topLeft, bottomRight);
-	
-	GLPoint2f oldDist = center - topLeft;
-	GLPoint2f newDist = oldDist;
-
-	oldDist.x *= newZoom / viewZoom;
-	oldDist.y *= newZoom / viewZoom;
-
-	viewZoom = newZoom;
-
-	translatePan(newDist.x - oldDist.x, newDist.y - oldDist.y);
-}
 
 
 // Turn a wxMouseEvent into the toolkit-neutral event the subclass handlers take.
@@ -665,14 +568,12 @@ void klsGLCanvas::OnMouseWheel(long numOfLines) {
 }
 
 GLPoint2f klsGLCanvas::getSnappedPoint(GLPoint2f c) {
-	GLfloat x = horizSpacing * floor(c.x / horizSpacing + 0.5);
-	GLfloat y = vertSpacing * floor(c.y / vertSpacing + 0.5);
-	return GLPoint2f(x, y);
+	return camera.getSnappedPoint(c);
 }
 
 void klsGLCanvas::setHorizGrid(GLfloat hSpacing) {
 	horizOn = true;
-	if (hSpacing != 0.0) horizSpacing = hSpacing;
+	if (hSpacing != 0.0) camera.setGridSpacing(hSpacing, 0.0f);
 }
 
 void klsGLCanvas::setHorizGridColor(GLfloat a, GLfloat b, GLfloat c, GLfloat d) {
@@ -688,7 +589,7 @@ void klsGLCanvas::disableHorizGrid() {
 
 void klsGLCanvas::setVertGrid(GLfloat vSpacing) {
 	vertOn = true;
-	if (vSpacing != 0.0) vertSpacing = vSpacing;
+	if (vSpacing != 0.0) camera.setGridSpacing(0.0f, vSpacing);
 }
 
 void klsGLCanvas::setVertGridColor(GLfloat a, GLfloat b, GLfloat c, GLfloat d) {
@@ -709,41 +610,6 @@ void klsGLCanvas::setMouseCoords() {
 //Julian: Added to allow for zoom to mouse
 void klsGLCanvas::zoomToMouse(long numLines)
 {
-	GLPoint2f center = getCenter();
-	GLPoint2f mouse = getMouseCoords();
-
-	GLPoint2f centerToMouse = mouse - center;
-	centerToMouse.x /= getZoom();
-	centerToMouse.y /= getZoom();
-
-	// setZoom and setCenter both call setPan, which normally repaints
-	// synchronously -- defer so the zoom paints once at the final camera state
-	// instead of flashing the intermediate (center-fixed) frame before the
-	// mouse-fixed correction.
-	deferPaint = true;
-	if (numLines > 0) {
-		setZoom(getZoom() * (pow(ZOOM_STEP, numLines)));
-	} else {
-		setZoom(getZoom() / (pow(ZOOM_STEP, -numLines)));
-	}
-
-	centerToMouse.x *= getZoom();
-	centerToMouse.y *= getZoom();
-
-	setCenter(mouse.x - centerToMouse.x, mouse.y - centerToMouse.y);
-	deferPaint = false;
-
-	Refresh();
-	wxWindow::Update();
+	camera.zoomToMouse(numLines, getMouseCoords());
 }
 
-GLPoint2f klsGLCanvas::getCenter() {
-	GLPoint2f topLeft, bottomRight;
-	getViewport(topLeft, bottomRight);
-
-	GLPoint2f center = bottomRight + topLeft;
-	center.x /= 2;
-	center.y /= 2;
-
-	return center;
-}

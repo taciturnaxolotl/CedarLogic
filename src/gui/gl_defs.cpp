@@ -1,9 +1,5 @@
 #include <cmath>
-#include "Settings.h"
 #include "gl_defs.h"
-
-#include "MainApp.h"
-DECLARE_APP(MainApp)
 
 GLPoint2f GLPoint2f::operator+(const GLPoint2f &other) const {
 	return GLPoint2f(x + other.x, y + other.y);

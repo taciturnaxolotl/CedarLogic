@@ -218,13 +218,13 @@ void GUICanvas::renderToScene(cl::render::Scene& scene,
                               const cl::render::RenderStyle& style,
                               int deviceW, int deviceH) {
 	CircuitPage::renderToScene(scene, style, deviceW, deviceH,
-	                           horizSpacing, vertSpacing);
+	                           getCamera().horizSpacing(), getCamera().vertSpacing());
 }
 
 void GUICanvas::drawGridInto(cl::render::Scene& scene,
                              const cl::render::RenderStyle& style, float scale,
                              float gMinX, float gMinY, float gMaxX, float gMaxY) {
-	CircuitPage::drawGridInto(scene, style, scale, horizSpacing, vertSpacing,
+	CircuitPage::drawGridInto(scene, style, scale, getCamera().horizSpacing(), getCamera().vertSpacing(),
 	                          gMinX, gMinY, gMaxX, gMaxY);
 }
 
@@ -234,7 +234,7 @@ void GUICanvas::drawSceneContents(cl::render::Scene& scene,
                                   float gMinX, float gMinY,
                                   float gMaxX, float gMaxY) {
 	CircuitPage::drawSceneContents(scene, style, t, scale,
-	                               horizSpacing, vertSpacing,
+	                               getCamera().horizSpacing(), getCamera().vertSpacing(),
 	                               gMinX, gMinY, gMaxX, gMaxY);
 }
 

@@ -15,6 +15,7 @@ class klsGLCanvas;
 
 #include "MainApp.h"
 #include "InputEvent.h"
+#include "CanvasCamera.h"
 #include "wx/glcanvas.h"
 class klsMiniMap;   // pointer member only; the minimap header pulls in wx DCs
 // For GLPoint2f:
@@ -30,22 +31,7 @@ class klsMiniMap;   // pointer member only; the minimap header pulls in wx DCs
 #include <deque>
 using namespace std;
 
-#define MIN_ZOOM 1.0/120.0
-#define MAX_ZOOM 1.0*1.0
-#define DEFAULT_ZOOM 1.0/10.0
-
-// The amount of zooming done per step (in %).
-#define ZOOM_STEP 0.75
-
-
-#define MIN_PAN -1.0e10
-#define MAX_PAN 1.0e10
-
-// The amount of panning done per step for keypress (in pixels).
-#define PAN_STEP 30
-
-// The amount of panning done per step for autoscroll (in pixels).
-#define SCROLL_STEP 30
+// Zoom, pan, and snapping constants live with the camera that applies them.
 #define SCROLL_TIMER_RATE 30
 #define SCROLL_TIMER_ID 1
 
@@ -57,7 +43,11 @@ enum mouseButton {
 	NUM_BUTTONS
 };
 
-class klsGLCanvas: public wxGLCanvas
+// The camera half of this class -- pan, zoom, snapping -- moved to CanvasCamera,
+// which carries no toolkit. What remains here is the window: the GL context, the
+// wx event plumbing, and the repaint policy the camera asks for through
+// CameraHost.
+class klsGLCanvas: public wxGLCanvas, public CameraHost
 {
 
 public:
@@ -148,17 +138,19 @@ public:
 	// claimed a drag event too) and setting the "Drag End Coords".
 	void endDrag(mouseButton whichButton = BUTTON_LEFT);
 
-	// Zoom and Pan methods:
-	void getPan(GLdouble &x, GLdouble &y);
-	void setPan(GLdouble newX, GLdouble newY);
-	void setCenter(GLdouble newX, GLdouble newY);
-	void translatePan(GLdouble relX, GLdouble relY);
+	// Zoom and pan. These forward to the camera; they stay on the canvas so the
+	// hundreds of existing call sites read the same as they always did.
+	CanvasCamera& getCamera() { return camera; }
+	void getPan(GLdouble &x, GLdouble &y) { camera.getPan(x, y); }
+	void setPan(GLdouble newX, GLdouble newY) { camera.setPan(newX, newY); }
+	void setCenter(GLdouble newX, GLdouble newY) { camera.setCenter(newX, newY); }
+	void translatePan(GLdouble relX, GLdouble relY) { camera.translatePan(relX, relY); }
 	void OnScrollTimer(wxTimerEvent& event);
 
-	GLdouble getZoom() { return viewZoom; };
-	void setZoom(GLdouble newZoom);
+	GLdouble getZoom() { return camera.getZoom(); };
+	void setZoom(GLdouble newZoom) { camera.setZoom(newZoom); }
 	void zoomToMouse(long); //Julian
-	GLPoint2f getCenter(); //Julian
+	GLPoint2f getCenter() { return camera.getCenter(); } //Julian
 
 	// Grid background:
 	// (Can turn grid back on without changing the past
@@ -172,21 +164,21 @@ public:
 	void disableVertGrid(void);
 
 	bool horizOn = true; // Horizontal grid lines on/off.
-	GLfloat horizSpacing; // Horizontal grid spacing.
 	GLfloat hColor[4]; // Horizontal grid color.
 
 	bool vertOn = true;  // Vertical grid lines on/off.
-	GLfloat vertSpacing; // Vertical grid spacing.
 	GLfloat vColor[4]; // Vertical grid color.
 
 	// Set the viewport (Set the left/top and right/bottom coordinates).
 	// NOTE: It will enforce a 1:1 aspect ratio, but it will make the best
 	// attempt to fit the zoom box as close as possible. Basically, it will
 	// fit the longest side to the window, and center the rest.
-	void setViewport(GLPoint2f topLeft, GLPoint2f bottomRight);
+	void setViewport(GLPoint2f topLeft, GLPoint2f bottomRight) {
+		camera.setViewport(topLeft, bottomRight);
+	}
 
 	// Retrieves the current viewport (left/top and right/bottom)
-	void getViewport(GLPoint2f&, GLPoint2f&);
+	void getViewport(GLPoint2f& p1, GLPoint2f& p2) { camera.getViewport(p1, p2); }
 
 	// map a point in surface local coordinates to coordinates on the canvas
 	GLPoint2f mapToCanvas(wxPoint m);
@@ -194,6 +186,12 @@ public:
 	void autoScrollEnable(void) { autoScrollActive = true; };
 	void autoScrollDisable(void) { autoScrollActive = false; };
 	bool isAutoScrollOn(void) { return autoScrollActive; };
+
+	// CameraHost -- the policy the camera asks this window for.
+	int cameraViewportWidth() const override;
+	int cameraViewportHeight() const override;
+	void cameraRepaint() override;
+	void cameraPointerFollowed() override;
 
 protected:
 	// The minimap associated with this canvas
@@ -231,9 +229,9 @@ private:
 	                            // throttle painting to ~frame rate so a real
 	                            // mouse's move flood doesn't back up the paints
 
-	// Zoom and OpenGL coordinate of upper-left corner of this canvas:
-	GLdouble viewZoom;
-	GLdouble panX, panY;
+	// Pan, zoom, and grid spacing live on the camera.
+	CanvasCamera camera;
+
 	
 	// Scrolling timer used to auto-scroll the canvas when dragged outside of the
 	// window:

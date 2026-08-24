@@ -63,3 +63,26 @@ if(ENABLE_SANITIZERS AND NOT MSVC)
 endif()
 
 add_test(NAME cmdserialize_tests COMMAND test_cmdserialize)
+
+# CanvasCamera (pan/zoom/snapping). Free of wxWidgets by design -- that is the
+# whole point of the class -- so it needs only the GLfloat shim.
+add_executable(test_camera
+	"${CMAKE_CURRENT_SOURCE_DIR}/test_camera.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/CanvasCamera.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/gl_defs.cpp"
+)
+target_include_directories(test_camera PRIVATE
+	"${PROJECT_SOURCE_DIR}/include/gui"
+)
+target_link_libraries(test_camera PRIVATE doctest::doctest)
+target_compile_options(test_camera PRIVATE
+	"$<$<CXX_COMPILER_ID:MSVC>:/FI${_shim}>"
+	"$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:SHELL:-include ${_shim}>"
+)
+
+if(ENABLE_SANITIZERS AND NOT MSVC)
+	target_compile_options(test_camera PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+	target_link_options(test_camera PRIVATE -fsanitize=address,undefined)
+endif()
+
+add_test(NAME camera_tests COMMAND test_camera)
