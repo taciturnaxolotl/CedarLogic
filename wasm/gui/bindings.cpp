@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "CanvasCamera.h"
+#include "CircuitObserver.h"
 #include "CircuitParse.h"
 #include "SimBridge.h"
 #include "Settings.h"
@@ -57,7 +58,8 @@ bool ensureLibraryLoaded(std::string &error) {
 // It is the camera's host: the browser owns the viewport size (the shell tells
 // us on resize) and the repaint schedule (requestAnimationFrame, which the
 // shell drives -- so a repaint request here just raises a flag).
-class Document : public CircuitPage, public CameraHost, public PageHost {
+class Document : public CircuitPage, public CameraHost, public PageHost,
+                 public CircuitObserver {
 public:
 	Document() {
 		std::string error;
@@ -70,6 +72,8 @@ public:
 
 		// Stand the logic core up without a thread. The document owns it and
 		// pumps it from stepSimulation.
+		fCircuit.setObserver(this);
+
 		fLogic = new threadLogic();
 		fLogic->initCore();
 		simBridge().logicThread = fLogic;
@@ -93,6 +97,18 @@ public:
 	// Hover and drag tracking arrive with the interaction port; until then a
 	// camera move has nothing else to update.
 	void cameraPointerFollowed() override {}
+
+	// --- CircuitObserver ---------------------------------------------------
+
+	// The circuit says "repaint" when wire states change. Without this the page
+	// only redrew when something else happened to dirty it -- so a running
+	// circuit sat still until the pointer moved over the canvas.
+	void circuitRedrawNeeded() override { fDirty = true; }
+
+	// No oscilloscope in the shell yet; a running circuit still generates
+	// samples, and this is where they will land.
+	void oscopeDataAdded() override {}
+	void oscopeSignalsChanged() override {}
 
 	// --- PageHost ----------------------------------------------------------
 
