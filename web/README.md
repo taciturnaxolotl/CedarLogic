@@ -22,6 +22,18 @@ geometry does, once.
 boxes a label has to measure it the way it will be drawn, so the measurement is
 a seam too: Skia answers on the desktop, `measureText` answers here.
 
+**`CanvasCamera`** is the same idea applied to feel rather than looks. Where
+the view sits, how far a wheel notch zooms, whether a zoom pivots on the cursor,
+where a point lands when it snaps -- all arithmetic, none of it needing a
+window. `klsGLCanvas` keeps one rather than being one, and so does the browser
+document, which is why panning and zooming here are identical rather than
+merely similar. `src/gui/tests/test_camera.cpp` pins the numbers.
+
+**`input::PointerEvent` and `input::KeyEvent`** carry input with no toolkit
+attached, so the canvas handlers describing what a click selects and what starts
+a drag can be compiled rather than reimplemented. `klsGLCanvas` is the only
+place wx is translated.
+
 **`klsCommand::toString()` and `cmd::fromLine()`** mean every edit is already a
 serializable, replayable command. Nothing in this directory uses that yet, but
 it is the reason peer-to-peer editing is a transport problem rather than a
@@ -62,9 +74,11 @@ Not yet:
   turning a `CircuitFile` into gates lives in `CircuitParse::applyCircuitFile`,
   which still takes `GUICanvas*`. Retargeting it at `CircuitPage*` is the next
   cut, and it makes save work too.
-- **Input.** Pan, zoom, selection, and dragging live in `GUICanvas`, which is
-  still a wxGLCanvas. The interaction logic is toolkit-independent in substance
-  but not yet in form.
+- **Selection and dragging.** Pan and zoom are shared; the rest of the
+  interaction still lives on `GUICanvas`, which is still a wxGLCanvas. Its
+  handlers already take neutral events, so the remaining work is moving them
+  and their state down to `CircuitPage` -- the hooks they need from a shell
+  (repaint, pointer capture, `requestQuickAdd`) are the only wx left in them.
 - **Simulation.** The logic core is linked and the message pump compiles, but
   nothing drives it here; the desktop runs it on a second thread, and the
   browser wants a different shape (a worker, or stepping from the frame loop).
