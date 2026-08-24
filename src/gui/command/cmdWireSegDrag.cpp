@@ -3,7 +3,7 @@
 #include "../GUICircuit.h"
 #include "../guiWire.h"
 
-cmdWireSegDrag::cmdWireSegDrag(GUICircuit* gCircuit, GUICanvas* gCanvas,
+cmdWireSegDrag::cmdWireSegDrag(GUICircuit* gCircuit, CircuitPage* gCanvas,
 		IDType wireID) :
 			klsCommand(true, "Wire Shape") {
 

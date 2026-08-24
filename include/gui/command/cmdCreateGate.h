@@ -7,7 +7,7 @@
 // cmdCreateGate - creates a gate on a given canvas at position (x,y)
 class cmdCreateGate : public klsCommand {
 public:
-	cmdCreateGate(GUICanvas* gCanvas, GUICircuit* gCircuit,
+	cmdCreateGate(CircuitPage* gCanvas, GUICircuit* gCircuit,
 		unsigned long gid, std::string gateType, float x, float y);
 
 	cmdCreateGate(std::string def);
@@ -18,7 +18,7 @@ public:
 
 	virtual std::string toString() const override;
 
-	virtual void setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
+	virtual void setPointers(GUICircuit* gCircuit, CircuitPage* gCanvas,
 		TranslationMap &gateids, TranslationMap &wireids) override;
 
 	// The proximity-connection sub-commands this command owns; callers append to

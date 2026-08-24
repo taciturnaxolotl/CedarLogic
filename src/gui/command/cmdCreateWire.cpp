@@ -1,6 +1,7 @@
 
 #include "cmdCreateWire.h"
-#include "../GUICanvas.h"
+#include "../CircuitPage.h"
+#include "../GUICircuit.h"
 #include "../guiGate.h"
 #include "cmdConnectWire.h"
 #include "cmdSerialize.h"
@@ -13,7 +14,7 @@ static const bool s_registered_cmdCreateWire =
 		return new cmdCreateWire(def);
 	});
 
-cmdCreateWire::cmdCreateWire(GUICanvas* gCanvas, GUICircuit* gCircuit,
+cmdCreateWire::cmdCreateWire(CircuitPage* gCanvas, GUICircuit* gCircuit,
 		const std::vector<IDType> &wireIds, cmdConnectWire* conn1,
 		cmdConnectWire* conn2) :
 			klsCommand(true, "Create Wire") {
@@ -102,7 +103,7 @@ std::string cmdCreateWire::toString() const {
 	return cmdser::emit(cw);
 }
 
-void cmdCreateWire::setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
+void cmdCreateWire::setPointers(GUICircuit* gCircuit, CircuitPage* gCanvas,
 	TranslationMap &gateids, TranslationMap &wireids) {
 
 	// remap ids.

@@ -18,6 +18,7 @@
 #include "wx/valgen.h"
 #include "CircuitParse.h"
 #include "commands.h"
+#include "GUICanvas.h"   // upcasting the current canvas to its page needs the definition
 #include <sstream>
 
 DECLARE_APP(MainApp)

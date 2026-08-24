@@ -6,7 +6,7 @@
 #include "cmdDeleteGate.h"
 
 cmdDeleteSelection::cmdDeleteSelection(GUICircuit* gCircuit,
-		GUICanvas* gCanvas, std::vector<unsigned long> &gates,
+		CircuitPage* gCanvas, std::vector<unsigned long> &gates,
 		std::vector<unsigned long> &wires) :
 			klsCommand(true, "Delete Selection") {
 

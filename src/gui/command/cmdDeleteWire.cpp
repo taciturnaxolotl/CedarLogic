@@ -2,12 +2,13 @@
 #include "cmdDeleteWire.h"
 #include "../gl_defs.h"
 #include "../GUICircuit.h"
-#include "../GUICanvas.h"
+#include "../CircuitPage.h"
+#include "cmdDisconnectWire.h"
 #include "../guiWire.h"
 #include "../guiGate.h"
 #include "cmdMoveWire.h"
 
-cmdDeleteWire::cmdDeleteWire(GUICircuit* gCircuit, GUICanvas* gCanvas,
+cmdDeleteWire::cmdDeleteWire(GUICircuit* gCircuit, CircuitPage* gCanvas,
 		IDType wireId) :
 			klsCommand(true, "Delete Wire") {
 

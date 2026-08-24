@@ -8,7 +8,7 @@ class cmdConnectWire;
 // cmdCreateWire - creates a wire
 class cmdCreateWire : public klsCommand {
 public:
-	cmdCreateWire(GUICanvas* gCanvas, GUICircuit* gCircuit,
+	cmdCreateWire(CircuitPage* gCanvas, GUICircuit* gCircuit,
 		const std::vector<IDType> &wireIds, cmdConnectWire* conn1,
 		cmdConnectWire* conn2);
 
@@ -26,7 +26,7 @@ public:
 
 	virtual std::string toString() const override;
 
-	virtual void setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
+	virtual void setPointers(GUICircuit* gCircuit, CircuitPage* gCanvas,
 		TranslationMap &gateids, TranslationMap &wireids) override;
 
 private:

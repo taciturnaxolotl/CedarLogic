@@ -71,6 +71,10 @@ public:
 	// not be attached. These were silent until now, which is how a circuit could
 	// come back missing a wire with nothing said about it.
 	const std::vector<cl::MigrationNotice> &getApplyNotices() const { return applyNotices; }
+	// The v3 text for these pages, without writing it anywhere. Saving is
+	// serialize-then-write; a browser does the writing itself.
+	static string serializeV3(const vector< CircuitPage* > &);
+
 	bool saveCircuit(string, const vector< CircuitPage* > &, unsigned int currPage = 0);
 	// Save the v3 S-expression format (built from the GUI via the format model).
 	bool saveCircuitV3(string, const vector< CircuitPage* > &, unsigned int currPage = 0);

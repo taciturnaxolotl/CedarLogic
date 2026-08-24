@@ -35,25 +35,8 @@ class cmdPasteBlock;
 class klsCommand;
 class guiWire;
 
-// Struct GateState
-//		stores the position and id of a gate so we know where we moved from
-struct GateState {
-	GateState( unsigned int nID, float nX, float nY, bool nSel ) : id(nID), x(nX), y(nY), selected(nSel) {}
-	unsigned int id;
-	float x;
-	float y;
-	bool selected;
-};
-
-// Struct WireState
-//		stores the relative position (to itself) of a wire so we know where we moved from
-struct WireState {
-	WireState( unsigned int nID, GLPoint2f nPoint, map < long, wireSegment > nTree ) : 
-		id(nID), point(nPoint), oldWireTree(nTree) {}
-	unsigned int id;
-	GLPoint2f point;
-	map < long, wireSegment > oldWireTree;
-};
+// GateState and WireState -- where a gate or wire was before a move -- live
+// with the page, in CircuitPage.h.
 
 // Struct ConnectionSource
 //		stores the source of a drag connect operation

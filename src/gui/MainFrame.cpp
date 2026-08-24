@@ -1183,7 +1183,9 @@ void MainFrame::OnUndo(wxCommandEvent& event) {
 	// Switch to the page this command affects, so an undo on another tab is shown
 	// where it happens instead of silently changing an off-screen page.
 	klsCommand *cmd = (klsCommand *)commandProcessor->GetCurrentCommand();
-	if (cmd != NULL) switchToCanvas(cmd->getCanvas());
+	// Every page in this frame is a GUICanvas -- MainFrame is what made them --
+	// so the command's page is one of ours.
+	if (cmd != NULL) switchToCanvas(static_cast<GUICanvas *>(cmd->getCanvas()));
 	commandProcessor->Undo();
 	// Tab commands can't be followed by pointer; they name a page to show after.
 	if (cmd != NULL) { int p = cmd->pageToShow(true); if (p >= 0) showCanvasIndex(p); }
@@ -1204,7 +1206,9 @@ void MainFrame::OnRedo(wxCommandEvent& event) {
 		wxList::compatibility_iterator node = cmds.Find(current);
 		if (node && node->GetNext()) cmd = (klsCommand *)node->GetNext()->GetData();
 	}
-	if (cmd != NULL) switchToCanvas(cmd->getCanvas());
+	// Every page in this frame is a GUICanvas -- MainFrame is what made them --
+	// so the command's page is one of ours.
+	if (cmd != NULL) switchToCanvas(static_cast<GUICanvas *>(cmd->getCanvas()));
 	commandProcessor->Redo();
 	if (cmd != NULL) { int p = cmd->pageToShow(false); if (p >= 0) showCanvasIndex(p); }
 	resumeTimers(TIMER_POLL_MS);

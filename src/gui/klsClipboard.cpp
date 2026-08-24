@@ -10,7 +10,6 @@
 
 #include <memory>
 #include "klsClipboard.h"
-#include "OscopeFrame.h"
 #include <fstream>
 #include <map>
 #include <unordered_map>   // removed .h  KAS
@@ -116,7 +115,7 @@ cmdPasteBlock* klsClipboard::pasteBlock( GUICircuit* gCircuit, GUICanvas* gCanva
 			}
 			wireWalk++;
 		}
-		gCircuit->getOscope()->UpdateMenu();
+		gCircuit->notifyOscopeSignalsChanged();
     }
 
 	if (cmdList.size() > 0) return new cmdPasteBlock ( cmdList );

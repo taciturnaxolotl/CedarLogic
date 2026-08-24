@@ -12,7 +12,6 @@
 #include "PaletteDrag.h"
 #include "RenderMode.h"
 #include "GateLibrary.h"
-#include "OscopeFrame.h"
 #include "MainApp.h"
 #include <fstream>
 #include <wx/file.h>
@@ -503,8 +502,12 @@ static cl::CircuitFile buildCircuitFile(const vector<CircuitPage*> &glc) {
 	return cf;
 }
 
+string CircuitParse::serializeV3(const vector< CircuitPage* > &glc) {
+	return cl::writeCircuitFile(buildCircuitFile(glc));
+}
+
 bool CircuitParse::saveCircuitV3(string filename, const vector< CircuitPage* > &glc, unsigned int currPage) {
-	return writeToFile(filename, cl::writeCircuitFile(buildCircuitFile(glc)));
+	return writeToFile(filename, serializeV3(glc));
 }
 
 bool CircuitParse::saveCircuit(string filename, const vector< CircuitPage* > &glc, unsigned int currPage) {

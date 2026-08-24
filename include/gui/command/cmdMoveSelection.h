@@ -5,7 +5,7 @@
 #include <memory>
 #include <map>
 #include "../wireSegment.h"
-#include "../GUICanvas.h"
+#include "../CircuitPage.h"
 
 // Just a map of wire segments
 typedef std::map<long, wireSegment> SegmentMap;

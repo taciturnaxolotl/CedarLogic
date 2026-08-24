@@ -12,7 +12,7 @@ std::string klsCommand::toString() const {
 	return "";
 }
 
-void klsCommand::setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
+void klsCommand::setPointers(GUICircuit* gCircuit, CircuitPage* gCanvas,
 		TranslationMap &gateids, TranslationMap &wireids) {
 
 	this->gCircuit = gCircuit;

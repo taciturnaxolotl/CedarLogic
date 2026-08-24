@@ -117,7 +117,7 @@ string cmdMoveWire::toString() const {
 	return cmdser::emit(m);
 }
 
-void cmdMoveWire::setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
+void cmdMoveWire::setPointers(GUICircuit* gCircuit, CircuitPage* gCanvas,
 		TranslationMap &gateids, TranslationMap &wireids) {
 
 	this->gCircuit = gCircuit;

@@ -87,7 +87,7 @@ std::string cmdConnectWire::toString() const {
 	return cmdser::emit(cmdser::ConnectWire{wireId, gateId, hotspot});
 }
 
-void cmdConnectWire::setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
+void cmdConnectWire::setPointers(GUICircuit* gCircuit, CircuitPage* gCanvas,
 		TranslationMap &gateids, TranslationMap &wireids) {
 
 	gateId = gateids[gateId];

@@ -20,7 +20,10 @@
 
 #include <unordered_map>
 
+#include <map>
+
 #include "klsCollisionChecker.h"
+#include "wireSegment.h"
 
 #include "gl_defs.h"   // GRID_INTENSITY, MIN_GRID_SCREEN_SPACING
 #include "CanvasCamera.h"
@@ -34,6 +37,26 @@ namespace cl { namespace render {
 class guiGate;
 class guiWire;
 class GUICircuit;
+
+// Where a gate was before a move started, so the move can be undone and so a
+// drag can be measured against its origin.
+struct GateState {
+	GateState( unsigned int nID, float nX, float nY, bool nSel ) : id(nID), x(nX), y(nY), selected(nSel) {}
+	unsigned int id;
+	float x;
+	float y;
+	bool selected;
+};
+
+// The same for a wire, which also has to remember the shape of its segment tree:
+// a move can reroute it, and undo has to put the old route back.
+struct WireState {
+	WireState( unsigned int nID, GLPoint2f nPoint, std::map< long, wireSegment > nTree ) :
+		id(nID), point(nPoint), oldWireTree(nTree) {}
+	unsigned int id;
+	GLPoint2f point;
+	std::map< long, wireSegment > oldWireTree;
+};
 
 class CircuitPage {
 public:

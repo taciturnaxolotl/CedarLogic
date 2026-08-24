@@ -135,7 +135,7 @@ string cmdSetParams::toString() const {
 	return cmdser::emit(cmdser::SetParams{ gid, newGUIParamList, newLogicParamList });
 }
 
-void cmdSetParams::setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
+void cmdSetParams::setPointers(GUICircuit* gCircuit, CircuitPage* gCanvas,
 		TranslationMap &gateids, TranslationMap &wireids) {
 
 	gid = gateids[gid];

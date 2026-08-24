@@ -24,6 +24,7 @@ cmdDeleteTab::cmdDeleteTab(GUICircuit* gCircuit, GUICanvas* gCanvas,
 
 	this->gCircuit = gCircuit;
 	this->gCanvas = gCanvas;
+	this->tabCanvas = gCanvas;
 	this->canvasBook = book;
 	this->canvases = canvases;
 	this->canvasID = ID;
@@ -65,15 +66,15 @@ bool cmdDeleteTab::Do() {
 	}
 	canvasBook->RemovePage(canvasID);
 	//TODO fix canvases not refreshing
-	gCanvas->Hide();
+	tabCanvas->Hide();
 	return true;
 }
 bool cmdDeleteTab::Undo() {
 	unsigned int canSize = canvases->size();
-	canvases->insert(canvases->begin() + canvasID, gCanvas);
+	canvases->insert(canvases->begin() + canvasID, tabCanvas);
 	wxString oss;
 	oss << "Page " << canvasID + 1;
-	canvasBook->InsertPage(canvasID, gCanvas, oss, false);
+	canvasBook->InsertPage(canvasID, tabCanvas, oss, false);
 	if (canvasID < (canSize)) {
 		for (unsigned int i = canvasID + 1; i < canSize + 1; i++) {
 			std::string text = "Page " + to_string(i + 1);

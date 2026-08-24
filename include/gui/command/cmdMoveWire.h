@@ -25,7 +25,7 @@ public:
 
 	virtual std::string toString() const override;
 
-	virtual void setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
+	virtual void setPointers(GUICircuit* gCircuit, CircuitPage* gCanvas,
 		TranslationMap &gateids, TranslationMap &wireids) override;
 
 protected:

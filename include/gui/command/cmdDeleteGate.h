@@ -7,7 +7,7 @@
 // cmdDeleteGate - Deletes a gate
 class cmdDeleteGate : public klsCommand {
 public:
-	cmdDeleteGate(GUICircuit* gCircuit, GUICanvas* gCanvas, IDType gateId);
+	cmdDeleteGate(GUICircuit* gCircuit, CircuitPage* gCanvas, IDType gateId);
 
 	virtual ~cmdDeleteGate();
 

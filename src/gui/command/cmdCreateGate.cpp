@@ -2,7 +2,7 @@
 #include "cmdCreateGate.h"
 #include "../GateLibrary.h"
 #include "../GUICircuit.h"
-#include "../GUICanvas.h"
+#include "../CircuitPage.h"
 #include "../guiGate.h"
 #include "../MainApp.h"
 #include "cmdSetParams.h"
@@ -18,7 +18,7 @@ static const bool s_registered_cmdCreateGate =
 		return new cmdCreateGate(def);
 	});
 
-cmdCreateGate::cmdCreateGate(GUICanvas* gCanvas, GUICircuit* gCircuit, unsigned long gid, string gateType, float x, float y) : klsCommand(true, "Create Gate") {
+cmdCreateGate::cmdCreateGate(CircuitPage* gCanvas, GUICircuit* gCircuit, unsigned long gid, string gateType, float x, float y) : klsCommand(true, "Create Gate") {
 	this->gCanvas = gCanvas;
 	this->gCircuit = gCircuit;
 	this->gid = gid;
@@ -109,7 +109,7 @@ std::string cmdCreateGate::toString() const {
 	return cmdser::emit(cmdser::CreateGate{gid, gateType, x, y});
 }
 
-void cmdCreateGate::setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
+void cmdCreateGate::setPointers(GUICircuit* gCircuit, CircuitPage* gCanvas,
 		TranslationMap &gateids, TranslationMap &wireids) {
 
 	// Find myself an appropriate ID for a new environment

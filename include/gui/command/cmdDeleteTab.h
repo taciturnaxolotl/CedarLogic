@@ -1,5 +1,7 @@
 
 #pragma once
+
+class GUICanvas;
 #include "klsCommand.h"
 #include <stack>
 #include <memory>
@@ -40,6 +42,10 @@ protected:
 	wxAuiNotebook* canvasBook;
 #endif
 	std::vector< GUICanvas* >* canvases;
+
+	// The page as a window. A tab is a wx notebook page, so unlike every other
+	// command this one really does need the widget and not just the contents.
+	GUICanvas* tabCanvas;
 	unsigned long canvasID;
 
 };

@@ -23,6 +23,7 @@
 #define wxICON_ERROR  0x00000100
 #define wxICON_WARNING 0x00000200
 #define wxICON_INFORMATION 0x00000800
+#define wxICON_EXCLAMATION 0x00000400
 #define wxT(s) s
 #define wxEmptyString wxString()
 
@@ -47,6 +48,7 @@ public:
 	wxString(const std::string &s) : std::string(s) {}
 
 	std::string ToStdString() const { return *this; }
+	static wxString FromUTF8(const char *s) { return wxString(s); }
 	const char *mb_str() const { return c_str(); }
 
 	template <class T>

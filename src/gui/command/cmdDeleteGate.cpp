@@ -4,7 +4,7 @@
 #include <map>
 #include "../gl_defs.h"
 #include "../GUICircuit.h"
-#include "../GUICanvas.h"
+#include "../CircuitPage.h"
 #include "../guiWire.h"
 #include "../guiGate.h"
 #include "../MainApp.h"
@@ -15,7 +15,7 @@
 
 DECLARE_APP(MainApp);
 
-cmdDeleteGate::cmdDeleteGate(GUICircuit* gCircuit, GUICanvas* gCanvas,
+cmdDeleteGate::cmdDeleteGate(GUICircuit* gCircuit, CircuitPage* gCanvas,
 		IDType gateId) :
 			klsCommand(true, "Delete Gate") {
 

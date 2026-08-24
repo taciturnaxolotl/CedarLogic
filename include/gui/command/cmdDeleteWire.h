@@ -8,7 +8,7 @@
 // cmdDeleteWire - Deletes a wire
 class cmdDeleteWire : public klsCommand {
 public:
-	cmdDeleteWire(GUICircuit* gCircuit, GUICanvas* gCanvas, IDType wireId);
+	cmdDeleteWire(GUICircuit* gCircuit, CircuitPage* gCanvas, IDType wireId);
 
 	virtual ~cmdDeleteWire();
 

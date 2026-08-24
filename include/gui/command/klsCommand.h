@@ -7,7 +7,7 @@
 #include "logic_values.h"
 
 class GUICircuit;
-class GUICanvas;
+class CircuitPage;
 
 // Map of IDType to IDType used in copy-pasting.
 // These "unsigned long"s need to be replaced by IDType's.
@@ -24,13 +24,13 @@ public:
 
 	virtual std::string toString() const;
 
-	virtual void setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
+	virtual void setPointers(GUICircuit* gCircuit, CircuitPage* gCanvas,
 		TranslationMap &gateids, TranslationMap &wireids);
 
-	// The canvas (page) this command acts on, so undo/redo can switch to it.
-	// May be null for commands not bound to a specific page.
-	GUICanvas *getCanvas() const { return gCanvas; }
-	void setCanvas(GUICanvas *canvas) { gCanvas = canvas; }
+	// The page this command acts on, so undo/redo can switch to it. May be null
+	// for commands not bound to a specific page.
+	CircuitPage *getCanvas() const { return gCanvas; }
+	void setCanvas(CircuitPage *canvas) { gCanvas = canvas; }
 
 	// Commands that create/destroy tabs can't be page-followed by canvas pointer
 	// (the pointer isn't stable, or isn't in the tab list when the switch fires),
@@ -41,6 +41,6 @@ public:
 
 protected:
 	GUICircuit *gCircuit;
-	GUICanvas *gCanvas;
+	CircuitPage *gCanvas;
 	bool fromString;
 };

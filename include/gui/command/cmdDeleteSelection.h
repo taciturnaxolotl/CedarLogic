@@ -8,7 +8,7 @@
 // cmdDeleteSelection - Deletes a selection of gates/wires
 class cmdDeleteSelection : public klsCommand {
 public:
-	cmdDeleteSelection(GUICircuit* gCircuit, GUICanvas* gCanvas,
+	cmdDeleteSelection(GUICircuit* gCircuit, CircuitPage* gCanvas,
 		std::vector<unsigned long> &gates, std::vector<unsigned long> &wires);
 
 	virtual ~cmdDeleteSelection();
