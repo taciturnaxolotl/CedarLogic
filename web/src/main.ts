@@ -7,7 +7,7 @@
 
 import { loadEngine, toArray, type Document, type EngineModule } from "./engine.ts";
 import { replay } from "./scene.ts";
-import { WheelReader } from "./wheel.ts";
+import { wheelSteps } from "./wheel.ts";
 
 const $ = <T extends HTMLElement>(sel: string): T =>
   document.querySelector<T>(sel) ?? (() => { throw new Error(`missing ${sel}`); })();
@@ -143,41 +143,38 @@ function bindInput(doc: Document): void {
   const mods = (e: MouseEvent | KeyboardEvent): [boolean, boolean, boolean, boolean] =>
     [e.shiftKey, e.ctrlKey, e.altKey, e.metaKey];
 
-  // The wheel, as klsGLCanvas::wxOnMouseWheel handles it. Rotation accumulates
-  // into whole lines (see wheel.ts), and then:
+  // The wheel, as klsGLCanvas::wxOnMouseWheel handles it:
   //
-  //   plain scroll   zoom one step about the cursor
+  //   plain scroll   zoom about the cursor
   //   Cmd            pan, in the direction of the scroll -- including a
   //                  two-finger trackpad drag, which is how you translate
   //   Shift          pan horizontally, for a mouse with only one wheel
   //
+  // The desktop rounds rotation into whole steps before acting. That is right
+  // for a mouse, where a notch is a notch, but it is what makes trackpad zoom
+  // lurch -- so the fraction is passed through instead and the camera zooms by
+  // it. A notch is still worth exactly one step either way.
+  //
   // The one deviation is Ctrl. The desktop pans vertically with it, but a
   // browser reports a trackpad pinch as a Ctrl-held wheel event and there is no
   // way to tell the two apart -- so Ctrl zooms here, and pinch works.
-  const wheel = new WheelReader();
-
   canvas.addEventListener(
     "wheel",
     (e) => {
       e.preventDefault();
       const [px, py] = at(e);
-
-      const lines = wheel.take(e);
-      if (lines.x === 0 && lines.y === 0) return;
+      const steps = wheelSteps(e);
 
       if (e.metaKey) {
-        doc.scrollPan(lines.x, lines.y);
+        doc.scrollPan(steps.x, steps.y);
         return;
       }
       if (e.shiftKey) {
         // The desktop turns vertical rotation into horizontal pan here.
-        doc.scrollPan(lines.y, 0);
+        doc.scrollPan(steps.y, 0);
         return;
       }
-
-      // One step per event, however many lines arrived at once -- the desktop
-      // takes the sign and no more.
-      if (lines.y !== 0) doc.zoomAt(Math.sign(lines.y), px, py);
+      if (steps.y !== 0) doc.zoomAtBy(steps.y, px, py);
     },
     { passive: false },
   );

@@ -78,9 +78,17 @@ public:
 	GLdouble getZoom() const { return fZoom; }
 	void setZoom(GLdouble newZoom);
 
-	// Zoom by `numLines` wheel notches, keeping `mouse` (a world point) under
-	// the cursor. Positive zooms in.
-	void zoomToMouse(long numLines, GLPoint2f mouse);
+	// Zoom by `steps`, keeping `point` (a world point) under the cursor.
+	// Positive zooms in. Steps may be fractional: one whole step is ZOOM_STEP,
+	// so a wheel notch is 1 and a trackpad can pass the fraction of a step its
+	// travel is worth, which is the difference between zoom that jumps and zoom
+	// that glides.
+	void zoomToPoint(double steps, GLPoint2f point);
+
+	// One or more whole wheel notches. What the desktop's wheel handler calls.
+	void zoomToMouse(long numLines, GLPoint2f mouse) {
+		zoomToPoint((double)numLines, mouse);
+	}
 
 	// --- viewport ----------------------------------------------------------
 

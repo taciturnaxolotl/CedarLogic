@@ -48,26 +48,27 @@ void CanvasCamera::setZoom(GLdouble newZoom) {
 	translatePan(newDist.x - oldDist.x, newDist.y - oldDist.y);
 }
 
-void CanvasCamera::zoomToMouse(long numLines, GLPoint2f mouse) {
+void CanvasCamera::zoomToPoint(double steps, GLPoint2f point) {
+	if (steps == 0.0) return;
+
 	GLPoint2f center = getCenter();
 
 	// The cursor's offset from the centre, in device pixels -- the quantity that
 	// must survive the zoom if the point under the cursor is to stay put.
-	GLPoint2f centerToMouse = mouse - center;
-	centerToMouse.x /= fZoom;
-	centerToMouse.y /= fZoom;
+	GLPoint2f centerToPoint = point - center;
+	centerToPoint.x /= fZoom;
+	centerToPoint.y /= fZoom;
 
 	beginCompoundMove();
-	if (numLines > 0) {
-		setZoom(fZoom * std::pow((GLdouble)ZOOM_STEP, (GLdouble)numLines));
-	} else {
-		setZoom(fZoom / std::pow((GLdouble)ZOOM_STEP, (GLdouble)-numLines));
-	}
+	// Zooming in and out were written as separate branches, but dividing by
+	// pow(s, -n) is multiplying by pow(s, n) -- one expression covers both, and
+	// unlike the branches it means something for a fractional step.
+	setZoom(fZoom * std::pow((GLdouble)ZOOM_STEP, (GLdouble)steps));
 
-	centerToMouse.x *= fZoom;
-	centerToMouse.y *= fZoom;
+	centerToPoint.x *= fZoom;
+	centerToPoint.y *= fZoom;
 
-	setCenter(mouse.x - centerToMouse.x, mouse.y - centerToMouse.y);
+	setCenter(point.x - centerToPoint.x, point.y - centerToPoint.y);
 	endCompoundMove();
 }
 

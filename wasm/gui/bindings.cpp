@@ -265,12 +265,21 @@ public:
 		fCamera.zoomToMouse(notches, fCamera.mapToWorld(px, py));
 	}
 
-	// Pan by whole scroll lines, the way the desktop's wheel handler does: one
-	// line is PAN_STEP pixels' worth of world at the current zoom. The constant
-	// stays here rather than in the shell so the two cannot drift.
-	void scrollPan(int linesX, int linesY) {
+	// Zoom by a fraction of a step. One step is a wheel notch; a trackpad passes
+	// the fraction its travel is worth, so the view glides instead of jumping.
+	void zoomAtBy(double steps, int px, int py) {
+		fCamera.zoomToPoint(steps, fCamera.mapToWorld(px, py));
+	}
+
+	// Pan by scroll steps, the way the desktop's wheel handler does: one step is
+	// PAN_STEP pixels' worth of world at the current zoom. The constant stays
+	// here rather than in the shell so the two cannot drift.
+	//
+	// Steps are fractional, because a trackpad's are: rounding them to whole
+	// lines would truncate an ordinary two-finger drag to nothing at all.
+	void scrollPan(double stepsX, double stepsY) {
 		const GLdouble amount = PAN_STEP * fCamera.getZoom();
-		fCamera.translatePan(amount * linesX, amount * linesY);
+		fCamera.translatePan(amount * stepsX, amount * stepsY);
 	}
 
 	// Fit the whole circuit to the view, the way the desktop's spacebar does.
@@ -604,6 +613,7 @@ EMSCRIPTEN_BINDINGS(cedarlogic_gui) {
 		.function("panY", &Document::panY)
 		.function("translatePan", &Document::translatePan)
 		.function("zoomAt", &Document::zoomAt)
+		.function("zoomAtBy", &Document::zoomAtBy)
 		.function("scrollPan", &Document::scrollPan)
 		.function("zoomAll", &Document::zoomAll)
 		.function("worldX", &Document::worldX)

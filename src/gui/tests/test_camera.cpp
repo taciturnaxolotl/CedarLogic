@@ -109,6 +109,29 @@ TEST_CASE("zooming to the mouse keeps the point under the cursor") {
 	CHECK(after.y == doctest::Approx(cursor.y).epsilon(0.001));
 }
 
+TEST_CASE("a fractional step zooms by a fraction of a step") {
+	FixedViewport host(800, 600);
+	CanvasCamera cam(&host);
+	const GLdouble start = cam.getZoom();
+
+	// Four quarter-steps must land exactly where one whole step does, or a
+	// trackpad and a wheel would disagree about how far the same travel zooms.
+	for (int i = 0; i < 4; i++) cam.zoomToPoint(0.25, cam.getCenter());
+	CHECK(cam.getZoom() == doctest::Approx(start * ZOOM_STEP));
+}
+
+TEST_CASE("a fractional zoom still holds the point under the cursor") {
+	FixedViewport host(800, 600);
+	CanvasCamera cam(&host);
+
+	const GLPoint2f cursor = cam.mapToWorld(700, 100);
+	for (int i = 0; i < 7; i++) cam.zoomToPoint(0.3, cursor);
+
+	const GLPoint2f after = cam.mapToWorld(700, 100);
+	CHECK(after.x == doctest::Approx(cursor.x).epsilon(0.001));
+	CHECK(after.y == doctest::Approx(cursor.y).epsilon(0.001));
+}
+
 TEST_CASE("a compound move repaints once, at the final state") {
 	FixedViewport host(800, 600);
 	CanvasCamera cam(&host);
