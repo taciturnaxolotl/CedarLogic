@@ -61,25 +61,34 @@ to widen the shim.
     ./wasm/gui/build.sh    # needs emscripten; writes web/public/engine/
     cd web && bun install && bun run dev
 
-## What is here, and what is not
+**`PageHost`** is what the interaction asks of whatever surface it runs on:
+where the pointer is, whether a drag is under way, when to repaint, how to open
+a picker, whether editing is locked. `GUICanvas` answers it from wxWidgets in
+about twenty lines; the browser document answers it from DOM events. That is
+the whole of the difference between the two shells' interaction.
 
-Working: the gate library parses, gates are created through the real
-`GUICircuit::createGate`, and a page renders through the real
-`CircuitPage::renderToScene`. Text, fills, arcs, and the grid all come out of
-the shared code.
+## What is here
 
-Not yet:
+Open and save `.cdl` (legacy v1 and v2 files migrate on the way in, through the
+desktop's own reader). Select by click or rubber band, drag, rotate, delete,
+copy, cut, paste, undo and redo. Pan, zoom, zoom-to-fit. The simulation runs,
+toggles respond, and wires show their live state.
 
-- **Loading `.cdl` files.** `format/` compiles and `cl::loadCircuit` works, but
-  turning a `CircuitFile` into gates lives in `CircuitParse::applyCircuitFile`,
-  which still takes `GUICanvas*`. Retargeting it at `CircuitPage*` is the next
-  cut, and it makes save work too.
-- **Selection and dragging.** Pan and zoom are shared; the rest of the
-  interaction still lives on `GUICanvas`, which is still a wxGLCanvas. Its
-  handlers already take neutral events, so the remaining work is moving them
-  and their state down to `CircuitPage` -- the hooks they need from a shell
-  (repaint, pointer capture, `requestQuickAdd`) are the only wx left in them.
-- **Simulation.** The logic core is linked and the message pump compiles, but
-  nothing drives it here; the desktop runs it on a second thread, and the
-  browser wants a different shape (a worker, or stepping from the frame loop).
-- **Multiplayer.** See the command seam above.
+All of it is the desktop's code. The numbers that make up the feel came across
+unchanged: a wheel notch scales by exactly 0.75, the point under the cursor does
+not drift, and the 85 ms click-versus-drag dead zone still turns a quick drag
+into a click.
+
+## What is not
+
+- **Multiple pages.** The desktop has tabs; here everything lands on one page.
+  `CircuitParse` already asks a `PageProvider` for page N, so the shell needs
+  tabs rather than the core needing changes.
+- **The oscilloscope.** `CircuitObserver::oscopeDataAdded` fires here and goes
+  nowhere.
+- **Parameter dialogs.** `requestQuickAdd` focuses the palette filter; a
+  double-click that would open a parameter dialog on the desktop does nothing.
+- **The system clipboard.** Copy and paste work within the page. The browser's
+  clipboard is asynchronous and gated on a gesture, so `clipboardText` and
+  `setClipboardText` bridge to it around one.
+- **Multiplayer.** See the command seam above. Still just an observation.
