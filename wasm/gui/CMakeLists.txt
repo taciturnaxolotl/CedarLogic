@@ -20,6 +20,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 set(REPO "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 
+# Extra link flags for debugging a browser crash, e.g.
+#   -DCEDAR_WASM_EXTRA_LINK="-sASSERTIONS=2 -g2"
+# which turns emscripten's out-of-bounds aborts into named C++ stack traces.
+set(CEDAR_WASM_EXTRA_LINK "" CACHE STRING "Extra emcc link flags")
+
 # _PRODUCTION_ disables the core's file-based logging, which has nowhere to go
 # in a browser.
 add_definitions(-D_PRODUCTION_)

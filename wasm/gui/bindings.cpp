@@ -7,6 +7,7 @@
 
 #include <emscripten/bind.h>
 
+#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -92,6 +93,17 @@ public:
 		                    kGridSpacing, kGridSpacing);
 	}
 
+	// The page background the current style asks for, as a CSS colour. The shell
+	// clears to this rather than picking its own: the schematic's colours were
+	// chosen against it, and a shell that guessed would wash them out.
+	std::string background() const {
+		const cl::render::Color c = cl::render::RenderStyle::screen().background();
+		char buf[64];
+		snprintf(buf, sizeof buf, "rgba(%d,%d,%d,%g)", (int)(c.r * 255 + 0.5f),
+		         (int)(c.g * 255 + 0.5f), (int)(c.b * 255 + 0.5f), (double)c.a);
+		return buf;
+	}
+
 	// The recorded frame as an offset into wasm memory plus a length, so
 	// JavaScript can wrap it in a Float32Array without copying. The offset is
 	// only valid until the next render().
@@ -121,6 +133,7 @@ EMSCRIPTEN_BINDINGS(cedarlogic_gui) {
 		.function("loadError", &Document::loadError)
 		.function("gateTypes", &Document::gateTypes)
 		.function("addGate", &Document::addGate)
+		.function("background", &Document::background)
 		.function("render", &Document::render)
 		.function("sceneData", &Document::sceneData)
 		.function("sceneLength", &Document::sceneLength)

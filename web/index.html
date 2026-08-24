@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CedarLogic — web core spike</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="palette">
+        <h1>CedarLogic</h1>
+        <p class="subtitle">desktop core, compiled to wasm</p>
+        <div id="status" role="status">loading engine…</div>
+        <ul id="gates"></ul>
+      </aside>
+      <main>
+        <canvas id="canvas"></canvas>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

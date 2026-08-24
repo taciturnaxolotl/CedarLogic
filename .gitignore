@@ -11,6 +11,12 @@ res/KLS_Logic.chw
 *build/
 build-*/
 wasm/dist/
+
+# Web shell: dependencies, the Vite output, and the wasm engine that
+# wasm/gui/build.sh drops into public/ (a build artifact, not a source file).
+node_modules/
+web/dist/
+web/public/engine/
 .direnv
 .crush
 .envrc

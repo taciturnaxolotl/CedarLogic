@@ -1,0 +1,82 @@
+/* Deliberately plain. This shell exists to prove the engine renders; the real
+   interface is a separate piece of work and should not inherit placeholder
+   decisions made here. */
+
+:root {
+  --bg: #f7f7f4;
+  --panel: #ffffff;
+  --ink: #1b1b18;
+  --muted: #6b6b63;
+  --rule: #d8d8d0;
+  --accent: #1f6f4a;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16161a;
+    --panel: #1e1e23;
+    --ink: #e8e8e2;
+    --muted: #8f8f88;
+    --rule: #32323a;
+    --accent: #5fd39a;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+/* The layout lives on #app rather than body because browser extensions inject
+   their own elements as body children, and a grid on body hands them cells. */
+#app {
+  display: grid;
+  grid-template-columns: 15rem 1fr;
+  height: 100vh;
+}
+
+#palette {
+  background: var(--panel);
+  border-right: 1px solid var(--rule);
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+h1 { margin: 0; font-size: 1rem; letter-spacing: 0.02em; }
+.subtitle { margin: 0 0 0.75rem; color: var(--muted); font-size: 11px; }
+
+#status {
+  border: 1px solid var(--rule);
+  padding: 0.4rem 0.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: pre-wrap;
+}
+#status.error { color: #c0392b; border-color: #c0392b; }
+
+#gates { list-style: none; margin: 0; padding: 0; }
+#gates button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  padding: 0.35rem 0.25rem;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+#gates button:hover { color: var(--accent); }
+
+main { position: relative; overflow: hidden; }
+canvas { display: block; width: 100%; height: 100%; }
