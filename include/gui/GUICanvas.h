@@ -38,63 +38,17 @@ class guiWire;
 // GateState and WireState -- where a gate or wire was before a move -- live
 // with the page, in CircuitPage.h.
 
-// Struct ConnectionSource
-//		stores the source of a drag connect operation
-struct ConnectionSource {
-	bool isGate;
-	unsigned long objectID;
-	string connection;
-	
-	ConnectionSource( bool ig, unsigned long id, string conn ) : isGate(ig), objectID(id), connection(conn) {};
-	ConnectionSource() {};
-};
+// ConnectionSource lives with the page, in CircuitPage.h.
 
 #include "commands.h"
 
 #define MAX_UNDO_STATES 256
 
-#define MIN_ZOOM 1.0/120.0
-#define MAX_ZOOM 1.0*1.0
-#define DEFAULT_ZOOM 1.0/10.0
-// The amount of zooming done per step (in %).
-#define ZOOM_STEP 0.75
-
-#define MIN_PAN -1.0e10
-#define MAX_PAN 1.0e10
-
-// The amount of panning done per step for keypress (in pixels).
-#define PAN_STEP 30
-
-// The amount of panning done per step for autoscroll (in pixels).
-#define SCROLL_STEP 30
 #define SCROLL_TIMER_RATE 30
 #define SCROLL_TIMER_ID 1
 
-// The amount of area that will react as a hotspot
-#define HOTSPOT_SCREEN_RADIUS 3.0
-#define HOTSPOT_SCREEN_DELTA  5.0
-#define WIRE_HOVER_SCREEN_DELTA 5.0
-#define MOUSE_HOVER_DELTA 4.5
-// Click-vs-drag dead zone (screen pixels, scaled by zoom): the pointer must
-// leave this radius around the press point before a selected gate starts moving,
-// so a click with a little jitter selects instead of nudging it a grid cell over.
-#define DRAG_START_SCREEN_DELTA 6.0
-// ... and a short time dead zone after the press, so a quick click that travels
-// a few pixels while the button is down still selects rather than nudging.
-#define DRAG_START_TIME_MS 85
-
-
-#define ZOOM_ALL_MARGIN 0.25
-
-// DragStates
-enum DragState {
-	DRAG_NONE = 0,
-	DRAG_CONNECT,
-	DRAG_SELECT,
-	DRAG_SELECTION,
-	DRAG_NEWGATE,
-	DRAG_WIRESEG
-};
+// Zoom and pan constants live with CanvasCamera; the hotspot and drag dead
+// zones, and DragState, live with CircuitPage.
 
 // Engine-neutral rendering seam (Workstream G); defined in gui/render/.
 namespace cl { namespace render { class Scene; struct RenderStyle; struct Transform; } }
@@ -102,10 +56,11 @@ namespace cl { namespace render { class Scene; struct RenderStyle; struct Transf
 // Class GUICanvas, inherits from klsGLCanvas for basic scroll/zoom/viewport functionality
 //		all event handling is passed to this subclass in GL coordinates.
 //		GUICanvas handles all gate and wire manipulation.
-// The wx half is klsGLCanvas (window, input, GL context); the page half --
-// gate/wire lists and how they draw -- is CircuitPage, which carries no
-// toolkit so the browser build can render the same page.
-class GUICanvas: public klsGLCanvas, public CircuitPage
+// The wx half is klsGLCanvas: window, GL context, event plumbing. The circuit
+// half -- the gates and wires, how they draw, and what the pointer does to them
+// -- is CircuitPage, which carries no toolkit, so the browser runs the same
+// code. This class joins them, and answers PageHost on the page's behalf.
+class GUICanvas: public klsGLCanvas, public CircuitPage, public PageHost
 {
 public:
     GUICanvas( wxWindow *parent, GUICircuit* gCircuit, wxWindowID id = wxID_ANY,
@@ -115,166 +70,61 @@ public:
 
 	virtual ~GUICanvas();
 
-	// Event handlers. These take toolkit-neutral events (see InputEvent.h), so
-	// the interaction they describe -- what starts a drag, what a click selects,
-	// where a wire snaps -- is the same code on the desktop and in the browser.
-	void OnMouseDown( const input::PointerEvent& event ) override {
-		if( event.button == input::Button::Left ) {
-			mouseLeftDown( event );
-		} else if( event.button == input::Button::Right ) {
-			mouseRightDown( event );
+	// The interaction -- what a click selects, what starts a drag, where a wire
+	// snaps -- lives on CircuitPage, so it is the same code in the browser. This
+	// class is the surface it runs on: it answers PageHost from wxWidgets.
+	GLPoint2f pointerPos() const override { return const_cast<GUICanvas *>(this)->getMouseCoords(); }
+	GLPoint2f dragStart(input::Button b) const override {
+		return const_cast<GUICanvas *>(this)->getDragStartCoords(toMouseButton(b));
+	}
+	bool isDragging(input::Button b) const override {
+		return const_cast<GUICanvas *>(this)->klsGLCanvas::isDragging(toMouseButton(b));
+	}
+	void beginDrag(input::Button b) override { klsGLCanvas::beginDrag(toMouseButton(b)); }
+	void endDrag(input::Button b) override { klsGLCanvas::endDrag(toMouseButton(b)); }
+	void requestRepaint() override { Refresh(); }
+	void requestQuickAdd() override;
+	void setArrowCursor() override { SetCursor(wxCursor(wxCURSOR_ARROW)); }
+	void setAutoScroll(bool on) override { on ? autoScrollEnable() : autoScrollDisable(); }
+	bool isLocked() const override { return const_cast<GUICanvas *>(this)->klsGLCanvas::isLocked(); }
+
+	// Rendering. These three forward to CircuitPage, supplying the grid spacing
+	// and device scale this window knows and the page does not.
+	void renderToScene(cl::render::Scene& scene, const cl::render::RenderStyle& style,
+	                   int deviceW, int deviceH);
+	void renderLiveToScene(cl::render::Scene& scene, const cl::render::RenderStyle& style);
+	void drawSceneContents(cl::render::Scene& scene, const cl::render::RenderStyle& style,
+	                       const cl::render::Transform& t, float scale,
+	                       float gMinX, float gMinY, float gMaxX, float gMaxY);
+	void drawGridInto(cl::render::Scene& scene, const cl::render::RenderStyle& style,
+	                  float scale, float gMinX, float gMinY, float gMaxX, float gMaxY);
+	bool renderSkiaLive() override;
+
+	// Keep the minimap in step with the page as well.
+	void updatePage() override;
+
+	// The minimap that mirrors this canvas.
+	void setMinimap(klsMiniMap* map) {
+		minimap = map;
+		if (minimap != NULL) {
+			minimap->setCanvas(this);
+			minimap->setLists(getGateList(), getWireList());
 		}
-	};
-    void mouseLeftDown(const input::PointerEvent& event);
-    void mouseRightDown(const input::PointerEvent& event);
+	}
 
-    void OnMouseUp(const input::PointerEvent& event) override;
-    void OnMouseMove(const input::PointerEvent& event) override;
-    void OnMouseEnter(const input::PointerEvent& event) override;
+	void OnSize( void ) { updatePage(); };
 
-    bool OnKeyDown(const input::KeyEvent& event) override;
-
-    // Ask the shell for a gate to place ('a'). Opening a window is the one
-    // thing this handler cannot do itself, so it asks: the desktop answers with
-    // QuickAddDialog, a browser shell with its own picker. Either way the
-    // answer lands in paletteDrag().newGateToDrag.
-    virtual void requestQuickAdd();
-    void cancelDrag() override;   // cancel an in-progress drag (Escape / lost capture)
-	
-	void OnSize( void ) { Update(); };
-	
-	// Clears the page
-	void clearCircuit();
-	
-	// Deletes the currently selected gates and wires
-	void deleteSelection();
-
-	// Rotates the currently selected gates, gates being pasted, or gate being placed by 90 degrees
-	void rotateSelection();
-
-    // These three forward to CircuitPage, supplying the grid spacing this canvas
-    // holds as a klsGLCanvas. drawCircuitInto and renderContentKey need nothing
-    // from the canvas and are inherited as-is.
-    void renderToScene(cl::render::Scene& scene, const cl::render::RenderStyle& style,
-                       int deviceW, int deviceH);
-
-    // Render at the live camera (pan/zoom) rather than the bbox fit -- the
-    // on-screen path (G3). renderSkiaLive() paints it through Ganesh into the
-    // window framebuffer; drawSceneContents() is the shared grid/wire/gate draw.
-    void renderLiveToScene(cl::render::Scene& scene, const cl::render::RenderStyle& style);
-    bool renderSkiaLive() override;
-    void drawSceneContents(cl::render::Scene& scene, const cl::render::RenderStyle& style,
-                           const cl::render::Transform& t, float scale,
-                           float gMinX, float gMinY, float gMaxX, float gMaxY);
-    void drawGridInto(cl::render::Scene& scene, const cl::render::RenderStyle& style,
-                      float scale, float gMinX, float gMinY, float gMaxX, float gMaxY);
-#ifdef WITH_SKIA
-    // Interactive overlays (hovered pin bulb, potential-connection bulbs, drag
-    // boxes/lines, wire hover, collision boxes) drawn only in the live Skia path
-    // -- not in renderToScene, which is shared with PNG/SVG export.
-    void drawOverlaysInto(cl::render::Scene& scene);
-#endif
-
-	// Update the collision checker and refresh
-	void Update();
-
-	// getGateList/getWireList are the page's, inherited from CircuitPage.
-	
-	// insertGate/insertWire/removeGate/removeWire are the page's, inherited from
-	// CircuitPage. This canvas only needs to know when a gate goes, so it can
-	// drop a hover highlight that was pointing at it.
-	void onGateRemoved(unsigned long id) override;
-
-	// Add a gate
-	void addGate(string gate, GLPoint2f m);
-	
-	// Remove the selection flag from all gates or wires on the canvas
-	void unselectAllGates();
-	void unselectAllWires();
-	
-	// Pointer to the main application graphic circuit
-	GUICircuit* getCircuit() { return gCircuit; };
-	
-	// Handle copy and paste for this canvas
-	void copyBlockToClipboard( void );
-	void pasteBlockFromClipboard( void );
-	// Cut: copy the selection to the clipboard, then delete it (one undoable
-	// deletion; the clipboard contents survive the undo).
-	void cutSelectionToClipboard( void );
-
-	// Tell the canvas which minimap it should use; sets the minimaps pointers and lists
-	void setMinimap(klsMiniMap* minimap) {
-		this->minimap = minimap;
-		//Josh Edit 4/9/07
-		if( minimap != NULL ){
-			minimap->setCanvas( this );
-			minimap->setLists( &gateList, &wireList );
-			updateMiniMap();
-		}
-	};
-	
-	// Zoom the canvas to fit all items within it:
-	void setZoomAll( void );
-
-	// Zoom the canvas in or out:
-	void zoomIn();
-	void zoomOut();
-
+	// Dump the page to the app log.
 	void printLists();
 
-	// Create a command to connect a wire to a gate.
-	klsCommand * createGateWireConnectionCommand(IDType gateId, const string &hotspot, IDType wireId);
-
-	// Create a command to connect a gate to a gate.
-	klsCommand * createGateConnectionCommand(IDType gate1Id, const string &hotspot1, IDType gate2Id, const string &hotspot2);
-
-	// Tag a command with this canvas as its page, then submit it to the undo
-	// history. Stamping the page lets undo/redo switch to it (see MainFrame).
-	void submitCommand(klsCommand *cmd);
-
 private:
-
-	// collisionChecker and gCircuit are the page's, inherited from CircuitPage.
-	klsCollisionObject* mouse;
-	klsCollisionObject* snapMouse;
-	klsCollisionObject* dragselectbox;
-
-	// gateList and wireList -- the maps of gates and wires on this page -- are
-	// inherited from CircuitPage.
-	vector < unsigned long > selectedGates;
-	vector < unsigned long > selectedWires;
-
-	// Hotspot and wire highlights:
-	unsigned long hotspotGate; // The gate in which a hotspot is highlighted.
-	string hotspotHighlight; // The hotSpot to highlight when rendering. If == "", then none are highlighted.
-	vector < GLPoint2f > potentialConnectionHotspots; // Points to highlight for connection when moving a gate.
-	bool drawWireHover; // Whether or not to draw a wire hover X value.
-	unsigned long wireHoverID;
-	ConnectionSource currentConnectionSource;
-
-	// When the left button was last pressed, for the click-vs-drag time dead zone.
-	std::chrono::steady_clock::time_point dragPressTime;
-	// When hover work (collision pass + highlight) last ran, to throttle it to
-	// ~60Hz on a flood of raw mouse-motion events (see OnMouseMove).
-	std::chrono::steady_clock::time_point lastHoverTime;
-	
-	bool isWithinPaste; // If we are in paste then drag_selection is enabled until drop
-	DragState currentDragState;
-	cmdPasteBlock* pasteCommand; // Hold the paste command until the block is dropped
-
-	// If we are in DRAG_SELECTION then we should hold gates' original position and flag
-	//		that we want to save the move as a command in the undo stack
-	vector < GateState > preMove;
-	vector < WireState > preMoveWire;
-	bool saveMove;
-
-	// Pointer to the new gate in DRAG_NEWGATE mode until the gate is dropped
-	// The preview gate that follows the cursor from the palette. The canvas owns
-	// it outright: it is not part of the circuit until the drop, which creates a
-	// real gate through a command. It used to sit in the circuit's gate list on
-	// loan and be deleted by hand from three different exit paths.
-	std::unique_ptr<guiGate> newDragGate;
-	
+	static mouseButton toMouseButton(input::Button b) {
+		switch (b) {
+		case input::Button::Right:  return BUTTON_RIGHT;
+		case input::Button::Middle: return BUTTON_MIDDLE;
+		default:                    return BUTTON_LEFT;
+		}
+	}
 };
 
 #endif /*TESTGLCANVAS_H_*/

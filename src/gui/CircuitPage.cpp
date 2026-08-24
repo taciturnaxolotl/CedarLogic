@@ -178,6 +178,22 @@ unsigned long long CircuitPage::renderContentKey() {
 
 
 
+// The pointer and the rubber-band box are collision objects like any other, so
+// hit testing and drag-select go through the same index the circuit does.
+CircuitPage::CircuitPage() {
+	mouse = new klsCollisionObject(COLL_MOUSEBOX);
+	snapMouse = new klsCollisionObject(COLL_MOUSEBOX);
+	dragselectbox = new klsCollisionObject(COLL_SELBOX);
+	collisionChecker.addObject(mouse);
+	collisionChecker.addObject(dragselectbox);
+}
+
+CircuitPage::~CircuitPage() {
+	delete snapMouse;
+	delete mouse;
+	delete dragselectbox;
+}
+
 // --- page contents ---------------------------------------------------------
 
 void CircuitPage::insertGate(unsigned long id, guiGate* gate, float x, float y) {

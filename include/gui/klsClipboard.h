@@ -16,15 +16,15 @@ using namespace std;
 
 class cmdPasteBlock;
 class GUICircuit;
-class GUICanvas;
+class CircuitPage;
 
 class klsClipboard {
 public:
 	klsClipboard() { return; };
 	virtual ~klsClipboard() { return; };
 	
-	cmdPasteBlock* pasteBlock( GUICircuit* gCircuit, GUICanvas* gCanvas );
-	void copyBlock( GUICircuit* gCircuit, GUICanvas* gCanvas, vector < unsigned long > gates, vector < unsigned long > wires );
+	cmdPasteBlock* pasteBlock( GUICircuit* gCircuit, CircuitPage* gCanvas );
+	void copyBlock( GUICircuit* gCircuit, CircuitPage* gCanvas, vector < unsigned long > gates, vector < unsigned long > wires );
 };
 
 #endif /*KLSCLIPBOARD_H_*/

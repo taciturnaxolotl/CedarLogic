@@ -18,7 +18,7 @@
 #include "commands.h"
 #include "cmdSerialize.h"
 #include "cmdRegistry.h"
-#include "GUICanvas.h"
+#include "CircuitPage.h"
 #include "GUICircuit.h"
 #include "guiGate.h"
 #include "guiWire.h"
@@ -69,7 +69,7 @@ static void autoIncrementJunctionId(string &line, const string &pasteText) {
 	wxTheClipboard->AddData(new wxTextDataObject(newPasteText));
 }
 
-cmdPasteBlock* klsClipboard::pasteBlock( GUICircuit* gCircuit, GUICanvas* gCanvas ) {
+cmdPasteBlock* klsClipboard::pasteBlock( GUICircuit* gCircuit, CircuitPage* gCanvas ) {
 	clipboardCtx clipboard;
 	if ( !clipboard.valid || !wxTheClipboard->IsSupported(wxDF_UNICODETEXT) ) {
 		return NULL;
@@ -122,7 +122,7 @@ cmdPasteBlock* klsClipboard::pasteBlock( GUICircuit* gCircuit, GUICanvas* gCanva
 	return NULL;
 }
 
-void klsClipboard::copyBlock( GUICircuit* gCircuit, GUICanvas* gCanvas, vector < unsigned long > gates, vector < unsigned long > wires ) {
+void klsClipboard::copyBlock( GUICircuit* gCircuit, CircuitPage* gCanvas, vector < unsigned long > gates, vector < unsigned long > wires ) {
 	if (gates.size() == 0) return;
 	ostringstream oss;
 	klsCommand* cmdTemp;
