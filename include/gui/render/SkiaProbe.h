@@ -11,6 +11,8 @@
 
 #include <functional>
 
+#include "render/TextMetrics.h"   // measuredTextWidth/Height: SkiaBackend.cpp implements them
+
 namespace cl {
 namespace render {
 
@@ -105,16 +107,6 @@ bool skiaRenderToSvg(const char* path, int width, int height,
 // backend-ready; only the supplied library is missing the piece.
 bool skiaRenderToPdf(const char* path, int width, int height,
                      const std::function<void(Scene&)>& draw);
-
-// Advance width of a UTF-8 string as the Skia text path (Scene::text) renders it
-// at `pixelHeight`, using the same font. Lets non-Skia layout code (a label's hit
-// box) size itself to what actually renders instead of the GL font's metrics.
-// Returns 0 if no font is available. Keeps Skia headers out of the caller.
-float measuredTextWidth(const char* utf8, float pixelHeight);
-
-// The height that same text occupies: top of the capitals down past the
-// descenders, so a caller can box exactly what gets drawn.
-float measuredTextHeight(float pixelHeight);
 
 }  // namespace render
 }  // namespace cl

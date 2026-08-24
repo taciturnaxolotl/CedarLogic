@@ -19,7 +19,7 @@
 #include "guiWire.h"
 #include "render/Scene.h"
 #include "render/RenderStyle.h"
-#include "render/SkiaProbe.h"    // measuredTextWidth -- size text hit boxes to what renders
+#include "render/TextMetrics.h"  // measuredTextWidth -- size text hit boxes to what renders
 
 DECLARE_APP(MainApp)
 
