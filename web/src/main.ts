@@ -76,28 +76,36 @@ function updateReadout(doc: Document): void {
   // Zoom is world units per pixel, so a smaller number is closer in. Show the
   // reciprocal, which is what a person means by "200%".
   const percent = Math.round((1 / zoom) * 10);
-  readoutEl.textContent = `${doc.gateCount()} gates · ${doc.wireCount()} wires · ${percent}%`;
+  const selected = doc.selectedCount();
+  readoutEl.textContent =
+    `${doc.gateCount()} gates · ${doc.wireCount()} wires` +
+    (selected > 0 ? ` · ${selected} selected` : "") +
+    ` · ${percent}%`;
 }
 
 // ─── camera ──────────────────────────────────────────────────────────────────
 
-function bindCamera(doc: Document): void {
+function bindInput(doc: Document): void {
+  const at = (e: { clientX: number; clientY: number }): [number, number] => {
+    const r = canvas.getBoundingClientRect();
+    return [Math.round(e.clientX - r.left), Math.round(e.clientY - r.top)];
+  };
+  const mods = (e: MouseEvent | KeyboardEvent): [boolean, boolean, boolean, boolean] =>
+    [e.shiftKey, e.ctrlKey, e.altKey, e.metaKey];
+
   // A wheel notch is one zoom step pivoting on the cursor -- the desktop's
   // zoomToMouse, reached through the same camera.
   canvas.addEventListener(
     "wheel",
     (e) => {
       e.preventDefault();
-      const rect = canvas.getBoundingClientRect();
-      const px = Math.round(e.clientX - rect.left);
-      const py = Math.round(e.clientY - rect.top);
+      const [px, py] = at(e);
 
-      // A trackpad's two-finger drag arrives as a wheel event with no ctrlKey
-      // and small deltas; treat that as panning, which is what the gesture
-      // means, and reserve zooming for a real wheel or a pinch (ctrlKey).
+      // A trackpad's two-finger drag arrives as a wheel event with small deltas
+      // and a horizontal component; treat that as panning, which is what the
+      // gesture means, and keep zooming for a real wheel or a pinch (ctrlKey).
       const isPinch = e.ctrlKey;
       const isTrackpadPan = !isPinch && e.deltaMode === 0 && Math.abs(e.deltaY) < 30 && e.deltaX !== 0;
-
       if (isTrackpadPan) {
         const zoom = doc.getZoom();
         doc.translatePan(e.deltaX * zoom, -e.deltaY * zoom);
@@ -108,8 +116,9 @@ function bindCamera(doc: Document): void {
     { passive: false },
   );
 
-  // Middle-drag pans, as on the desktop. Space-drag does too, since a browser
-  // cannot count on a middle button being there.
+  // Panning is the shell's own gesture: middle-drag as on the desktop, and
+  // space-drag too, since a browser cannot count on a middle button. Everything
+  // else goes to the page.
   let panning = false;
   let lastX = 0;
   let lastY = 0;
@@ -117,53 +126,121 @@ function bindCamera(doc: Document): void {
 
   canvas.addEventListener("pointerdown", (e) => {
     canvas.focus();
-    if (e.button !== 1 && !(e.button === 0 && spaceHeld)) return;
+    const [px, py] = at(e);
+
+    if (e.button === 1 || (e.button === 0 && spaceHeld)) {
+      e.preventDefault();
+      panning = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      canvas.setPointerCapture(e.pointerId);
+      return;
+    }
+
     e.preventDefault();
-    panning = true;
-    lastX = e.clientX;
-    lastY = e.clientY;
     canvas.setPointerCapture(e.pointerId);
+    doc.pointerDown(px, py, e.button, ...mods(e));
   });
 
   canvas.addEventListener("pointermove", (e) => {
-    if (!panning) return;
-    // Drag the world with the cursor: the view moves the opposite way, and one
-    // CSS pixel of travel is one pixel of world at any zoom.
-    const zoom = doc.getZoom();
-    doc.translatePan(-(e.clientX - lastX) * zoom, (e.clientY - lastY) * zoom);
-    lastX = e.clientX;
-    lastY = e.clientY;
+    if (panning) {
+      // Drag the world with the cursor: the view moves the opposite way, and
+      // one CSS pixel of travel is one pixel of world at any zoom.
+      const zoom = doc.getZoom();
+      doc.translatePan(-(e.clientX - lastX) * zoom, (e.clientY - lastY) * zoom);
+      lastX = e.clientX;
+      lastY = e.clientY;
+      return;
+    }
+    const [px, py] = at(e);
+    doc.pointerMove(px, py, (e.buttons & 1) !== 0, ...mods(e));
   });
 
-  const endPan = (e: PointerEvent): void => {
-    if (!panning) return;
-    panning = false;
+  const release = (e: PointerEvent, doubleClick = false): void => {
     if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+    if (panning) {
+      panning = false;
+      return;
+    }
+    const [px, py] = at(e);
+    doc.pointerUp(px, py, e.button, doubleClick, ...mods(e));
   };
-  canvas.addEventListener("pointerup", endPan);
-  canvas.addEventListener("pointercancel", endPan);
+
+  canvas.addEventListener("pointerup", (e) => release(e));
+  canvas.addEventListener("pointercancel", (e) => {
+    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+    panning = false;
+    doc.keyDown("Escape", false, false, false, false);
+  });
+  canvas.addEventListener("dblclick", (e) => {
+    const [px, py] = at(e);
+    doc.pointerUp(px, py, e.button, true, ...mods(e));
+  });
+
+  // A right-click is a circuit gesture here, not a browser one.
+  canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
   window.addEventListener("keydown", (e) => {
     // Never steal a key from a text field.
     if (e.target instanceof HTMLInputElement) return;
 
-    if (e.code === "Space") {
-      spaceHeld = true;
-      if (!panning) {
-        e.preventDefault();
-        doc.zoomAll();
-      }
+    if (e.code === "Space") spaceHeld = true;
+
+    // The shell owns the clipboard and the undo shortcuts, because those are
+    // platform conventions rather than circuit behaviour.
+    const accel = e.metaKey || e.ctrlKey;
+    if (accel) {
+      const key = e.key.toLowerCase();
+      if (key === "z" && !e.shiftKey) { e.preventDefault(); doc.undo(); return; }
+      if ((key === "z" && e.shiftKey) || key === "y") { e.preventDefault(); doc.redo(); return; }
+      if (key === "c") { e.preventDefault(); doc.copySelection(); syncClipboardOut(doc); return; }
+      if (key === "x") { e.preventDefault(); doc.cutSelection(); syncClipboardOut(doc); return; }
+      if (key === "v") { e.preventDefault(); void pasteFromSystem(doc); return; }
+      if (key === "s") { e.preventDefault(); saveCircuit(doc); return; }
+      if (key === "o") { e.preventDefault(); fileEl.click(); return; }
       return;
     }
-    if (e.key === "+" || e.key === "=") { e.preventDefault(); doc.zoomAt(1, canvas.clientWidth / 2, canvas.clientHeight / 2); }
-    if (e.key === "-") { e.preventDefault(); doc.zoomAt(-1, canvas.clientWidth / 2, canvas.clientHeight / 2); }
+
+    // Everything else is the page's: delete, escape, arrows, zoom, r, a.
+    e.preventDefault();
+    doc.keyDown(e.key, ...mods(e));
+    if (doc.takeQuickAddRequest()) filterEl.focus();
   });
+
   window.addEventListener("keyup", (e) => {
     if (e.code === "Space") spaceHeld = false;
   });
 }
 
+// The page's clipboard is in-process, because the browser's is asynchronous and
+// needs a gesture. These move text between the two around one.
+function syncClipboardOut(doc: Document): void {
+  const text = doc.clipboardText();
+  if (text) void navigator.clipboard?.writeText(text).catch(() => {});
+}
+
+async function pasteFromSystem(doc: Document): Promise<void> {
+  try {
+    const text = await navigator.clipboard?.readText();
+    if (text) doc.setClipboardText(text);
+  } catch {
+    // No permission, or no clipboard: fall back to whatever we copied here.
+  }
+  doc.paste();
+}
+
 // ─── files ───────────────────────────────────────────────────────────────────
+
+function saveCircuit(doc: Document): void {
+  const blob = new Blob([doc.saveCircuit()], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "circuit.cdl";
+  a.click();
+  URL.revokeObjectURL(url);
+  setStatus("saved circuit.cdl");
+}
 
 function reportLoad(doc: Document, name: string, error: string): void {
   if (error) {
@@ -199,16 +276,7 @@ function bindFiles(doc: Document): void {
     fileEl.value = "";
   });
 
-  $<HTMLButtonElement>("#save").addEventListener("click", () => {
-    const blob = new Blob([doc.saveCircuit()], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "circuit.cdl";
-    a.click();
-    URL.revokeObjectURL(url);
-    setStatus("saved circuit.cdl");
-  });
+  $<HTMLButtonElement>("#save").addEventListener("click", () => saveCircuit(doc));
 
   $<HTMLButtonElement>("#clear").addEventListener("click", () => {
     doc.clearCircuit();
@@ -292,9 +360,14 @@ async function main(): Promise<void> {
 
   const types = toArray(doc.gateTypes());
   setStatus(`${types.length} gate types · open a .cdl or drop one here`);
+  hintEl.textContent = "wheel zooms · space fits · middle-drag or space-drag pans · delete removes · r rotates";
 
   buildPalette(doc, types);
-  bindCamera(doc);
+  // A handle for poking at the engine from the console. Harmless in production
+  // and the difference between diagnosing a problem in ten seconds and an hour.
+  (window as unknown as { cedar: Document }).cedar = doc;
+
+  bindInput(doc);
   bindFiles(doc);
   startFrameLoop(module, doc);
 

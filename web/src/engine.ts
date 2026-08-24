@@ -30,6 +30,35 @@ export interface Document {
   clearCircuit(): void;
   gateCount(): number;
   wireCount(): number;
+  // Input. Positions are CSS pixels relative to the canvas; `button` follows
+  // the DOM (0 left, 1 middle, 2 right). These reach the same handlers the
+  // desktop runs, so selection, dragging and the click-vs-drag dead zone
+  // behave identically.
+  pointerDown(px: number, py: number, button: number,
+              shift: boolean, ctrl: boolean, alt: boolean, meta: boolean): void;
+  pointerMove(px: number, py: number, leftDown: boolean,
+              shift: boolean, ctrl: boolean, alt: boolean, meta: boolean): void;
+  pointerUp(px: number, py: number, button: number, doubleClick: boolean,
+            shift: boolean, ctrl: boolean, alt: boolean, meta: boolean): void;
+  /** `key` is a DOM KeyboardEvent.key value. */
+  keyDown(key: string, shift: boolean, ctrl: boolean, alt: boolean, meta: boolean): void;
+
+  deleteSelection(): void;
+  rotateSelection(): void;
+  copySelection(): void;
+  cutSelection(): void;
+  paste(): void;
+  clipboardText(): string;
+  setClipboardText(text: string): void;
+
+  undo(): boolean;
+  redo(): boolean;
+  canUndo(): boolean;
+  canRedo(): boolean;
+  selectedCount(): number;
+  /** True once, if the page asked the shell to open a gate picker. */
+  takeQuickAddRequest(): boolean;
+
   /** Tell the camera how big the drawing surface is, in CSS pixels. */
   setViewportSize(width: number, height: number): void;
   getZoom(): number;
