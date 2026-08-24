@@ -7,6 +7,7 @@
 
 import { loadEngine, toArray, type Document, type EngineModule } from "./engine.ts";
 import { replay } from "./scene.ts";
+import { looksLikeTrackpad } from "./wheel.ts";
 
 const $ = <T extends HTMLElement>(sel: string): T =>
   document.querySelector<T>(sel) ?? (() => { throw new Error(`missing ${sel}`); })();
@@ -136,25 +137,62 @@ function bindInput(doc: Document): void {
   const mods = (e: MouseEvent | KeyboardEvent): [boolean, boolean, boolean, boolean] =>
     [e.shiftKey, e.ctrlKey, e.altKey, e.metaKey];
 
-  // A wheel notch is one zoom step pivoting on the cursor -- the desktop's
-  // zoomToMouse, reached through the same camera.
+  // Wheel input is two devices wearing one event, and they want opposite
+  // things: a mouse wheel should zoom (as the desktop does), a trackpad's
+  // two-finger drag should pan (as every other canvas app does).
+  //
+  // Which device the wheel events are coming from. Remembered rather than
+  // decided per event: see wheel.ts.
+  let isTrackpad = false;
+
+  // Zoom in whole steps, so a wheel notch is exactly one ZOOM_STEP and matches
+  // the desktop. A pinch arrives as a flurry of small deltas, so they
+  // accumulate and spend themselves a step at a time rather than jumping a full
+  // step per event.
+  let zoomAccumulator = 0;
+
+  const zoomBy = (amount: number, px: number, py: number): void => {
+    zoomAccumulator += amount;
+    const notches = Math.trunc(zoomAccumulator);
+    if (notches === 0) return;
+    zoomAccumulator -= notches;
+    doc.zoomAt(notches, px, py);
+  };
+
   canvas.addEventListener(
     "wheel",
     (e) => {
       e.preventDefault();
       const [px, py] = at(e);
+      isTrackpad = looksLikeTrackpad(e, isTrackpad);
 
-      // A trackpad's two-finger drag arrives as a wheel event with small deltas
-      // and a horizontal component; treat that as panning, which is what the
-      // gesture means, and keep zooming for a real wheel or a pinch (ctrlKey).
-      const isPinch = e.ctrlKey;
-      const isTrackpadPan = !isPinch && e.deltaMode === 0 && Math.abs(e.deltaY) < 30 && e.deltaX !== 0;
-      if (isTrackpadPan) {
+      // A pinch arrives as a wheel event with ctrl held -- the browser's way of
+      // saying "the user means zoom", whatever the device. Cmd works too, so
+      // zooming does not depend on a gesture some trackpads make awkward.
+      // The divisor sets how much pinch travel makes one zoom step; a full
+      // comfortable pinch should be worth a few, not a fraction of one.
+      if (e.ctrlKey || e.metaKey) {
+        zoomBy(-e.deltaY / 20, px, py);
+        return;
+      }
+
+      if (isTrackpad) {
+        // One CSS pixel of finger travel is one pixel of world at any zoom, so
+        // the schematic tracks the fingers exactly.
         const zoom = doc.getZoom();
         doc.translatePan(e.deltaX * zoom, -e.deltaY * zoom);
         return;
       }
-      doc.zoomAt(e.deltaY < 0 ? 1 : -1, px, py);
+
+      // Shift and a wheel pans sideways, the usual convention for a mouse with
+      // only one wheel.
+      if (e.shiftKey) {
+        const zoom = doc.getZoom();
+        doc.translatePan(e.deltaY * zoom, 0);
+        return;
+      }
+
+      zoomBy(e.deltaY < 0 ? 1 : -1, px, py);
     },
     { passive: false },
   );
@@ -403,7 +441,7 @@ async function main(): Promise<void> {
 
   const types = toArray(doc.gateTypes());
   setStatus(`${types.length} gate types · open a .cdl or drop one here`);
-  hintEl.textContent = "wheel zooms · space fits · middle-drag or space-drag pans · delete removes · r rotates";
+  hintEl.textContent = "two-finger drag or middle-drag pans · pinch or \u2318-scroll zooms · space fits · +/\u2212 zooms";
 
   buildPalette(doc, types);
   // A handle for poking at the engine from the console. Harmless in production
