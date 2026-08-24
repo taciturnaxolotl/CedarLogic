@@ -20,6 +20,8 @@
 
 #include <unordered_map>
 
+#include "klsCollisionChecker.h"
+
 #include "gl_defs.h"   // GRID_INTENSITY, MIN_GRID_SCREEN_SPACING
 #include "CanvasCamera.h"
 
@@ -31,6 +33,7 @@ namespace cl { namespace render {
 
 class guiGate;
 class guiWire;
+class GUICircuit;
 
 class CircuitPage {
 public:
@@ -38,6 +41,44 @@ public:
 
 	std::unordered_map< unsigned long, guiGate* > gateList;
 	std::unordered_map< unsigned long, guiWire* > wireList;
+
+	std::unordered_map< unsigned long, guiGate* >* getGateList() { return &gateList; }
+	std::unordered_map< unsigned long, guiWire* >* getWireList() { return &wireList; }
+
+	// The camera looking at this page. Owned by whoever owns the surface -- the
+	// canvas on the desktop, the document in the browser -- because a camera
+	// needs a viewport and only they know how big it is.
+	CanvasCamera* getCamera() const { return pageCamera; }
+	void setCamera(CanvasCamera* c) { pageCamera = c; }
+
+	// The visible world rectangle, which the legacy save format records per
+	// page. Empty if no camera is attached.
+	void getViewport(GLPoint2f& topLeft, GLPoint2f& bottomRight) const {
+		if (pageCamera) pageCamera->getViewport(topLeft, bottomRight);
+	}
+
+	// The document these gates belong to. The page holds the objects; the
+	// document owns their logic-core counterparts and the undo history.
+	GUICircuit* getCircuit() const { return gCircuit; }
+	void setCircuit(GUICircuit* circuit) { gCircuit = circuit; }
+
+	// Everything on the page, indexed for hit testing and overlap.
+	klsCollisionChecker& getCollisionChecker() { return collisionChecker; }
+
+	// Put an existing gate on the page at a world position.
+	void insertGate(unsigned long id, guiGate* gate, float x, float y);
+
+	// Put an existing wire on the page. A bus wire claims several ids; all of
+	// them are reserved so nothing else takes one.
+	void insertWire(guiWire* wire);
+
+	// Take them off again. Both are no-ops if the object is not on this page.
+	void removeGate(unsigned long id);
+	void removeWire(unsigned long id);
+
+	// Drop every gate and wire. Does not touch interaction state -- the shell
+	// clears its own.
+	void clearPage();
 
 	// Fit the whole circuit into a deviceW x deviceH image and draw it. This is
 	// the export path (PNG/SVG/PDF and the headless --render flag); the live
@@ -66,6 +107,15 @@ public:
 	// A cheap signature of everything that affects the rendered circuit, used to
 	// decide whether a retained scene can be replayed instead of re-recorded.
 	unsigned long long renderContentKey();
+
+	// Called when a gate leaves the page, so a shell tracking it (a hovered pin,
+	// say) can let go. Default does nothing.
+	virtual void onGateRemoved(unsigned long id) { (void)id; }
+
+protected:
+	klsCollisionChecker collisionChecker;
+	GUICircuit* gCircuit = nullptr;
+	CanvasCamera* pageCamera = nullptr;
 };
 
 #endif /*CIRCUITPAGE_H_*/

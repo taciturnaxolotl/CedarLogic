@@ -195,30 +195,12 @@ public:
 	// Update the collision checker and refresh
 	void Update();
 
-	// Return the gate and wire lists for this page
-	unordered_map < unsigned long, guiGate* >* getGateList() { return &gateList; };
-	unordered_map < unsigned long, guiWire* >* getWireList() { return &wireList; };
-
-	// Resolve by id, nullptr when this page does not hold it. Indexing the maps
-	// directly invents a null entry on a miss and then dereferences it, which is
-	// a crash spelled like a lookup.
-	guiGate* getGate(unsigned long gid) {
-		auto it = gateList.find(gid);
-		return it != gateList.end() ? it->second : nullptr;
-	}
-	guiWire* getWire(unsigned long wid) {
-		auto it = wireList.find(wid);
-		return it != wireList.end() ? it->second : nullptr;
-	}
+	// getGateList/getWireList are the page's, inherited from CircuitPage.
 	
-	// Build the palette preview gate the canvas owns while a drag is in flight
-	std::unique_ptr<guiGate> takeNewDragGate(const string &gateName);
-
-	// Insert and remove gates and wires from this canvas
-	void insertGate(unsigned long, guiGate*, float, float);
-	void removeGate(unsigned long);
-	void insertWire(guiWire*);
-	void removeWire(unsigned long);
+	// insertGate/insertWire/removeGate/removeWire are the page's, inherited from
+	// CircuitPage. This canvas only needs to know when a gate goes, so it can
+	// drop a hover highlight that was pointing at it.
+	void onGateRemoved(unsigned long id) override;
 
 	// Add a gate
 	void addGate(string gate, GLPoint2f m);
@@ -269,14 +251,10 @@ public:
 
 private:
 
-	// Contains all collision information for the page
-	klsCollisionChecker collisionChecker;
+	// collisionChecker and gCircuit are the page's, inherited from CircuitPage.
 	klsCollisionObject* mouse;
 	klsCollisionObject* snapMouse;
 	klsCollisionObject* dragselectbox;
-	
-	// Pointer to the main application graphic circuit
-	GUICircuit* gCircuit;
 
 	// gateList and wireList -- the maps of gates and wires on this page -- are
 	// inherited from CircuitPage.

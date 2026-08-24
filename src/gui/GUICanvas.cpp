@@ -65,8 +65,11 @@ private:
 GUICanvas::GUICanvas(wxWindow *parent, GUICircuit* gCircuit, wxWindowID id,
     const wxPoint& pos, const wxSize& size, long style, const wxString& name)
     : klsGLCanvas(parent, name, id, pos, size, style|wxSUNKEN_BORDER ) {
+	// The page and the window share one camera and one document, so nothing can
+	// drift between what is shown and what is drawn.
+	CircuitPage::setCamera(&canvasCamera());
+	CircuitPage::setCircuit(gCircuit);
 
-	this->gCircuit = gCircuit;
 	isWithinPaste = false;
 	currentDragState = DRAG_NONE;
 	
@@ -115,9 +118,7 @@ void GUICanvas::clearCircuit() {
 	preMove.clear();
 	preMoveWire.clear();
 
-	collisionChecker.clear();
-	gateList.clear();
-	wireList.clear();
+	CircuitPage::clearPage();
 
 	// Add mouse object to collision checker
 	collisionChecker.addObject( mouse );
@@ -132,76 +133,17 @@ void GUICanvas::clearCircuit() {
 	saveMove = false;
 }
 
-// Build the palette preview gate. The circuit is the only thing that knows how
-// to assemble a gate from the library, so we ask it for one and then take it
-// straight back out: this gate is scenery until the drop turns it into a real,
-// undoable creation.
-std::unique_ptr<guiGate> GUICanvas::takeNewDragGate(const string &gateName) {
-	guiGate *built = gCircuit->createGate(gateName, -1);
-	if (built == nullptr) return nullptr;
-	return gCircuit->releaseGate(built->getID());
-}
 
-// Inserts an existing gate onto the canvas at a particular x,y position
-void GUICanvas::insertGate(unsigned long id, guiGate* gt, float x, float y) {
-	if (gt == NULL) return;
-	gt->setGLcoords(x, y);
-	gateList[id] = gt;
-	
-	// Add the gate to the collision checker:
-	collisionChecker.addObject( gt );
-}
 
-// Inserts an existing wire onto the canvas
-void GUICanvas::insertWire(guiWire* wire) {
 
-	if (wire == nullptr) return;
-
-	// Only the wire itself goes in, under its head id. The other bus-line ids
-	// used to get a nullptr entry apiece, which meant every walk of this list
-	// had to step over holes and every index into it could return nothing.
-	// Nothing on a canvas allocates ids, so the placeholders bought nothing.
-	wireList[wire->getID()] = wire;
-
-	// Add the wire to the collision checker:
-	collisionChecker.addObject( wire );
-}
-
-// If the gate exists on this page, then remove it from the page
-void GUICanvas::removeGate(unsigned long gid) {
-	unordered_map < unsigned long, guiGate* >::iterator thisGate = gateList.find(gid);
-	if (thisGate != gateList.end()) {
-		// Clear a hotspot we're holding if we need to
-		if (hotspotGate == gid) hotspotHighlight = "";
-		
-		// Take the gate out of the collision checker:
-		collisionChecker.removeObject( thisGate->second );
-		collisionChecker.update();
-
-		gateList.erase(thisGate);
-	}
-}
-
-// If the wire exists on this page, then remove it from the page
-void GUICanvas::removeWire(unsigned long wireId) {
-
-	if (wireList.find(wireId) == wireList.end()) return;
-
-	guiWire *wire = wireList.at(wireId);
-	collisionChecker.removeObject(wire);
-	collisionChecker.update();
-
-	// Release ID's owned by the wire.
-	for (int busLineId : wire->getIDs()) {
-		auto thisWire = wireList.find(busLineId);
-		if (thisWire != wireList.end()) {
-			wireList.erase(thisWire);
-		}
-	}
-}
 
 // Tag a command with this canvas, then submit it, so undo/redo can return to
 // the page the edit happened on.
+// A gate is leaving the page: drop the hover highlight if it was pointing at it.
+void GUICanvas::onGateRemoved(unsigned long id) {
+	if (hotspotGate == id) hotspotHighlight = "";
+}
+
 void GUICanvas::submitCommand(klsCommand *cmd) {
 	cmd->setCanvas(this);
 	gCircuit->GetCommandProcessor()->Submit((wxCommand *)cmd);
@@ -218,13 +160,13 @@ void GUICanvas::renderToScene(cl::render::Scene& scene,
                               const cl::render::RenderStyle& style,
                               int deviceW, int deviceH) {
 	CircuitPage::renderToScene(scene, style, deviceW, deviceH,
-	                           getCamera().horizSpacing(), getCamera().vertSpacing());
+	                           canvasCamera().horizSpacing(), canvasCamera().vertSpacing());
 }
 
 void GUICanvas::drawGridInto(cl::render::Scene& scene,
                              const cl::render::RenderStyle& style, float scale,
                              float gMinX, float gMinY, float gMaxX, float gMaxY) {
-	CircuitPage::drawGridInto(scene, style, scale, getCamera().horizSpacing(), getCamera().vertSpacing(),
+	CircuitPage::drawGridInto(scene, style, scale, canvasCamera().horizSpacing(), canvasCamera().vertSpacing(),
 	                          gMinX, gMinY, gMaxX, gMaxY);
 }
 
@@ -234,7 +176,7 @@ void GUICanvas::drawSceneContents(cl::render::Scene& scene,
                                   float gMinX, float gMinY,
                                   float gMaxX, float gMaxY) {
 	CircuitPage::drawSceneContents(scene, style, t, scale,
-	                               getCamera().horizSpacing(), getCamera().vertSpacing(),
+	                               canvasCamera().horizSpacing(), canvasCamera().vertSpacing(),
 	                               gMinX, gMinY, gMaxX, gMaxY);
 }
 
@@ -245,7 +187,7 @@ void GUICanvas::drawSceneContents(cl::render::Scene& scene,
 //   and world y is flipped for the top-left device origin.
 void GUICanvas::renderLiveToScene(cl::render::Scene& scene,
                                   const cl::render::RenderStyle& style) {
-	CircuitPage::renderLiveToScene(scene, style, getCamera(),
+	CircuitPage::renderLiveToScene(scene, style, canvasCamera(),
 	                               (float)GetContentScaleFactor());
 }
 

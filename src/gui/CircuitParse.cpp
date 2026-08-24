@@ -31,7 +31,8 @@
 #include "guiGate.h"
 #include "guiWire.h"
 #include "GUICircuit.h"
-#include "GUICanvas.h"
+#include "CircuitPage.h"
+#include "commands.h"
 #include "command/cmdSetParams.h"
 #include <algorithm>
 #include <map>
@@ -44,16 +45,14 @@
 
 DECLARE_APP(MainApp)
 
-CircuitParse::CircuitParse(GUICanvas* glc) {
-	// this constructor did not initialiize all its data members, I corrected that
-	// note:  gCanvases and fileName are initialized by base class default constructors   KAS
+CircuitParse::CircuitParse(CircuitPage* page) {
 	mParse = nullptr;
-	gCanvas = glc;
+	gCanvas = page;
 }
 
-CircuitParse::CircuitParse(string fileName, vector< GUICanvas* > glc) {
-	gCanvases = glc;
-	gCanvas = glc[0];
+CircuitParse::CircuitParse(string fileName, PageProvider provider) {
+	pageProvider = std::move(provider);
+	gCanvas = pageProvider ? pageProvider(0) : nullptr;
 
 	fstream x(fileName.c_str(), ios::in);
 	mParse = new XMLParser(&x, false);
@@ -164,7 +163,7 @@ bool CircuitParse::readCircuit(const string &path, cl::LoadResult &out, string &
 	return true;
 }
 
-vector<GUICanvas*> CircuitParse::applyLoaded(const cl::LoadResult &loaded) {
+void CircuitParse::applyLoaded(const cl::LoadResult &loaded) {
 	switch (loaded.source) {
 	case cl::SourceFormat::XmlV1: loadedFormatCode = 1; break;
 	case cl::SourceFormat::XmlV2: loadedFormatCode = 2; break;
@@ -186,8 +185,9 @@ vector<GUICanvas*> CircuitParse::applyLoaded(const cl::LoadResult &loaded) {
 		showMigrationNotices(all);
 	}
 
-	gCanvas->getCircuit()->getOscope()->UpdateMenu();
-	return gCanvases;
+	// The set of probe-able signals changed with the new circuit; the shell's
+	// observer decides what that means for its oscilloscope.
+	if (gCanvas && gCanvas->getCircuit()) gCanvas->getCircuit()->notifyOscopeSignalsChanged();
 }
 
 // Build the GUI from a parsed circuit model: one canvas per page, every gate
@@ -205,15 +205,12 @@ void CircuitParse::applyCircuitFile(const cl::CircuitFile &cf) {
 	for (const cl::Page &pg : cf.pages) {
 		if (pg.index < 0 || pg.index > kMaxPageIndex) continue;
 
-		// Grow the set until this index exists, then use it. Growing one canvas
-		// at a time regardless of the index put page 5 of a {0,5} file onto page
-		// 1: the content silently moved. Honor what the file says instead.
-		while (pg.index > (int)(gCanvases.size() - 1)) {
-			gCanvases.push_back(new GUICanvas(gCanvases[0]->GetParent(),
-			                                  gCanvases[0]->getCircuit(), wxID_ANY,
-			                                  wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS));
-		}
-		gCanvas = gCanvases[pg.index];
+		// Ask for the page this content belongs on. The provider grows the
+		// document if it has to; asking by index (rather than appending one page
+		// at a time) is what keeps page 5 of a {0,5} file off of page 1.
+		if (!pageProvider) continue;
+		gCanvas = pageProvider(pg.index);
+		if (gCanvas == nullptr) continue;
 
 		// A gate's pin connections live on the wires; collect them per gate so a
 		// gate is created with the same (pin -> wire ids) list the old gate-side
@@ -471,7 +468,7 @@ static cl::WireInstance buildWire(guiWire *w) {
 	return wi;
 }
 
-static cl::CircuitFile buildCircuitFile(vector<GUICanvas*> &glc) {
+static cl::CircuitFile buildCircuitFile(const vector<CircuitPage*> &glc) {
 	cl::CircuitFile cf;
 	cf.formatVersion = 3;
 	cf.generator = string("CedarLogic ") + VERSION_NUMBER_STRING();
@@ -506,11 +503,11 @@ static cl::CircuitFile buildCircuitFile(vector<GUICanvas*> &glc) {
 	return cf;
 }
 
-bool CircuitParse::saveCircuitV3(string filename, vector< GUICanvas* > glc, unsigned int currPage) {
+bool CircuitParse::saveCircuitV3(string filename, const vector< CircuitPage* > &glc, unsigned int currPage) {
 	return writeToFile(filename, cl::writeCircuitFile(buildCircuitFile(glc)));
 }
 
-bool CircuitParse::saveCircuit(string filename, vector< GUICanvas* > glc, unsigned int currPage) {
+bool CircuitParse::saveCircuit(string filename, const vector< CircuitPage* > &glc, unsigned int currPage) {
 	ostringstream* ossCircuit = new ostringstream();
 
 	// This is a sentinal circuit definition that is ignored by Cedar Logic 2.0 and newer.
@@ -666,7 +663,7 @@ bool CircuitParse::saveCircuit(string filename, vector< GUICanvas* > glc, unsign
 
 // Save in v1.x compatible format (no version tag, no sentinel, single wire IDs)
 // Returns false if circuit uses bus features that can't be fully represented
-bool CircuitParse::saveCircuitLegacy(string filename, vector< GUICanvas* > glc, unsigned int currPage) {
+bool CircuitParse::saveCircuitLegacy(string filename, const vector< CircuitPage* > &glc, unsigned int currPage) {
 	bool hasBusFeatures = false;
 
 	// Check if any wire has multiple IDs (bus feature)

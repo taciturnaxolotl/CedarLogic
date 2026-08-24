@@ -13,10 +13,11 @@
 
 #include <string>
 #include <vector>
+#include <functional>
 #include "logic_values.h"
 using namespace std;
 
-class GUICanvas;
+class CircuitPage;
 class XMLParser;
 namespace cl { struct CircuitFile; struct WireInstance; }
 #include "migrate.hpp"   // cl::LoadResult and cl::MigrationNotice, held by value below
@@ -41,8 +42,15 @@ public:
 //	Uses XMLParser to read and write user circuit files
 class CircuitParse {
 public:
-	CircuitParse(string, vector< GUICanvas* >);
-	CircuitParse(GUICanvas*);
+	// Where the pages come from. A file names the page each gate belongs to, and
+	// may name one the document does not have yet, so the parser asks for page
+	// `index` and the caller grows itself to answer. Keeping the pages on the
+	// caller's side is what lets the desktop hold GUICanvases and the browser
+	// hold bare CircuitPages without either type reaching in here.
+	typedef std::function<CircuitPage*(int index)> PageProvider;
+
+	CircuitParse(string, PageProvider);
+	CircuitParse(CircuitPage*);
 	virtual ~CircuitParse();
 	
 	void loadFile(string);
@@ -55,18 +63,19 @@ public:
 
 	// Build the canvases from an already-read circuit. Destructive: the caller
 	// must have cleared the open document first.
-	//JV - Changed to return new canvases
-	vector<GUICanvas*> applyLoaded(const cl::LoadResult &loaded);
+	// The caller keeps its own pages (see PageProvider), so this returns nothing:
+	// whatever it grew, it already has.
+	void applyLoaded(const cl::LoadResult &loaded);
 
 	// What applying the document cost: an unknown gate type, a wire that could
 	// not be attached. These were silent until now, which is how a circuit could
 	// come back missing a wire with nothing said about it.
 	const std::vector<cl::MigrationNotice> &getApplyNotices() const { return applyNotices; }
-	bool saveCircuit(string, vector< GUICanvas* >, unsigned int currPage = 0);
+	bool saveCircuit(string, const vector< CircuitPage* > &, unsigned int currPage = 0);
 	// Save the v3 S-expression format (built from the GUI via the format model).
-	bool saveCircuitV3(string, vector< GUICanvas* >, unsigned int currPage = 0);
+	bool saveCircuitV3(string, const vector< CircuitPage* > &, unsigned int currPage = 0);
 	// Save in v1.x compatible format (no version tag, no sentinel, single wire IDs)
-	bool saveCircuitLegacy(string, vector< GUICanvas* >, unsigned int currPage = 0);
+	bool saveCircuitLegacy(string, const vector< CircuitPage* > &, unsigned int currPage = 0);
 	// Get detailed error message from last save operation
 	string getLastError() const { return lastError; }
 	// Format the last parseFile() detected: 1 = v1 XML, 2 = v2 XML, 3 = v3
@@ -79,8 +88,8 @@ private:
 	string lastError;  // Detailed error message from last save operation
 	int loadedFormatCode = 3;  // set by parseFile(); see getLoadedFormatCode()
 
-	vector< GUICanvas* > gCanvases;
-	GUICanvas* gCanvas;
+	PageProvider pageProvider;
+	CircuitPage* gCanvas;
 	std::vector<cl::MigrationNotice> applyNotices;
 
 	// Takes the pieces of gate info found in parseFile and implements them

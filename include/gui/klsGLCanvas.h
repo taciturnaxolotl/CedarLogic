@@ -140,7 +140,9 @@ public:
 
 	// Zoom and pan. These forward to the camera; they stay on the canvas so the
 	// hundreds of existing call sites read the same as they always did.
-	CanvasCamera& getCamera() { return camera; }
+	// The camera this window owns. GUICanvas points its page at this one, so a
+	// canvas and the page it shows never disagree about where the view is.
+	CanvasCamera& canvasCamera() { return camera; }
 	void getPan(GLdouble &x, GLdouble &y) { camera.getPan(x, y); }
 	void setPan(GLdouble newX, GLdouble newY) { camera.setPan(newX, newY); }
 	void setCenter(GLdouble newX, GLdouble newY) { camera.setCenter(newX, newY); }

@@ -214,6 +214,12 @@ private:
 	
 
 	vector< GUICanvas* > canvases;
+
+	// The same pages, as the parser and the savers see them: contents, without
+	// the window around them.
+	vector< CircuitPage* > pages() const {
+		return vector< CircuitPage* >(canvases.begin(), canvases.end());
+	}
 	GUICircuit* gCircuit;
 	GUICanvas* currentCanvas;
 	klsMiniMap* miniMap;

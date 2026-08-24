@@ -821,8 +821,17 @@ void MainFrame::loadCircuitFile( string fileName, bool asCopy ){
 		canvases.erase(canvases.end()-1);
 	}
 	
-    CircuitParse cirp(path.ToStdString(), canvases);
-	canvases = cirp.applyLoaded(loaded);
+	// The parser asks for a page by index and grows us when a file names one we
+	// do not have; the canvases stay ours, so nothing here has to be cast back.
+	CircuitParse cirp(path.ToStdString(), [this](int index) -> CircuitPage* {
+		while (index > (int)(canvases.size() - 1)) {
+			canvases.push_back(new GUICanvas(canvases[0]->GetParent(),
+			                                 canvases[0]->getCircuit(), wxID_ANY,
+			                                 wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS));
+		}
+		return canvases[index];
+	});
+	cirp.applyLoaded(loaded);
 	loadedFileFormat = cirp.getLoadedFormatCode();
 	saveFormatDecided = false;  // a freshly opened file hasn't been answered yet
 
@@ -868,7 +877,7 @@ void MainFrame::loadCircuitFile( string fileName, bool asCopy ){
 		dialog.SetYesNoLabels("Convert to V3", "Not Now");
 		if (dialog.ShowModal() == wxID_YES) {
 			CircuitParse saver(currentCanvas);
-			if (saver.saveCircuitV3(fileName, canvases)) {
+			if (saver.saveCircuitV3(fileName, pages())) {
 				loadedFileFormat = 3;
 				saveFormatDecided = true;
 				commandProcessor->MarkAsSaved();
@@ -1420,7 +1429,7 @@ void MainFrame::OnExportLegacy(wxCommandEvent& event) {
 
 		// Save in legacy format
 		CircuitParse cirp(currentCanvas);
-		bool success = cirp.saveCircuitLegacy((string)path, canvases);
+		bool success = cirp.saveCircuitLegacy((string)path, pages());
 
 		// Resume system
 		gCircuit->setSimulate(true);
@@ -1459,7 +1468,7 @@ void MainFrame::OnExportV2(wxCommandEvent& event) {
 		gCircuit->setSimulate(false);
 
 		CircuitParse cirp(currentCanvas);
-		bool success = cirp.saveCircuit((string)path, canvases);
+		bool success = cirp.saveCircuit((string)path, pages());
 
 		gCircuit->setSimulate(true);
 		if (!(toolBar->GetToolState(Tool_Lock))) unlock();
@@ -1737,9 +1746,9 @@ bool MainFrame::save(string filename, int format) {
 	//Save file in the requested format (v3 by default).
 	CircuitParse cirp(currentCanvas);
 	bool success;
-	if (format == 1) success = cirp.saveCircuitLegacy(filename, canvases);
-	else if (format == 2) success = cirp.saveCircuit(filename, canvases);
-	else success = cirp.saveCircuitV3(filename, canvases);
+	if (format == 1) success = cirp.saveCircuitLegacy(filename, pages());
+	else if (format == 2) success = cirp.saveCircuit(filename, pages());
+	else success = cirp.saveCircuitV3(filename, pages());
 
 	// Store the error message for the caller
 	if (!success) {

@@ -15,6 +15,7 @@
 #include "guiGate.h"
 #include "guiWire.h"
 #include "klsBBox.h"
+#include "GUICircuit.h"
 #include "Settings.h"
 #include "render/Scene.h"
 #include "render/RenderStyle.h"
@@ -175,3 +176,60 @@ unsigned long long CircuitPage::renderContentKey() {
 	return sig;
 }
 
+
+
+// --- page contents ---------------------------------------------------------
+
+void CircuitPage::insertGate(unsigned long id, guiGate* gate, float x, float y) {
+	if (gate == NULL) return;
+	gate->setGLcoords(x, y);
+	gateList[id] = gate;
+	collisionChecker.addObject(gate);
+}
+
+void CircuitPage::insertWire(guiWire* wire) {
+	if (wire == nullptr) return;
+
+	// A bus wire answers to several ids; reserve every one so nothing else
+	// takes it, and map the primary id to the object.
+	for (IDType id : wire->getIDs()) {
+		wireList[id] = nullptr;
+	}
+	wireList[wire->getID()] = wire;
+
+	collisionChecker.addObject(wire);
+}
+
+void CircuitPage::removeGate(unsigned long id) {
+	auto thisGate = gateList.find(id);
+	if (thisGate == gateList.end()) return;
+
+	// Let a shell drop anything it was holding about this gate first: after the
+	// erase there is nothing left to identify.
+	onGateRemoved(id);
+
+	collisionChecker.removeObject(thisGate->second);
+	collisionChecker.update();
+	gateList.erase(thisGate);
+}
+
+void CircuitPage::removeWire(unsigned long id) {
+	auto found = wireList.find(id);
+	if (found == wireList.end()) return;
+
+	guiWire* wire = found->second;
+	collisionChecker.removeObject(wire);
+	collisionChecker.update();
+
+	// Release every id the wire owned, not just the one asked for.
+	for (int busLineId : wire->getIDs()) {
+		auto thisWire = wireList.find(busLineId);
+		if (thisWire != wireList.end()) wireList.erase(thisWire);
+	}
+}
+
+void CircuitPage::clearPage() {
+	collisionChecker.clear();
+	gateList.clear();
+	wireList.clear();
+}

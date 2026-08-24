@@ -126,6 +126,11 @@ public:
 	// The shell listening for redraw/oscope notifications. Null means nobody is
 	// watching, which is a perfectly good state (headless render, tests).
 	void setObserver(CircuitObserver* o) { observer = o; };
+
+	// Pass-throughs, so a caller can report a change without knowing whether
+	// anyone is listening.
+	void notifyOscopeSignalsChanged() { if (observer) observer->oscopeSignalsChanged(); }
+	void notifyRedrawNeeded() { if (observer) observer->circuitRedrawNeeded(); }
 	
 	void setCurrentCanvas(GUICanvas* gc) { gCanvas = gc; };
 	GUICanvas* getCurrentCanvas() { return gCanvas; };
