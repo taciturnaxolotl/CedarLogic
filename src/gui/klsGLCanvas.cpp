@@ -243,8 +243,11 @@ void klsGLCanvas::setPan( GLdouble newX, GLdouble newY ) {
 	// drag; setMouseCoords still runs so the next drag delta is computed correctly.
 	setMouseCoords();
 	if (!panning) {
-		GLPoint2f m = getMouseCoords();
-		OnMouseMove(m.x, m.y, isShiftDown, isControlDown);
+		input::PointerEvent pe;
+		pe.pos = getMouseCoords();
+		pe.mods.shift = isShiftDown;
+		pe.mods.ctrl = isControlDown;
+		OnMouseMove(pe);
 	}
 	updateMiniMap();
 
@@ -356,6 +359,18 @@ void klsGLCanvas::setZoom( GLdouble newZoom ) {
 }
 
 
+// Turn a wxMouseEvent into the toolkit-neutral event the subclass handlers take.
+// Position is in world coordinates -- the widget's pixel space is this class's
+// business, not the circuit's.
+static input::Modifiers modsFrom(const wxMouseEvent& event) {
+	input::Modifiers m;
+	m.shift = event.ShiftDown();
+	m.ctrl = event.ControlDown();
+	m.alt = event.AltDown();
+	m.cmd = event.CmdDown();
+	return m;
+}
+
 void klsGLCanvas::wxOnMouseEvent(wxMouseEvent& event) {
 	isShiftDown = event.ShiftDown();
 	isControlDown = event.ControlDown();
@@ -364,32 +379,41 @@ void klsGLCanvas::wxOnMouseEvent(wxMouseEvent& event) {
 	setMouseScreenCoords( event.GetPosition() );
 	setMouseCoords();
 
+	input::PointerEvent pe;
+	pe.pos = getMouseCoords();
+	pe.mods = modsFrom(event);
+	pe.leftIsDown = event.LeftIsDown();
+	pe.doubleClick = event.LeftDClick() || event.RightDClick() || event.MiddleDClick();
+	if (event.LeftDown() || event.LeftUp() || event.LeftDClick()) pe.button = input::Button::Left;
+	else if (event.RightDown() || event.RightUp() || event.RightDClick()) pe.button = input::Button::Right;
+	else if (event.MiddleDown() || event.MiddleUp() || event.MiddleDClick()) pe.button = input::Button::Middle;
+
 	// Check all of the button events:
 	if (event.LeftDown() ) {
 		mouseOutOfWindow = false; // Assume that we clicked inside the window!
 		beginDrag(BUTTON_LEFT);
-		OnMouseDown(event); // Call the event handler.
+		OnMouseDown(pe); // Call the event handler.
 	} else if( event.LeftUp() || event.LeftDClick()) {
 		endDrag(BUTTON_LEFT);
-		OnMouseUp( event );
+		OnMouseUp( pe );
 	} else if( event.RightDown() || event.RightDClick() ) {
 		beginDrag( BUTTON_RIGHT );
-		OnMouseDown( event ); // Call the event handler.
+		OnMouseDown( pe ); // Call the event handler.
 	} else if( event.RightUp() ) {
 		endDrag( BUTTON_RIGHT );
-		OnMouseUp( event );
+		OnMouseUp( pe );
 	} else if( event.MiddleDown() || event.MiddleDClick() ) {
 		beginDrag( BUTTON_MIDDLE );
-		OnMouseDown( event ); // Call the event handler.
+		OnMouseDown( pe ); // Call the event handler.
 	} else if( event.MiddleUp() ) {
 		endDrag( BUTTON_MIDDLE );   // forces the final pan repaint
-		OnMouseUp( event );
+		OnMouseUp( pe );
 	} else {
 		// It's not a button event, so check the others:
 		if( event.Entering() ) {
 			mouseOutOfWindow = false;
 			scrollTimer->Stop();
-			OnMouseEnter( event );
+			OnMouseEnter( pe );
 		} else if( event.Leaving() && !isDragging( BUTTON_MIDDLE ) ) { // Don't allow auto-scroll during pan-scrolling.
 			// Flag the scroll event by telling it that the
 			// mouse has left the window:
@@ -401,7 +425,7 @@ void klsGLCanvas::wxOnMouseEvent(wxMouseEvent& event) {
 			}
 
 			// Call the event handler:
-			OnMouseLeave( event );
+			OnMouseLeave( pe );
 		} else {
 			// Handle the drag-pan event here if needed:
 			if( isDragging( BUTTON_MIDDLE ) ) {
@@ -417,13 +441,13 @@ void klsGLCanvas::wxOnMouseEvent(wxMouseEvent& event) {
 				// ...unless a left drag (gate move / rubber-band / new-gate) is also
 				// in progress: it still needs OnMouseMove to track the cursor.
 				if( isDragging( BUTTON_LEFT ) ) {
-					GLPoint2f m = getMouseCoords();
-					OnMouseMove(m.x, m.y, event.ShiftDown(), event.ControlDown());
+					pe.pos = getMouseCoords();
+					OnMouseMove(pe);
 				}
 			} else {
 				// It's nothing else, so it must be a mouse motion event:
-				GLPoint2f m = getMouseCoords();
-				OnMouseMove(m.x, m.y, event.ShiftDown(), event.ControlDown());
+				pe.pos = getMouseCoords();
+				OnMouseMove(pe);
 			}
 		}
 		
@@ -558,13 +582,42 @@ void klsGLCanvas::endDrag( mouseButton whichButton ) {
 }
 
 
+// Fold wx's key codes into the neutral vocabulary. Keypad duplicates collapse
+// onto their main-keyboard equivalents here, so the handlers see one Left, not
+// two. Anything printable travels as itself.
+static input::KeyEvent keyFrom(const wxKeyEvent& event) {
+	input::KeyEvent k;
+	k.mods.shift = event.ShiftDown();
+	k.mods.ctrl = event.ControlDown();
+	k.mods.alt = event.AltDown();
+	k.mods.cmd = event.CmdDown();
+
+	switch (event.GetKeyCode()) {
+	case WXK_BACK:                              k.key = input::Key::Backspace; break;
+	case WXK_DELETE:                            k.key = input::Key::Delete; break;
+	case WXK_ESCAPE:                            k.key = input::Key::Escape; break;
+	case WXK_SPACE:                             k.key = input::Key::Space; break;
+	case WXK_LEFT:  case WXK_NUMPAD_LEFT:       k.key = input::Key::Left; break;
+	case WXK_RIGHT: case WXK_NUMPAD_RIGHT:      k.key = input::Key::Right; break;
+	case WXK_UP:    case WXK_NUMPAD_UP:         k.key = input::Key::Up; break;
+	case WXK_DOWN:  case WXK_NUMPAD_DOWN:       k.key = input::Key::Down; break;
+	case '+':       case WXK_NUMPAD_ADD:        k.key = input::Key::Plus; break;
+	case '-':       case WXK_NUMPAD_SUBTRACT:   k.key = input::Key::Minus; break;
+	case '=':                                   k.key = input::Key::Equals; break;
+	default:
+		k.key = input::Key::Character;
+		k.ch = (char32_t)event.GetKeyCode();
+		break;
+	}
+	return k;
+}
+
 void klsGLCanvas::wxKeyDown(wxKeyEvent& event) {
 	wxGetApp().SetCurrentCanvas(this);
-	// Give the subclassed handler first dibs on the event:
-	OnKeyDown( event );
-
-	// If the subclassed handler took the event, then don't handle it:
-	if( event.GetSkipped() ) return;
+	// Give the subclassed handler first dibs on the event. GUICanvas claims
+	// every key it is offered, so in the app the switch below is unreachable;
+	// it still serves a bare klsGLCanvas.
+	if( OnKeyDown( keyFrom(event) ) ) return;
 
 	bool handled = true;
 	switch (event.GetKeyCode()) {
@@ -603,7 +656,7 @@ void klsGLCanvas::wxKeyDown(wxKeyEvent& event) {
 }
 
 void klsGLCanvas::wxKeyUp(wxKeyEvent& event) {
-	OnKeyUp( event );
+	OnKeyUp( keyFrom(event) );
 }
 
 //Julian: Moved implementation from header

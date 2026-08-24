@@ -387,7 +387,7 @@ void GUICanvas::drawOverlaysInto(cl::render::Scene& scene) {
 }
 #endif
 
-void GUICanvas::mouseLeftDown(wxMouseEvent& event) {
+void GUICanvas::mouseLeftDown(const input::PointerEvent& event) {
 	GLPoint2f m = getMouseCoords();
 	bool handled = false;
 	dragPressTime = std::chrono::steady_clock::now(); // for the click-vs-drag time dead zone
@@ -421,9 +421,9 @@ void GUICanvas::mouseLeftDown(wxMouseEvent& event) {
 		//It has been requested by students that a ctrl
 		//click will select multiple gates just like
 		//a shift click does.
-		//thus I will replace "event.ShiftDown()"
+		//thus I will replace "event.mods.shift"
 		//everywere it appears in this file with
-		//"(event.ShiftDown()||event.ControlDown())"
+		//"event.extendSelection()"
 		//************************************
 		
 		if ((*hit)->getType() == COLL_WIRE) {
@@ -432,18 +432,18 @@ void GUICanvas::mouseLeftDown(wxMouseEvent& event) {
 			hitWire->unselect();
 			if ( hitWire->hover( m.x, m.y, WIRE_HOVER_SCREEN_DELTA * getZoom() )) {
 				hitWire->select();
-				if ((event.ShiftDown()||event.ControlDown()) && wasSelected) hitWire->unselect();
-				if (!((event.ShiftDown()||event.ControlDown()))) {
+				if (event.extendSelection() && wasSelected) hitWire->unselect();
+				if (!(event.extendSelection())) {
 					unselectAllWires();
 					unselectAllGates();
 					hitWire->select();
 				}
-				if (event.ControlDown() && !(this->isLocked())) {
+				if (event.mods.ctrl && !(this->isLocked())) {
 					currentConnectionSource.isGate = false;
 					currentConnectionSource.objectID = hitWire->getID();
 					currentDragState = DRAG_CONNECT;
 				}
-				else if (!((event.ShiftDown()||event.ControlDown()))) {
+				else if (!(event.extendSelection())) {
 					wireHoverID = hitWire->getID();
 					if (hitWire->startSegDrag(snapMouse) && !(this->isLocked())) currentDragState = DRAG_WIRESEG;
 					hitWire->unselect();
@@ -478,21 +478,21 @@ void GUICanvas::mouseLeftDown(wxMouseEvent& event) {
 			// gate BODY, so pins stay for wire-connecting, not selecting.
 			if (!hitGate->getSelectionBBox().overlaps(mouse->getBBox())) { hit++; continue; }
 			bool wasSelected = hitGate->isSelected();
-			if ((event.ShiftDown()||event.ControlDown()) && wasSelected) hitGate->unselect(); // Remove gate from selection
-			else if ((event.ShiftDown()||event.ControlDown()) && !wasSelected) hitGate->select(); // Add gate to selection
-			else if (!((event.ShiftDown()||event.ControlDown())) && !wasSelected) { // Begin new selection group
+			if (event.extendSelection() && wasSelected) hitGate->unselect(); // Remove gate from selection
+			else if (event.extendSelection() && !wasSelected) hitGate->select(); // Add gate to selection
+			else if (!(event.extendSelection()) && !wasSelected) { // Begin new selection group
 				unselectAllGates();
 				unselectAllWires();
 				hitGate->select();
 			}
-			if (!((event.ShiftDown()||event.ControlDown())) && !(this->isLocked())) currentDragState = DRAG_SELECTION; // Start dragging
+			if (!(event.extendSelection()) && !(this->isLocked())) currentDragState = DRAG_SELECTION; // Start dragging
 			handled = true;
 		}
 		hit++;
 	}
 
 	// If I am not in a selection group and I haven't handled a selection then unselect everything
-	if (!handled && !((event.ShiftDown()||event.ControlDown()))) {
+	if (!handled && !(event.extendSelection())) {
 		unselectAllGates();
 		unselectAllWires();
 	}
@@ -532,7 +532,7 @@ void GUICanvas::mouseLeftDown(wxMouseEvent& event) {
 	}
 }
 
-void GUICanvas::mouseRightDown(wxMouseEvent& event) {
+void GUICanvas::mouseRightDown(const input::PointerEvent& event) {
 	GLPoint2f m = getMouseCoords();
 	vector < unsigned long >::iterator sGate;
 
@@ -613,7 +613,9 @@ void GUICanvas::mouseRightDown(wxMouseEvent& event) {
 	Refresh();
 }
 
-void GUICanvas::OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool CtrlDown ) {
+void GUICanvas::OnMouseMove(const input::PointerEvent& event) {
+	const GLdouble glX = event.pos.x, glY = event.pos.y;
+	const bool ShiftDown = event.mods.shift, CtrlDown = event.mods.ctrl;
 	// Handle gate dragging from palette (especially needed for macOS where OnMouseEnter
 	// may not fire correctly when mouse is captured)
 	if (paletteDrag().newGateToDrag.size() > 0 && currentDragState == DRAG_NONE && !(this->isLocked())) {
@@ -833,7 +835,7 @@ void GUICanvas::OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool Ct
 	}
 }
 
-void GUICanvas::OnMouseUp(wxMouseEvent& event) {
+void GUICanvas::OnMouseUp(const input::PointerEvent& event) {
 	GLPoint2f m = getMouseCoords();
 	SetCursor(wxCursor(wxCURSOR_ARROW));
 	unordered_map < unsigned long, guiGate* >::iterator thisGate;
@@ -870,7 +872,7 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 	if (guiGate *anchor = preMove.size() > 0 ? getGate(preMove[0].id) : nullptr) {
 		float gX, gY;
 		anchor->getGLcoords(gX, gY);
-		if (gX == preMove[0].x && gY == preMove[0].y && !((event.ShiftDown()||event.ControlDown()))) { // no move
+		if (gX == preMove[0].x && gY == preMove[0].y && !(event.extendSelection())) { // no move
 			CollisionGroup hitThings = mouse->getOverlaps();
 			CollisionGroup::iterator hit = hitThings.begin();
 			while( hit != hitThings.end() ) {
@@ -933,7 +935,7 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 //					guiGate* hitGate = ((guiGate*)(*hit));
 					// Check that gate still exists (may have been deleted by undo)
 					if (guiGate* hitGate = getGate(preMove[0].id)) {
-						if (!((event.ShiftDown()||event.ControlDown())) && ((event.LeftUp() && currentDragState == DRAG_SELECTION) || event.LeftDClick())) {
+						if (!(event.extendSelection()) && (((event.button == input::Button::Left) && currentDragState == DRAG_SELECTION) || event.leftDoubleClick())) {
 							// Check for toggle switch
 							float x, y;
 							hitGate->getGLcoords(x,y);
@@ -945,7 +947,7 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 									handled = true;
 								}
 							}
-							if (event.LeftDClick() && !handled) {
+							if (event.leftDoubleClick() && !handled) {
 								hitGate->doParamsDialog( gCircuit, gCircuit->GetCommandProcessor() );
 								currentDragState = DRAG_NONE;
 								// setparams command will handle oscope update
@@ -1073,11 +1075,15 @@ void GUICanvas::addGate(string gate, GLPoint2f m) {
 	newDragGate->select();
 	collisionChecker.addObject( newDragGate.get() );
 
-	wxMouseEvent ev = wxMouseEvent(wxEVT_LEFT_UP);
-	OnMouseUp(ev);
+	// Finish the placement through the ordinary release path, so a gate dropped
+	// from the palette lands exactly the way a hand-placed one does.
+	input::PointerEvent release;
+	release.button = input::Button::Left;
+	release.pos = getMouseCoords();
+	OnMouseUp(release);
 }
 
-void GUICanvas::OnMouseEnter(wxMouseEvent& event) {
+void GUICanvas::OnMouseEnter(const input::PointerEvent& event) {
 	GLPoint2f m = getMouseCoords();
 
 	// Do a collision detection on all first-level objects.
@@ -1086,7 +1092,7 @@ void GUICanvas::OnMouseEnter(wxMouseEvent& event) {
 	//collisionChecker.update();
 
 	paletteDrag().showDragImage = false;
-	if (event.LeftIsDown() && paletteDrag().newGateToDrag.size() > 0 && currentDragState == DRAG_NONE && !(this->isLocked())) {
+	if (event.leftIsDown && paletteDrag().newGateToDrag.size() > 0 && currentDragState == DRAG_NONE && !(this->isLocked())) {
 		newDragGate = takeNewDragGate(paletteDrag().newGateToDrag);
 		if (newDragGate == nullptr) { paletteDrag().newGateToDrag = ""; return; }
 		newDragGate->setGLcoords(m.x, m.y);
@@ -1147,72 +1153,76 @@ void GUICanvas::cancelDrag() {
 	Refresh();
 }
 
-void GUICanvas::OnKeyDown(wxKeyEvent& event) {
-	switch (event.GetKeyCode()) {
-	case WXK_DELETE:
-	case WXK_BACK:  // macOS "delete" key (backspace)
+bool GUICanvas::OnKeyDown(const input::KeyEvent& event) {
+	switch (event.key) {
+	case input::Key::Delete:
+	case input::Key::Backspace:  // macOS "delete" key
 		if (currentDragState == DRAG_NONE && !(this->isLocked())) deleteSelection();
 		break;
-	case WXK_ESCAPE:
+	case input::Key::Escape:
 		cancelDrag();
 		break;
-	case WXK_LEFT:
-	case WXK_NUMPAD_LEFT:
+	case input::Key::Left:
 		translatePan(-PAN_STEP * getZoom(), 0.0);
 		break;
-	case WXK_RIGHT:
-	case WXK_NUMPAD_RIGHT:
+	case input::Key::Right:
 		translatePan(+PAN_STEP * getZoom(), 0.0);
 		break;
-	case WXK_UP:
-	case WXK_NUMPAD_UP:
+	case input::Key::Up:
 		translatePan(0.0, PAN_STEP * getZoom());
 		break;
-	case WXK_DOWN:
-	case WXK_NUMPAD_DOWN:
+	case input::Key::Down:
 		translatePan(0.0, -PAN_STEP * getZoom());
 		break;
-	case 43: // + key (Shift+=)
-	case 61: // = key (for zoom in without shift on Mac)
-	case WXK_NUMPAD_ADD:
+	// '=' zooms in as well as '+', so zooming does not need the shift key.
+	case input::Key::Plus:
+	case input::Key::Equals:
 		zoomIn();
 		break;
-	case 45: // - key on top row
-	case WXK_NUMPAD_SUBTRACT:
+	case input::Key::Minus:
 		zoomOut();
 		break;
-	case WXK_SPACE:
+	case input::Key::Space:
 		setZoomAll();
 		break;
-	case 'A':
-	case 'a':
-		if (!event.ControlDown() && !event.AltDown() && !event.CmdDown() && currentDragState == DRAG_NONE && !this->isLocked()) {
-#ifdef __WXOSX__
-			QuickAddDialog* dlg = new QuickAddDialog(wxTheApp->GetTopWindow());
-			dlg->Bind(wxEVT_WINDOW_MODAL_DIALOG_CLOSED, [dlg](wxWindowModalDialogEvent& evt) {
-				if (evt.GetReturnCode() == wxID_OK && !dlg->getSelectedGate().empty()) {
-					paletteDrag().newGateToDrag = dlg->getSelectedGate();
-				}
-				dlg->Destroy();
-			});
-			dlg->ShowWindowModal();
-#else
-			QuickAddDialog dlg(wxGetTopLevelParent(this));
-			if (dlg.ShowModal() == wxID_OK && !dlg.getSelectedGate().empty()) {
-				paletteDrag().newGateToDrag = dlg.getSelectedGate();
-				CallAfter([this]() { SetFocus(); });
+	case input::Key::Character:
+		if (event.ch == 'a' || event.ch == 'A') {
+			if (event.unmodified() && currentDragState == DRAG_NONE && !this->isLocked())
+				requestQuickAdd();
+		} else if (event.ch == 'r' || event.ch == 'R') {
+			if (event.unmodified() && !this->isLocked()) {
+				rotateSelection();
+				Refresh();
 			}
-#endif
 		}
 		break;
-	case 'R':
-	case 'r':
-		if (!event.ControlDown() && !event.AltDown() && !event.CmdDown() && !this->isLocked()) {
-			rotateSelection();
-			Refresh();
-		}
+	default:
 		break;
 	}
+
+	// Always claim the key. This canvas has never let one fall through to
+	// klsGLCanvas's own bindings (it never called Skip()), and the two sets
+	// overlap -- letting both run would pan twice per arrow press.
+	return true;
+}
+
+void GUICanvas::requestQuickAdd() {
+#ifdef __WXOSX__
+	QuickAddDialog* dlg = new QuickAddDialog(wxTheApp->GetTopWindow());
+	dlg->Bind(wxEVT_WINDOW_MODAL_DIALOG_CLOSED, [dlg](wxWindowModalDialogEvent& evt) {
+		if (evt.GetReturnCode() == wxID_OK && !dlg->getSelectedGate().empty()) {
+			paletteDrag().newGateToDrag = dlg->getSelectedGate();
+		}
+		dlg->Destroy();
+	});
+	dlg->ShowWindowModal();
+#else
+	QuickAddDialog dlg(wxGetTopLevelParent(this));
+	if (dlg.ShowModal() == wxID_OK && !dlg.getSelectedGate().empty()) {
+		paletteDrag().newGateToDrag = dlg.getSelectedGate();
+		CallAfter([this]() { SetFocus(); });
+	}
+#endif
 }
 
 void GUICanvas::deleteSelection() {

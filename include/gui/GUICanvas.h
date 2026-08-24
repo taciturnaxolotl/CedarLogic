@@ -132,22 +132,30 @@ public:
 
 	virtual ~GUICanvas();
 
-	// Event handlers
-	void OnMouseDown( wxMouseEvent& event ) {
-		if( event.LeftDown() || event.LeftDClick() ) {
+	// Event handlers. These take toolkit-neutral events (see InputEvent.h), so
+	// the interaction they describe -- what starts a drag, what a click selects,
+	// where a wire snaps -- is the same code on the desktop and in the browser.
+	void OnMouseDown( const input::PointerEvent& event ) override {
+		if( event.button == input::Button::Left ) {
 			mouseLeftDown( event );
-		} else if( event.RightDown() || event.RightDClick() ) {
+		} else if( event.button == input::Button::Right ) {
 			mouseRightDown( event );
 		}
 	};
-    void mouseLeftDown(wxMouseEvent& event);
-    void mouseRightDown(wxMouseEvent& event);
+    void mouseLeftDown(const input::PointerEvent& event);
+    void mouseRightDown(const input::PointerEvent& event);
 
-    void OnMouseUp(wxMouseEvent& event);
-    void OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool CtrlDown );
-    void OnMouseEnter(wxMouseEvent& event);
+    void OnMouseUp(const input::PointerEvent& event) override;
+    void OnMouseMove(const input::PointerEvent& event) override;
+    void OnMouseEnter(const input::PointerEvent& event) override;
 
-    void OnKeyDown(wxKeyEvent& event);
+    bool OnKeyDown(const input::KeyEvent& event) override;
+
+    // Ask the shell for a gate to place ('a'). Opening a window is the one
+    // thing this handler cannot do itself, so it asks: the desktop answers with
+    // QuickAddDialog, a browser shell with its own picker. Either way the
+    // answer lands in paletteDrag().newGateToDrag.
+    virtual void requestQuickAdd();
     void cancelDrag() override;   // cancel an in-progress drag (Escape / lost capture)
 	
 	void OnSize( void ) { Update(); };

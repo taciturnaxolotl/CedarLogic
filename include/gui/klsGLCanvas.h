@@ -14,6 +14,7 @@
 class klsGLCanvas;
 
 #include "MainApp.h"
+#include "InputEvent.h"
 #include "wx/glcanvas.h"
 class klsMiniMap;   // pointer member only; the minimap header pulls in wx DCs
 // For GLPoint2f:
@@ -85,20 +86,27 @@ public:
 	void wxKeyUp(wxKeyEvent& event);
 
 
-	// Send events to subclassed canvas:
-	// NOTE: The coordinates of the wxMouseEvent are screen
-	// coordinates and should be ignored in these methods.
-	virtual void OnMouseDown( wxMouseEvent& event ) {};
-	virtual void OnMouseUp( wxMouseEvent& event ) {};
-    virtual void OnMouseMove( GLdouble x, GLdouble y, bool ShiftDown, bool CtrlDown ) {};
-    virtual void OnMouseEnter( wxMouseEvent& event ) {};
-    virtual void OnMouseLeave( wxMouseEvent& event ) {};
-    
-    // Default OnMouseWheel handler simply zooms using the mouse wheel:
-    virtual void OnMouseWheel( long numOfLines );
+	// Send events to subclassed canvas.
+	//
+	// These take toolkit-neutral events, not wxMouseEvent: what a subclass does
+	// with the mouse IS the feel of the application, and it should be written
+	// once and compiled everywhere rather than reimplemented per platform. The
+	// wx handlers above are the only translation site; a browser shell drives
+	// the same methods from DOM events. Positions are already in world
+	// coordinates, mapped through the camera by the translator.
+	virtual void OnMouseDown( const input::PointerEvent& event ) {};
+	virtual void OnMouseUp( const input::PointerEvent& event ) {};
+	virtual void OnMouseMove( const input::PointerEvent& event ) {};
+	virtual void OnMouseEnter( const input::PointerEvent& event ) {};
+	virtual void OnMouseLeave( const input::PointerEvent& event ) {};
 
-    virtual void OnKeyDown( wxKeyEvent& event ) {};
-    virtual void OnKeyUp( wxKeyEvent& event ) {};
+	// Default OnMouseWheel handler simply zooms using the mouse wheel:
+	virtual void OnMouseWheel( long numOfLines );
+
+	// Return true if the subclass consumed the key, which stops this class from
+	// applying its own pan/zoom bindings to it.
+	virtual bool OnKeyDown( const input::KeyEvent& event ) { return false; };
+	virtual void OnKeyUp( const input::KeyEvent& event ) {};
 
 	// Render the live frame through Skia's Ganesh GL backend. Returns true if it
 	// painted (caller then just SwapBuffers). Base is a no-op.
