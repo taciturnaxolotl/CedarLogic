@@ -28,6 +28,11 @@ class threadLogic : public wxThread
 public:
     threadLogic();
 	
+    // Build the logic core and its id map. Entry() calls this before its loop;
+    // a caller with no thread to give (the browser drives the simulation from
+    // its frame loop) calls it once and then checkMessages() itself.
+    void initCore();
+
     // thread execution starts here
     virtual void *Entry();
 

@@ -109,6 +109,9 @@ public:
 	void Signal() {}
 	void Broadcast() {}
 	void Wait() {}
+	// The browser never blocks waiting for a logic thread -- there isn't one --
+	// so this returns immediately and the caller's loop condition decides.
+	int WaitTimeout(unsigned long) { return 0; }
 };
 
 class wxCriticalSection {

@@ -13,6 +13,9 @@
 
 #include "CanvasCamera.h"
 #include "CircuitParse.h"
+#include "SimBridge.h"
+#include "Settings.h"
+#include "threadLogic.h"
 #include "wx/clipbrd.h"
 #include "CircuitPage.h"
 #include "GUICircuit.h"
@@ -64,11 +67,21 @@ public:
 		setCamera(&fCamera);
 		setHost(this);
 		fCamera.setHost(this);
+
+		// Stand the logic core up without a thread. The document owns it and
+		// pumps it from stepSimulation.
+		fLogic = new threadLogic();
+		fLogic->initCore();
+		simBridge().logicThread = fLogic;
 		// One world unit per grid line, matching klsGLCanvas's constructor.
 		fCamera.setGridSpacing(1.0f, 1.0f);
 	}
 
-	~Document() { clearCircuit(); }
+	~Document() {
+		clearCircuit();
+		simBridge().logicThread = nullptr;
+		delete fLogic;
+	}
 
 	std::string loadError() const { return fLoadError; }
 
@@ -139,6 +152,10 @@ public:
 		e.doubleClick = doubleClick;
 		endDrag(e.button);
 		CircuitPage::OnMouseUp(e);
+		// Clicking a toggle or a keypad edits the circuit; let the core see it
+		// now rather than on the next step, so the LED lights when the button
+		// goes down.
+		pumpLogic();
 	}
 
 	// `key` is a name from the DOM ("Delete", "ArrowLeft", "a"); anything of
@@ -261,6 +278,81 @@ public:
 			for (const auto &gate : lib.second) out.push_back(gate.first);
 		return out;
 	}
+
+	// --- simulation --------------------------------------------------------
+
+	// The desktop runs the logic core on its own thread and pumps it from two
+	// timers. A browser has one thread, so the same three steps happen inline
+	// here, once per frame: queue a step, let the core work through the queue,
+	// then apply what it sent back.
+	//
+	// `elapsedMs` is real time since the last call. Steps are taken in whole
+	// multiples of the configured time step, and a long gap (a backgrounded tab)
+	// is capped rather than made up all at once -- simulating minutes of circuit
+	// takes longer than the minutes took to pass.
+	void stepSimulation(double elapsedMs) {
+		if (!fSimulate || fCircuit.panic) return;
+
+		const long step = appConfig().timeStepMod > 0 ? appConfig().timeStepMod : 25;
+		fSimAccumulator += elapsedMs;
+
+		const double maxCatchUp = (double)step * kMaxCatchUpSteps;
+		if (fSimAccumulator > maxCatchUp) fSimAccumulator = maxCatchUp;
+
+		const long steps = (long)(fSimAccumulator / step);
+		if (steps <= 0) return;
+		fSimAccumulator -= (double)steps * step;
+
+		fCircuit.lastTime = (int)(steps * step);
+		fCircuit.lastTimeMod = (int)step;
+		fCircuit.lastNumSteps = (int)steps;
+		fCircuit.sendMessageToCore(klsMessage::Message(
+			klsMessage::MT_STEPSIM, new klsMessage::Message_STEPSIM(steps)));
+		fCircuit.setSimulate(false);
+
+		pumpLogic();
+	}
+
+	// Run the core over everything queued for it, then apply its replies. Also
+	// called after a direct edit (flipping a toggle) so the change lands without
+	// waiting for the next step.
+	void pumpLogic() {
+		if (fLogic == nullptr) return;
+		fLogic->checkMessages();
+
+		std::deque<klsMessage::Message> batch;
+		batch.swap(simBridge().dLOGICtoGUI);
+		while (!batch.empty()) {
+			fCircuit.parseMessage(batch.front());
+			batch.pop_front();
+		}
+	}
+
+	bool isSimulating() const { return fSimulate; }
+	void setSimulating(bool on) {
+		fSimulate = on;
+		// Starting again should not try to make up the time spent paused.
+		fSimAccumulator = 0.0;
+		if (on) fCircuit.panic = false;
+	}
+
+	// One step's worth of circuit, regardless of wall time -- the desktop's
+	// step button.
+	void stepOnce() {
+		const long step = appConfig().timeStepMod > 0 ? appConfig().timeStepMod : 25;
+		fCircuit.lastTime = (int)step;
+		fCircuit.lastTimeMod = (int)step;
+		fCircuit.lastNumSteps = 1;
+		fCircuit.sendMessageToCore(klsMessage::Message(
+			klsMessage::MT_STEPSIM, new klsMessage::Message_STEPSIM(1)));
+		fCircuit.setSimulate(false);
+		pumpLogic();
+		fDirty = true;
+	}
+
+	// The core stopped because the circuit could not keep up.
+	bool inPanic() const { return fCircuit.panic; }
+	void clearPanic() { fCircuit.panic = false; }
 
 	// --- files -------------------------------------------------------------
 
@@ -389,6 +481,13 @@ private:
 	int fViewH = 0;
 	bool fDirty = true;
 
+	// The logic core, run inline rather than on a thread.
+	threadLogic* fLogic = nullptr;
+	bool fSimulate = true;
+	double fSimAccumulator = 0.0;
+	// Cap a catch-up at this many steps, matching the desktop.
+	static const int kMaxCatchUpSteps = 40;
+
 	// Pointer and per-button drag tracking, which on the desktop lives on the
 	// wx canvas. Three buttons, matching input::Button minus None.
 	GLPoint2f fPointer;
@@ -461,6 +560,12 @@ EMSCRIPTEN_BINDINGS(cedarlogic_gui) {
 		.function("worldX", &Document::worldX)
 		.function("worldY", &Document::worldY)
 		.function("isDirty", &Document::isDirty)
+		.function("stepSimulation", &Document::stepSimulation)
+		.function("stepOnce", &Document::stepOnce)
+		.function("isSimulating", &Document::isSimulating)
+		.function("setSimulating", &Document::setSimulating)
+		.function("inPanic", &Document::inPanic)
+		.function("clearPanic", &Document::clearPanic)
 		.function("render", &Document::render)
 		.function("sceneData", &Document::sceneData)
 		.function("sceneLength", &Document::sceneLength)

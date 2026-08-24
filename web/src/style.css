@@ -78,6 +78,9 @@ h1 {
 .spacer { flex: 1; }
 
 .actions { display: flex; gap: 0.25rem; }
+.actions.sim { margin-left: 0.5rem; padding-left: 0.75rem; border-left: 1px solid var(--rule); }
+button.running { color: var(--accent); }
+button.panicked { color: var(--warn); }
 
 button {
   font: inherit;

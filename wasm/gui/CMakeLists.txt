@@ -57,6 +57,7 @@ set(CORE_SRC
 	"${REPO}/src/gui/XMLParser.cpp"
 	"${REPO}/src/gui/Settings.cpp"
 	"${REPO}/src/gui/SimBridge.cpp"
+	"${REPO}/src/gui/threadLogic.cpp"
 	"${REPO}/src/gui/route/TrunkRouter.cpp"
 	"${REPO}/src/gui/PaletteDrag.cpp"
 	"${REPO}/src/gui/RenderMode.cpp"

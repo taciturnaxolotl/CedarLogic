@@ -43,6 +43,16 @@ export interface Document {
   /** `key` is a DOM KeyboardEvent.key value. */
   keyDown(key: string, shift: boolean, ctrl: boolean, alt: boolean, meta: boolean): void;
 
+  /** Advance the circuit by `elapsedMs` of real time. Call once per frame. */
+  stepSimulation(elapsedMs: number): void;
+  /** One time step, regardless of wall time. */
+  stepOnce(): void;
+  isSimulating(): boolean;
+  setSimulating(on: boolean): void;
+  /** The core stopped because the circuit could not keep up. */
+  inPanic(): boolean;
+  clearPanic(): void;
+
   deleteSelection(): void;
   rotateSelection(): void;
   copySelection(): void;

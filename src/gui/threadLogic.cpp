@@ -25,17 +25,23 @@
 DECLARE_APP(MainApp)
 
 threadLogic::threadLogic() : wxThread() {
-	return;
+	// initCore() checks these, so they must not start as garbage.
+	cir = NULL;
+	logicIDs = NULL;
 }
 
-void *threadLogic::Entry() {
-	// This is the main function of the thread, so now we can init
+void threadLogic::initCore() {
+	if (cir != NULL) return;
 #ifndef _PRODUCTION_
 	logfile.open("logiclog.log");
 #endif
 	logicIDs = new map < IDType, IDType >;
-	
 	cir = new Circuit();
+}
+
+void *threadLogic::Entry() {
+	// This is the main function of the thread, so now we can init
+	initCore();
 	while (!TestDestroy()) {
 		// Block until the GUI queues a message (or we're asked to stop) rather
 		// than spinning on a 1ms sleep. WaitTimeout bounds how long a pending

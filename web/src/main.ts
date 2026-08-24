@@ -34,8 +34,18 @@ function startFrameLoop(module: EngineModule, doc: Document): void {
 
   let lastW = -1;
   let lastH = -1;
+  let lastFrameTime = performance.now();
 
   const frame = (): void => {
+    const now = performance.now();
+    const elapsed = now - lastFrameTime;
+    lastFrameTime = now;
+
+    // The desktop runs the core on its own thread and pumps it from a timer;
+    // here the frame loop is the timer. The engine caps a long gap itself, so a
+    // backgrounded tab resumes rather than racing to catch up.
+    doc.stepSimulation(elapsed);
+
     const ratio = window.devicePixelRatio || 1;
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
@@ -69,6 +79,39 @@ function startFrameLoop(module: EngineModule, doc: Document): void {
   };
 
   requestAnimationFrame(frame);
+}
+
+// The simulation controls. Pausing is the desktop's Pause button; the engine
+// also stops itself if a circuit cannot keep up, which shows here rather than
+// leaving the view mysteriously frozen.
+function bindSimulation(doc: Document): void {
+  const runBtn = $<HTMLButtonElement>("#run");
+  const stepBtn = $<HTMLButtonElement>("#step");
+
+  const sync = (): void => {
+    const running = doc.isSimulating();
+    runBtn.textContent = running ? "Pause" : "Run";
+    runBtn.classList.toggle("running", running);
+    runBtn.classList.toggle("panicked", doc.inPanic());
+  };
+
+  runBtn.addEventListener("click", () => {
+    if (doc.inPanic()) doc.clearPanic();
+    doc.setSimulating(!doc.isSimulating());
+    sync();
+    setStatus(doc.isSimulating() ? "running" : "paused");
+  });
+
+  stepBtn.addEventListener("click", () => {
+    doc.setSimulating(false);
+    doc.stepOnce();
+    sync();
+    setStatus("stepped");
+  });
+
+  // The core can stop itself, so the button cannot only follow clicks.
+  setInterval(sync, 250);
+  sync();
 }
 
 function updateReadout(doc: Document): void {
@@ -369,6 +412,7 @@ async function main(): Promise<void> {
 
   bindInput(doc);
   bindFiles(doc);
+  bindSimulation(doc);
   startFrameLoop(module, doc);
 
   // The hint has done its job once the view has been touched.
