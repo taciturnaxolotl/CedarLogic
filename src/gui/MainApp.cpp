@@ -633,6 +633,33 @@ bool MainApp::OnInit()
     return true;
 }
 
+// Locate the directory holding res/. Installed builds find it where the
+// platform says resources live; a build run in place does not, because
+// wxStandardPaths infers its prefix from a /bin/ in the executable path and
+// falls back to /usr/local when there is none -- so an uninstalled Linux build
+// looked for /usr/local/share/CedarLogic and came up with no gate library, no
+// font, and no toolbar icons. Probe the build layouts too: res/ is copied to the
+// build root, which is the executable's own directory for a single-config build
+// and its parent for a multi-config one.
+static wxString findResourcesDir(const wxStandardPathsBase& stdp) {
+	wxString candidates[3];
+	candidates[0] = stdp.GetResourcesDir();
+
+	wxFileName exeDir(stdp.GetExecutablePath());
+	exeDir.SetFullName("");
+	candidates[1] = exeDir.GetPath();
+	exeDir.RemoveLastDir();
+	candidates[2] = exeDir.GetPath();
+
+	for (const wxString& dir : candidates) {
+		if (dir.empty()) continue;
+		if (wxFileName::FileExists(dir + "/res/cl_gatedefs.xml")) {
+			return dir + "/";
+		}
+	}
+	return candidates[0] + "/";
+}
+
 void MainApp::loadSettings() {
 	wxStandardPathsBase& stdp = wxStandardPaths::Get();
 	stdp.SetFileLayout(wxStandardPaths::FileLayout_XDG);
@@ -643,7 +670,7 @@ void MainApp::loadSettings() {
 			appConfig().resourcesDir += "/";
 		}
 	} else {
-		appConfig().resourcesDir = stdp.GetResourcesDir() + "/";
+		appConfig().resourcesDir = findResourcesDir(stdp);
 	}
 #ifdef WITH_SKIA
 	cl::render::setFontSearchDir(appConfig().resourcesDir.c_str());

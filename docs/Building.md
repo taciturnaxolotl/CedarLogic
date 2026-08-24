@@ -163,11 +163,11 @@ The public key gets embedded in the app's `Info.plist` and tells the updater how
 
 ## Developing Notes
 
-It is time-intensive to re-install CedarLogic each time you wish to test a code change. There is also an executable in the `build/<whatever build type you picked, like Release>`
-folder. That executable would run, except a library or two aren't in the correct relative paths for it to do so. You can tell CedarLogic where to find them by by setting the 
-`CEDARLOGIC_RESOURCES_DIR` environment variable to your build directory. On linux this can be usually be done with `export CEDARLOGIC_RESOURCES_DIR="./build"`.
+It is time-intensive to re-install CedarLogic each time you wish to test a code change, so run the executable straight out of the build tree. It finds the `res/`
+folder the build copied next to it, whether that is the build root (a single-config build) or its parent (a multi-config one, like `build/Release`).
 
-You can do the same thing for `Debug` builds and the like.
+If you keep resources somewhere else, point at them with the `CEDARLOGIC_RESOURCES_DIR` environment variable, e.g. `export CEDARLOGIC_RESOURCES_DIR="./build"`.
+Missing resources show up as question-mark toolbar icons and an empty gate palette.
 
 You can also build many other solutions, which come with cool things like the ability  to unit test portions of the code, and whatnot. We are trying to break the code apart
 into multiple libraries that do not share memory to make reasoning about the code and updating it and testing it much easier.
