@@ -43,8 +43,26 @@ Note, if you don't have at least libwxgtk3.2 or later, you can get around this b
 #### Arch
 
 ```bash
-sudo pacman -S --needed base-devel wxwidgets-gtk3 glu git cmake
+sudo pacman -S --needed base-devel wxwidgets-gtk3 glu git cmake fontconfig
 ```
+
+### Skia
+
+Skia is the renderer, so the build requires it. Almost nothing ships a Skia
+package, so get the prebuilt dist from CI:
+
+```bash
+task skia          # needs the `task` runner and `gh`, authenticated
+```
+
+That drops a dist in `build/skia-dist` and prints the path. Without `task`, pass
+your own with `-DSKIA_ROOT=<dir>`; a dist is any tree with `include/` and
+`lib/`.
+
+On Linux, `USE_SYSTEM_SKIA` defaults to ON, which looks for a pkg-config `skia`
+first. If your distro has one, it will be used, but it tracks whatever milestone
+the distro tracks and the API drifts. The pinned dist is the supported path:
+pass `-DUSE_SYSTEM_SKIA=OFF` to insist on it.
 
 ### Build CedarLogic Executable
 
@@ -52,12 +70,17 @@ From within the root of the CedarLogic repo:
 
 ```bash
 # If you struggled to get a late enough version of wxWidgets, this is the command you add `-DUSE_SYSTEM_WXWIDGETS=0` to.
-cmake -B build -DCMAKE_BUILD_TYPE=Release # Assuming you want a release build, could be debug
+cmake -B build -DCMAKE_BUILD_TYPE=Release \
+    -DUSE_SYSTEM_SKIA=OFF -DSKIA_ROOT="$PWD/build/skia-dist"
 
 cmake --build build -j8
 ```
 
 There is now a CedarLogic executable in the `build` directory.
+
+If the window comes up with a blank canvas, run it from a terminal: a renderer
+that cannot get at the window says so on stderr. That means the GL context or
+the Skia build is at fault, not the circuit.
 
 ## macOS
 

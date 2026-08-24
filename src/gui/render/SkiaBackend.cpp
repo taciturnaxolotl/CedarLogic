@@ -4,6 +4,7 @@
 
 #include "render/SkiaBackend.h"
 
+#include <cstdio>
 #include <cstdlib>
 #include <memory>
 #include <string>
@@ -84,9 +85,24 @@ bool SkiaBackend::ensureContext() {
 	return fContext != nullptr;
 }
 
+// Say once, on stderr, why the window cannot be painted. Every failure here ends
+// as an unpainted (black) window, which on its own points nowhere -- and the two
+// causes want opposite fixes: a GL context Ganesh will not accept is a driver or
+// Skia-build problem, a framebuffer it will not wrap is ours.
+static void reportWindowSurfaceFailure(const char* what) {
+	static bool said = false;
+	if (said) return;
+	said = true;
+	std::fprintf(stderr, "CedarLogic: Skia cannot draw to the window (%s). "
+	                     "The canvas will stay blank.\n", what);
+}
+
 sk_sp<SkSurface> SkiaBackend::windowSurface(int width, int height, int fboId,
                                             int sampleCount, int stencilBits) {
-	if (!ensureContext()) return nullptr;
+	if (!ensureContext()) {
+		reportWindowSurfaceFailure("no GL context for Ganesh");
+		return nullptr;
+	}
 
 	GrGLFramebufferInfo info;
 	info.fFBOID = static_cast<GrGLuint>(fboId);
@@ -96,9 +112,11 @@ sk_sp<SkSurface> SkiaBackend::windowSurface(int width, int height, int fboId,
 		width, height, sampleCount, stencilBits, info);
 
 	SkSurfaceProps props;
-	return SkSurfaces::WrapBackendRenderTarget(
+	sk_sp<SkSurface> surface = SkSurfaces::WrapBackendRenderTarget(
 		fContext.get(), target, kBottomLeft_GrSurfaceOrigin,
 		kRGBA_8888_SkColorType, nullptr, &props);
+	if (!surface) reportWindowSurfaceFailure("the window framebuffer would not wrap");
+	return surface;
 }
 
 sk_sp<SkSurface> SkiaBackend::rasterSurface(int width, int height) {

@@ -175,7 +175,13 @@ void klsGLCanvas::wxOnPaint(wxPaintEvent& event) {
 	// No GL state to set up here: Skia owns the pipeline and sets clear colour,
 	// blending, and pixel store per draw. (The old fixed-function setup would
 	// also be invalid under the core profile macOS now asks for.)
-	renderSkiaLive();
+	if (!renderSkiaLive()) {
+		// Skia declined the frame (see SkiaBackend, which reports why once).
+		// Clear anyway: an untouched back buffer swaps in as black, and a black
+		// canvas reads as a broken app rather than a renderer that gave up.
+		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+	}
 
 	// Show the new buffer:
 	glFlush();
