@@ -49,6 +49,11 @@ public:
 	// hold bare CircuitPages without either type reaching in here.
 	typedef std::function<CircuitPage*(int index)> PageProvider;
 
+	// Apply an already-parsed circuit to pages the provider hands out. No file
+	// is involved: the caller has the text, or got it from somewhere that is not
+	// a filesystem.
+	explicit CircuitParse(PageProvider);
+
 	CircuitParse(string, PageProvider);
 	CircuitParse(CircuitPage*);
 	virtual ~CircuitParse();

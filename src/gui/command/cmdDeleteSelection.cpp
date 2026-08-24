@@ -1,7 +1,6 @@
 
 #include "cmdDeleteSelection.h"
 #include "../GUICircuit.h"
-#include "../OscopeFrame.h"
 #include "cmdDeleteWire.h"
 #include "cmdDeleteGate.h"
 
@@ -33,7 +32,7 @@ bool cmdDeleteSelection::Do() {
 		cmdList.push(std::unique_ptr<klsCommand>(new cmdDeleteGate(gCircuit, gCanvas, gates[i])));
 		cmdList.top()->Do();
 	}
-	if (gCircuit->getOscope() != NULL) gCircuit->getOscope()->UpdateMenu();
+	gCircuit->notifyOscopeSignalsChanged();
 
 	return true;
 }
@@ -44,6 +43,6 @@ bool cmdDeleteSelection::Undo() {
 		cmdList.top()->Undo();
 		cmdList.pop();
 	}
-	if (gCircuit->getOscope() != NULL) gCircuit->getOscope()->UpdateMenu();
+	gCircuit->notifyOscopeSignalsChanged();
 	return true;
 }

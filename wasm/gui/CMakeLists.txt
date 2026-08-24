@@ -13,7 +13,18 @@ cmake_minimum_required(VERSION 3.11)
 # include in src/gui rather than to widen the shim: the shim exists to name what
 # the core legitimately still uses, not to reimplement a toolkit.
 
+# Take the version from the app's CMakeLists so the browser build stamps the
+# same number into the files it writes -- a .cdl saved here should not claim to
+# come from a different CedarLogic than one saved on the desktop.
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../../CMakeLists.txt" _app_cmake)
+string(REGEX MATCH "project\\(CedarLogic VERSION ([0-9]+)\\.([0-9]+)\\.([0-9]+)\\)" _ "${_app_cmake}")
+set(CedarLogic_VERSION_MAJOR "${CMAKE_MATCH_1}")
+set(CedarLogic_VERSION_MINOR "${CMAKE_MATCH_2}")
+set(CedarLogic_VERSION_PATCH "${CMAKE_MATCH_3}")
+
 project(CedarLogicGUIWASM VERSION 0.1.0)
+
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/../../CedarLogic.h.in" CedarLogic.h)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -32,6 +43,7 @@ add_definitions(-D_PRODUCTION_)
 set(CORE_SRC
 	"${REPO}/src/gui/CanvasCamera.cpp"
 	"${REPO}/src/gui/CircuitPage.cpp"
+	"${REPO}/src/gui/CircuitParse.cpp"
 	"${REPO}/src/gui/GUICircuit.cpp"
 	"${REPO}/src/gui/guiGate.cpp"
 	"${REPO}/src/gui/guiWire.cpp"
@@ -44,7 +56,13 @@ set(CORE_SRC
 	"${REPO}/src/gui/Settings.cpp"
 	"${REPO}/src/gui/SimBridge.cpp"
 	"${REPO}/src/gui/route/TrunkRouter.cpp"
+	"${REPO}/src/gui/RenderMode.cpp"
+	"${REPO}/src/version.cpp"
 )
+
+file(GLOB COMMAND_SRC "${REPO}/src/gui/command/*.cpp")
+# The two tab commands drive a wxNotebook, which has no browser equivalent.
+list(FILTER COMMAND_SRC EXCLUDE REGEX "cmd(Add|Delete)Tab\\.cpp$")
 
 file(GLOB LOGIC_SRC "${REPO}/logic/src/*.cpp")
 file(GLOB FORMAT_SRC "${REPO}/format/*.cpp")
@@ -54,12 +72,14 @@ add_executable(cedarlogic-gui
 	headless.cpp
 	text_metrics.cpp
 	${CORE_SRC}
+	${COMMAND_SRC}
 	${LOGIC_SRC}
 	${FORMAT_SRC}
 )
 
 target_include_directories(cedarlogic-gui PRIVATE
 	"${CMAKE_CURRENT_SOURCE_DIR}"
+	"${CMAKE_CURRENT_BINARY_DIR}"   # generated CedarLogic.h
 	"${CMAKE_CURRENT_SOURCE_DIR}/shim"
 	"${REPO}/include"
 	"${REPO}/include/gui"

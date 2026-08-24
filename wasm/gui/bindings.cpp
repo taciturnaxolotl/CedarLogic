@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "CanvasCamera.h"
+#include "CircuitParse.h"
 #include "CircuitPage.h"
 #include "GUICircuit.h"
 #include "GateLibrary.h"
@@ -58,15 +59,14 @@ public:
 		std::string error;
 		ensureLibraryLoaded(error);
 		fLoadError = error;
+		fPage.setCircuit(&fCircuit);
+		fPage.setCamera(&fCamera);
 		fCamera.setHost(this);
 		// One world unit per grid line, matching klsGLCanvas's constructor.
 		fCamera.setGridSpacing(1.0f, 1.0f);
 	}
 
-	~Document() {
-		for (auto &entry : fPage.gateList) delete entry.second;
-		fPage.gateList.clear();
-	}
+	~Document() { clearCircuit(); }
 
 	std::string loadError() const { return fLoadError; }
 
@@ -130,6 +130,69 @@ public:
 		return out;
 	}
 
+	// --- files -------------------------------------------------------------
+
+	// Read a .cdl. Legacy v1/v2 files are migrated on the way in, exactly as on
+	// the desktop -- it is the same reader. Returns "" on success, or a message.
+	std::string loadCircuit(const std::string &text) {
+		cl::LoadResult loaded;
+		try {
+			loaded = cl::loadCircuit(text);
+		} catch (const std::exception &e) {
+			return std::string("could not read the circuit: ") + e.what();
+		}
+
+		clearCircuit();
+
+		// One page for now: the shell has no tabs yet, so everything the file
+		// carries lands on the page we have.
+		CircuitPage *page = &fPage;
+		CircuitParse parser([page](int) { return page; });
+		parser.applyLoaded(loaded);
+
+		// What the migration and the apply had to say about the file.
+		fNotices.clear();
+		for (const cl::MigrationNotice &n : loaded.notices) fNotices.push_back(n.summary);
+		for (const cl::MigrationNotice &n : parser.getApplyNotices()) fNotices.push_back(n.summary);
+
+		// Ids the file used must not be handed out again.
+		for (const auto &entry : fPage.gateList)
+			if ((long)entry.first >= fNextId) fNextId = (long)entry.first + 1;
+
+		fDirty = true;
+		return "";
+	}
+
+	// The circuit as v3 .cdl text, for the shell to download.
+	std::string saveCircuit() {
+		std::vector<CircuitPage *> pages{ &fPage };
+		return CircuitParse::serializeV3(pages);
+	}
+
+	// Anything the last load wanted to say: a gate type that no longer exists, a
+	// wire that could not be attached. Silence here means a clean read.
+	std::vector<std::string> loadNotices() const { return fNotices; }
+
+	void clearCircuit() {
+		// The document owns the gates and wires, not the page: GUICircuit created
+		// them and its reset is what frees them and reinitializes the logic core.
+		// Deleting them here as well left the document holding dangling pointers
+		// that the next load walked straight into.
+		fPage.clearPage();
+		fCircuit.reInitializeLogicCircuit();
+		fNextId = 0;
+		fDirty = true;
+	}
+
+	int gateCount() const { return (int)fPage.gateList.size(); }
+	int wireCount() const {
+		int n = 0;
+		for (const auto &entry : fPage.wireList) if (entry.second) n++;
+		return n;
+	}
+
+	// --- editing -----------------------------------------------------------
+
 	// Place a gate of `type` at (x, y) in world coordinates. Returns its id, or
 	// -1 if the library has no such gate.
 	long addGate(const std::string &type, float x, float y) {
@@ -182,6 +245,7 @@ private:
 	cl::wasm::SceneBuffer fScene;
 	std::string fLoadError;
 	long fNextId = 0;
+	std::vector<std::string> fNotices;
 	int fViewW = 0;
 	int fViewH = 0;
 	bool fDirty = true;
@@ -194,6 +258,12 @@ EMSCRIPTEN_BINDINGS(cedarlogic_gui) {
 		.constructor<>()
 		.function("loadError", &Document::loadError)
 		.function("gateTypes", &Document::gateTypes)
+		.function("loadCircuit", &Document::loadCircuit)
+		.function("saveCircuit", &Document::saveCircuit)
+		.function("loadNotices", &Document::loadNotices)
+		.function("clearCircuit", &Document::clearCircuit)
+		.function("gateCount", &Document::gateCount)
+		.function("wireCount", &Document::wireCount)
 		.function("addGate", &Document::addGate)
 		.function("background", &Document::background)
 		.function("setViewportSize", &Document::setViewportSize)

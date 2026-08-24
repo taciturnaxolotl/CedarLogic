@@ -9,7 +9,8 @@ class wxTempFile {
 public:
 	bool Open(const wxString &) { return false; }
 	bool IsOpened() const { return false; }
-	bool Write(const wxString &) { return false; }
+	bool Write(const wxString &, int = 0) { return false; }
+	bool Flush() { return false; }
 	bool Commit() { return false; }
 	void Discard() {}
 };

@@ -49,6 +49,12 @@ CircuitParse::CircuitParse(CircuitPage* page) {
 	gCanvas = page;
 }
 
+CircuitParse::CircuitParse(PageProvider provider) {
+	mParse = nullptr;
+	pageProvider = std::move(provider);
+	gCanvas = pageProvider ? pageProvider(0) : nullptr;
+}
+
 CircuitParse::CircuitParse(string fileName, PageProvider provider) {
 	pageProvider = std::move(provider);
 	gCanvas = pageProvider ? pageProvider(0) : nullptr;
