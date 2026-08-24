@@ -21,8 +21,22 @@ export interface Document {
   addGate(type: string, x: number, y: number): number;
   /** The page background the render style asks for, as a CSS colour. */
   background(): string;
-  /** Record a frame fitted to a deviceW x deviceH image. */
-  render(deviceW: number, deviceH: number): void;
+  /** Tell the camera how big the drawing surface is, in CSS pixels. */
+  setViewportSize(width: number, height: number): void;
+  getZoom(): number;
+  panX(): number;
+  panY(): number;
+  translatePan(dx: number, dy: number): void;
+  /** Zoom by wheel notches about a CSS-pixel point, keeping it under the cursor. */
+  zoomAt(notches: number, px: number, py: number): void;
+  /** Fit the whole circuit to the view. */
+  zoomAll(): void;
+  worldX(px: number, py: number): number;
+  worldY(px: number, py: number): number;
+  /** Whether anything changed since the last render. */
+  isDirty(): boolean;
+  /** Record a frame at the live camera. */
+  render(contentScale: number): void;
   /** Byte offset of the recorded stream in wasm memory. Valid until next render. */
   sceneData(): number;
   /** Length of the stream in floats. */

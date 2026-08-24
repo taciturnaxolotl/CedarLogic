@@ -1,7 +1,9 @@
-// The spike shell: load the engine, place a few gates, draw them.
+// The web shell: load the engine, place gates, drive the camera, draw.
 //
 // Everything visible on the canvas was drawn by the same C++ that draws the
-// desktop -- this file only supplies a size, a context, and a click handler.
+// desktop, and every pan and zoom went through the same CanvasCamera. This file
+// supplies a surface, a frame loop, and a translation from DOM events -- it
+// does not decide how a gate looks or how far a wheel notch zooms.
 
 import { loadEngine, toArray, type Document, type EngineModule } from "./engine.ts";
 import { replay } from "./scene.ts";
@@ -15,32 +17,113 @@ function setStatus(text: string, isError = false): void {
   statusEl.classList.toggle("error", isError);
 }
 
-function draw(module: EngineModule, doc: Document): void {
-  const ratio = window.devicePixelRatio || 1;
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  if (width === 0 || height === 0) return;
-
-  canvas.width = Math.round(width * ratio);
-  canvas.height = Math.round(height * ratio);
-
+/** Draws whenever the document says something changed, and no more often. */
+function startFrameLoop(module: EngineModule, doc: Document): () => void {
   const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+  if (!ctx) throw new Error("no 2d context");
 
-  // The core fits the circuit to the size it is given, so hand it CSS pixels
-  // and let replay() apply the device ratio. Otherwise the fit would be
-  // computed for a canvas twice the size the user sees.
-  doc.render(width, height);
+  let lastW = -1;
+  let lastH = -1;
 
-  const offset = doc.sceneData();
-  const length = doc.sceneLength();
-  // A view, not a copy: the stream lives in wasm memory and is read once.
-  const cmds = new Float32Array(module.HEAPF32.buffer, offset, length);
-  const strings = toArray(doc.sceneStrings());
+  const frame = (): void => {
+    const ratio = window.devicePixelRatio || 1;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
 
-  ctx.fillStyle = doc.background();
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  replay(ctx, cmds, strings, { pixelRatio: ratio, font: "ui-monospace, monospace" });
+    if (width > 0 && height > 0 && (width !== lastW || height !== lastH)) {
+      lastW = width;
+      lastH = height;
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      // The camera measures in CSS pixels; the device ratio is the renderer's
+      // business, passed to render() below.
+      doc.setViewportSize(width, height);
+    }
+
+    if (doc.isDirty() && width > 0 && height > 0) {
+      doc.render(ratio);
+
+      const cmds = new Float32Array(module.HEAPF32.buffer, doc.sceneData(), doc.sceneLength());
+      const strings = toArray(doc.sceneStrings());
+
+      ctx.fillStyle = doc.background();
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // The stream is already in device pixels (render() was given the ratio),
+      // so the replayer must not scale it again.
+      replay(ctx, cmds, strings, { pixelRatio: 1, font: "ui-monospace, monospace" });
+    }
+
+    requestAnimationFrame(frame);
+  };
+
+  requestAnimationFrame(frame);
+  return () => {};
+}
+
+/** Translate DOM input into camera moves. */
+function bindCamera(doc: Document): void {
+  // A wheel notch is one zoom step, pivoting on the cursor -- the desktop's
+  // zoomToMouse, reached through the same camera.
+  canvas.addEventListener(
+    "wheel",
+    (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      // Trackpads report small deltas and mice report large ones; take the sign
+      // so one gesture is one step either way.
+      const notches = e.deltaY < 0 ? 1 : -1;
+      doc.zoomAt(notches, Math.round(e.clientX - rect.left), Math.round(e.clientY - rect.top));
+    },
+    { passive: false },
+  );
+
+  // Middle-drag pans, as on the desktop. Space-drag does too, because a browser
+  // canvas cannot rely on a middle button being there.
+  let panning = false;
+  let lastX = 0;
+  let lastY = 0;
+  let spaceHeld = false;
+
+  canvas.addEventListener("pointerdown", (e) => {
+    if (e.button !== 1 && !(e.button === 0 && spaceHeld)) return;
+    e.preventDefault();
+    panning = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+  });
+
+  canvas.addEventListener("pointermove", (e) => {
+    if (!panning) return;
+    // Drag the world with the cursor: the view moves the opposite way, and one
+    // CSS pixel of travel is one pixel of world at any zoom.
+    const zoom = doc.getZoom();
+    doc.translatePan(-(e.clientX - lastX) * zoom, (e.clientY - lastY) * zoom);
+    lastX = e.clientX;
+    lastY = e.clientY;
+  });
+
+  const endPan = (e: PointerEvent): void => {
+    if (!panning) return;
+    panning = false;
+    canvas.releasePointerCapture(e.pointerId);
+  };
+  canvas.addEventListener("pointerup", endPan);
+  canvas.addEventListener("pointercancel", endPan);
+
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "Space") {
+      spaceHeld = true;
+      // Space alone fits the circuit, matching the desktop.
+      if (!panning) {
+        e.preventDefault();
+        doc.zoomAll();
+      }
+    }
+  });
+  window.addEventListener("keyup", (e) => {
+    if (e.code === "Space") spaceHeld = false;
+  });
 }
 
 async function main(): Promise<void> {
@@ -60,37 +143,37 @@ async function main(): Promise<void> {
   }
 
   const types = toArray(doc.gateTypes());
-  setStatus(`${types.length} gate types loaded`);
+  setStatus(`${types.length} gate types loaded\nwheel to zoom, space to fit`);
 
-  // Something on screen at startup, so the page is evidence rather than a
-  // blank canvas waiting to be clicked.
+  // Something on screen at startup, so the page is evidence rather than a blank
+  // canvas waiting to be clicked.
   types.slice(0, 6).forEach((type, index) => {
     doc.addGate(type, (index % 3) * 10, Math.floor(index / 3) * -8);
   });
-
-  const redraw = () => draw(module, doc);
 
   for (const type of types) {
     const item = document.createElement("li");
     const button = document.createElement("button");
     button.textContent = type;
     button.addEventListener("click", () => {
-      // Scatter placements so repeated clicks do not stack invisibly.
-      const x = (Math.random() - 0.5) * 60;
-      const y = (Math.random() - 0.5) * 40;
+      // Place into the middle of whatever the camera is looking at.
+      const x = doc.worldX(Math.round(canvas.clientWidth / 2), Math.round(canvas.clientHeight / 2));
+      const y = doc.worldY(Math.round(canvas.clientWidth / 2), Math.round(canvas.clientHeight / 2));
       if (doc.addGate(type, x, y) < 0) {
         setStatus(`${type}: not in the library`, true);
         return;
       }
       setStatus(`placed ${type}`);
-      redraw();
     });
     item.append(button);
     gatesEl.append(item);
   }
 
-  new ResizeObserver(redraw).observe(canvas);
-  redraw();
+  bindCamera(doc);
+  startFrameLoop(module, doc);
+
+  // Wait for the first frame to size the viewport, then fit.
+  requestAnimationFrame(() => doc.zoomAll());
 }
 
 void main();

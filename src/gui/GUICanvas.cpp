@@ -245,21 +245,8 @@ void GUICanvas::drawSceneContents(cl::render::Scene& scene,
 //   and world y is flipped for the top-left device origin.
 void GUICanvas::renderLiveToScene(cl::render::Scene& scene,
                                   const cl::render::RenderStyle& style) {
-	using namespace cl::render;
-	wxSize sz = GetClientSize();
-	const double sf = GetContentScaleFactor();
-	GLdouble px, py; getPan(px, py);
-	double vz = getZoom();
-	if (vz <= 0) vz = 1.0;
-	const float scale = (float)(sf / vz);
-	Transform t;
-	t.a = scale;  t.c = 0; t.e = (float)(-px * scale);
-	t.b = 0; t.d = -scale; t.f = (float)( py * scale);
-	const float gMinX = (float)px;
-	const float gMaxX = (float)(px + sz.GetWidth()  * vz);
-	const float gMinY = (float)(py - sz.GetHeight() * vz);
-	const float gMaxY = (float)py;
-	drawSceneContents(scene, style, t, scale, gMinX, gMinY, gMaxX, gMaxY);
+	CircuitPage::renderLiveToScene(scene, style, getCamera(),
+	                               (float)GetContentScaleFactor());
 }
 
 // G3: paint the live frame through Skia's Ganesh backend into the window FBO.

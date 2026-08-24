@@ -58,6 +58,39 @@ void CircuitPage::renderToScene(cl::render::Scene& scene,
 	                  gMinX, gMinY, gMaxX, gMaxY);
 }
 
+// Render at the LIVE camera (pan/zoom), not the bbox fit -- this is the
+// on-screen path. The camera is what the user has panned and zoomed to:
+//   world x in [panX, panX + w*zoom], y in [panY - h*zoom, panY], mapped to
+// physical pixels. So device px per world unit = contentScale / zoom, and world
+// y is flipped for the top-left device origin.
+void CircuitPage::renderLiveToScene(cl::render::Scene& scene,
+                                    const cl::render::RenderStyle& style,
+                                    const CanvasCamera& camera,
+                                    float contentScale) {
+	using namespace cl::render;
+	GLdouble px, py;
+	camera.getPan(px, py);
+	double vz = camera.getZoom();
+	if (vz <= 0) vz = 1.0;
+
+	const int w = camera.viewportWidth();
+	const int h = camera.viewportHeight();
+	const float scale = (float)(contentScale / vz);
+
+	Transform t;
+	t.a = scale;  t.c = 0; t.e = (float)(-px * scale);
+	t.b = 0; t.d = -scale; t.f = (float)( py * scale);
+
+	const float gMinX = (float)px;
+	const float gMaxX = (float)(px + w * vz);
+	const float gMinY = (float)(py - h * vz);
+	const float gMaxY = (float)py;
+
+	drawSceneContents(scene, style, t, scale,
+	                  camera.horizSpacing(), camera.vertSpacing(),
+	                  gMinX, gMinY, gMaxX, gMaxY);
+}
+
 // Draw the grid + wires + gates into `scene` under an already-computed viewport
 // transform. Shared by the bbox-fit export path (renderToScene) and the live
 // camera path (renderLiveToScene). `scale` is device px per world unit; the

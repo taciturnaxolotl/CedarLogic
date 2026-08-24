@@ -11,10 +11,13 @@
 #include <string>
 #include <vector>
 
+#include "CanvasCamera.h"
 #include "CircuitPage.h"
 #include "GUICircuit.h"
 #include "GateLibrary.h"
 #include "guiGate.h"
+#include "guiWire.h"
+#include "klsBBox.h"
 #include "render/RenderStyle.h"
 
 #include "SceneBuffer.h"
@@ -45,12 +48,19 @@ bool ensureLibraryLoaded(std::string &error) {
 // One circuit page plus the document it belongs to. The desktop pairs a
 // GUICircuit with N GUICanvas pages; here it is a GUICircuit with one
 // CircuitPage, which is the same pairing minus the window.
-class Document {
+//
+// It is the camera's host: the browser owns the viewport size (the shell tells
+// us on resize) and the repaint schedule (requestAnimationFrame, which the
+// shell drives -- so a repaint request here just raises a flag).
+class Document : public CameraHost {
 public:
 	Document() {
 		std::string error;
 		ensureLibraryLoaded(error);
 		fLoadError = error;
+		fCamera.setHost(this);
+		// One world unit per grid line, matching klsGLCanvas's constructor.
+		fCamera.setGridSpacing(1.0f, 1.0f);
 	}
 
 	~Document() {
@@ -59,6 +69,57 @@ public:
 	}
 
 	std::string loadError() const { return fLoadError; }
+
+	// --- CameraHost --------------------------------------------------------
+
+	int cameraViewportWidth() const override { return fViewW; }
+	int cameraViewportHeight() const override { return fViewH; }
+	void cameraRepaint() override { fDirty = true; }
+	// Hover and drag tracking arrive with the interaction port; until then a
+	// camera move has nothing else to update.
+	void cameraPointerFollowed() override {}
+
+	// --- camera ------------------------------------------------------------
+
+	// The size of the drawing surface in CSS pixels, which is the space the
+	// camera measures pan and zoom in.
+	void setViewportSize(int w, int h) { fViewW = w; fViewH = h; fDirty = true; }
+
+	double getZoom() const { return fCamera.getZoom(); }
+	double panX() const { GLdouble x, y; fCamera.getPan(x, y); return x; }
+	double panY() const { GLdouble x, y; fCamera.getPan(x, y); return y; }
+
+	void translatePan(double dx, double dy) { fCamera.translatePan(dx, dy); }
+
+	// Zoom by `notches` wheel steps about a point given in CSS pixels, so the
+	// world point under the cursor stays under the cursor -- the same
+	// arithmetic, and therefore the same feel, as the desktop wheel.
+	void zoomAt(long notches, int px, int py) {
+		fCamera.zoomToMouse(notches, fCamera.mapToWorld(px, py));
+	}
+
+	// Fit the whole circuit to the view, the way the desktop's spacebar does.
+	void zoomAll() {
+		klsBBox world;
+		for (auto &g : fPage.gateList) if (g.second) world.addBBox(g.second->getBBox());
+		for (auto &w : fPage.wireList) if (w.second) world.addBBox(w.second->getBBox());
+		if (world.empty()) {
+			fCamera.setViewport(GLPoint2f(-50, 50), GLPoint2f(50, -50));
+			return;
+		}
+		// A margin so the outermost gates are not flush against the edge.
+		const float mx = (world.getRight() - world.getLeft()) * 0.05f + 1.0f;
+		const float my = (world.getTop() - world.getBottom()) * 0.05f + 1.0f;
+		fCamera.setViewport(GLPoint2f(world.getLeft() - mx, world.getTop() + my),
+		                    GLPoint2f(world.getRight() + mx, world.getBottom() - my));
+	}
+
+	// A CSS-pixel point in world coordinates, for hit testing from the shell.
+	double worldX(int px, int py) const { return fCamera.mapToWorld(px, py).x; }
+	double worldY(int px, int py) const { return fCamera.mapToWorld(px, py).y; }
+
+	// Whether anything has changed since the last render.
+	bool isDirty() const { return fDirty; }
 
 	// Every gate type the library knows, so the shell can build a palette
 	// without a second copy of the gate list.
@@ -81,16 +142,17 @@ public:
 		const long id = fNextId++;
 		gate->setGLcoords(x, y);
 		fPage.gateList[id] = gate;
+		fDirty = true;
 		return id;
 	}
 
-	// Record one frame, fitting the whole circuit into a deviceW x deviceH
-	// image. The recorded stream is readable until the next call.
-	void render(int deviceW, int deviceH) {
+	// Record one frame at the live camera. The recorded stream is readable until
+	// the next call.
+	void render(float contentScale) {
 		fScene.clear();
 		cl::render::RenderStyle style = cl::render::RenderStyle::screen();
-		fPage.renderToScene(fScene, style, deviceW, deviceH,
-		                    kGridSpacing, kGridSpacing);
+		fPage.renderLiveToScene(fScene, style, fCamera, contentScale);
+		fDirty = false;
 	}
 
 	// The page background the current style asks for, as a CSS colour. The shell
@@ -114,15 +176,15 @@ public:
 	std::vector<std::string> sceneStrings() const { return fScene.strings(); }
 
 private:
-	// The desktop reads grid spacing off klsGLCanvas, which defaults to one
-	// world unit in each direction. Match it until the shell exposes a setting.
-	static const int kGridSpacing = 1;
-
 	GUICircuit fCircuit;
 	CircuitPage fPage;
+	CanvasCamera fCamera;
 	cl::wasm::SceneBuffer fScene;
 	std::string fLoadError;
 	long fNextId = 0;
+	int fViewW = 0;
+	int fViewH = 0;
+	bool fDirty = true;
 };
 
 EMSCRIPTEN_BINDINGS(cedarlogic_gui) {
@@ -134,6 +196,16 @@ EMSCRIPTEN_BINDINGS(cedarlogic_gui) {
 		.function("gateTypes", &Document::gateTypes)
 		.function("addGate", &Document::addGate)
 		.function("background", &Document::background)
+		.function("setViewportSize", &Document::setViewportSize)
+		.function("getZoom", &Document::getZoom)
+		.function("panX", &Document::panX)
+		.function("panY", &Document::panY)
+		.function("translatePan", &Document::translatePan)
+		.function("zoomAt", &Document::zoomAt)
+		.function("zoomAll", &Document::zoomAll)
+		.function("worldX", &Document::worldX)
+		.function("worldY", &Document::worldY)
+		.function("isDirty", &Document::isDirty)
 		.function("render", &Document::render)
 		.function("sceneData", &Document::sceneData)
 		.function("sceneLength", &Document::sceneLength)

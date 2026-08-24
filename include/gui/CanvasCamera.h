@@ -95,6 +95,11 @@ public:
 	// A point in device pixels (origin top-left) to world coordinates.
 	GLPoint2f mapToWorld(int px, int py) const;
 
+	// The viewport, as the host measures it. Renderers need this to know what
+	// slice of the world is on screen.
+	int viewportWidth() const { return fHost ? fHost->cameraViewportWidth() : 0; }
+	int viewportHeight() const { return fHost ? fHost->cameraViewportHeight() : 0; }
+
 	// --- grid --------------------------------------------------------------
 
 	void setGridSpacing(GLfloat horiz, GLfloat vert) {

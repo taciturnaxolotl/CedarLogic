@@ -30,6 +30,7 @@ set(CEDAR_WASM_EXTRA_LINK "" CACHE STRING "Extra emcc link flags")
 add_definitions(-D_PRODUCTION_)
 
 set(CORE_SRC
+	"${REPO}/src/gui/CanvasCamera.cpp"
 	"${REPO}/src/gui/CircuitPage.cpp"
 	"${REPO}/src/gui/GUICircuit.cpp"
 	"${REPO}/src/gui/guiGate.cpp"

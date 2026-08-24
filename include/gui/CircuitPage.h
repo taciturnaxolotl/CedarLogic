@@ -21,6 +21,7 @@
 #include <unordered_map>
 
 #include "gl_defs.h"   // GRID_INTENSITY, MIN_GRID_SCREEN_SPACING
+#include "CanvasCamera.h"
 
 namespace cl { namespace render {
 	class Scene;
@@ -43,6 +44,12 @@ public:
 	// canvas computes its own camera and calls drawSceneContents directly.
 	void renderToScene(cl::render::Scene& scene, const cl::render::RenderStyle& style,
 	                   int deviceW, int deviceH, float horizSpacing, float vertSpacing);
+
+	// Draw at the camera's live pan and zoom, rather than fitting the circuit to
+	// the image. This is the on-screen path. `contentScale` is device pixels per
+	// logical pixel, so a HiDPI display draws sharp instead of doubled.
+	void renderLiveToScene(cl::render::Scene& scene, const cl::render::RenderStyle& style,
+	                       const CanvasCamera& camera, float contentScale);
 
 	// Grid, then wires, then gates, under an already-computed viewport.
 	void drawSceneContents(cl::render::Scene& scene, const cl::render::RenderStyle& style,
