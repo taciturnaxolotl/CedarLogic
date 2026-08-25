@@ -42,7 +42,7 @@ OscopeCanvas::OscopeCanvas(wxWindow *parent, GUICircuit* gCircuit, wxWindowID id
 
 	this->gCircuit = gCircuit;
 	parentFrame = (OscopeFrame*) parent;
-	toGateCacheGateCount = (size_t)-1;   // force a rebuild on first UpdateData
+	toGateCacheVersion = (unsigned long)-1;   // force a rebuild on first UpdateData
 	dataDirty = false;
 	renderTimer = new wxTimer(this, ID_OSCOPE_RENDER_TIMER);
 	renderTimer->Start(OSCOPE_RENDER_INTERVAL_MS);
@@ -187,13 +187,13 @@ void OscopeCanvas::UpdateData(void){
 	// GUI drain; re-walking the whole gate list each time (the old behaviour) made
 	// the oscope -- and, because it blocks the GUI thread, the whole tick rate --
 	// lag. During a running sim the gates are static, so the cache holds.
-	if (parentFrame->numberOfFeeds() > 0 && gateList->size() != toGateCacheGateCount) {
+	if (parentFrame->numberOfFeeds() > 0 && gCircuit->getGateListVersion() != toGateCacheVersion) {
 		toGateCache.clear();
 		for (auto& g : *gateList) {
 			if (g.second->getGUIType() == "TO")
 				toGateCache[g.second->getLogicParam("JUNCTION_ID")] = g.second;
 		}
-		toGateCacheGateCount = gateList->size();
+		toGateCacheVersion = gCircuit->getGateListVersion();
 	}
 
 	set< string > liveTOs;
@@ -291,7 +291,7 @@ void OscopeCanvas::UpdateMenu()
 {
 	// The gate structure may have changed (add/remove/renamed junction), so drop
 	// the cached TO-gate lookup; UpdateData() rebuilds it on the next call.
-	toGateCacheGateCount = (size_t)-1;
+	toGateCacheVersion = (unsigned long)-1;
 
 	//*******************************
 	//Edit by Joshua Lansford 3/11/07

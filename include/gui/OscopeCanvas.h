@@ -85,7 +85,7 @@ private:
 	// it via UpdateMenu(); during a running sim the gates are static, so the
 	// per-step cost drops from O(gates) to O(feeds).
 	unordered_map< string, guiGate* > toGateCache;
-	size_t toGateCacheGateCount;
+	unsigned long toGateCacheVersion;
 
 	// Fixed-rate repaint (see OnRenderTimer): dataDirty is set by UpdateData and
 	// consumed by the timer, which repaints only when something actually changed.

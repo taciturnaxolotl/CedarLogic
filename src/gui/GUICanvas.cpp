@@ -979,7 +979,7 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 		int newGID = gCircuit->getNextAvailableGateID();
 		float nx, ny;
 		newDragGate->getGLcoords(nx, ny);
-		gCircuit->getGates()->erase(newDragGate->getID());
+		gCircuit->releaseGate(newDragGate->getID());
 		creategatecommand = new cmdCreateGate( this, gCircuit, newGID, newDragGate->getLibraryGateName(), nx, ny );
 		gCircuit->GetCommandProcessor()->Submit( (wxCommand*)creategatecommand );
 		collisionChecker.removeObject( newDragGate );
@@ -1186,7 +1186,7 @@ void GUICanvas::cancelDrag() {
 	unselectAllGates();
 	unselectAllWires();
 	if (currentDragState == DRAG_NEWGATE && newDragGate != nullptr) {
-		gCircuit->getGates()->erase(newDragGate->getID());
+		gCircuit->releaseGate(newDragGate->getID());
 		collisionChecker.removeObject( newDragGate );
 		delete newDragGate;
 		newDragGate = nullptr;

@@ -51,6 +51,7 @@ void GUICircuit::reInitializeLogicCircuit() {
 		thisGate++;
 	} 
 	gateList.clear();
+	gateListVersion++;
 	wireList.clear();
 	// The busline map owns raw pointers into the wires we just deleted. Leaving
 	// it populated meant syncWireStates() dereferenced freed wires on the next
@@ -141,6 +142,7 @@ guiGate* GUICircuit::createGate(string gateName, long id, bool noOscope) {
 	newGate->calcBBox();
 	gateList[id] = newGate;
 	gateList[id]->setID(id);
+	gateListVersion++;
 	
 	// Update the OScope with the new info:
 	if(ggt == "TO" && !noOscope) {
@@ -164,6 +166,7 @@ void GUICircuit::deleteGate(unsigned long gid, bool waitToUpdate) {
 	
 	delete gateList[gid];
 	gateList.erase(gid);
+	gateListVersion++;
 
 	//Call Update Oscope
 	if(updateMenu)

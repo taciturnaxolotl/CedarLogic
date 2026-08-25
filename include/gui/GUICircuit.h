@@ -75,6 +75,18 @@ public:
 		return it != gateList.end() ? it->second : nullptr;
 	}
 	unordered_map< unsigned long, guiWire* >* getWires() { return &wireList; };
+
+	// Take a gate out of the list without destroying it. The drag-a-new-gate
+	// path owns its temporary gate and erased it by hand, which skipped the
+	// version bump below.
+	void releaseGate(unsigned long gid) { if (gateList.erase(gid)) gateListVersion++; }
+
+	// Bumped whenever a gate is added, removed, or the whole circuit is thrown
+	// away. Caches keyed on gate pointers (the oscope's TO lookup) compare
+	// against this rather than gateList.size(), which cannot see a delete and a
+	// create that cancel out -- opening a second file with the same gate count
+	// left the oscope holding pointers into the freed circuit.
+	unsigned long getGateListVersion() const { return gateListVersion; }
 	
 	unsigned long getNextAvailableGateID() { nextGateID++; while (gateList.find(nextGateID) != gateList.end()) nextGateID++; return nextGateID; };
 	unsigned long getNextAvailableWireID() { nextWireID++; while (wireList.find(nextWireID) != wireList.end()) nextWireID++; return nextWireID; };
@@ -117,6 +129,7 @@ private:
 
 	unordered_map<IDType, guiWire *> buslineToWire;
 
+	unsigned long gateListVersion = 0;
 	unsigned long nextGateID;
 	unsigned long nextWireID;
 	
