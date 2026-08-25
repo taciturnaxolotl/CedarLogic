@@ -52,6 +52,15 @@ void GUICircuit::reInitializeLogicCircuit() {
 	} 
 	gateList.clear();
 	wireList.clear();
+	// The busline map owns raw pointers into the wires we just deleted. Leaving
+	// it populated meant syncWireStates() dereferenced freed wires on the next
+	// step after a file open, which is the SIGSEGV in issue #100. The pending
+	// states go too: they describe the old circuit, and its ids get reused.
+	buslineToWire.clear();
+	{
+		wxMutexLocker lock(simBridge().wireStateMutex);
+		simBridge().wireStateBuffer.clear();
+	}
 	nextGateID = nextWireID = 0;
 	waitToSendMessage = false;
 	simulate = true;
