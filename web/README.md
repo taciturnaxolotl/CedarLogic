@@ -70,9 +70,16 @@ the whole of the difference between the two shells' interaction.
 ## What is here
 
 Open and save `.cdl` (legacy v1 and v2 files migrate on the way in, through the
-desktop's own reader). Select by click or rubber band, drag, rotate, delete,
-copy, cut, paste, undo and redo. Pan, zoom, zoom-to-fit. The simulation runs,
-toggles respond, and wires show their live state.
+desktop's own reader), and export the circuit as a PNG. Select by click or
+rubber band, drag, rotate, delete, copy, cut, paste, undo and redo. Pan, zoom,
+zoom-to-fit. The simulation runs, toggles respond, and wires show their live
+state. Double-clicking a gate edits its parameters.
+
+The palette shows every gate as a picture of itself, grouped into the libraries
+the definition file declares. The tiles are recorded through the same
+`drawToScene` the canvas uses and framed by the same `thumbnailTransform` the
+desktop's palette uses, so a tile cannot drift from the gate it places. The
+toolbar carries the desktop's tools in its groups and order.
 
 All of it is the desktop's code. The numbers that make up the feel came across
 unchanged: a wheel notch scales by exactly 0.75, the point under the cursor does
@@ -82,12 +89,15 @@ into a click.
 ## What is not
 
 - **Multiple pages.** The desktop has tabs; here everything lands on one page.
-  `CircuitParse` already asks a `PageProvider` for page N, so the shell needs
-  tabs rather than the core needing changes.
+  `CircuitParse` already asks a `PageProvider` for page N and the document is
+  itself a `CircuitPage`, so this wants the document to hold several and
+  delegate -- shell work, not core work.
 - **The oscilloscope.** `CircuitObserver::oscopeDataAdded` fires here and goes
   nowhere.
-- **Parameter dialogs.** `requestQuickAdd` focuses the palette filter; a
-  double-click that would open a parameter dialog on the desktop does nothing.
+- **Exporting the legacy formats.** V3 saves through `serializeV3`; the V2 and
+  V1.x writers still build their text straight into a file, so they need the
+  same serialize-then-write split before a browser can offer them.
+- **The RAM memory viewer**, preferences, and the help book.
 - **The system clipboard.** Copy and paste work within the page. The browser's
   clipboard is asynchronous and gated on a gesture, so `clipboardText` and
   `setClipboardText` bridge to it around one.
