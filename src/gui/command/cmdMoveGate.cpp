@@ -19,23 +19,25 @@ cmdMoveGate::cmdMoveGate(GUICircuit* gCircuit, unsigned long gid,
 
 bool cmdMoveGate::Do() {
 
-	if ((gCircuit->getGates())->find(gid) == (gCircuit->getGates())->end()) return false; // error, gate not found
+	guiGate *gate = gCircuit->getGate(gid);
+	if (gate == nullptr) return false; // error, gate not found
 
-	(*(gCircuit->getGates()))[gid]->setGLcoords(endX, endY, noUpdateWires);
+	gate->setGLcoords(endX, endY, noUpdateWires);
 	return true;
 }
 
 bool cmdMoveGate::Undo() {
 
-	if ((gCircuit->getGates())->find(gid) == (gCircuit->getGates())->end()) return false; // error, gate not found
+	guiGate *gate = gCircuit->getGate(gid);
+	if (gate == nullptr) return false; // error, gate not found
 
-	(*(gCircuit->getGates()))[gid]->setGLcoords(startX, startY, noUpdateWires);
+	gate->setGLcoords(startX, startY, noUpdateWires);
 	return true;
 }
 
 std::string cmdMoveGate::toString() const {
 
-	if ((gCircuit->getGates())->find(gid) == (gCircuit->getGates())->end()) return ""; // error, gate not found
+	if (gCircuit->getGate(gid) == nullptr) return ""; // error, gate not found
 
 	return cmdser::emit(cmdser::MoveGate{gid, startX, startY, endX, endY});
 }

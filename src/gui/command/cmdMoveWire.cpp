@@ -57,7 +57,8 @@ cmdMoveWire::cmdMoveWire(string def) : klsCommand(true, "Move Wire") {
 
 bool cmdMoveWire::Do() {
 
-	if ((gCircuit->getWires())->find(wid) == (gCircuit->getWires())->end()) return false; // error, wire not found
+	guiWire *wire = gCircuit->getWire(wid);
+	if (wire == nullptr) return false; // error, wire not found
 
 	if (delta.x != 0 || delta.y != 0) {
 		map < long, wireSegment >::iterator segWalk = oldSegList.begin();
@@ -66,18 +67,19 @@ bool cmdMoveWire::Do() {
 			(segWalk->second).end.x += delta.x; (segWalk->second).end.y += delta.y;
 			segWalk++;
 		}
-		(*(gCircuit->getWires()))[wid]->setSegmentMap(oldSegList);
+		wire->setSegmentMap(oldSegList);
 	}
 	else {
-		(*(gCircuit->getWires()))[wid]->setSegmentMap(newSegList);
+		wire->setSegmentMap(newSegList);
 	}
-	(*(gCircuit->getWires()))[wid]->endSegDrag();
+	wire->endSegDrag();
 	return true;
 }
 
 bool cmdMoveWire::Undo() {
 
-	if ((gCircuit->getWires())->find(wid) == (gCircuit->getWires())->end()) return false; // error, wire not found
+	guiWire *wire = gCircuit->getWire(wid);
+	if (wire == nullptr) return false; // error, wire not found
 
 	if (delta.x != 0 || delta.y != 0) {
 		map < long, wireSegment >::iterator segWalk = oldSegList.begin();
@@ -87,13 +89,13 @@ bool cmdMoveWire::Undo() {
 			segWalk++;
 		}
 	}
-	(*(gCircuit->getWires()))[wid]->setSegmentMap(oldSegList);
+	wire->setSegmentMap(oldSegList);
 	return true;
 }
 
 string cmdMoveWire::toString() const {
 
-	if ((gCircuit->getWires())->find(wid) == (gCircuit->getWires())->end()) return ""; // error, wire not found
+	if (gCircuit->getWire(wid) == nullptr) return ""; // error, wire not found
 
 	// Mirror the segment map into the GUI-free struct, preserving map (sorted)
 	// order, then let cmdser emit the exact byte format.

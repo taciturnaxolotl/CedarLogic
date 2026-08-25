@@ -34,17 +34,18 @@ cmdDeleteGate::~cmdDeleteGate() {
 bool cmdDeleteGate::Do() {
 
 	//make sure the gate exists
-	if ((gCircuit->getGates())->find(gateId) == (gCircuit->getGates())->end()) return false; //error: gate not found
-	std::map<std::string, GLPoint2f> gateConns = (*(gCircuit->getGates()))[gateId]->getHotspotList();
+	guiGate* gGate = gCircuit->getGate(gateId);
+	if (gGate == nullptr) return false; //error: gate not found
+	std::map<std::string, GLPoint2f> gateConns = gGate->getHotspotList();
 	std::map<std::string, GLPoint2f>::iterator connWalk = gateConns.begin();
 	std::vector < int > deleteWires;
 	//we will need to disconect all wires that connect to that gate from that gate
 	//we iterate over the connections
 	while (connWalk != gateConns.end()) {
 		//if the connection is actually connected...
-		if ((*(gCircuit->getGates()))[gateId]->isConnected(connWalk->first)) {
+		if (gGate->isConnected(connWalk->first)) {
 			//grab the wire on that connection
-			guiWire* gWire = (*(gCircuit->getGates()))[gateId]->getConnection(connWalk->first);
+			guiWire* gWire = gGate->getConnection(connWalk->first);
 			//create a disconnect command and do it
 			cmdDisconnectWire* disconn = new cmdDisconnectWire(gCircuit, gWire->getID(), gateId, connWalk->first);
 			cmdList.push(std::unique_ptr<klsCommand>(disconn));
@@ -57,19 +58,15 @@ bool cmdDeleteGate::Do() {
 			//if the number of things the wire has left to connect is only two, then delete the wire.
 
 			//first thing we verify is that we only have two connections left.
-			if ((*(gCircuit->getWires()))[gWire->getID()]->numConnections() == 2) {
-				//now we get the gid from both those connections.
-				//I copied the test above from the test above from below.
-				//I don't know why they are getting another reference to the wire when
-				//they have gWire.  I suppose gWire doesn't get updated or something.
-				//So I will do my work off of a freshly fetched wire and call it gWire2
-				guiWire* gWire2 = (*(gCircuit->getWires()))[gWire->getID()];
-
-				std::vector < wireConnection > connections = gWire2->getConnections();
+			if (gWire->numConnections() == 2) {
+				//now we get the gid from both those connections. The old code
+				//re-fetched the wire by id here and wondered in a comment why;
+				//the lookup returns the very pointer gWire already holds.
+				std::vector < wireConnection > connections = gWire->getConnections();
 				if (connections[0].gid == connections[1].gid) {
 
 					//now we have to make sure that the connections are the same pin by comparing their positions
-					guiGate* possibleBuffGate = (*(gCircuit->getGates()))[connections[0].gid];
+					guiGate* possibleBuffGate = gCircuit->getGate(connections[0].gid);
 					std::string* hotspot1Name = &connections[0].connection;
 					std::string* hotspot2Name = &connections[1].connection;
 
@@ -90,7 +87,7 @@ bool cmdDeleteGate::Do() {
 			//connecting and input and a output that are in the same location
 			//when you delete another gate
 			//end of edit---------------the else on the following if was added as well------------------
-			else if ((*(gCircuit->getWires()))[gWire->getID()]->numConnections() < 2) deleteWires.push_back(gWire->getID());
+			else if (gWire->numConnections() < 2) deleteWires.push_back(gWire->getID());
 		}
 		connWalk++;
 	}
@@ -102,12 +99,11 @@ bool cmdDeleteGate::Do() {
 	}
 
 	float x, y;
-	(*(gCircuit->getGates()))[gateId]->getGLcoords(x, y);
-	guiGate* gGate = (*(gCircuit->getGates()))[gateId];
+	gGate->getGLcoords(x, y);
 	cmdList.push(std::unique_ptr<klsCommand>(new cmdMoveGate(gCircuit, gateId, x, y, x, y)));
 	cmdList.push(std::unique_ptr<klsCommand>(new cmdSetParams(gCircuit, gateId, paramSet(gGate->getAllGUIParams(), gGate->getAllLogicParams()), true)));
 
-	gateType = (*(gCircuit->getGates()))[gateId]->getLibraryGateName();
+	gateType = gGate->getLibraryGateName();
 
 	gCanvas->removeGate(gateId);
 	gCircuit->deleteGate(gateId, true);
@@ -125,7 +121,7 @@ bool cmdDeleteGate::Undo() {
 	if (logicType.size() > 0) {
 		gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_CREATE_GATE, new klsMessage::Message_CREATE_GATE(logicType, gateId)));
 	}
-	gCanvas->insertGate(gateId, (*(gCircuit->getGates()))[gateId], 0, 0);
+	gCanvas->insertGate(gateId, gCircuit->getGate(gateId), 0, 0);
 
 	while (!(cmdList.empty())) {
 		cmdList.top()->Undo();

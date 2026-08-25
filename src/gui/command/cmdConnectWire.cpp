@@ -38,10 +38,10 @@ cmdConnectWire::cmdConnectWire(const std::string &def) :
 
 bool cmdConnectWire::Do() {
 
-	if ((gCircuit->getWires())->find(wireId) == (gCircuit->getWires())->end()) return false; // error: wire not found
-	if ((gCircuit->getGates())->find(gateId) == (gCircuit->getGates())->end()) return false; // error: gate not found
+	if (gCircuit->getWire(wireId) == nullptr) return false; // error: wire not found
+	if (gCircuit->getGate(gateId) == nullptr) return false; // error: gate not found
 
-	guiGate* gate = gCircuit->getGates()->at(gateId);
+	guiGate* gate = gCircuit->getGate(gateId);
 	std::string hotspotPal = gate->getHotspotPal(hotspot);
 
 	if (hotspotPal != "") {
@@ -54,10 +54,10 @@ bool cmdConnectWire::Do() {
 
 bool cmdConnectWire::Undo() {
 
-	if ((gCircuit->getWires())->find(wireId) == (gCircuit->getWires())->end()) return false; // error: wire not found
-	if ((gCircuit->getGates())->find(gateId) == (gCircuit->getGates())->end()) return false; // error: gate not found
+	if (gCircuit->getWire(wireId) == nullptr) return false; // error: wire not found
+	if (gCircuit->getGate(gateId) == nullptr) return false; // error: gate not found
 
-	guiGate* gate = gCircuit->getGates()->at(gateId);
+	guiGate* gate = gCircuit->getGate(gateId);
 	std::string hotspotPal = gate->getHotspotPal(hotspot);
 
 	if (hotspotPal != "") {
@@ -70,8 +70,8 @@ bool cmdConnectWire::Undo() {
 
 bool cmdConnectWire::validateBusLines() const {
 
-	guiWire *wire = (*gCircuit->getWires())[wireId];
-	guiGate *gate = (*gCircuit->getGates())[gateId];
+	guiWire *wire = gCircuit->getWire(wireId);
+	guiGate *gate = gCircuit->getGate(gateId);
 
 	int busLines = gate->getHotspot(hotspot)->getBusLines();
 
@@ -111,8 +111,8 @@ const std::string & cmdConnectWire::getHotspot() const {
 void cmdConnectWire::sendMessagesToConnect(GUICircuit *gCircuit, IDType wireId,
 		IDType gateId, const std::string &hotspot, bool noCalcShape) {
 
-	guiGate *gate = gCircuit->getGates()->at(gateId);
-	guiWire *wire = gCircuit->getWires()->at(wireId);
+	guiGate *gate = gCircuit->getGate(gateId);
+	guiWire *wire = gCircuit->getWire(wireId);
 
 	// Grab the bus-lines from the wire.
 	std::vector<IDType> wireIds = wire->getIDs();
@@ -151,8 +151,8 @@ void cmdConnectWire::sendMessagesToConnect(GUICircuit *gCircuit, IDType wireId,
 void cmdConnectWire::sendMessagesToDisconnect(GUICircuit *gCircuit,
 		IDType wireId, IDType gateId, const std::string &hotspot) {
 
-	guiGate *gate = gCircuit->getGates()->at(gateId);
-	guiWire *wire = gCircuit->getWires()->at(wireId);
+	guiGate *gate = gCircuit->getGate(gateId);
+	guiWire *wire = gCircuit->getWire(wireId);
 
 	// Grab the bus-lines from the wire.
 	std::vector<IDType> wireIds = wire->getIDs();

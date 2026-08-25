@@ -323,7 +323,7 @@ void CircuitParse::applyWireShape(const cl::WireInstance &w) {
 		shape[seg.id] = seg;
 	}
 
-	guiWire *wire = (*(gCircuit->getWires()))[ids.front()];
+	guiWire *wire = gCircuit->getWire(ids.front());
 	wire->setIDs(ids);
 	wire->setSegmentMap(shape);
 }
@@ -482,7 +482,7 @@ static cl::CircuitFile buildCircuitFile(vector<GUICanvas*> &glc) {
 		for (const auto &entry : *glc[i]->getGateList())
 			pg.gates.push_back(buildGate(entry.second));
 		for (const auto &entry : *glc[i]->getWireList())
-			if (entry.second != nullptr) pg.wires.push_back(buildWire(entry.second));
+			pg.wires.push_back(buildWire(entry.second));
 
 		// Both lists come out of unordered_map iteration, so without this two
 		// saves of an unchanged circuit reshuffle and every .cdl diff is noise.
@@ -592,9 +592,7 @@ bool CircuitParse::saveCircuit(string filename, vector< GUICanvas* > glc, unsign
 		
 		unordered_map< unsigned long, guiWire* >::iterator thisWire = wireList->begin();
 		while (thisWire != wireList->end()) {
-			if (thisWire->second != nullptr) {
-				(thisWire->second)->saveWire(mParse);
-			}
+			(thisWire->second)->saveWire(mParse);
 			thisWire++;
 		}
 		
@@ -677,7 +675,7 @@ bool CircuitParse::saveCircuitLegacy(string filename, vector< GUICanvas* > glc, 
 		unordered_map< unsigned long, guiWire* >* wireList = glc[i]->getWireList();
 		unordered_map< unsigned long, guiWire* >::iterator thisWire = wireList->begin();
 		while (thisWire != wireList->end()) {
-			if (thisWire->second != nullptr && thisWire->second->getIDs().size() > 1) {
+			if (thisWire->second->getIDs().size() > 1) {
 				hasBusFeatures = true;
 				break;
 			}
@@ -728,10 +726,8 @@ bool CircuitParse::saveCircuitLegacy(string filename, vector< GUICanvas* > glc, 
 
 		unordered_map< unsigned long, guiWire* >::iterator thisWire = wireList->begin();
 		while (thisWire != wireList->end()) {
-			if (thisWire->second != nullptr) {
-				// Use legacy save method (single wire ID)
-				(thisWire->second)->saveWireLegacy(mParse);
-			}
+			// Use legacy save method (single wire ID)
+			(thisWire->second)->saveWireLegacy(mParse);
 			thisWire++;
 		}
 

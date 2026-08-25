@@ -42,8 +42,9 @@ cmdCreateGate::cmdCreateGate(string def) : klsCommand(true, "Create Gate") {
 bool cmdCreateGate::Do() {
 	if (gateLibrary().libraries.size() == 0) return false; // No library loaded, so can't create gate
 
-	gCircuit->createGate(gateType, gid, fromString);
-	gCanvas->insertGate(gid, (*(gCircuit->getGates()))[gid], x, y);
+	guiGate *gate = gCircuit->createGate(gateType, gid, fromString);
+	if (gate == nullptr) return false; // unknown gate type
+	gCanvas->insertGate(gid, gate, x, y);
 
 	string logicType = gateLibrary().libParser.getGateLogicType(gateType);
 	if (logicType.size() > 0) {
@@ -51,7 +52,7 @@ bool cmdCreateGate::Do() {
 		gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_CREATE_GATE, new klsMessage::Message_CREATE_GATE(logicType, gid)));
 	} // if( logic type is non-null )
 
-	cmdSetParams setgateparams(gCircuit, gid, paramSet((*(gCircuit->getGates()))[gid]->getAllGUIParams(), (*(gCircuit->getGates()))[gid]->getAllLogicParams()), fromString);
+	cmdSetParams setgateparams(gCircuit, gid, paramSet(gate->getAllGUIParams(), gate->getAllLogicParams()), fromString);
 	setgateparams.Do();
 
 	// Must set hotspot params after the gate's params, because sometimes logic_params will create

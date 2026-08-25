@@ -147,11 +147,10 @@ void GUICanvas::insertWire(guiWire* wire) {
 
 	if (wire == nullptr) return;
 
-	// Make sure that each of this wire's ids are used.
-	for (IDType id : wire->getIDs()) {
-		wireList[id] = nullptr;
-	}
-
+	// Only the wire itself goes in, under its head id. The other bus-line ids
+	// used to get a nullptr entry apiece, which meant every walk of this list
+	// had to step over holes and every index into it could return nothing.
+	// Nothing on a canvas allocates ids, so the placeholders bought nothing.
 	wireList[wire->getID()] = wire;
 
 	// Add the wire to the collision checker:
@@ -411,16 +410,16 @@ void GUICanvas::drawOverlaysInto(cl::render::Scene& scene) {
 	};
 
 	// Hovered gate pin -- the red bulb you drag a wire out from.
-	if (hotspotHighlight.size() > 0 && gateList.count(hotspotGate) && gateList[hotspotGate]) {
+	if (guiGate *hovered = hotspotHighlight.size() > 0 ? getGate(hotspotGate) : nullptr) {
 		float x, y;
-		gateList[hotspotGate]->getHotspotCoords(hotspotHighlight, x, y);
+		hovered->getHotspotCoords(hotspotHighlight, x, y);
 		box(x, y, r, Color(1.0f, 0.0f, 0.0f));
 	}
 
 	// Wire hover -- a red X at the mouse. Only while the hovered wire still
 	// exists, so deleting it clears the X on the delete's own repaint instead of
 	// leaving it stuck until the next mouse move.
-	if (drawWireHover && wireList.count(wireHoverID) && wireList[wireHoverID]) {
+	if (drawWireHover && getWire(wireHoverID) != nullptr) {
 		GLPoint2f m = getMouseCoords();
 		Point xs[4] = { Point(m.x - r, m.y + r), Point(m.x + r, m.y - r),
 		                Point(m.x + r, m.y + r), Point(m.x - r, m.y - r) };
@@ -435,10 +434,10 @@ void GUICanvas::drawOverlaysInto(cl::render::Scene& scene) {
 	} else if (currentDragState == DRAG_CONNECT) {
 		// Anchor the preview line at the source pin, not the click point.
 		GLPoint2f s = getDragStartCoords();
-		if (currentConnectionSource.isGate && gateList.count(currentConnectionSource.objectID) &&
-		    gateList[currentConnectionSource.objectID])
-			gateList[currentConnectionSource.objectID]->getHotspotCoords(
-				currentConnectionSource.connection, s.x, s.y);
+		if (currentConnectionSource.isGate) {
+			if (guiGate *src = getGate(currentConnectionSource.objectID))
+				src->getHotspotCoords(currentConnectionSource.connection, s.x, s.y);
+		}
 		GLPoint2f e = getMouseCoords();
 		Point ln[2] = { Point(s.x, s.y), Point(e.x, e.y) };
 		scene.lines(ln, 2, Stroke(Color(0.0f, 0.78f, 0.0f, 1.0f), 1.0f));
@@ -529,7 +528,7 @@ void GUICanvas::mouseLeftDown(wxMouseEvent& event) {
 				}
 				else if (!((event.ShiftDown()||event.ControlDown()))) {
 					wireHoverID = hitWire->getID();
-					if (wireList[wireHoverID]->startSegDrag(snapMouse) && !(this->isLocked())) currentDragState = DRAG_WIRESEG;
+					if (hitWire->startSegDrag(snapMouse) && !(this->isLocked())) currentDragState = DRAG_WIRESEG;
 					hitWire->unselect();
 				}
 				handled = true;	
@@ -607,12 +606,10 @@ void GUICanvas::mouseLeftDown(wxMouseEvent& event) {
 	preMoveWire.clear();
 	unordered_map < unsigned long, guiWire* >::iterator thisWire = wireList.begin();
 	while (thisWire != wireList.end()) {
-		if (thisWire->second != nullptr) {
-			if ((thisWire->second)->isSelected()) {
-				// Push back the wire's id
-				preMoveWire.push_back(WireState((thisWire->first), (thisWire->second)->getCenter(), (thisWire->second)->getSegmentMap()));
-				selectedWires.push_back((thisWire->first));
-			}
+		if ((thisWire->second)->isSelected()) {
+			// Push back the wire's id
+			preMoveWire.push_back(WireState((thisWire->first), (thisWire->second)->getCenter(), (thisWire->second)->getSegmentMap()));
+			selectedWires.push_back((thisWire->first));
 		}
 		thisWire++;
 	}
@@ -649,11 +646,13 @@ void GUICanvas::mouseRightDown(wxMouseEvent& event) {
 	// do we have a highlighted hotspot (which means we're on it now)
 	if (hotspotHighlight.size() > 0) {
 		// If the hotspot is connected then we disconnect it and generate a command
-		if (gateList[hotspotGate]->isConnected(hotspotHighlight)) {
+		guiGate *hotGate = getGate(hotspotGate);
+		if (hotGate != nullptr && hotGate->isConnected(hotspotHighlight)) {
 			// disconnect this wire
-			if (gateList[hotspotGate]->getConnection(hotspotHighlight)->numConnections() > 2)
-				submitCommand( new cmdDisconnectWire( gCircuit, gateList[hotspotGate]->getConnection(hotspotHighlight)->getID(), hotspotGate, hotspotHighlight ) );
-			else submitCommand( new cmdDeleteWire( gCircuit, this, gateList[hotspotGate]->getConnection(hotspotHighlight)->getID() ) );
+			guiWire *hotWire = hotGate->getConnection(hotspotHighlight);
+			if (hotWire->numConnections() > 2)
+				submitCommand( new cmdDisconnectWire( gCircuit, hotWire->getID(), hotspotGate, hotspotHighlight ) );
+			else submitCommand( new cmdDeleteWire( gCircuit, this, hotWire->getID() ) );
 		}
 		currentDragState = DRAG_NONE;
 	} else if (currentDragState == DRAG_NONE && appConfig().appSettings.rightClickRotate) {
@@ -798,10 +797,14 @@ void GUICanvas::OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool Ct
 
 	if (currentDragState == DRAG_SELECTION) {
 		// Move all gates that are selected in the preMove vector:
-		for (unsigned int i = 0; i < preMoveWire.size(); i++) wireList[preMoveWire[i].id]->move(preMoveWire[i].point, diffSnap);
-		for (unsigned int i = 0; i < preMove.size(); i++) gateList[preMove[i].id]->setGLcoords(preMove[i].x+diffSnap.x, preMove[i].y+diffSnap.y);
+		for (unsigned int i = 0; i < preMoveWire.size(); i++) {
+			if (guiWire *w = getWire(preMoveWire[i].id)) w->move(preMoveWire[i].point, diffSnap);
+		}
+		for (unsigned int i = 0; i < preMove.size(); i++) {
+			if (guiGate *g = getGate(preMove[i].id)) g->setGLcoords(preMove[i].x + diffSnap.x, preMove[i].y + diffSnap.y);
+		}
 	} else if (currentDragState == DRAG_WIRESEG) {
-		wireList[wireHoverID]->updateSegDrag(snapMouse);
+		if (guiWire *w = getWire(wireHoverID)) w->updateSegDrag(snapMouse);
 	}
 
 	// Generate a new list of potential connections
@@ -840,10 +843,10 @@ void GUICanvas::OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool Ct
 		unselectAllWires();
 		// Other items may have been selected before if we're using shift/control
 		for (unsigned int i = 0; i < preMove.size(); i++) {
-			gateList[preMove[i].id]->select();
+			if (guiGate *g = getGate(preMove[i].id)) g->select();
 		}
 		for (unsigned int i = 0; i < preMoveWire.size(); i++) {
-			wireList[preMoveWire[i].id]->select();
+			if (guiWire *w = getWire(preMoveWire[i].id)) w->select();
 		}
 		// Now check the collision box for dragselects
 		CollisionGroup selThings = dragselectbox->getOverlaps();
@@ -908,9 +911,7 @@ void GUICanvas::OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool Ct
 	selectedWires.clear();
 	unordered_map < unsigned long, guiWire* >::iterator thisWire = wireList.begin();
 	while (thisWire != wireList.end()) {
-		if (thisWire->second != nullptr) {
-			if ((thisWire->second)->isSelected()) selectedWires.push_back((thisWire->first));
-		}
+		if ((thisWire->second)->isSelected()) selectedWires.push_back((thisWire->first));
 		thisWire++;
 	}
 }
@@ -935,10 +936,13 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 	// If moving a selection then save the move as a command
 	if (saveMove && currentDragState == DRAG_SELECTION) {
 		float gX, gY;
-		if (preMove.size() > 0) {
-			gateList[preMove[0].id]->getGLcoords(gX, gY);
+		guiGate *anchor = preMove.size() > 0 ? getGate(preMove[0].id) : nullptr;
+		if (anchor != nullptr) {
+			anchor->getGLcoords(gX, gY);
 			movecommand = new cmdMoveSelection( gCircuit, preMove, preMoveWire, preMove[0].x, preMove[0].y, gX, gY );
-			for (unsigned int i = 0; i < preMove.size(); i++) gateList[preMove[i].id]->updateConnectionMerges();
+			for (unsigned int i = 0; i < preMove.size(); i++) {
+				if (guiGate *g = getGate(preMove[i].id)) g->updateConnectionMerges();
+			}
 			if (!isWithinPaste) submitCommand( movecommand );
 			if (!isWithinPaste) movecommand->Undo();
 		}
@@ -946,9 +950,9 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 	}
 
 	// Check for single selection out of group
-	if (preMove.size() > 0) {
+	if (guiGate *anchor = preMove.size() > 0 ? getGate(preMove[0].id) : nullptr) {
 		float gX, gY;
-		gateList[preMove[0].id]->getGLcoords(gX, gY);
+		anchor->getGLcoords(gX, gY);
 		if (gX == preMove[0].x && gY == preMove[0].y && !((event.ShiftDown()||event.ControlDown()))) { // no move
 			CollisionGroup hitThings = mouse->getOverlaps();
 			CollisionGroup::iterator hit = hitThings.begin();
@@ -969,9 +973,11 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 	}
 
 	if (currentDragState == DRAG_WIRESEG) {
-		wireList[wireHoverID]->endSegDrag();
-		wireList[wireHoverID]->select();
-		submitCommand( new cmdWireSegDrag( gCircuit, this, wireHoverID ) );
+		if (guiWire *w = getWire(wireHoverID)) {
+			w->endSegDrag();
+			w->select();
+			submitCommand( new cmdWireSegDrag( gCircuit, this, wireHoverID ) );
+		}
 	}
 
 	// If dragging a new gate then 
@@ -987,11 +993,13 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 		// The map collisionChecker.overlaps now contains
 		// all of the objects involved in any collisions.
 		collisionChecker.update();
-		cmdSetParams setgateparams( gCircuit, newGID, paramSet((*(gCircuit->getGates()))[newGID]->getAllGUIParams(), (*(gCircuit->getGates()))[newGID]->getAllLogicParams()));
-		setgateparams.Do();
+		if (guiGate *created = gCircuit->getGate(newGID)) {
+			cmdSetParams setgateparams( gCircuit, newGID, paramSet(created->getAllGUIParams(), created->getAllLogicParams()));
+			setgateparams.Do();
+			created->select();
+			selectedGates.push_back(newGID);
+		}
 		delete newDragGate;
-		gateList[newGID]->select();
-		selectedGates.push_back(newGID);
 	}
 	else {
 		// Do a collision detection on all first-level objects.
@@ -1008,8 +1016,7 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 //				if ((*hit)->getType() == COLL_GATE) {
 //					guiGate* hitGate = ((guiGate*)(*hit));
 					// Check that gate still exists (may have been deleted by undo)
-					if (gateList.find(preMove[0].id) != gateList.end()) {
-						guiGate* hitGate = gateList[preMove[0].id];
+					if (guiGate* hitGate = getGate(preMove[0].id)) {
 						if (!((event.ShiftDown()||event.ControlDown())) && ((event.LeftUp() && currentDragState == DRAG_SELECTION) || event.LeftDClick())) {
 							// Check for toggle switch
 							float x, y;
@@ -1205,17 +1212,19 @@ void GUICanvas::cancelDrag() {
 		if (preMove.size() > 0) {
 			saveMove = false;
 			for (unsigned int i = 0; i < preMove.size(); i++) {
-				if (gateList.find(preMove[i].id) == gateList.end()) continue;
-				gateList[preMove[i].id]->setGLcoords(preMove[i].x, preMove[i].y);
-				if (preMove[i].selected) gateList[preMove[i].id]->select();
+				guiGate *g = getGate(preMove[i].id);
+				if (g == nullptr) continue;
+				g->setGLcoords(preMove[i].x, preMove[i].y);
+				if (preMove[i].selected) g->select();
 			}
 			preMove.clear();
 		}
 		if (preMoveWire.size() > 0) {
 			for (unsigned int i = 0; i < preMoveWire.size(); i++) {
-				if (wireList.find(preMoveWire[i].id) == wireList.end()) continue;
-				wireList[preMoveWire[i].id]->setSegmentMap(preMoveWire[i].oldWireTree);
-				wireList[preMoveWire[i].id]->select();
+				guiWire *w = getWire(preMoveWire[i].id);
+				if (w == nullptr) continue;
+				w->setSegmentMap(preMoveWire[i].oldWireTree);
+				w->select();
 			}
 		}
 	}
@@ -1317,9 +1326,7 @@ void GUICanvas::unselectAllGates() {
 void GUICanvas::unselectAllWires() {
 	unordered_map < unsigned long, guiWire* >::iterator thisWire = wireList.begin();
 	while (thisWire != wireList.end()) {
-		if (thisWire->second != nullptr) {
-			(thisWire->second)->unselect();
-		}
+		(thisWire->second)->unselect();
 		thisWire++;
 	}
 }	
@@ -1416,15 +1423,13 @@ void GUICanvas::pasteBlockFromClipboard () {
 	preMoveWire.clear();
 	unordered_map< unsigned long, guiWire* >::iterator thisWire = wireList.begin();
 	while (thisWire != wireList.end()) {
-		if (thisWire->second != nullptr) {
-			if ((thisWire->second)->isSelected()) {
-				// Push back the wire's id and set up a premove state
-				cmdMoveWire* movewire = new cmdMoveWire(gCircuit, (thisWire->first), (thisWire->second)->getSegmentMap(), diff);
-				movewire->Do();
-				pasteCommand->addCommand(movewire);
-				preMoveWire.push_back(WireState((thisWire->first), (thisWire->second)->getCenter(), (thisWire->second)->getSegmentMap()));
-				selectedWires.push_back((thisWire->first));
-			}
+		if ((thisWire->second)->isSelected()) {
+			// Push back the wire's id and set up a premove state
+			cmdMoveWire* movewire = new cmdMoveWire(gCircuit, (thisWire->first), (thisWire->second)->getSegmentMap(), diff);
+			movewire->Do();
+			pasteCommand->addCommand(movewire);
+			preMoveWire.push_back(WireState((thisWire->first), (thisWire->second)->getCenter(), (thisWire->second)->getSegmentMap()));
+			selectedWires.push_back((thisWire->first));
 		}
 		thisWire++;
 	} 
@@ -1451,9 +1456,7 @@ void GUICanvas::setZoomAll( void ) {
 	// Add all the wires into the zoom all box:
 	unordered_map< unsigned long, guiWire* >::iterator wireWalk = wireList.begin();
 	while( wireWalk != wireList.end() ) {
-		if (wireWalk->second != nullptr) {
-			zoomBox.addBBox((wireWalk->second)->getBBox());
-		}
+		zoomBox.addBBox((wireWalk->second)->getBBox());
 		wireWalk++;
 	}
 	
@@ -1485,9 +1488,7 @@ void GUICanvas::printLists() {
 	}
 	unordered_map< unsigned long, guiWire* >::iterator thisWire = wireList.begin();
 	while (thisWire != wireList.end()) {
-		if (thisWire->second != nullptr) {
-			wxGetApp().logfile << " wire " << thisWire->first << endl << flush;
-		}
+		wxGetApp().logfile << " wire " << thisWire->first << endl << flush;
 		thisWire++;
 	}
 }	
@@ -1523,8 +1524,9 @@ void GUICanvas::zoomOut() {
 
 klsCommand * GUICanvas::createGateWireConnectionCommand(IDType gateId, const string &hotspot, IDType wireId) {
 
-	guiGate *gate = gateList[gateId];
-	guiWire *wire = wireList[wireId];
+	guiGate *gate = getGate(gateId);
+	guiWire *wire = getWire(wireId);
+	if (gate == nullptr || wire == nullptr) return nullptr;
 
 	// Make sure not already connected.
 	if (gate->isConnected(hotspot) &&
@@ -1545,8 +1547,9 @@ klsCommand * GUICanvas::createGateWireConnectionCommand(IDType gateId, const str
 
 klsCommand * GUICanvas::createGateConnectionCommand(IDType gate1Id, const string &hotspot1, IDType gate2Id, const string &hotspot2) {
 
-	guiGate *gate1 = gateList[gate1Id];
-	guiGate *gate2 = gateList[gate2Id];
+	guiGate *gate1 = getGate(gate1Id);
+	guiGate *gate2 = getGate(gate2Id);
+	if (gate1 == nullptr || gate2 == nullptr) return nullptr;
 
 	// Don't connect a hotspot to itself.
 	if (gate1 == gate2 && hotspot1 == hotspot2) {
@@ -1630,8 +1633,8 @@ void GUICanvas::rotateSelection() {
 	// If we're in paste mode, rotate all gates being pasted that have no wire connections
 	if (isWithinPaste) {
 		for (unsigned int i = 0; i < preMove.size(); i++) {
-			if (gateList.find(preMove[i].id) == gateList.end()) continue;
-			guiGate* gate = gateList[preMove[i].id];
+			guiGate* gate = getGate(preMove[i].id);
+			if (gate == nullptr) continue;
 
 			map< string, GLPoint2f > hotspots = gate->getHotspotList();
 			bool hasConnections = false;

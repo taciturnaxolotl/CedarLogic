@@ -188,6 +188,18 @@ public:
 	// Return the gate and wire lists for this page
 	unordered_map < unsigned long, guiGate* >* getGateList() { return &gateList; };
 	unordered_map < unsigned long, guiWire* >* getWireList() { return &wireList; };
+
+	// Resolve by id, nullptr when this page does not hold it. Indexing the maps
+	// directly invents a null entry on a miss and then dereferences it, which is
+	// a crash spelled like a lookup.
+	guiGate* getGate(unsigned long gid) {
+		auto it = gateList.find(gid);
+		return it != gateList.end() ? it->second : nullptr;
+	}
+	guiWire* getWire(unsigned long wid) {
+		auto it = wireList.find(wid);
+		return it != wireList.end() ? it->second : nullptr;
+	}
 	
 	// Insert and remove gates and wires from this canvas
 	void insertGate(unsigned long, guiGate*, float, float);

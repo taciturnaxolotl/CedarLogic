@@ -26,18 +26,19 @@ cmdSetParams::cmdSetParams(GUICircuit* gCircuit, unsigned long gid,
 		paramSet pSet, bool setMode) :
 			klsCommand(true, "Set Parameter") {
 
-	if ((gCircuit->getGates())->find(gid) == (gCircuit->getGates())->end()) return; // error: gate not found
+	guiGate *gate = gCircuit->getGate(gid);
+	if (gate == nullptr) return; // error: gate not found
 	this->gCircuit = gCircuit;
 	this->gid = gid;
 	this->fromString = setMode;
 	// Save the original set of parameters
-	map < string, string >::iterator paramWalk = (*(gCircuit->getGates()))[gid]->getAllGUIParams()->begin();
-	while (paramWalk != (*(gCircuit->getGates()))[gid]->getAllGUIParams()->end()) {
+	map < string, string >::iterator paramWalk = gate->getAllGUIParams()->begin();
+	while (paramWalk != gate->getAllGUIParams()->end()) {
 		oldGUIParamList[paramWalk->first] = paramWalk->second;
 		paramWalk++;
 	}
-	paramWalk = (*(gCircuit->getGates()))[gid]->getAllLogicParams()->begin();
-	while (paramWalk != (*(gCircuit->getGates()))[gid]->getAllLogicParams()->end()) {
+	paramWalk = gate->getAllLogicParams()->begin();
+	while (paramWalk != gate->getAllLogicParams()->end()) {
 		oldLogicParamList[paramWalk->first] = paramWalk->second;
 		paramWalk++;
 	}
@@ -73,16 +74,17 @@ cmdSetParams::cmdSetParams(string def) : klsCommand(true, "Set Parameter") {
 
 bool cmdSetParams::Do() {
 
-	if ((gCircuit->getGates())->find(gid) == (gCircuit->getGates())->end()) return false; // error: gate not found
+	guiGate *gate = gCircuit->getGate(gid);
+	if (gate == nullptr) return false; // error: gate not found
 	map < string, string >::iterator paramWalk = newLogicParamList.begin();
 	vector < string > dontSendMessages;
-	LibraryGate lg = gateLibrary().libraries[(*(gCircuit->getGates()))[gid]->getLibraryName()][(*(gCircuit->getGates()))[gid]->getLibraryGateName()];
+	LibraryGate lg = gateLibrary().libraries[gate->getLibraryName()][gate->getLibraryGateName()];
 	for (unsigned int i = 0; i < lg.dlgParams.size(); i++) {
 		if (lg.dlgParams[i].isGui) continue;
 		if (lg.dlgParams[i].type == "FILE_IN" || lg.dlgParams[i].type == "FILE_OUT") dontSendMessages.push_back(lg.dlgParams[i].name);
 	}
 	while (paramWalk != newLogicParamList.end()) {
-		(*(gCircuit->getGates()))[gid]->setLogicParam(paramWalk->first, paramWalk->second);
+		gate->setLogicParam(paramWalk->first, paramWalk->second);
 		bool found = false;
 		for (unsigned int i = 0; i < dontSendMessages.size() && !found; i++) {
 			if (dontSendMessages[i] == paramWalk->first) found = true;
@@ -92,25 +94,26 @@ bool cmdSetParams::Do() {
 	}
 	paramWalk = newGUIParamList.begin();
 	while (paramWalk != newGUIParamList.end()) {
-		(*(gCircuit->getGates()))[gid]->setGUIParam(paramWalk->first, paramWalk->second);
+		gate->setGUIParam(paramWalk->first, paramWalk->second);
 		paramWalk++;
 	}
-	if (!fromString && (*(gCircuit->getGates()))[gid]->getGUIType() == "TO" && gCircuit->getOscope() != NULL) gCircuit->getOscope()->UpdateMenu();
+	if (!fromString && gate->getGUIType() == "TO" && gCircuit->getOscope() != NULL) gCircuit->getOscope()->UpdateMenu();
 	return true;
 }
 
 bool cmdSetParams::Undo() {
 
-	if ((gCircuit->getGates())->find(gid) == (gCircuit->getGates())->end()) return false; // error: gate not found
+	guiGate *gate = gCircuit->getGate(gid);
+	if (gate == nullptr) return false; // error: gate not found
 	map < string, string >::iterator paramWalk = oldLogicParamList.begin();
 	vector < string > dontSendMessages;
-	LibraryGate lg = gateLibrary().libraries[(*(gCircuit->getGates()))[gid]->getLibraryName()][(*(gCircuit->getGates()))[gid]->getLibraryGateName()];
+	LibraryGate lg = gateLibrary().libraries[gate->getLibraryName()][gate->getLibraryGateName()];
 	for (unsigned int i = 0; i < lg.dlgParams.size(); i++) {
 		if (lg.dlgParams[i].isGui) continue;
 		if (lg.dlgParams[i].type == "FILE_IN" || lg.dlgParams[i].type == "FILE_OUT") dontSendMessages.push_back(lg.dlgParams[i].name);
 	}
 	while (paramWalk != oldLogicParamList.end()) {
-		(*(gCircuit->getGates()))[gid]->setLogicParam(paramWalk->first, paramWalk->second);
+		gate->setLogicParam(paramWalk->first, paramWalk->second);
 		bool found = false;
 		for (unsigned int i = 0; i < dontSendMessages.size() && !found; i++) {
 			if (dontSendMessages[i] == paramWalk->first) found = true;
@@ -120,10 +123,10 @@ bool cmdSetParams::Undo() {
 	}
 	paramWalk = oldGUIParamList.begin();
 	while (paramWalk != oldGUIParamList.end()) {
-		(*(gCircuit->getGates()))[gid]->setGUIParam(paramWalk->first, paramWalk->second);
+		gate->setGUIParam(paramWalk->first, paramWalk->second);
 		paramWalk++;
 	}
-	if (!fromString && (*(gCircuit->getGates()))[gid]->getGUIType() == "TO") gCircuit->getOscope()->UpdateMenu();
+	if (!fromString && gate->getGUIType() == "TO") gCircuit->getOscope()->UpdateMenu();
 	return true;
 }
 

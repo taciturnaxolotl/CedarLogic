@@ -77,8 +77,9 @@ bool cmdCreateWire::validateBusLines() const {
 	IDType gate1Id = conn1->getGateId();
 	IDType gate2Id = conn2->getGateId();
 
-	guiGate *gate1 = (*gCircuit->getGates())[gate1Id];
-	guiGate *gate2 = (*gCircuit->getGates())[gate2Id];
+	guiGate *gate1 = gCircuit->getGate(gate1Id);
+	guiGate *gate2 = gCircuit->getGate(gate2Id);
+	if (gate1 == nullptr || gate2 == nullptr) return false;
 
 	std::string hotspot1 = conn1->getHotspot();
 	std::string hotspot2 = conn2->getHotspot();

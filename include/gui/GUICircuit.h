@@ -76,6 +76,15 @@ public:
 	}
 	unordered_map< unsigned long, guiWire* >* getWires() { return &wireList; };
 
+	// Resolve a wire by any of its bus-line ids, nullptr if there is no such
+	// wire. The counterpart to getGate(): wireList[id] both invents a null entry
+	// on a miss and hands back a null for every bus line that is not the head,
+	// so callers that indexed it directly had two ways to dereference nothing.
+	guiWire* getWire(unsigned long wid) {
+		auto it = buslineToWire.find(wid);
+		return it != buslineToWire.end() ? it->second : nullptr;
+	}
+
 	// Take a gate out of the list without destroying it. The drag-a-new-gate
 	// path owns its temporary gate and erased it by hand, which skipped the
 	// version bump below.
@@ -89,7 +98,9 @@ public:
 	unsigned long getGateListVersion() const { return gateListVersion; }
 	
 	unsigned long getNextAvailableGateID() { nextGateID++; while (gateList.find(nextGateID) != gateList.end()) nextGateID++; return nextGateID; };
-	unsigned long getNextAvailableWireID() { nextWireID++; while (wireList.find(nextWireID) != wireList.end()) nextWireID++; return nextWireID; };
+	// Every bus-line id lives in buslineToWire, so that is the map to ask about
+	// which ids are taken. wireList holds only the wires themselves.
+	unsigned long getNextAvailableWireID() { nextWireID++; while (buslineToWire.find(nextWireID) != buslineToWire.end()) nextWireID++; return nextWireID; };
 
 	void sendMessageToCore(klsMessage::Message message);
 	void parseMessage(klsMessage::Message message);

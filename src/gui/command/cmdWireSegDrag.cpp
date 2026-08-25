@@ -11,26 +11,29 @@ cmdWireSegDrag::cmdWireSegDrag(GUICircuit* gCircuit, GUICanvas* gCanvas,
 	this->gCanvas = gCanvas;
 	this->wireID = wireID;
 
-	if ((gCircuit->getWires())->find(wireID) == (gCircuit->getWires())->end()) return; // error: wire not found
+	guiWire *wire = gCircuit->getWire(wireID);
+	if (wire == nullptr) return; // error: wire not found
 
-	oldSegMap = (*(gCircuit->getWires()))[wireID]->getOldSegmentMap();
-	newSegMap = (*(gCircuit->getWires()))[wireID]->getSegmentMap();
+	oldSegMap = wire->getOldSegmentMap();
+	newSegMap = wire->getSegmentMap();
 }
 
 bool cmdWireSegDrag::Do() {
 
-	if ((gCircuit->getWires())->find(wireID) == (gCircuit->getWires())->end()) return false; // error: wire not found
+	guiWire *wire = gCircuit->getWire(wireID);
+	if (wire == nullptr) return false; // error: wire not found
 
-	(*(gCircuit->getWires()))[wireID]->setSegmentMap(newSegMap);
+	wire->setSegmentMap(newSegMap);
 
 	return true;
 }
 
 bool cmdWireSegDrag::Undo() {
 
-	if ((gCircuit->getWires())->find(wireID) == (gCircuit->getWires())->end()) return false; // error: wire not found
+	guiWire *wire = gCircuit->getWire(wireID);
+	if (wire == nullptr) return false; // error: wire not found
 
-	(*(gCircuit->getWires()))[wireID]->setSegmentMap(oldSegMap);
+	wire->setSegmentMap(oldSegMap);
 
 	return true;
 }

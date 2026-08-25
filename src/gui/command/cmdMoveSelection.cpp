@@ -13,9 +13,9 @@ cmdMoveSelection::cmdMoveSelection(GUICircuit* gCircuit,
 
 	for (unsigned int i = 0; i < preMoveWire.size(); i++) {
 		wireList.push_back(preMoveWire[i].id);
-		if ((gCircuit->getWires())->find(preMoveWire[i].id) == (gCircuit->getWires())->end()) continue; // error, wire not found
+		if (gCircuit->getWire(preMoveWire[i].id) == nullptr) continue; // error, wire not found
 		oldSegMaps[preMoveWire[i].id] = preMoveWire[i].oldWireTree;
-		newSegMaps[preMoveWire[i].id] = (*(gCircuit->getWires()))[preMoveWire[i].id]->getSegmentMap();
+		newSegMaps[preMoveWire[i].id] = gCircuit->getWire(preMoveWire[i].id)->getSegmentMap();
 	}
 
 	this->gCircuit = gCircuit;
@@ -30,13 +30,15 @@ cmdMoveSelection::cmdMoveSelection(GUICircuit* gCircuit,
 bool cmdMoveSelection::Do() {
 
 	for (unsigned int i = 0; i < gateList.size(); i++) {
-		if ((gCircuit->getGates())->find(gateList[i]) == (gCircuit->getGates())->end()) continue; // error, gate not found
-		(*(gCircuit->getGates()))[gateList[i]]->translateGLcoords(endX - startX, endY - startY);
-		(*(gCircuit->getGates()))[gateList[i]]->finalizeWirePlacements();
+		guiGate *gate = gCircuit->getGate(gateList[i]);
+		if (gate == nullptr) continue; // error, gate not found
+		gate->translateGLcoords(endX - startX, endY - startY);
+		gate->finalizeWirePlacements();
 	}
 	for (unsigned int i = 0; i < wireList.size(); i++) {
-		if ((gCircuit->getWires())->find(wireList[i]) == (gCircuit->getWires())->end()) continue; // error, wire not found
-		(*(gCircuit->getWires()))[wireList[i]]->setSegmentMap(newSegMaps[wireList[i]]);
+		guiWire *wire = gCircuit->getWire(wireList[i]);
+		if (wire == nullptr) continue; // error, wire not found
+		wire->setSegmentMap(newSegMaps[wireList[i]]);
 	}
 	for (unsigned int i = 0; i < proxconnects.size(); i++) {
 		proxconnects[i]->Do();
@@ -46,13 +48,15 @@ bool cmdMoveSelection::Do() {
 
 bool cmdMoveSelection::Undo() {
 	for (unsigned int i = 0; i < gateList.size(); i++) {
-		if ((gCircuit->getGates())->find(gateList[i]) == (gCircuit->getGates())->end()) continue; // error, gate not found
-		(*(gCircuit->getGates()))[gateList[i]]->translateGLcoords(startX - endX, startY - endY);
-		(*(gCircuit->getGates()))[gateList[i]]->finalizeWirePlacements();
+		guiGate *gate = gCircuit->getGate(gateList[i]);
+		if (gate == nullptr) continue; // error, gate not found
+		gate->translateGLcoords(startX - endX, startY - endY);
+		gate->finalizeWirePlacements();
 	}
 	for (unsigned int i = 0; i < wireList.size() && wireMove < 0; i++) {
-		if ((gCircuit->getWires())->find(wireList[i]) == (gCircuit->getWires())->end()) continue; // error, wire not found
-		(*(gCircuit->getWires()))[wireList[i]]->setSegmentMap(oldSegMaps[wireList[i]]);
+		guiWire *wire = gCircuit->getWire(wireList[i]);
+		if (wire == nullptr) continue; // error, wire not found
+		wire->setSegmentMap(oldSegMaps[wireList[i]]);
 	}
 	wireMove = -1;
 	for (unsigned int i = 0; i < proxconnects.size(); i++) {

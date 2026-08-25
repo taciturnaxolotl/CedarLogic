@@ -18,11 +18,11 @@ cmdDisconnectWire::cmdDisconnectWire(GUICircuit* gCircuit, IDType wireId,
 
 bool cmdDisconnectWire::Do() {
 
-	if ((gCircuit->getWires())->find(wireId) == (gCircuit->getWires())->end()) return false; // error: wire not found
-	if ((gCircuit->getGates())->find(gateId) == (gCircuit->getGates())->end()) return false; // error: gate not found
+	if (gCircuit->getWire(wireId) == nullptr) return false; // error: wire not found
+	if (gCircuit->getGate(gateId) == nullptr) return false; // error: gate not found
 
 
-	guiGate* gate = gCircuit->getGates()->at(gateId);
+	guiGate* gate = gCircuit->getGate(gateId);
 	std::string hotspotPal = gate->getHotspotPal(hotspot);
 
 	if (hotspotPal != "") {
@@ -35,10 +35,10 @@ bool cmdDisconnectWire::Do() {
 
 bool cmdDisconnectWire::Undo() {
 
-	if ((gCircuit->getWires())->find(wireId) == (gCircuit->getWires())->end()) return false; // error: wire not found
-	if ((gCircuit->getGates())->find(gateId) == (gCircuit->getGates())->end()) return false; // error: gate not found
+	if (gCircuit->getWire(wireId) == nullptr) return false; // error: wire not found
+	if (gCircuit->getGate(gateId) == nullptr) return false; // error: gate not found
 
-	guiGate* gate = gCircuit->getGates()->at(gateId);
+	guiGate* gate = gCircuit->getGate(gateId);
 	std::string hotspotPal = gate->getHotspotPal(hotspot);
 
 	if (hotspotPal != "") {

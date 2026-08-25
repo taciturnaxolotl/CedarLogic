@@ -40,9 +40,7 @@ void GUICircuit::reInitializeLogicCircuit() {
 	waitToSendMessage = iswaiting;
 	unordered_map< unsigned long, guiWire* >::iterator thisWire = wireList.begin();
 	while( thisWire != wireList.end() ) {
-		if (thisWire->second != nullptr) {
-			delete thisWire->second;
-		}
+		delete thisWire->second;
 		thisWire++;
 	}
 	unordered_map< unsigned long, guiGate* >::iterator thisGate = gateList.begin();
@@ -181,11 +179,11 @@ guiWire* GUICircuit::createWire(const std::vector<IDType> &wireIds) {
 		guiWire *wire = new guiWire();
 		wire->setCircuit(this); // so the wire can resolve connection gids to live gates
 
-		// Make sure that each used wireId has a spot in the wireList.
-		// This lets getNextAvailableWireId() give an unused id.
-		// Also add all buslines to the busline map.
+		// buslineToWire claims every id the wire owns, which is what marks them
+		// as used. wireList holds the wire once, under its head id: it used to
+		// also hold a nullptr for each remaining bus line, so iterating it meant
+		// remembering to skip holes and indexing it could hand back a null.
 		for (IDType id : wireIds) {
-			wireList[id] = nullptr;
 			buslineToWire[id] = wire;
 		}
 
@@ -305,9 +303,7 @@ void GUICircuit::printState() {
 	wxGetApp().logfile << "print state" << endl << flush;
 	unordered_map < unsigned long, guiWire* >::iterator thisWire = wireList.begin();
 	while (thisWire != wireList.end()) {
-		if (thisWire->second != nullptr) {
-			wxGetApp().logfile << "wire " << thisWire->first << endl << flush;
-		}
+		wxGetApp().logfile << "wire " << thisWire->first << endl << flush;
 		thisWire++;
 	}
 	unordered_map < unsigned long, guiGate* >::iterator thisGate = gateList.begin();
