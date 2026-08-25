@@ -559,6 +559,20 @@ public:
 		return true;
 	}
 
+	// Record the whole circuit fitted to a width x height image -- the bbox-fit
+	// path the desktop's "Export as Image" uses, not the live camera. The shell
+	// replays it into an offscreen canvas and hands back a PNG.
+	void renderForExport(int width, int height, bool withGrid) {
+		fScene.clear();
+		cl::render::RenderStyle style = cl::render::RenderStyle::print();
+		style.showGrid = withGrid;
+		renderToScene(fScene, style, width, height,
+		              fCamera.horizSpacing(), fCamera.vertSpacing());
+		// The export reuses the buffer the frame loop draws from, so the next
+		// frame has to record again rather than replay this.
+		fDirty = true;
+	}
+
 	// --- files -------------------------------------------------------------
 
 	// Read a .cdl. Legacy v1/v2 files are migrated on the way in, exactly as on
@@ -757,6 +771,7 @@ EMSCRIPTEN_BINDINGS(cedarlogic_gui) {
 		.function("renderGateThumbnail", &Document::renderGateThumbnail)
 		.function("loadCircuit", &Document::loadCircuit)
 		.function("saveCircuit", &Document::saveCircuit)
+		.function("renderForExport", &Document::renderForExport)
 		.function("loadNotices", &Document::loadNotices)
 		.function("clearCircuit", &Document::clearCircuit)
 		.function("gateCount", &Document::gateCount)

@@ -262,6 +262,7 @@ function bindInput(doc: Document): void {
       if (key === "v") { e.preventDefault(); void pasteFromSystem(doc); return; }
       if (key === "s") { e.preventDefault(); saveCircuit(doc); return; }
       if (key === "o") { e.preventDefault(); fileEl.click(); return; }
+      if (key === "e") { e.preventDefault(); $<HTMLButtonElement>("#export").click(); return; }
       return;
     }
 
@@ -304,6 +305,51 @@ function saveCircuit(doc: Document): void {
   a.click();
   URL.revokeObjectURL(url);
   setStatus("saved circuit.cdl");
+}
+
+// The desktop's File > Export as Image: the whole circuit fitted to the page,
+// not whatever the camera happens to be looking at. Rendered at twice the
+// canvas size so the lines stay crisp when the picture is scaled up in a
+// document.
+function exportImage(module: EngineModule, doc: Document): void {
+  if (doc.gateCount() === 0 && doc.wireCount() === 0) {
+    setStatus("nothing to export", true);
+    return;
+  }
+
+  const width = Math.max(640, Math.round(canvas.clientWidth * 2));
+  const height = Math.max(480, Math.round(canvas.clientHeight * 2));
+
+  const off = document.createElement("canvas");
+  off.width = width;
+  off.height = height;
+  const ctx = off.getContext("2d");
+  if (!ctx) {
+    setStatus("could not make an image", true);
+    return;
+  }
+
+  doc.renderForExport(width, height, $<HTMLInputElement>("#showgrid").checked);
+  const cmds = new Float32Array(module.HEAPF32.buffer, doc.sceneData(), doc.sceneLength());
+  const strings = toArray(doc.sceneStrings());
+
+  ctx.fillStyle = doc.background();
+  ctx.fillRect(0, 0, width, height);
+  replay(ctx, cmds, strings, { pixelRatio: 1, font: "ui-monospace, monospace" });
+
+  off.toBlob((blob) => {
+    if (!blob) {
+      setStatus("could not make an image", true);
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "circuit.png";
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatus(`exported circuit.png (${width}x${height})`);
+  }, "image/png");
 }
 
 function reportLoad(doc: Document, name: string, error: string): void {
@@ -393,7 +439,8 @@ function syncToolbar(doc: Document): void {
   lockBtn.classList.toggle("locked", locked);
 }
 
-function bindFiles(doc: Document): void {
+function bindFiles(module: EngineModule, doc: Document): void {
+  $<HTMLButtonElement>("#export").addEventListener("click", () => exportImage(module, doc));
   $<HTMLButtonElement>("#open").addEventListener("click", () => fileEl.click());
 
   fileEl.addEventListener("change", () => {
@@ -510,7 +557,7 @@ async function main(): Promise<void> {
   canvas.addEventListener("pointerdown", () => params.poll());
 
   bindInput(doc);
-  bindFiles(doc);
+  bindFiles(module, doc);
   bindToolbar(doc);
   bindSimulation(doc);
   startFrameLoop(module, doc);

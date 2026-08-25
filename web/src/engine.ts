@@ -115,6 +115,8 @@ export interface Document {
   worldY(px: number, py: number): number;
   /** Whether anything changed since the last render. */
   isDirty(): boolean;
+  /** Record the whole circuit fitted to a width x height image, for export. */
+  renderForExport(width: number, height: number, withGrid: boolean): void;
   /** Record a frame at the live camera. */
   render(contentScale: number): void;
   /** Byte offset of the recorded stream in wasm memory. Valid until next render. */
