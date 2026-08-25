@@ -206,11 +206,10 @@ void CircuitPage::insertGate(unsigned long id, guiGate* gate, float x, float y) 
 void CircuitPage::insertWire(guiWire* wire) {
 	if (wire == nullptr) return;
 
-	// A bus wire answers to several ids; reserve every one so nothing else
-	// takes it, and map the primary id to the object.
-	for (IDType id : wire->getIDs()) {
-		wireList[id] = nullptr;
-	}
+	// Only the wire itself goes in, under its head id. The other bus-line ids
+	// used to get a nullptr entry apiece, which meant every walk of this list
+	// had to step over holes and every index into it could return nothing.
+	// Nothing on a page allocates ids, so the placeholders bought nothing.
 	wireList[wire->getID()] = wire;
 
 	collisionChecker.addObject(wire);
@@ -255,4 +254,13 @@ void CircuitPage::clearPage() {
 	// drag-select reach the index.
 	collisionChecker.addObject(mouse);
 	collisionChecker.addObject(dragselectbox);
+}
+
+
+// The preview gate the page owns while a drag is in flight. Built through the
+// circuit, which knows the library, then taken straight back out of it.
+std::unique_ptr<guiGate> CircuitPage::takeNewDragGate(const std::string& gateName) {
+	guiGate* built = gCircuit->createGate(gateName, -1);
+	if (built == nullptr) return nullptr;
+	return gCircuit->releaseGate(built->getID());
 }

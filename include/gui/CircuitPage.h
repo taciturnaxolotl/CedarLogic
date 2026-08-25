@@ -23,6 +23,7 @@
 #include <map>
 
 #include <chrono>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -159,6 +160,18 @@ public:
 
 	std::unordered_map< unsigned long, guiGate* >* getGateList() { return &gateList; }
 	std::unordered_map< unsigned long, guiWire* >* getWireList() { return &wireList; }
+
+	// Resolve by id, nullptr when this page does not hold it. Indexing the maps
+	// directly invents a null entry on a miss and then dereferences it, which is
+	// a crash spelled like a lookup.
+	guiGate* getGate(unsigned long gid) const {
+		auto it = gateList.find(gid);
+		return it != gateList.end() ? it->second : nullptr;
+	}
+	guiWire* getWire(unsigned long wid) const {
+		auto it = wireList.find(wid);
+		return it != wireList.end() ? it->second : nullptr;
+	}
 
 	// The camera looking at this page. Owned by whoever owns the surface -- the
 	// canvas on the desktop, the document in the browser -- because a camera
@@ -325,8 +338,16 @@ protected:
 	std::vector< WireState > preMoveWire;
 	bool saveMove = false;
 
-	// The gate being placed, in DRAG_NEWGATE, until it is dropped.
-	guiGate* newDragGate = nullptr;
+	// The preview gate that follows the cursor from the palette. The page owns
+	// it outright: it is not part of the circuit until the drop, which creates a
+	// real gate through a command.
+	std::unique_ptr<guiGate> newDragGate;
+
+	// Build that preview gate. The circuit is the only thing that knows how to
+	// assemble a gate from the library, so we ask it for one and then take it
+	// straight back out: this gate is scenery until the drop turns it into a
+	// real, undoable creation.
+	std::unique_ptr<guiGate> takeNewDragGate(const std::string& gateName);
 
 	klsCollisionChecker collisionChecker;
 	GUICircuit* gCircuit = nullptr;
