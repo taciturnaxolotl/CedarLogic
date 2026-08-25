@@ -38,28 +38,21 @@ void GUICircuit::reInitializeLogicCircuit() {
 	waitToSendMessage = false;
 	sendMessageToCore(klsMessage::Message(klsMessage::MT_REINITIALIZE));
 	waitToSendMessage = iswaiting;
-	unordered_map< unsigned long, guiWire* >::iterator thisWire = wireList.begin();
-	while( thisWire != wireList.end() ) {
-		delete thisWire->second;
-		thisWire++;
-	}
-	unordered_map< unsigned long, guiGate* >::iterator thisGate = gateList.begin();
-	while( thisGate != gateList.end() ) {
-		delete thisGate->second;
-		thisGate++;
-	} 
-	gateList.clear();
-	gateListVersion++;
-	wireList.clear();
-	// The busline map owns raw pointers into the wires we just deleted. Leaving
-	// it populated meant syncWireStates() dereferenced freed wires on the next
-	// step after a file open, which is the SIGSEGV in issue #100. The pending
-	// states go too: they describe the old circuit, and its ids get reused.
+	// Indexes first, then the owners. buslineToWire only borrows, and leaving it
+	// populated past the wires it points at is exactly the SIGSEGV in issue #100:
+	// syncWireStates() walked it on the next step after a file open and wrote
+	// through freed pointers. The pending states go too, since they describe the
+	// old circuit and its ids get reused from zero.
 	buslineToWire.clear();
 	{
 		wxMutexLocker lock(simBridge().wireStateMutex);
 		simBridge().wireStateBuffer.clear();
 	}
+
+	// Clearing the maps destroys everything in them.
+	gateList.clear();
+	gateListVersion++;
+	wireList.clear();
 	nextGateID = nextWireID = 0;
 	waitToSendMessage = false;
 	simulate = true;
@@ -138,8 +131,8 @@ guiGate* GUICircuit::createGate(string gateName, long id, bool noOscope) {
 		paramWalk++;
 	}
 	newGate->calcBBox();
-	gateList[id] = newGate;
-	gateList[id]->setID(id);
+	newGate->setID(id);
+	gateList[id] = std::unique_ptr<guiGate>(newGate);
 	gateListVersion++;
 	
 	// Update the OScope with the new info:
@@ -155,14 +148,14 @@ void GUICircuit::deleteGate(unsigned long gid, bool waitToUpdate) {
 	//Declaration Of Variables
 	bool updateMenu = false;
 	
-	if (gateList.find(gid) == gateList.end()) return;
+	guiGate *gate = getGate(gid);
+	if (gate == nullptr) return;
 
 	//Update Oscope
-	if(!waitToUpdate && gateList[gid]->getGUIType() == "TO") {
+	if(!waitToUpdate && gate->getGUIType() == "TO") {
 		updateMenu = true;
 	}
 	
-	delete gateList[gid];
 	gateList.erase(gid);
 	gateListVersion++;
 
@@ -174,46 +167,53 @@ void GUICircuit::deleteGate(unsigned long gid, bool waitToUpdate) {
 }
 
 guiWire* GUICircuit::createWire(const std::vector<IDType> &wireIds) {
-	if (wireList.find(wireIds[0]) == wireList.end()) { // wire does not exist yet
+	if (guiWire *existing = getWire(wireIds[0])) return existing;
 
-		guiWire *wire = new guiWire();
-		wire->setCircuit(this); // so the wire can resolve connection gids to live gates
+	auto wire = std::make_unique<guiWire>();
+	wire->setCircuit(this); // so the wire can resolve connection gids to live gates
+	wire->setIDs(wireIds);
 
-		// buslineToWire claims every id the wire owns, which is what marks them
-		// as used. wireList holds the wire once, under its head id: it used to
-		// also hold a nullptr for each remaining bus line, so iterating it meant
-		// remembering to skip holes and indexing it could hand back a null.
-		for (IDType id : wireIds) {
-			buslineToWire[id] = wire;
-		}
-
-		wireList[wireIds[0]] = wire;
-		wireList[wireIds[0]]->setIDs(wireIds);
+	// buslineToWire claims every id the wire owns, which is what marks them as
+	// used. wireList holds the wire once, under its head id: it used to also
+	// hold a nullptr for each remaining bus line, so iterating it meant
+	// remembering to skip holes and indexing it could hand back a null.
+	guiWire *borrowed = wire.get();
+	for (IDType id : wireIds) {
+		buslineToWire[id] = borrowed;
 	}
-	return wireList[wireIds[0]];
+	wireList[wireIds[0]] = std::move(wire);
+	return borrowed;
 }
 
 void GUICircuit::deleteWire(unsigned long wireId) {
 
-	if (wireList.find(wireId) == wireList.end()) return;
+	auto it = wireList.find(wireId);
+	if (it == wireList.end()) return;
 
-	guiWire *wire = wireList.at(wireId);
-
-	// Release ID's owned by the wire.
-	for (int busLineId : wire->getIDs()) {
-		wireList.erase(busLineId);
+	// Drop the index entries first: they borrow the wire we are about to destroy.
+	for (int busLineId : it->second->getIDs()) {
 		buslineToWire.erase(busLineId);
 	}
 
-	delete wire;
+	wireList.erase(it);
+}
+
+std::unique_ptr<guiGate> GUICircuit::releaseGate(unsigned long gid) {
+	auto it = gateList.find(gid);
+	if (it == gateList.end()) return nullptr;
+
+	std::unique_ptr<guiGate> gate = std::move(it->second);
+	gateList.erase(it);
+	gateListVersion++;
+	return gate;
 }
 
 guiWire* GUICircuit::setWireConnection(const vector<IDType> &wireIds, long gid, string connection, bool openMode) {
-	if (gateList.find(gid) == gateList.end()) return NULL; // error: gate not found
-	createWire(wireIds); // do we need to init the wire first? if not then no effect.
-	wireList[wireIds[0]]->addConnection(gateList[gid], connection, openMode);
-	gateList[gid]->addConnection(connection, wireList[wireIds[0]]);
-	return wireList[wireIds[0]];
+	if (getGate(gid) == nullptr) return NULL; // error: gate not found
+	guiWire *wire = createWire(wireIds); // do we need to init the wire first? if not then no effect.
+	wire->addConnection(getGate(gid), connection, openMode);
+	getGate(gid)->addConnection(connection, wire);
+	return wire;
 }
 
 void GUICircuit::Render() {
@@ -235,7 +235,7 @@ void GUICircuit::parseMessage(klsMessage::Message message) {
 		case klsMessage::MT_SET_GATE_PARAM: {
 			// SET GATE id PARAMETER name val
 			const klsMessage::Message_SET_GATE_PARAM& msg = message.as<klsMessage::Message_SET_GATE_PARAM>();
-			if (gateList.find(msg.gateId) != gateList.end()) gateList[msg.gateId]->setLogicParam(msg.paramName, msg.paramValue);
+			if (guiGate *gate = getGate(msg.gateId)) gate->setLogicParam(msg.paramName, msg.paramValue);
 			if( msg.paramName == "PAUSE_SIM" ){
 				pausing = true;
 				panic = true;
@@ -301,15 +301,11 @@ void GUICircuit::sendMessageToCore(klsMessage::Message message) {
 
 void GUICircuit::printState() {
 	wxGetApp().logfile << "print state" << endl << flush;
-	unordered_map < unsigned long, guiWire* >::iterator thisWire = wireList.begin();
-	while (thisWire != wireList.end()) {
-		wxGetApp().logfile << "wire " << thisWire->first << endl << flush;
-		thisWire++;
+	for (const auto &entry : wireList) {
+		wxGetApp().logfile << "wire " << entry.first << endl << flush;
 	}
-	unordered_map < unsigned long, guiGate* >::iterator thisGate = gateList.begin();
-	while (thisGate != gateList.end()) {
-		wxGetApp().logfile << "gate " << thisGate->first << endl << flush;
-		thisGate++;
+	for (const auto &entry : gateList) {
+		wxGetApp().logfile << "gate " << entry.first << endl << flush;
 	}
 	
 }

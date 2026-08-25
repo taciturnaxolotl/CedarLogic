@@ -180,8 +180,6 @@ void OscopeCanvas::UpdateData(void){
 	//Declaration of variables
 	deque<StateType> temp;
 
-	unordered_map< unsigned long, guiGate* >* gateList = gCircuit->getGates();
-
 	// Rebuild the JUNCTION_ID -> TO gate lookup only when the gate set changes.
 	// This is called once per interim (logic) step, and a fast sim emits many per
 	// GUI drain; re-walking the whole gate list each time (the old behaviour) made
@@ -189,9 +187,9 @@ void OscopeCanvas::UpdateData(void){
 	// lag. During a running sim the gates are static, so the cache holds.
 	if (parentFrame->numberOfFeeds() > 0 && gCircuit->getGateListVersion() != toGateCacheVersion) {
 		toGateCache.clear();
-		for (auto& g : *gateList) {
+		for (auto& g : gCircuit->gates()) {
 			if (g.second->getGUIType() == "TO")
-				toGateCache[g.second->getLogicParam("JUNCTION_ID")] = g.second;
+				toGateCache[g.second->getLogicParam("JUNCTION_ID")] = g.second.get();
 		}
 		toGateCacheVersion = gCircuit->getGateListVersion();
 	}
@@ -305,18 +303,13 @@ void OscopeCanvas::UpdateMenu()
 	//what value they should be currently holding
 	//The edit ends with the end of this function
 	
-	unordered_map< unsigned long, guiGate* >* gateList = gCircuit->getGates();
-	
 	vector< string > namesOfPossableFeeds;
 	
 	map< string, bool > alreadyAdded;
 	
 	//iterate over all gates
-	for( unordered_map< unsigned long, guiGate* >::iterator 
-	       gateIterator = gateList->begin(); 
-	       gateIterator != gateList->end(); 
-	       gateIterator++ ){
-	   guiGate* aGate = gateIterator->second;
+	for( const auto &gateEntry : gCircuit->gates() ){
+	   guiGate* aGate = gateEntry.second.get();
 	   //select out the gates which are TOs
 	   if( aGate->getGUIType() == "TO" ){
 	   		string feedName;        
@@ -337,9 +330,6 @@ void OscopeCanvas::UpdateMenu()
 	/*
 	
 	//Sets variables
-	unordered_map< unsigned long, guiGate* >* gateList = gCircuit->getGates();
-	unordered_map< unsigned long, guiGate* >::iterator theGate = gateList->begin();
-	
 	//Sets size
 	//unsigned int size = (parentFrame->comboBoxVector).size();
 	unsigned int size = parentFrame->numberOfFeeds();
@@ -354,21 +344,17 @@ void OscopeCanvas::UpdateMenu()
 		//starts new array of strings
 		wxArrayString strings;
 
-		theGate = gateList->begin();
-
 		//Adds names to dialog box
-		while (theGate != gateList->end())
-		{	
+		for (const auto &gateEntry : gCircuit->gates())
+		{
 			//Tests Gate ID
-			if((theGate->second)->getGUIType() == "TO" )
+			if(gateEntry.second->getGUIType() == "TO" )
 			{
 				//Gets gate ID
-				string junctionName = (theGate->second)->getLogicParam("JUNCTION_ID");
-			
+				string junctionName = gateEntry.second->getLogicParam("JUNCTION_ID");
+
 				(parentFrame->comboBoxVector[x])->Append(junctionName.c_str());
 			}
-		
-			theGate++;
 		}
 		(parentFrame->comboBoxVector[x])->Append("[None]");
 		(parentFrame->comboBoxVector[x])->Append("[Remove]");

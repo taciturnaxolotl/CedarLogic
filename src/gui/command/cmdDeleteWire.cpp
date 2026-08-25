@@ -25,9 +25,8 @@ cmdDeleteWire::~cmdDeleteWire() {
 
 bool cmdDeleteWire::Do() {
 
-	if ((gCircuit->getWires())->find(wireIds[0]) == (gCircuit->getWires())->end()) return false; //error: wire not found
-
-	guiWire *wire = gCircuit->getWires()->at(wireIds[0]);
+	guiWire *wire = gCircuit->getWire(wireIds[0]);
+	if (wire == nullptr) return false; //error: wire not found
 
 	wireIds = wire->getIDs();
 

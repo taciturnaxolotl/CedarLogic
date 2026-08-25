@@ -132,6 +132,16 @@ void GUICanvas::clearCircuit() {
 	saveMove = false;
 }
 
+// Build the palette preview gate. The circuit is the only thing that knows how
+// to assemble a gate from the library, so we ask it for one and then take it
+// straight back out: this gate is scenery until the drop turns it into a real,
+// undoable creation.
+std::unique_ptr<guiGate> GUICanvas::takeNewDragGate(const string &gateName) {
+	guiGate *built = gCircuit->createGate(gateName, -1);
+	if (built == nullptr) return nullptr;
+	return gCircuit->releaseGate(built->getID());
+}
+
 // Inserts an existing gate onto the canvas at a particular x,y position
 void GUICanvas::insertGate(unsigned long id, guiGate* gt, float x, float y) {
 	if (gt == NULL) return;
@@ -441,7 +451,7 @@ void GUICanvas::drawOverlaysInto(cl::render::Scene& scene) {
 		GLPoint2f e = getMouseCoords();
 		Point ln[2] = { Point(s.x, s.y), Point(e.x, e.y) };
 		scene.lines(ln, 2, Stroke(Color(0.0f, 0.78f, 0.0f, 1.0f), 1.0f));
-	} else if (currentDragState == DRAG_NEWGATE && newDragGate != NULL) {
+	} else if (currentDragState == DRAG_NEWGATE && newDragGate != nullptr) {
 		newDragGate->drawToScene(scene, cl::render::RenderStyle::screen());
 	}
 
@@ -701,15 +711,15 @@ void GUICanvas::OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool Ct
 	// may not fire correctly when mouse is captured)
 	if (paletteDrag().newGateToDrag.size() > 0 && currentDragState == DRAG_NONE && !(this->isLocked())) {
 		GLPoint2f m = getMouseCoords();
-		newDragGate = gCircuit->createGate(paletteDrag().newGateToDrag, -1);
-		if (newDragGate != NULL) {
+		newDragGate = takeNewDragGate(paletteDrag().newGateToDrag);
+		if (newDragGate != nullptr) {
 			newDragGate->setGLcoords(m.x, m.y);
 			currentDragState = DRAG_NEWGATE;
 			paletteDrag().newGateToDrag = "";
 			beginDrag( BUTTON_LEFT );
 			unselectAllGates();
 			newDragGate->select();
-			collisionChecker.addObject( newDragGate );
+			collisionChecker.addObject( newDragGate.get() );
 		} else {
 			paletteDrag().newGateToDrag = "";
 		}
@@ -985,10 +995,9 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 		int newGID = gCircuit->getNextAvailableGateID();
 		float nx, ny;
 		newDragGate->getGLcoords(nx, ny);
-		gCircuit->releaseGate(newDragGate->getID());
 		creategatecommand = new cmdCreateGate( this, gCircuit, newGID, newDragGate->getLibraryGateName(), nx, ny );
 		gCircuit->GetCommandProcessor()->Submit( (wxCommand*)creategatecommand );
-		collisionChecker.removeObject( newDragGate );
+		collisionChecker.removeObject( newDragGate.get() );
 		// Only now do a collision detection on all first-level objects since the new gate is in.
 		// The map collisionChecker.overlaps now contains
 		// all of the objects involved in any collisions.
@@ -999,7 +1008,7 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 			created->select();
 			selectedGates.push_back(newGID);
 		}
-		delete newDragGate;
+		newDragGate.reset();
 	}
 	else {
 		// Do a collision detection on all first-level objects.
@@ -1147,15 +1156,15 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 // This is a hacky solution, but it avoids needing to refactor the OnMouseUp
 // event.
 void GUICanvas::addGate(string gate, GLPoint2f m) {
-	newDragGate = gCircuit->createGate(gate, -1);
-	if (newDragGate == NULL) return;
+	newDragGate = takeNewDragGate(gate);
+	if (newDragGate == nullptr) return;
 
 	newDragGate->setGLcoords(m.x, m.y);
 	currentDragState = DRAG_NEWGATE;
 
 	unselectAllGates();
 	newDragGate->select();
-	collisionChecker.addObject( newDragGate );
+	collisionChecker.addObject( newDragGate.get() );
 
 	wxMouseEvent ev = wxMouseEvent(wxEVT_LEFT_UP);
 	OnMouseUp(ev);
@@ -1171,15 +1180,15 @@ void GUICanvas::OnMouseEnter(wxMouseEvent& event) {
 
 	paletteDrag().showDragImage = false;
 	if (event.LeftIsDown() && paletteDrag().newGateToDrag.size() > 0 && currentDragState == DRAG_NONE && !(this->isLocked())) {
-		newDragGate = gCircuit->createGate(paletteDrag().newGateToDrag, -1);
-		if (newDragGate == NULL) { paletteDrag().newGateToDrag = ""; return; }
+		newDragGate = takeNewDragGate(paletteDrag().newGateToDrag);
+		if (newDragGate == nullptr) { paletteDrag().newGateToDrag = ""; return; }
 		newDragGate->setGLcoords(m.x, m.y);
 		currentDragState = DRAG_NEWGATE;
 		paletteDrag().newGateToDrag = "";
 		beginDrag( BUTTON_LEFT );
 		unselectAllGates();
 		newDragGate->select();
-		collisionChecker.addObject( newDragGate );
+		collisionChecker.addObject( newDragGate.get() );
 	}
 	// Don't clear newGateToDrag here — OnMouseMove handles it for
 	// both palette drags and quick-add placement.
@@ -1193,10 +1202,8 @@ void GUICanvas::cancelDrag() {
 	unselectAllGates();
 	unselectAllWires();
 	if (currentDragState == DRAG_NEWGATE && newDragGate != nullptr) {
-		gCircuit->releaseGate(newDragGate->getID());
-		collisionChecker.removeObject( newDragGate );
-		delete newDragGate;
-		newDragGate = nullptr;
+		collisionChecker.removeObject( newDragGate.get() );
+		newDragGate.reset();
 		collisionChecker.update();
 		paletteDrag().newGateToDrag = "";
 	} else if (isWithinPaste) {
@@ -1568,8 +1575,7 @@ klsCommand * GUICanvas::createGateConnectionCommand(IDType gate1Id, const string
 		!gate2->isConnected(hotspot2)) {
 
 
-		vector<IDType> wireIds(gCircuit->getGates()->at(gate1Id)
-			->getHotspot(hotspot1)->getBusLines());
+		vector<IDType> wireIds(gate1->getHotspot(hotspot1)->getBusLines());
 
 		// Get the correct number of new, unique wire ids.
 		for (int i = 0; i < (int)wireIds.size(); i++) {

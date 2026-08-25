@@ -17,6 +17,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <memory>
 #include <unordered_map>
 #include "wx/docview.h"
 #include "gl_wrapper.h"
@@ -64,31 +65,39 @@ public:
 	void deleteWire(unsigned long wid);
 	void deleteGate(unsigned long gid, bool waitToUpdate = false);
 	
-	// Maps of gates and wires to their IDs
-	unordered_map< unsigned long, guiGate* >* getGates() { return &gateList; };
+	// The circuit owns every gate and wire. Everything else -- the canvases, the
+	// collision checker, the busline index -- holds borrowed pointers and must
+	// outlive nothing. These two maps are the only place a gate or a wire is
+	// destroyed, so "did I remember to delete it" stopped being a question.
+	using GateMap = unordered_map< unsigned long, std::unique_ptr<guiGate> >;
+	using WireMap = unordered_map< unsigned long, std::unique_ptr<guiWire> >;
+
+	const GateMap& gates() const { return gateList; }
+	const WireMap& wires() const { return wireList; }
 
 	// Resolve a gate by id without inserting a phantom entry on a miss (unlike
 	// gateList[gid]). Returns nullptr if the gate is gone -- callers that used to
 	// hold a raw guiGate* now resolve through this so a deleted gate can't dangle.
-	guiGate* getGate(unsigned long gid) {
+	guiGate* getGate(unsigned long gid) const {
 		auto it = gateList.find(gid);
-		return it != gateList.end() ? it->second : nullptr;
+		return it != gateList.end() ? it->second.get() : nullptr;
 	}
-	unordered_map< unsigned long, guiWire* >* getWires() { return &wireList; };
 
 	// Resolve a wire by any of its bus-line ids, nullptr if there is no such
 	// wire. The counterpart to getGate(): wireList[id] both invents a null entry
 	// on a miss and hands back a null for every bus line that is not the head,
 	// so callers that indexed it directly had two ways to dereference nothing.
-	guiWire* getWire(unsigned long wid) {
+	guiWire* getWire(unsigned long wid) const {
 		auto it = buslineToWire.find(wid);
 		return it != buslineToWire.end() ? it->second : nullptr;
 	}
 
-	// Take a gate out of the list without destroying it. The drag-a-new-gate
-	// path owns its temporary gate and erased it by hand, which skipped the
-	// version bump below.
-	void releaseGate(unsigned long gid) { if (gateList.erase(gid)) gateListVersion++; }
+	// Hand ownership of a gate back to the caller. The drag-a-new-gate path
+	// builds a gate through the circuit, then keeps it alive itself until the
+	// drop decides whether it becomes real.
+	// (Out of line: destroying a unique_ptr needs the complete type, which this
+	// header only forward-declares.)
+	std::unique_ptr<guiGate> releaseGate(unsigned long gid);
 
 	// Bumped whenever a gate is added, removed, or the whole circuit is thrown
 	// away. Caches keyed on gate pointers (the oscope's TO lookup) compare
@@ -135,8 +144,8 @@ public:
 	int lastLogicTime = 0;
 	
 private:
-	unordered_map< unsigned long, guiGate* > gateList;
-	unordered_map< unsigned long, guiWire* > wireList;
+	GateMap gateList;
+	WireMap wireList;
 
 	unordered_map<IDType, guiWire *> buslineToWire;
 

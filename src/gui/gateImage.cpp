@@ -166,8 +166,15 @@ bool gateImage::generateImageSkia() {
 	// Build the gate, draw it, drop it. The palette holds one of these tiles per
 	// library entry, and keeping a live guiGate in each -- for something only
 	// ever used to draw a picture -- is a lot of circuit to carry around.
-	guiGate *gate = GUICircuit().createGate(gateName, 0, true);
-	if (gate == NULL) return false;
+	// The scratch circuit assembles the gate from the library; releaseGate takes
+	// it back out so it outlives that circuit. It used to be handed out raw and
+	// deleted by hand at the end, which only worked because the scratch circuit
+	// leaked everything it built.
+	GUICircuit builder;
+	builder.createGate(gateName, 0, true);
+	std::unique_ptr<guiGate> owned = builder.releaseGate(0);
+	guiGate *gate = owned.get();
+	if (gate == nullptr) return false;
 	gate->setGLcoords(0, 0);
 	gate->calcBBox();
 
@@ -195,7 +202,6 @@ bool gateImage::generateImageSkia() {
 				gate->drawToScene(scene, style);
 			},
 			img.GetData());
-	delete gate;
 	if (!ok) return false;
 
 	gImage = img;

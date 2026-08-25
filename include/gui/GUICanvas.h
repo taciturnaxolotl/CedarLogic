@@ -12,6 +12,7 @@
 #define GUICANVAS_H_
 
 #include <map>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 #include <fstream>
@@ -201,6 +202,9 @@ public:
 		return it != wireList.end() ? it->second : nullptr;
 	}
 	
+	// Build the palette preview gate the canvas owns while a drag is in flight
+	std::unique_ptr<guiGate> takeNewDragGate(const string &gateName);
+
 	// Insert and remove gates and wires from this canvas
 	void insertGate(unsigned long, guiGate*, float, float);
 	void removeGate(unsigned long);
@@ -296,7 +300,11 @@ private:
 	bool saveMove;
 
 	// Pointer to the new gate in DRAG_NEWGATE mode until the gate is dropped
-	guiGate* newDragGate;
+	// The preview gate that follows the cursor from the palette. The canvas owns
+	// it outright: it is not part of the circuit until the drop, which creates a
+	// real gate through a command. It used to sit in the circuit's gate list on
+	// loan and be deleted by hand from three different exit paths.
+	std::unique_ptr<guiGate> newDragGate;
 	
 };
 

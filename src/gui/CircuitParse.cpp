@@ -291,8 +291,7 @@ void CircuitParse::applyWireShape(const cl::WireInstance &w) {
 	for (const string &id : w.ids) ids.push_back(strtoull(id.c_str(), nullptr, 10));
 
 	GUICircuit *gCircuit = gCanvas->getCircuit();
-	const bool made = !ids.empty() &&
-	                  gCircuit->getWires()->find(ids.front()) != gCircuit->getWires()->end();
+	const bool made = !ids.empty() && gCircuit->getWire(ids.front()) != nullptr;
 	if (!made) {
 		cl::MigrationNotice n;
 		n.severity = cl::Severity::Warning;

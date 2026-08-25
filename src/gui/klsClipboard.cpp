@@ -8,6 +8,7 @@
    klsClipboard: handles copy and paste of blocks
 *****************************************************************************/
 
+#include <memory>
 #include "klsClipboard.h"
 #include "OscopeFrame.h"
 #include <fstream>
@@ -149,13 +150,13 @@ void klsClipboard::copyBlock( GUICircuit* gCircuit, GUICanvas* gCanvas, vector <
 		delete cmdTemp;
 	}
 	// For wires, only copy if more than one active connection, and trim shape
-	vector < guiWire* > copyWires;
+	vector < std::unique_ptr<guiWire> > copyWires;
 	map < unsigned long, unsigned long >::iterator wireWalk = connectWireList.begin();
 	while (wireWalk != connectWireList.end()) {
 		if ( wireWalk->second < 2 ) { wireWalk++; continue; }
 		guiWire* source = gCircuit->getWire(wireWalk->first);
 		if (source == nullptr) { wireWalk++; continue; }
-		guiWire* wire = new guiWire();
+		auto wire = std::make_unique<guiWire>();
 		wire->setCircuit(gCircuit); // so removeConnection/setSegmentMap can resolve gids to gates
 		// Set the IDs
 		wire->setIDs( source->getIDs() );
@@ -173,7 +174,7 @@ void klsClipboard::copyBlock( GUICircuit* gCircuit, GUICanvas* gCanvas, vector <
 			wire->removeConnection( gCircuit->getGate(wireConns[i].gid), wireConns[i].connection );
 		}
 		// Wire should now have a completely valid shape to copy, shove it on the vector
-		copyWires.push_back(wire);
+		copyWires.push_back(std::move(wire));
 		wireWalk++;
 	}
 	// Now actually generate copy of wire
@@ -195,7 +196,6 @@ void klsClipboard::copyBlock( GUICircuit* gCircuit, GUICanvas* gCanvas, vector <
 		cmdTemp = new cmdMoveWire(gCircuit, copyWires[i]->getID(), copyWires[i]->getSegmentMap(), copyWires[i]->getSegmentMap());
 		oss << cmdTemp->toString() << endl;
 		delete cmdTemp;
-		delete copyWires[i];
 	}
 	if (!wxTheClipboard->Open()) return;
 	wxTheClipboard->AddData(new wxTextDataObject(oss.str()));
