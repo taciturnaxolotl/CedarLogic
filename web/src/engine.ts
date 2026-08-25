@@ -28,6 +28,16 @@ export interface Document {
   /** Anything the last load wanted to say. Silence means a clean read. */
   loadNotices(): VectorLike<string>;
   clearCircuit(): void;
+
+  // Pages. A .cdl names the page each gate belongs to, and v2 files declare
+  // ten whether or not they are used -- the desktop shows a tab for each, so
+  // this does too.
+  pageCount(): number;
+  currentPage(): number;
+  setCurrentPage(index: number): void;
+  addPage(): number;
+  removePage(index: number): boolean;
+  gatesOnPage(index: number): number;
   gateCount(): number;
   wireCount(): number;
   // Input. Positions are CSS pixels relative to the canvas; `button` follows

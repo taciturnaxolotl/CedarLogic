@@ -8,6 +8,7 @@
 #include <emscripten/bind.h>
 
 #include <cstdio>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -69,17 +70,22 @@ bool ensureLibraryLoaded(std::string &error) {
 // It is the camera's host: the browser owns the viewport size (the shell tells
 // us on resize) and the repaint schedule (requestAnimationFrame, which the
 // shell drives -- so a repaint request here just raises a flag).
-class Document : public CircuitPage, public CameraHost, public PageHost,
-                 public CircuitObserver {
+// One page and the camera looking at it. The desktop gives every canvas its own
+// pan and zoom, so switching tabs returns you to where you were rather than
+// wherever the last page was left.
+struct WebPage {
+	CircuitPage page;
+	CanvasCamera camera;
+};
+
+class Document : public CameraHost, public PageHost, public CircuitObserver {
 public:
 	Document() {
 		std::string error;
 		ensureLibraryLoaded(error);
 		fLoadError = error;
-		setCircuit(&fCircuit);
-		setCamera(&fCamera);
-		setHost(this);
-		fCamera.setHost(this);
+		fCircuit.setObserver(this);
+		addPage();
 
 		// Stand the logic core up without a thread. The document owns it and
 		// pumps it from stepSimulation.
@@ -89,7 +95,7 @@ public:
 		fLogic->initCore();
 		simBridge().logicThread = fLogic;
 		// One world unit per grid line, matching klsGLCanvas's constructor.
-		fCamera.setGridSpacing(1.0f, 1.0f);
+		cam().setGridSpacing(1.0f, 1.0f);
 	}
 
 	~Document() {
@@ -108,6 +114,57 @@ public:
 	// Hover and drag tracking arrive with the interaction port; until then a
 	// camera move has nothing else to update.
 	void cameraPointerFollowed() override {}
+
+	// --- pages -------------------------------------------------------------
+
+	// The current page, and the camera looking at it. Everything the shell asks
+	// of "the circuit" means the page in front of you, as it does on the
+	// desktop where the question is answered by which tab is selected.
+	CircuitPage& page() { return fPages[fCurrent]->page; }
+	const CircuitPage& page() const { return fPages[fCurrent]->page; }
+	CanvasCamera& cam() { return fPages[fCurrent]->camera; }
+	const CanvasCamera& cam() const { return fPages[fCurrent]->camera; }
+
+	int pageCount() const { return (int)fPages.size(); }
+	int currentPage() const { return (int)fCurrent; }
+
+	void setCurrentPage(int index) {
+		if (index < 0 || index >= (int)fPages.size()) return;
+		fCurrent = (size_t)index;
+		fDirty = true;
+	}
+
+	// Add a page and switch to it, as File > New Tab does.
+	int addPage() {
+		fPages.push_back(std::unique_ptr<WebPage>(new WebPage()));
+		WebPage& added = *fPages.back();
+		added.page.setCircuit(&fCircuit);
+		added.page.setCamera(&added.camera);
+		added.page.setHost(this);
+		added.camera.setHost(this);
+		// One world unit per grid line, matching klsGLCanvas's constructor.
+		added.camera.setGridSpacing(1.0f, 1.0f);
+		fCurrent = fPages.size() - 1;
+		fDirty = true;
+		return (int)fCurrent;
+	}
+
+	// Close a page. The last one stays: a document with no page has nothing to
+	// draw and nowhere to put a gate.
+	bool removePage(int index) {
+		if (fPages.size() <= 1) return false;
+		if (index < 0 || index >= (int)fPages.size()) return false;
+		fPages[index]->page.clearCircuit();
+		fPages.erase(fPages.begin() + index);
+		if (fCurrent >= fPages.size()) fCurrent = fPages.size() - 1;
+		fDirty = true;
+		return true;
+	}
+
+	int gatesOnPage(int index) const {
+		if (index < 0 || index >= (int)fPages.size()) return 0;
+		return (int)fPages[index]->page.gateList.size();
+	}
 
 	// --- CircuitObserver ---------------------------------------------------
 
@@ -158,21 +215,21 @@ public:
 	// --- input -------------------------------------------------------------
 
 	// Pointer position in CSS pixels; everything below works from it.
-	void pointerAt(int px, int py) { fPointer = fCamera.mapToWorld(px, py); }
+	void pointerAt(int px, int py) { fPointer = cam().mapToWorld(px, py); }
 
 	void pointerDown(int px, int py, int button, bool shift, bool ctrl, bool alt, bool meta) {
 		pointerAt(px, py);
 		input::PointerEvent e = makeEvent(button, shift, ctrl, alt, meta);
 		e.leftIsDown = (button == 0);
 		beginDrag(e.button);
-        CircuitPage::OnMouseDown(e);
+        page().OnMouseDown(e);
 	}
 
 	void pointerMove(int px, int py, bool leftDown, bool shift, bool ctrl, bool alt, bool meta) {
 		pointerAt(px, py);
 		input::PointerEvent e = makeEvent(-1, shift, ctrl, alt, meta);
 		e.leftIsDown = leftDown;
-		CircuitPage::OnMouseMove(e);
+		page().OnMouseMove(e);
 	}
 
 	void pointerUp(int px, int py, int button, bool doubleClick, bool shift, bool ctrl, bool alt, bool meta) {
@@ -180,7 +237,7 @@ public:
 		input::PointerEvent e = makeEvent(button, shift, ctrl, alt, meta);
 		e.doubleClick = doubleClick;
 		endDrag(e.button);
-		CircuitPage::OnMouseUp(e);
+		page().OnMouseUp(e);
 		// Clicking a toggle or a keypad edits the circuit; let the core see it
 		// now rather than on the next step, so the LED lights when the button
 		// goes down.
@@ -211,7 +268,7 @@ public:
 		else if (key.size() == 1)   { e.key = input::Key::Character; e.ch = (char32_t)key[0]; }
 		else return;
 
-		CircuitPage::OnKeyDown(e);
+		page().OnKeyDown(e);
 	}
 
 	// The page's clipboard text. The browser's own clipboard is asynchronous and
@@ -222,21 +279,21 @@ public:
 
 	// --- editing commands --------------------------------------------------
 
-	void deleteSelection() { CircuitPage::deleteSelection(); }
-	void rotateSelection() { CircuitPage::rotateSelection(); }
-	void copySelection() { CircuitPage::copyBlockToClipboard(); }
-	void cutSelection() { CircuitPage::cutSelectionToClipboard(); }
-	void paste() { CircuitPage::pasteBlockFromClipboard(); }
+	void deleteSelection() { page().deleteSelection(); }
+	void rotateSelection() { page().rotateSelection(); }
+	void copySelection() { page().copyBlockToClipboard(); }
+	void cutSelection() { page().cutSelectionToClipboard(); }
+	void paste() { page().pasteBlockFromClipboard(); }
 
 	bool undo() {
 		const bool ok = fCircuit.GetCommandProcessor()->Undo();
-		if (ok) { updatePage(); }
+		if (ok) { page().updatePage(); }
 		return ok;
 	}
 
 	bool redo() {
 		const bool ok = fCircuit.GetCommandProcessor()->Redo();
-		if (ok) { updatePage(); }
+		if (ok) { page().updatePage(); }
 		return ok;
 	}
 
@@ -245,17 +302,18 @@ public:
 
 	// Interaction state, for diagnosing the shell against the desktop.
 	std::string debugState() const {
+		Document *self = const_cast<Document *>(this);
 		char buf[256];
 		snprintf(buf, sizeof buf,
-		         "drag=%d sel=%zu/%zu hotspot='%s' ptr=%.2f,%.2f dragging=%d overlaps=%zu",
-		         (int)currentDragState, selectedGates.size(), selectedWires.size(),
-		         hotspotHighlight.c_str(), fPointer.x, fPointer.y,
-		         fDragging[(int)input::Button::Left] ? 1 : 0,
-		         const_cast<Document *>(this)->collisionChecker.overlaps.size());
+		         "page=%d/%d drag=%d sel=%d hotspot='%s' ptr=%.2f,%.2f dragging=%d",
+		         (int)fCurrent, (int)fPages.size(),
+		         (int)self->page().dragState(), self->page().selectedCount(),
+		         self->page().hoveredHotspot().c_str(), fPointer.x, fPointer.y,
+		         fDragging[(int)input::Button::Left] ? 1 : 0);
 		return buf;
 	}
 
-	int selectedCount() const { return (int)(selectedGates.size() + selectedWires.size()); }
+	int selectedCount() const { return const_cast<Document *>(this)->page().selectedCount(); }
 
 	// --- camera ------------------------------------------------------------
 
@@ -263,23 +321,23 @@ public:
 	// camera measures pan and zoom in.
 	void setViewportSize(int w, int h) { fViewW = w; fViewH = h; fDirty = true; }
 
-	double getZoom() const { return fCamera.getZoom(); }
-	double panX() const { GLdouble x, y; fCamera.getPan(x, y); return x; }
-	double panY() const { GLdouble x, y; fCamera.getPan(x, y); return y; }
+	double getZoom() const { return cam().getZoom(); }
+	double panX() const { GLdouble x, y; cam().getPan(x, y); return x; }
+	double panY() const { GLdouble x, y; cam().getPan(x, y); return y; }
 
-	void translatePan(double dx, double dy) { fCamera.translatePan(dx, dy); }
+	void translatePan(double dx, double dy) { cam().translatePan(dx, dy); }
 
 	// Zoom by `notches` wheel steps about a point given in CSS pixels, so the
 	// world point under the cursor stays under the cursor -- the same
 	// arithmetic, and therefore the same feel, as the desktop wheel.
 	void zoomAt(long notches, int px, int py) {
-		fCamera.zoomToMouse(notches, fCamera.mapToWorld(px, py));
+		cam().zoomToMouse(notches, cam().mapToWorld(px, py));
 	}
 
 	// Zoom by a fraction of a step. One step is a wheel notch; a trackpad passes
 	// the fraction its travel is worth, so the view glides instead of jumping.
 	void zoomAtBy(double steps, int px, int py) {
-		fCamera.zoomToPoint(steps, fCamera.mapToWorld(px, py));
+		cam().zoomToPoint(steps, cam().mapToWorld(px, py));
 	}
 
 	// Pan by scroll steps, the way the desktop's wheel handler does: one step is
@@ -289,43 +347,43 @@ public:
 	// Steps are fractional, because a trackpad's are: rounding them to whole
 	// lines would truncate an ordinary two-finger drag to nothing at all.
 	void scrollPan(double stepsX, double stepsY) {
-		const GLdouble amount = PAN_STEP * fCamera.getZoom();
-		fCamera.translatePan(amount * stepsX, amount * stepsY);
+		const GLdouble amount = PAN_STEP * cam().getZoom();
+		cam().translatePan(amount * stepsX, amount * stepsY);
 	}
 
 	// Fit the whole circuit to the view, the way the desktop's spacebar does.
 	void zoomAll() {
 		klsBBox world;
-		for (auto &g : gateList) if (g.second) world.addBBox(g.second->getBBox());
-		for (auto &w : wireList) if (w.second) world.addBBox(w.second->getBBox());
+		for (auto &g : page().gateList) if (g.second) world.addBBox(g.second->getBBox());
+		for (auto &w : page().wireList) if (w.second) world.addBBox(w.second->getBBox());
 		if (world.empty()) {
-			fCamera.setViewport(GLPoint2f(-50, 50), GLPoint2f(50, -50));
+			cam().setViewport(GLPoint2f(-50, 50), GLPoint2f(50, -50));
 			return;
 		}
 		// A margin so the outermost gates are not flush against the edge.
 		const float mx = (world.getRight() - world.getLeft()) * 0.05f + 1.0f;
 		const float my = (world.getTop() - world.getBottom()) * 0.05f + 1.0f;
-		fCamera.setViewport(GLPoint2f(world.getLeft() - mx, world.getTop() + my),
+		cam().setViewport(GLPoint2f(world.getLeft() - mx, world.getTop() + my),
 		                    GLPoint2f(world.getRight() + mx, world.getBottom() - my));
 	}
 
 	// A CSS-pixel point in world coordinates, for hit testing from the shell.
-	double worldX(int px, int py) const { return fCamera.mapToWorld(px, py).x; }
-	double worldY(int px, int py) const { return fCamera.mapToWorld(px, py).y; }
+	double worldX(int px, int py) const { return cam().mapToWorld(px, py).x; }
+	double worldY(int px, int py) const { return cam().mapToWorld(px, py).y; }
 
 	// Whether the next frame would look different from the last one.
 	//
 	// An edit, a camera move, or anything touching the interactive overlays
 	// answers yes outright: the overlays are drawn live and are not part of the
 	// content signature. A simulation step only counts if it actually changed
-	// something a viewer could see, which renderContentKey() answers by folding
+	// something a viewer could see, which page().renderContentKey() answers by folding
 	// every gate's and wire's appearance into one number -- the same signature
 	// the desktop keys its retained picture on.
 	bool isDirty() {
 		if (fDirty) return true;
 		if (!fSimDirty) return false;
 
-		if (renderContentKey() == fLastContentKey) {
+		if (page().renderContentKey() == fLastContentKey) {
 			fSimDirty = false;
 			return false;
 		}
@@ -460,8 +518,8 @@ public:
 	// the two editors offer the same fields in the same order.
 	emscripten::val gateParams(long gateId) {
 		emscripten::val out = emscripten::val::array();
-		auto found = gateList.find((unsigned long)gateId);
-		if (found == gateList.end() || found->second == NULL) return out;
+		auto found = page().gateList.find((unsigned long)gateId);
+		if (found == page().gateList.end() || found->second == NULL) return out;
 		guiGate *gate = found->second;
 
 		LibraryGate def;
@@ -497,14 +555,14 @@ public:
 	}
 
 	bool commitParamEdit(long gateId) {
-		auto found = gateList.find((unsigned long)gateId);
-		if (found == gateList.end() || found->second == NULL) return false;
+		auto found = page().gateList.find((unsigned long)gateId);
+		if (found == page().gateList.end() || found->second == NULL) return false;
 		if (fEditGui.empty() && fEditLogic.empty()) return false;
 
-		submitCommand(new cmdSetParams(&fCircuit, (unsigned long)gateId,
+		page().submitCommand(new cmdSetParams(&fCircuit, (unsigned long)gateId,
 		                               paramSet(&fEditGui, &fEditLogic)));
 		pumpLogic();
-		updatePage();
+		page().updatePage();
 		fDirty = true;
 		return true;
 	}
@@ -566,8 +624,8 @@ public:
 		fScene.clear();
 		cl::render::RenderStyle style = cl::render::RenderStyle::print();
 		style.showGrid = withGrid;
-		renderToScene(fScene, style, width, height,
-		              fCamera.horizSpacing(), fCamera.vertSpacing());
+		page().renderToScene(fScene, style, width, height,
+		              cam().horizSpacing(), cam().vertSpacing());
 		// The export reuses the buffer the frame loop draws from, so the next
 		// frame has to record again rather than replay this.
 		fDirty = true;
@@ -587,11 +645,16 @@ public:
 
 		clearCircuit();
 
-		// One page for now: the shell has no tabs yet, so everything the file
-		// carries lands on the page we have.
-		CircuitPage *page = this;
-		CircuitParse parser([page](int) { return page; });
+		// The file names the page each gate belongs to and may name one we have
+		// not got; grow to answer, exactly as MainFrame does. Merging every page
+		// onto one -- which is what a single-page provider does -- silently
+		// destroys the structure, and saving then writes the merged result.
+		CircuitParse parser([this](int index) -> CircuitPage* {
+			while (index > (int)fPages.size() - 1) addPage();
+			return &fPages[index]->page;
+		});
 		parser.applyLoaded(loaded);
+		setCurrentPage(0);
 
 		// What the migration and the apply had to say about the file.
 		fNotices.clear();
@@ -601,7 +664,7 @@ public:
 		// Build the collision index for what just arrived; hit testing and
 		// drag-select both read it, so without this a freshly loaded circuit
 		// cannot be clicked on.
-		updatePage();
+		page().updatePage();
 
 		fDirty = true;
 		return "";
@@ -609,7 +672,8 @@ public:
 
 	// The circuit as v3 .cdl text, for the shell to download.
 	std::string saveCircuit() {
-		std::vector<CircuitPage *> pages{ this };
+		std::vector<CircuitPage *> pages;
+		for (auto& p : fPages) pages.push_back(&p->page);
 		return CircuitParse::serializeV3(pages);
 	}
 
@@ -618,19 +682,21 @@ public:
 	std::vector<std::string> loadNotices() const { return fNotices; }
 
 	void clearCircuit() {
-		// The document owns the gates and wires, not the page: GUICircuit created
-		// them and its reset is what frees them and reinitializes the logic core.
-		// Deleting them here as well left the document holding dangling pointers
-		// that the next load walked straight into.
-		clearPage();
+		// The document owns the gates and wires, not the pages: GUICircuit
+		// created them and its reset is what frees them and reinitializes the
+		// logic core. Deleting them here as well left the document holding
+		// dangling pointers that the next load walked straight into.
+		for (auto& p : fPages) p->page.clearPage();
 		fCircuit.reInitializeLogicCircuit();
+		fPages.erase(fPages.begin() + 1, fPages.end());
+		fCurrent = 0;
 		fDirty = true;
 	}
 
-	int gateCount() const { return (int)gateList.size(); }
+	int gateCount() const { return (int)page().gateList.size(); }
 	int wireCount() const {
 		int n = 0;
-		for (const auto &entry : wireList) if (entry.second) n++;
+		for (const auto &entry : page().wireList) if (entry.second) n++;
 		return n;
 	}
 
@@ -650,9 +716,9 @@ public:
 		// command looking the gate up in the document would not find it.
 		const long id = (long)gate->getID();
 		gate->setGLcoords(x, y);
-		gateList[id] = gate;
-		collisionChecker.addObject(gate);
-		updatePage();
+		page().gateList[id] = gate;
+		page().getCollisionChecker().addObject(gate);
+		page().updatePage();
 		fDirty = true;
 		return id;
 	}
@@ -664,9 +730,9 @@ public:
 		cl::render::RenderStyle style = cl::render::RenderStyle::screen();
 		// View > Display Gridlines, the same consultation renderSkiaLive makes.
 		style.showGrid = appConfig().appSettings.gridlineVisible;
-		renderLiveToScene(fScene, style, fCamera, contentScale);
-		drawOverlaysInto(fScene);
-		fLastContentKey = renderContentKey();
+		page().renderLiveToScene(fScene, style, cam(), contentScale);
+		page().drawOverlaysInto(fScene);
+		fLastContentKey = page().renderContentKey();
 		fDirty = false;
 		fSimDirty = false;
 	}
@@ -693,7 +759,6 @@ public:
 
 private:
 	GUICircuit fCircuit;
-	CanvasCamera fCamera;
 	cl::wasm::SceneBuffer fScene;
 	std::string fLoadError;
 	std::vector<std::string> fNotices;
@@ -708,6 +773,9 @@ private:
 	// whether the content signature moved.
 	bool fSimDirty = false;
 	unsigned long long fLastContentKey = 0;
+
+	std::vector<std::unique_ptr<WebPage>> fPages;
+	size_t fCurrent = 0;
 
 	// The logic core, run inline rather than on a thread.
 	threadLogic* fLogic = nullptr;
@@ -774,6 +842,12 @@ EMSCRIPTEN_BINDINGS(cedarlogic_gui) {
 		.function("renderForExport", &Document::renderForExport)
 		.function("loadNotices", &Document::loadNotices)
 		.function("clearCircuit", &Document::clearCircuit)
+		.function("pageCount", &Document::pageCount)
+		.function("currentPage", &Document::currentPage)
+		.function("setCurrentPage", &Document::setCurrentPage)
+		.function("addPage", &Document::addPage)
+		.function("removePage", &Document::removePage)
+		.function("gatesOnPage", &Document::gatesOnPage)
 		.function("gateCount", &Document::gateCount)
 		.function("wireCount", &Document::wireCount)
 		.function("addGate", &Document::addGate)

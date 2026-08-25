@@ -273,6 +273,15 @@ public:
 	// Drop every gate and wire, and everything the interaction was holding.
 	void clearCircuit();
 
+	// How much is selected, and what the pointer is in the middle of doing.
+	// A shell needs both to keep its own chrome honest -- whether Cut is
+	// available, whether a key should be swallowed.
+	int selectedCount() const {
+		return (int)(selectedGates.size() + selectedWires.size());
+	}
+	DragState dragState() const { return currentDragState; }
+	const std::string& hoveredHotspot() const { return hotspotHighlight; }
+
 	// Interactive overlays -- the hovered pin, connection bulbs, the drag box --
 	// drawn live on top of the circuit rather than recorded with it.
 	void drawOverlaysInto(cl::render::Scene& scene);

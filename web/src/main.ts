@@ -294,6 +294,60 @@ async function pasteFromSystem(doc: Document): Promise<void> {
   doc.paste();
 }
 
+// ─── pages ───────────────────────────────────────────────────────────────────
+
+// One tab per page, as the desktop's notebook has. A .cdl names the page each
+// gate belongs to, and a v2 file declares ten whether or not they hold
+// anything -- so most circuits arrive with nine empty pages, and the tabs say
+// which is which rather than pretending otherwise.
+function bindTabs(doc: Document): () => void {
+  const bar = $<HTMLElement>("#tabs");
+
+  const render = (): void => {
+    bar.replaceChildren();
+    const count = doc.pageCount();
+    const current = doc.currentPage();
+
+    for (let i = 0; i < count; i++) {
+      const gates = doc.gatesOnPage(i);
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.role = "tab";
+      tab.ariaSelected = String(i === current);
+      tab.textContent = `Page ${i + 1}`;
+      tab.title = gates === 1 ? "1 gate" : `${gates} gates`;
+      tab.classList.toggle("empty", gates === 0);
+      tab.addEventListener("click", () => {
+        doc.setCurrentPage(i);
+        render();
+      });
+      // Middle-click closes, the usual gesture, and the last page stays.
+      tab.addEventListener("auxclick", (e) => {
+        if (e.button !== 1) return;
+        e.preventDefault();
+        if (doc.removePage(i)) render();
+        else setStatus("the last page cannot be closed", true);
+      });
+      bar.append(tab);
+    }
+
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "add";
+    add.textContent = "+";
+    add.title = "New page";
+    add.addEventListener("click", () => {
+      doc.addPage();
+      render();
+      setStatus(`page ${doc.currentPage() + 1}`);
+    });
+    bar.append(add);
+  };
+
+  render();
+  return render;
+}
+
 // ─── files ───────────────────────────────────────────────────────────────────
 
 function saveCircuit(doc: Document): void {
@@ -352,7 +406,7 @@ function exportImage(module: EngineModule, doc: Document): void {
   }, "image/png");
 }
 
-function reportLoad(doc: Document, name: string, error: string): void {
+function reportLoad(doc: Document, name: string, error: string, refreshTabs?: () => void): void {
   if (error) {
     setStatus(`${name}: ${error}`, true);
     return;
@@ -366,11 +420,12 @@ function reportLoad(doc: Document, name: string, error: string): void {
     setStatus(`${name} — ${doc.gateCount()} gates, ${doc.wireCount()} wires`);
   }
   doc.zoomAll();
+  refreshTabs?.();
 }
 
-async function openFile(doc: Document, file: File): Promise<void> {
+async function openFile(doc: Document, file: File, refreshTabs?: () => void): Promise<void> {
   try {
-    reportLoad(doc, file.name, doc.loadCircuit(await file.text()));
+    reportLoad(doc, file.name, doc.loadCircuit(await file.text()), refreshTabs);
   } catch (err) {
     setStatus(`${file.name}: ${String(err)}`, true);
   }
@@ -439,13 +494,13 @@ function syncToolbar(doc: Document): void {
   lockBtn.classList.toggle("locked", locked);
 }
 
-function bindFiles(module: EngineModule, doc: Document): void {
+function bindFiles(module: EngineModule, doc: Document, refreshTabs: () => void): void {
   $<HTMLButtonElement>("#export").addEventListener("click", () => exportImage(module, doc));
   $<HTMLButtonElement>("#open").addEventListener("click", () => fileEl.click());
 
   fileEl.addEventListener("change", () => {
     const file = fileEl.files?.[0];
-    if (file) void openFile(doc, file);
+    if (file) void openFile(doc, file, refreshTabs);
     // Clear it, or picking the same file twice fires no change event.
     fileEl.value = "";
   });
@@ -455,6 +510,7 @@ function bindFiles(module: EngineModule, doc: Document): void {
   $<HTMLButtonElement>("#new").addEventListener("click", () => {
     doc.clearCircuit();
     doc.zoomAll();
+    refreshTabs();
     setStatus("new circuit");
   });
 
@@ -490,7 +546,7 @@ function bindFiles(module: EngineModule, doc: Document): void {
     }
 
     const file = drag.dataTransfer?.files?.[0];
-    if (file) void openFile(doc, file);
+    if (file) void openFile(doc, file, refreshTabs);
   });
 }
 
@@ -556,8 +612,10 @@ async function main(): Promise<void> {
   setInterval(() => params.poll(), 100);
   canvas.addEventListener("pointerdown", () => params.poll());
 
+  const refreshTabs = bindTabs(doc);
+
   bindInput(doc);
-  bindFiles(module, doc);
+  bindFiles(module, doc, refreshTabs);
   bindToolbar(doc);
   bindSimulation(doc);
   startFrameLoop(module, doc);

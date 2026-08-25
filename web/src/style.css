@@ -212,12 +212,49 @@ main {
   position: relative;
   overflow: hidden;
   background: var(--paper);
+  display: flex;
+  flex-direction: column;
 }
+
+/* --- page tabs --- */
+
+#tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--rule);
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: none;
+}
+#tabs::-webkit-scrollbar { display: none; }
+#tabs:empty { display: none; }
+
+#tabs button {
+  border: 0;
+  border-radius: 0;
+  padding: 0.2rem 0.6rem;
+  color: var(--muted);
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+#tabs button:hover { color: var(--ink); background: color-mix(in oklch, var(--ink) 5%, transparent); }
+#tabs button[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+  background: var(--paper);
+}
+/* A page with nothing on it reads as available rather than as content. */
+#tabs button.empty { font-style: italic; opacity: 0.65; }
+
+#tabs .add { margin-left: auto; padding: 0.2rem 0.5rem; }
 
 canvas {
   display: block;
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   /* The canvas is the document: a stray text selection drag across it during a
      pan looks like a bug. */
   user-select: none;
