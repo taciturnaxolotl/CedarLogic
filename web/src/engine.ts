@@ -53,6 +53,26 @@ export interface Document {
   inPanic(): boolean;
   clearPanic(): void;
 
+  // The desktop's View menu toggles and toolbar slider.
+  gridlinesVisible(): boolean;
+  setGridlinesVisible(on: boolean): void;
+  wireConnectionsVisible(): boolean;
+  setWireConnectionsVisible(on: boolean): void;
+  /** Milliseconds of circuit time per simulation step. */
+  timeStep(): number;
+  setTimeStep(ms: number): void;
+  /** The desktop's lock button: editing off, simulation still running. */
+  isLocked(): boolean;
+  setLocked(on: boolean): void;
+
+  // Palette. Gates are grouped by library, as the desktop's section chooser
+  // groups them, and a tile is drawn by the engine rather than approximated.
+  libraryNames(): VectorLike<string>;
+  gatesInLibrary(library: string): VectorLike<string>;
+  libraryOf(type: string): string;
+  /** Record one gate framed in a square tile. Read it back with sceneData(). */
+  renderGateThumbnail(type: string, sizePx: number): boolean;
+
   deleteSelection(): void;
   rotateSelection(): void;
   copySelection(): void;

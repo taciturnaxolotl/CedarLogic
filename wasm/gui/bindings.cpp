@@ -26,6 +26,7 @@
 #include "guiWire.h"
 #include "klsBBox.h"
 #include "render/RenderStyle.h"
+#include "render/Thumbnail.h"
 
 #include "SceneBuffer.h"
 
@@ -412,6 +413,83 @@ public:
 	bool inPanic() const { return fCircuit.panic; }
 	void clearPanic() { fCircuit.panic = false; }
 
+	// --- view and edit state -----------------------------------------------
+
+	// The desktop's View menu toggles, which change what the renderer draws
+	// rather than what the circuit is.
+	bool gridlinesVisible() const { return appConfig().appSettings.gridlineVisible; }
+	void setGridlinesVisible(bool on) {
+		appConfig().appSettings.gridlineVisible = on;
+		fDirty = true;
+	}
+
+	bool wireConnectionsVisible() const { return appConfig().appSettings.wireConnVisible; }
+	void setWireConnectionsVisible(bool on) {
+		appConfig().appSettings.wireConnVisible = on;
+		fDirty = true;
+	}
+
+	// Milliseconds of circuit time per simulation step -- the desktop's toolbar
+	// slider. Smaller is a finer-grained simulation and more work per second.
+	int timeStep() const { return (int)appConfig().timeStepMod; }
+	void setTimeStep(int ms) {
+		appConfig().timeStepMod = (unsigned long)(ms < 1 ? 1 : ms);
+	}
+
+	// The desktop's lock button: editing off, simulation still running.
+	bool isLocked() const override { return fLocked; }
+	void setLocked(bool on) { fLocked = on; }
+
+	// --- palette -----------------------------------------------------------
+
+	// The libraries, in the order the gate-definition file lists them, which is
+	// the order the desktop's section chooser shows.
+	std::vector<std::string> libraryNames() const {
+		std::vector<std::string> out;
+		for (const auto &lib : gateLibrary().libraries) out.push_back(lib.first);
+		return out;
+	}
+
+	std::vector<std::string> gatesInLibrary(const std::string &library) const {
+		std::vector<std::string> out;
+		auto lib = gateLibrary().libraries.find(library);
+		if (lib == gateLibrary().libraries.end()) return out;
+		for (const auto &gate : lib->second) out.push_back(gate.first);
+		return out;
+	}
+
+	// The library a gate belongs to, for grouping a search result.
+	std::string libraryOf(const std::string &type) const {
+		auto it = gateLibrary().gateNameToLibrary.find(type);
+		return it == gateLibrary().gateNameToLibrary.end() ? std::string() : it->second;
+	}
+
+	// Record one gate, framed in a square tile, into the scene buffer -- the
+	// same drawToScene the canvas uses and the same framing the desktop's
+	// palette uses, so a tile and the placed gate cannot look different.
+	//
+	// The gate is built, drawn and dropped: the palette holds one tile per
+	// library entry, and keeping a live guiGate in each -- for something only
+	// ever used to draw a picture -- is a lot of circuit to carry around.
+	bool renderGateThumbnail(const std::string &type, int sizePx) {
+		if (sizePx <= 0) return false;
+		guiGate *gate = fCircuit.createGate(type, -1, true);
+		if (gate == NULL) return false;
+		gate->setGLcoords(0, 0);
+		gate->calcBBox();
+
+		fScene.clear();
+		const cl::render::Transform t =
+			cl::render::thumbnailTransform(gate->getModelDrawBBox(), sizePx);
+		const cl::render::RenderStyle style = cl::render::RenderStyle::print();
+		fScene.setViewport(t);
+		gate->drawToScene(fScene, style);
+
+		// The gate was never put on the page, so nothing else owns it.
+		fCircuit.deleteGate(gate->getID());
+		return true;
+	}
+
 	// --- files -------------------------------------------------------------
 
 	// Read a .cdl. Legacy v1/v2 files are migrated on the way in, exactly as on
@@ -503,6 +581,8 @@ public:
 	void render(float contentScale) {
 		fScene.clear();
 		cl::render::RenderStyle style = cl::render::RenderStyle::screen();
+		// View > Display Gridlines, the same consultation renderSkiaLive makes.
+		style.showGrid = appConfig().appSettings.gridlineVisible;
 		renderLiveToScene(fScene, style, fCamera, contentScale);
 		drawOverlaysInto(fScene);
 		fLastContentKey = renderContentKey();
@@ -540,6 +620,7 @@ private:
 	int fViewW = 0;
 	int fViewH = 0;
 	bool fDirty = true;
+	bool fLocked = false;
 	// A simulation step asked for a repaint; whether it earns one depends on
 	// whether the content signature moved.
 	bool fSimDirty = false;
@@ -588,6 +669,18 @@ EMSCRIPTEN_BINDINGS(cedarlogic_gui) {
 		.constructor<>()
 		.function("loadError", &Document::loadError)
 		.function("gateTypes", &Document::gateTypes)
+		.function("gridlinesVisible", &Document::gridlinesVisible)
+		.function("setGridlinesVisible", &Document::setGridlinesVisible)
+		.function("wireConnectionsVisible", &Document::wireConnectionsVisible)
+		.function("setWireConnectionsVisible", &Document::setWireConnectionsVisible)
+		.function("timeStep", &Document::timeStep)
+		.function("setTimeStep", &Document::setTimeStep)
+		.function("isLocked", &Document::isLocked)
+		.function("setLocked", &Document::setLocked)
+		.function("libraryNames", &Document::libraryNames)
+		.function("gatesInLibrary", &Document::gatesInLibrary)
+		.function("libraryOf", &Document::libraryOf)
+		.function("renderGateThumbnail", &Document::renderGateThumbnail)
 		.function("loadCircuit", &Document::loadCircuit)
 		.function("saveCircuit", &Document::saveCircuit)
 		.function("loadNotices", &Document::loadNotices)

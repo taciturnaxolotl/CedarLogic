@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "gateImage.h"
+#include "render/Thumbnail.h"
 #include "PaletteDrag.h"
 #include "RenderMode.h"
 #include "Settings.h"
@@ -123,41 +124,9 @@ void gateImage::OnEraseBackground( wxEraseEvent& event ) {
 	// Do nothing, so that the palette doesn't flicker!
 }
 
-// Fit the gate's model box into a `size`-square thumbnail: 0.5 world units of
-// padding, then letterboxed on the limiting axis.
+// The framing is shared with the browser's palette; see render/Thumbnail.h.
 cl::render::Transform gateImage::thumbnailTransform(guiGate* gate, int size) const {
-	klsBBox box = gate->getModelDrawBBox();
-	// minCorner is (left, top), maxCorner is (right, bottom), so y decreases from
-	// min to max.
-	GLPoint2f minCorner(box.getLeft() - 0.5f, box.getTop() + 0.5f);
-	GLPoint2f maxCorner(box.getRight() + 0.5f, box.getBottom() - 0.5f);
-
-	double mapWidth = maxCorner.x - minCorner.x;
-	double mapHeight = minCorner.y - maxCorner.y;
-	if (mapWidth <= 0.0) mapWidth = 1.0;
-	if (mapHeight <= 0.0) mapHeight = 1.0;
-
-	// Square thumbnail, so the aspect is 1: pad the shorter axis.
-	double left = minCorner.x, right = maxCorner.x;
-	double top = minCorner.y, bottom = maxCorner.y;
-	if (mapWidth >= mapHeight) {
-		double pad = 0.5 * (mapWidth - mapHeight);
-		top += pad;
-		bottom -= pad;
-	} else {
-		double pad = 0.5 * (mapHeight - mapWidth);
-		left -= pad;
-		right += pad;
-	}
-
-	cl::render::Transform t;
-	t.a = (float)(size / (right - left));
-	t.c = 0.0f;
-	t.e = (float)(-left * size / (right - left));
-	t.b = 0.0f;
-	t.d = (float)(-size / (top - bottom));   // world y up -> device y down
-	t.f = (float)(top * size / (top - bottom));
-	return t;
+	return cl::render::thumbnailTransform(gate->getModelDrawBBox(), size);
 }
 
 // Render the thumbnail through Skia into an offscreen raster surface. Skia

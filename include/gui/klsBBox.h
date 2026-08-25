@@ -133,10 +133,10 @@ public:
 	GLPoint2f getBottomRight( void ) { return GLPoint2f(bboxMax.x, bboxMin.y); };
 
 	// Edge access methods:
-	GLfloat getLeft( void ) { return bboxMin.x; };
-	GLfloat getRight( void ) { return bboxMax.x; };
-	GLfloat getTop( void ) { return bboxMax.y; };
-	GLfloat getBottom( void ) { return bboxMin.y; };
+	GLfloat getLeft( void ) const { return bboxMin.x; };
+	GLfloat getRight( void ) const { return bboxMax.x; };
+	GLfloat getTop( void ) const { return bboxMax.y; };
+	GLfloat getBottom( void ) const { return bboxMin.y; };
 	
 	// Edge modification methods:
 	// They enforce that left < right, and bottom < top!

@@ -8,34 +8,69 @@
   </head>
   <body>
     <div id="app">
+      <!-- The desktop's toolbar, in its order and groups: file, history,
+           clipboard, zoom, simulation, lock. -->
       <header>
         <h1>CedarLogic</h1>
-        <div class="actions">
-          <button id="open" type="button">Open…</button>
-          <button id="save" type="button">Save</button>
-          <button id="clear" type="button">New</button>
+
+        <div class="group">
+          <button id="new" type="button" title="New circuit">New</button>
+          <button id="open" type="button" title="Open a .cdl (⌘O)">Open…</button>
+          <button id="save" type="button" title="Save as .cdl (⌘S)">Save</button>
         </div>
-        <div class="actions sim">
+
+        <div class="group">
+          <button id="undo" type="button" title="Undo (⌘Z)">Undo</button>
+          <button id="redo" type="button" title="Redo (⇧⌘Z)">Redo</button>
+        </div>
+
+        <div class="group">
+          <button id="cut" type="button" title="Cut (⌘X)">Cut</button>
+          <button id="copy" type="button" title="Copy (⌘C)">Copy</button>
+          <button id="paste" type="button" title="Paste (⌘V)">Paste</button>
+        </div>
+
+        <div class="group">
+          <button id="zoomout" type="button" title="Zoom out (−)">−</button>
+          <button id="zoomfit" type="button" title="Fit the circuit (space)">Fit</button>
+          <button id="zoomin" type="button" title="Zoom in (+)">+</button>
+        </div>
+
+        <div class="group">
           <button id="run" type="button" title="Run or pause the simulation">Pause</button>
           <button id="step" type="button" title="Advance one time step">Step</button>
+          <label class="slider" title="Milliseconds of circuit time per step">
+            <input id="timestep" type="range" min="1" max="200" step="1" />
+            <output id="timestepval"></output>
+          </label>
         </div>
+
+        <div class="group">
+          <button id="lock" type="button" title="Lock the circuit against editing">Lock</button>
+        </div>
+
         <div class="spacer"></div>
         <div id="readout" aria-live="polite"></div>
       </header>
 
       <aside id="palette">
-        <label class="search">
-          <input id="filter" type="search" placeholder="Filter gates" autocomplete="off" />
-        </label>
-        <ul id="gates"></ul>
+        <div class="palette-head">
+          <select id="library" aria-label="Gate library"></select>
+          <input id="filter" type="search" placeholder="Filter all gates" autocomplete="off" />
+        </div>
+        <div id="gates"></div>
       </aside>
 
       <main>
         <canvas id="canvas" tabindex="0"></canvas>
-        <div id="hint">wheel zooms · space fits · drag with middle or space</div>
+        <div id="hint"></div>
       </main>
 
-      <div id="status" role="status"></div>
+      <footer>
+        <div id="status" role="status"></div>
+        <label class="toggle"><input id="showgrid" type="checkbox" /> Gridlines</label>
+        <label class="toggle"><input id="showconn" type="checkbox" /> Wire connections</label>
+      </footer>
     </div>
     <input id="file" type="file" accept=".cdl" hidden />
     <script type="module" src="/src/main.ts"></script>

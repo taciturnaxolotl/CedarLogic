@@ -7,6 +7,7 @@
 
 import { loadEngine, toArray, type Document, type EngineModule } from "./engine.ts";
 import { replay } from "./scene.ts";
+import { Palette } from "./palette.ts";
 import { wheelSteps } from "./wheel.ts";
 
 const $ = <T extends HTMLElement>(sel: string): T =>
@@ -15,7 +16,6 @@ const $ = <T extends HTMLElement>(sel: string): T =>
 const canvas = $<HTMLCanvasElement>("#canvas");
 const statusEl = $<HTMLDivElement>("#status");
 const readoutEl = $<HTMLDivElement>("#readout");
-const gatesEl = $<HTMLUListElement>("#gates");
 const filterEl = $<HTMLInputElement>("#filter");
 const fileEl = $<HTMLInputElement>("#file");
 const hintEl = $<HTMLDivElement>("#hint");
@@ -329,6 +329,69 @@ async function openFile(doc: Document, file: File): Promise<void> {
   }
 }
 
+function bindToolbar(doc: Document): void {
+  const undoBtn = $<HTMLButtonElement>("#undo");
+  const redoBtn = $<HTMLButtonElement>("#redo");
+  const cutBtn = $<HTMLButtonElement>("#cut");
+  const copyBtn = $<HTMLButtonElement>("#copy");
+  const lockBtn = $<HTMLButtonElement>("#lock");
+  const stepEl = $<HTMLInputElement>("#timestep");
+  const stepVal = $<HTMLOutputElement>("#timestepval");
+  const gridEl = $<HTMLInputElement>("#showgrid");
+  const connEl = $<HTMLInputElement>("#showconn");
+
+  undoBtn.addEventListener("click", () => { doc.undo(); syncToolbar(doc); });
+  redoBtn.addEventListener("click", () => { doc.redo(); syncToolbar(doc); });
+  cutBtn.addEventListener("click", () => { doc.cutSelection(); syncClipboardOut(doc); syncToolbar(doc); });
+  copyBtn.addEventListener("click", () => { doc.copySelection(); syncClipboardOut(doc); });
+  $<HTMLButtonElement>("#paste").addEventListener("click", () => void pasteFromSystem(doc));
+
+  const centre = (): [number, number] => [canvas.clientWidth / 2, canvas.clientHeight / 2];
+  $<HTMLButtonElement>("#zoomin").addEventListener("click", () => doc.zoomAt(1, ...centre()));
+  $<HTMLButtonElement>("#zoomout").addEventListener("click", () => doc.zoomAt(-1, ...centre()));
+  $<HTMLButtonElement>("#zoomfit").addEventListener("click", () => doc.zoomAll());
+
+  // The desktop's lock leaves the simulation running and turns editing off.
+  lockBtn.addEventListener("click", () => {
+    doc.setLocked(!doc.isLocked());
+    setStatus(doc.isLocked() ? "locked: editing disabled" : "unlocked");
+    syncToolbar(doc);
+  });
+
+  stepEl.value = String(doc.timeStep());
+  const showStep = (): void => { stepVal.textContent = `${stepEl.value} ms`; };
+  stepEl.addEventListener("input", () => {
+    doc.setTimeStep(Number(stepEl.value));
+    showStep();
+  });
+  showStep();
+
+  gridEl.checked = doc.gridlinesVisible();
+  connEl.checked = doc.wireConnectionsVisible();
+  gridEl.addEventListener("change", () => doc.setGridlinesVisible(gridEl.checked));
+  connEl.addEventListener("change", () => doc.setWireConnectionsVisible(connEl.checked));
+
+  // The history and the lock change without a click -- an edit, an undo from a
+  // keyboard shortcut -- so the buttons follow the document rather than the
+  // clicks on them.
+  setInterval(() => syncToolbar(doc), 200);
+  syncToolbar(doc);
+}
+
+/** Enable and press the toolbar to match what the document will actually do. */
+function syncToolbar(doc: Document): void {
+  const locked = doc.isLocked();
+  $<HTMLButtonElement>("#undo").disabled = !doc.canUndo();
+  $<HTMLButtonElement>("#redo").disabled = !doc.canRedo();
+  $<HTMLButtonElement>("#cut").disabled = locked || doc.selectedCount() === 0;
+  $<HTMLButtonElement>("#copy").disabled = doc.selectedCount() === 0;
+  $<HTMLButtonElement>("#paste").disabled = locked;
+
+  const lockBtn = $<HTMLButtonElement>("#lock");
+  lockBtn.textContent = locked ? "Locked" : "Lock";
+  lockBtn.classList.toggle("locked", locked);
+}
+
 function bindFiles(doc: Document): void {
   $<HTMLButtonElement>("#open").addEventListener("click", () => fileEl.click());
 
@@ -341,7 +404,7 @@ function bindFiles(doc: Document): void {
 
   $<HTMLButtonElement>("#save").addEventListener("click", () => saveCircuit(doc));
 
-  $<HTMLButtonElement>("#clear").addEventListener("click", () => {
+  $<HTMLButtonElement>("#new").addEventListener("click", () => {
     doc.clearCircuit();
     doc.zoomAll();
     setStatus("new circuit");
@@ -362,42 +425,24 @@ function bindFiles(doc: Document): void {
     });
   }
   mainEl.addEventListener("drop", (e) => {
-    const file = (e as DragEvent).dataTransfer?.files?.[0];
-    if (file) void openFile(doc, file);
-  });
-}
+    const drag = e as DragEvent;
 
-// ─── palette ─────────────────────────────────────────────────────────────────
-
-function buildPalette(doc: Document, types: readonly string[]): void {
-  const rows: { name: string; item: HTMLLIElement }[] = [];
-
-  for (const type of types) {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = type;
-    button.addEventListener("click", () => {
-      // Place into the middle of whatever the camera is looking at, so a gate
-      // never lands somewhere the user cannot see.
-      const cx = canvas.clientWidth / 2;
-      const cy = canvas.clientHeight / 2;
-      if (doc.addGate(type, doc.worldX(cx, cy), doc.worldY(cx, cy)) < 0) {
-        setStatus(`${type}: not in the library`, true);
-        return;
+    // A gate dragged out of the palette lands where it was dropped.
+    const gate = drag.dataTransfer?.getData("application/x-cedarlogic-gate");
+    if (gate) {
+      const rect = canvas.getBoundingClientRect();
+      const px = Math.round(drag.clientX - rect.left);
+      const py = Math.round(drag.clientY - rect.top);
+      if (doc.addGate(gate, doc.worldX(px, py), doc.worldY(px, py)) < 0) {
+        setStatus(`${gate}: not in the library`, true);
+      } else {
+        setStatus(`placed ${gate}`);
       }
-      setStatus(`placed ${type}`);
-    });
-    item.append(button);
-    gatesEl.append(item);
-    rows.push({ name: type.toLowerCase(), item });
-  }
-
-  filterEl.addEventListener("input", () => {
-    const q = filterEl.value.trim().toLowerCase();
-    for (const row of rows) {
-      row.item.hidden = q.length > 0 && !row.name.includes(q);
+      return;
     }
+
+    const file = drag.dataTransfer?.files?.[0];
+    if (file) void openFile(doc, file);
   });
 }
 
@@ -421,17 +466,43 @@ async function main(): Promise<void> {
     return;
   }
 
-  const types = toArray(doc.gateTypes());
-  setStatus(`${types.length} gate types · open a .cdl or drop one here`);
-  hintEl.textContent = "scroll zooms · \u2318-scroll or middle-drag pans · space fits · delete removes · r rotates";
+  hintEl.textContent =
+    "scroll zooms \u00b7 \u2318-scroll or middle-drag pans \u00b7 space fits \u00b7 delete removes \u00b7 r rotates";
 
-  buildPalette(doc, types);
+  const palette = new Palette(
+    module,
+    doc,
+    $<HTMLElement>("#gates"),
+    $<HTMLSelectElement>("#library"),
+    $<HTMLInputElement>("#filter"),
+    {
+      place(type) {
+        // A click drops the gate where you are looking, since a click carries
+        // no position of its own.
+        const cx = canvas.clientWidth / 2;
+        const cy = canvas.clientHeight / 2;
+        if (doc.addGate(type, doc.worldX(cx, cy), doc.worldY(cx, cy)) < 0) {
+          setStatus(`${type}: not in the library`, true);
+          return;
+        }
+        setStatus(`placed ${type}`);
+      },
+      beginDrag(type) {
+        setStatus(`drop ${type} on the canvas`);
+      },
+      status: (text) => setStatus(text, true),
+    },
+  );
+
+  setStatus(`${palette.gateCount} gates \u00b7 open a .cdl or drop one here`);
+
   // A handle for poking at the engine from the console. Harmless in production
   // and the difference between diagnosing a problem in ten seconds and an hour.
   (window as unknown as { cedar: Document }).cedar = doc;
 
   bindInput(doc);
   bindFiles(doc);
+  bindToolbar(doc);
   bindSimulation(doc);
   startFrameLoop(module, doc);
 
