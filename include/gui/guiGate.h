@@ -277,7 +277,15 @@ protected:
 public:
 
 	void addConnection(string, guiWire*);
-	guiWire* getConnection( string hotspot ) { return connections[hotspot]; };
+	// nullptr when nothing is attached. (It used to be connections[hotspot],
+	// which quietly recorded a null connection on every miss.)
+	guiWire* getConnection( string hotspot ) const {
+		auto it = connections.find(hotspot);
+		return it != connections.end() ? it->second : nullptr;
+	};
+
+	// Every wire attached to this gate, by hotspot name.
+	const map< string, guiWire* >& getConnections() const { return connections; };
 	void removeConnection(string, int&);
 	bool isConnected(string);
 	bool isSelected() { return selected; };

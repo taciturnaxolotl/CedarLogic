@@ -8,6 +8,8 @@
    guiWire: GUI representation of wire objects
 *****************************************************************************/
 
+#include <cassert>
+
 #include "guiWire.h"
 #include "PaletteDrag.h"
 #include "RenderMode.h"
@@ -86,7 +88,9 @@ guiWire::~guiWire() {
 
 // Resolve a connection's gate id to its live guiGate* via the owning circuit.
 guiGate* guiWire::gateOf(const wireConnection& c) const {
-	return gCircuit != nullptr ? gCircuit->getGate(c.gid) : nullptr;
+	guiGate *gate = gCircuit != nullptr ? gCircuit->getGate(c.gid) : nullptr;
+	assert(gate != nullptr && "wire holds a connection to a gate that no longer exists");
+	return gate;
 }
 
 // Add an input connection to the wire
@@ -137,10 +141,10 @@ void guiWire::addConnection(guiGate* iGate, string connection, bool openMode) {
 	this->calcBBox();
 }
 
-void guiWire::removeConnection(guiGate* iGate, string connection) {
+void guiWire::removeConnection(IDType gid, string connection) {
 	// Find the connection I'm looking for and simply eradicate it
 	for (unsigned int i = 0; i < connectPoints.size(); i++) {
-		if (connectPoints[i].connection == connection && connectPoints[i].gid == iGate->getID()) {
+		if (connectPoints[i].connection == connection && connectPoints[i].gid == gid) {
 			connectPoints.erase(connectPoints.begin() + i);
 			//calcShape();
 			break;
@@ -149,7 +153,6 @@ void guiWire::removeConnection(guiGate* iGate, string connection) {
 	if (connectPoints.size() < 2) return;
 	this->detachSubObjects(); // prevent coll checker pointers from invalidating
 	// Now I need to find the segment with this thing and update the tree
-	unsigned long gid = iGate->getID();
 	long segID = 0; bool found = false;
 	map < long, wireSegment >::iterator segWalk = segMap.begin();
 	while (segWalk != segMap.end() && !found) {

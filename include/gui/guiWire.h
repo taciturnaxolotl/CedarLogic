@@ -43,7 +43,10 @@ public:
 	//		addConnection: if openMode is true, then no shape is calculated; waiting for setSegmentMap call.
 	void addConnection(guiGate* iGate, string connection, bool openMode = false);
 
-	void removeConnection(guiGate* iGate, string connection);
+	// Takes an id, not a pointer: a connection is a gid, and dropping one never
+	// needed the gate itself. That lets GUICircuit::deleteGate prune a dying
+	// gate out of its wires, which is what makes gateOf() below total.
+	void removeConnection(IDType gid, string connection);
 
 	// The circuit this wire belongs to; used to resolve a wireConnection's gid
 	// to a live guiGate* (see gateOf). Set by GUICircuit when the wire is created.
@@ -150,8 +153,14 @@ public:
 
 private:
 	// Resolve a connection's gate id to its live guiGate* via the circuit.
-	// Replaces the old raw guiGate* cached in wireConnection, which could
-	// dangle across a gate delete/undo/paste. Returns nullptr if unresolvable.
+	// Replaces the old raw guiGate* cached in wireConnection, which could dangle
+	// across a gate delete/undo/paste.
+	//
+	// Never null for a connection this wire actually holds: a gate cannot be
+	// destroyed while a wire still names it, because GUICircuit::deleteGate
+	// removes the gate from its wires first. Callers dereference the result
+	// directly, and the assert inside marks the line where that stops being true
+	// if anyone ever adds another way to destroy a gate.
 	guiGate* gateOf(const wireConnection& c) const;
 
 	// Atomically replace the whole segment tree. Detaches the collision
