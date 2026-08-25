@@ -18,18 +18,14 @@
 
 DECLARE_APP(MainApp)
 
-LibraryParse::LibraryParse(string fileName) {
-	fstream x(fileName.c_str(), ios::in);
-	if (!x) {
-		// Error loading file, don't bother trying to parse.
-		wxString msg;
-		msg << "The library file " << fileName << " does not exist.";
-		wxMessageBox(msg, "Error - Missing File", wxOK | wxICON_ERROR, NULL);
-
+LibraryParse::LibraryParse(const string& xml) {
+	if (xml.empty()) {
+		wxMessageBox("The gate library is missing from this build.",
+		             "Error - Missing Gate Library", wxOK | wxICON_ERROR, NULL);
 		return;
 	}
+	istringstream x(xml);
 	mParse = new XMLParser(&x, false);
-	this->fileName = fileName;
 	parseFile();
 	delete mParse;
 }

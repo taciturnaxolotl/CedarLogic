@@ -189,8 +189,8 @@ The public key gets embedded in the app's `Info.plist` and tells the updater how
 It is time-intensive to re-install CedarLogic each time you wish to test a code change, so run the executable straight out of the build tree. It finds the `res/`
 folder the build copied next to it, whether that is the build root (a single-config build) or its parent (a multi-config one, like `build/Release`).
 
-If you keep resources somewhere else, point at them with the `CEDARLOGIC_RESOURCES_DIR` environment variable, e.g. `export CEDARLOGIC_RESOURCES_DIR="./build"`.
-Missing resources show up as question-mark toolbar icons and an empty gate palette.
+The gate library and the toolbar icons are compiled into the executable, so the app starts correctly wherever it is run from. Only the help book is still read
+from disk; point at it with the `CEDARLOGIC_RESOURCES_DIR` environment variable if you keep it somewhere else, e.g. `export CEDARLOGIC_RESOURCES_DIR="./build"`.
 
 You can also build many other solutions, which come with cool things like the ability  to unit test portions of the code, and whatnot. We are trying to break the code apart
 into multiple libraries that do not share memory to make reasoning about the code and updating it and testing it much easier.

@@ -37,6 +37,7 @@ configure_file(CedarLogic.h.in CedarLogic.h)
 # so we can use their functions later on.
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/module")
 include(ResourceTools)
+include(EmbedResources)
 include(VsSourceGroups)
 include(GNUInstallDirs)
 
@@ -206,6 +207,13 @@ file(GLOB SKIA_SRC_FILES "${PROJECT_SOURCE_DIR}/src/gui/render/*.cpp")
 list(APPEND SRC_FILES ${SKIA_SRC_FILES})
 set_source_files_properties(${SKIA_SRC_FILES} PROPERTIES
     COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,/std:c++17,-std=c++17>")
+
+# The gate library and toolbar icons are compiled into the executable (see
+# include/gui/EmbeddedRes.h); everything else in res/ is still read from disk.
+file(GLOB EMBED_ICONS RELATIVE "${PROJECT_SOURCE_DIR}/res" "${PROJECT_SOURCE_DIR}/res/icons/*.svg")
+embed_resources(EMBEDDED_RES_CPP "${PROJECT_SOURCE_DIR}/res"
+    cl_gatedefs.xml ${EMBED_ICONS})
+list(APPEND SRC_FILES "${EMBEDDED_RES_CPP}")
 
 # macOS: Add Objective-C++ sources
 if(APPLE)

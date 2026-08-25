@@ -16,7 +16,7 @@
 
 // XMLParser is generated from an already open file stream.
 //	The lines of the file are read into an STL vector of strings.
-XMLParser::XMLParser(fstream* strIO, bool writing)
+XMLParser::XMLParser(istream* strIO, bool writing)
 {
 	mStream = strIO;
 	if (writing) {
@@ -44,7 +44,7 @@ XMLParser::XMLParser(ostream* strIO) {
 // The destructor will simply remove the pointer.
 XMLParser::~XMLParser()
 {
-	mStream = (fstream*)0;
+	mStream = (istream*)0;
 	writeStream = (ofstream*)0;
 }
 

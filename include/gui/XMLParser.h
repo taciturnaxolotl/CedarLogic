@@ -50,7 +50,7 @@ public:
 //	openTag, writeTag, and closeTag functions to write to the file.
 class XMLParser {
 public:
-	XMLParser(fstream*, bool writing = false);
+	XMLParser(istream*, bool writing = false);
 	XMLParser(ostream*);
 	virtual ~XMLParser();
 	
@@ -84,7 +84,7 @@ private:
 	int lineIdx; // Current line, defaults to 0
 	int linePtr; // Current position in line, defaults to -1
 	
-	fstream* mStream;
+	istream* mStream;
 	ostream* writeStream;
 	stack < string > openTags;
 	vector < string > lines;

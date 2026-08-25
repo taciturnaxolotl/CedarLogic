@@ -91,7 +91,9 @@ struct LibraryGate {
 
 class LibraryParse {
 public:
-	LibraryParse(string);
+	// Parse a gate library from its XML text. The library is compiled into the
+	// executable (see EmbeddedRes.h), so there is no file to open.
+	explicit LibraryParse(const string& xml);
 	LibraryParse();
 	virtual ~LibraryParse();
 	
@@ -119,7 +121,6 @@ public:
 
 private:
 	XMLParser* mParse;
-	string fileName;
 	string libName;
 	
 	// Maps library name to a map of gates, which maps to the librarygate struct

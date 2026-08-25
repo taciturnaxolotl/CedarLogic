@@ -633,12 +633,11 @@ bool MainApp::OnInit()
     return true;
 }
 
-// Locate the directory holding res/. Installed builds find it where the
-// platform says resources live; a build run in place does not, because
-// wxStandardPaths infers its prefix from a /bin/ in the executable path and
-// falls back to /usr/local when there is none -- so an uninstalled Linux build
-// looked for /usr/local/share/CedarLogic and came up with no gate library, no
-// font, and no toolbar icons. Probe the build layouts too: res/ is copied to the
+// Locate the directory holding res/, for the files still read from disk (the
+// help book). The gate library and the icons are compiled in, so a wrong answer
+// here no longer keeps the app from starting. It is still worth getting right:
+// wxStandardPaths infers a prefix from a /bin/ in the executable path and a
+// build tree has none, so probe the build layouts too -- res/ is copied to the
 // build root, which is the executable's own directory for a single-config build
 // and its parent for a multi-config one.
 static wxString findResourcesDir(const wxStandardPathsBase& stdp) {
@@ -653,7 +652,7 @@ static wxString findResourcesDir(const wxStandardPathsBase& stdp) {
 
 	for (const wxString& dir : candidates) {
 		if (dir.empty()) continue;
-		if (wxFileName::FileExists(dir + "/res/cl_gatedefs.xml")) {
+		if (wxFileName::DirExists(dir + "/res")) {
 			return dir + "/";
 		}
 	}
@@ -681,18 +680,12 @@ void MainApp::loadSettings() {
 	wxConfigBase::DontCreateOnDemand();
 
 	wxString str;
-	conf->Read("GateLib", &str, "res/cl_gatedefs.xml");
-	appConfig().appSettings.gateLibFile = appConfig().resourcesDir + str;
-
 	#ifdef __APPLE__
 	conf->Read("HelpFile", &str, "res/help/KLS_Logic.hhp");
 #else
 	conf->Read("HelpFile", &str, "res/KLS_Logic.chm");
 #endif
 	appConfig().appSettings.helpFile = appConfig().resourcesDir + str;
-
-	conf->Read("TextFont", &str, "res/arial.glf");
-	appConfig().appSettings.textFontFile = appConfig().resourcesDir + str;
 
 	conf->Read("LastDirectory", &str, "");
 	appConfig().appSettings.lastDir = str;

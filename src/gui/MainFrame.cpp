@@ -18,6 +18,7 @@
 #endif
 #include "SimBridge.h"
 #include "Settings.h"
+#include "EmbeddedRes.h"
 #include "GateLibrary.h"
 #include "guiWire.h"
 #include <fstream>
@@ -259,8 +260,7 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	//////////////////////////////////////////////////////////////////////////
     // parse a gate library
 	//////////////////////////////////////////////////////////////////////////
-	string libPath = appConfig().appSettings.gateLibFile;
-	LibraryParse newLib(libPath);
+	LibraryParse newLib(cl::res::text("cl_gatedefs.xml"));
 	gateLibrary().libParser = newLib;
 	
 	//////////////////////////////////////////////////////////////////////////
@@ -323,18 +323,14 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	const bool darkMode = wxSystemSettings::GetAppearance().IsDark();
 	const wxString iconColor = darkMode ? "#E6E6E6" : "#333333";
 	auto svgIcon = [&](const char* name) -> wxBitmapBundle {
-		wxString path = appConfig().resourcesDir + "res/icons/" + name + ".svg";
-		wxFile f(path);
-		wxString svg;
-		if (f.IsOpened() && f.ReadAll(&svg)) {
+		wxString svg = cl::res::text(("icons/" + std::string(name) + ".svg").c_str());
+		if (!svg.empty()) {
 			svg.Replace("#333333", iconColor);
 			// FromSVG takes a mutable buffer (nanosvg parses it in place).
 			wxScopedCharBuffer buf = svg.utf8_str();
 			wxBitmapBundle b = wxBitmapBundle::FromSVG(buf.data(), iconSize);
 			if (b.IsOk()) return b;
 		}
-		wxBitmapBundle b = wxBitmapBundle::FromSVGFile(path, iconSize);
-		if (b.IsOk()) return b;
 		return wxBitmapBundle(wxArtProvider::GetBitmap(wxART_QUESTION, wxART_TOOLBAR));
 	};
 
@@ -1557,24 +1553,8 @@ void MainFrame::OnTimeStepModSlider(wxScrollEvent& event) {
 
 
 void MainFrame::saveSettings() {
-	//Edit by Joshua Lansford 2/15/07
-	//making the execution of cedarls indipendent of were
-	//it was executed from.  However the settings.ini file still
-	//needs to be relative.
-	//adding substring on the end of the relative paths to knock
-	//of the part I put on.
-	int numCharAbsolute = appConfig().resourcesDir.length();
 	wxConfigBase *conf = wxConfigBase::Get();
 	auto settings = appConfig().appSettings;
-	
-	wxString str = settings.gateLibFile.substr(numCharAbsolute);
-	conf->Write("GateLib", str);
-
-	str = settings.helpFile.substr(numCharAbsolute);
-	conf->Write("HelpFile", str);
-
-	str = settings.textFontFile.substr(numCharAbsolute);
-	conf->Write("TextFont", str);
 
 	conf->Write("FrameWidth", GetSize().GetWidth());
 	conf->Write("FrameHeight", GetSize().GetHeight());

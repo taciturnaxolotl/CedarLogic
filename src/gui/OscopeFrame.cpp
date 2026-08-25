@@ -9,6 +9,7 @@
 *****************************************************************************/
 
 #include "MainApp.h"
+#include "EmbeddedRes.h"
 #include "OscopeFrame.h"
 #include "wx/filedlg.h"
 #include "wx/menu.h"
@@ -59,17 +60,13 @@ OscopeFrame::OscopeFrame(wxWindow *parent, GUICircuit* gCircuit)
 	const bool oscopeDark = wxSystemSettings::GetAppearance().IsDark();
 	const wxString oscopeIconColor = oscopeDark ? "#E6E6E6" : "#333333";
 	auto svgIcon = [&](const char* name) -> wxBitmapBundle {
-		wxString path = appConfig().resourcesDir + "res/icons/" + name + ".svg";
-		wxFile f(path);
-		wxString svg;
-		if (f.IsOpened() && f.ReadAll(&svg)) {
+		wxString svg = cl::res::text(("icons/" + std::string(name) + ".svg").c_str());
+		if (!svg.empty()) {
 			svg.Replace("#333333", oscopeIconColor);
 			wxScopedCharBuffer buf = svg.utf8_str();
 			wxBitmapBundle b = wxBitmapBundle::FromSVG(buf.data(), oscopeIconSize);
 			if (b.IsOk()) return b;
 		}
-		wxBitmapBundle b = wxBitmapBundle::FromSVGFile(path, oscopeIconSize);
-		if (b.IsOk()) return b;
 		return wxBitmapBundle(wxArtProvider::GetBitmap(wxART_QUESTION, wxART_TOOLBAR));
 	};
 

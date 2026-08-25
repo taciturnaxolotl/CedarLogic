@@ -14,8 +14,6 @@
 #include <string>
 
 struct ApplicationSettings {
-	std::string gateLibFile;
-	std::string textFontFile;
 	std::string helpFile;
 	std::string lastDir;
 	int mainFrameWidth;
@@ -36,7 +34,8 @@ public:
 	ApplicationSettings appSettings;
 	// Milliseconds of simulated time per step (derived from appSettings.timePerStep).
 	unsigned long timeStepMod = 0;
-	// Directory the executable's resources load from (may differ from cwd).
+	// Directory the on-disk resources load from (may differ from cwd). Only the
+	// help book lives there now; see EmbeddedRes.h for the rest.
 	std::string resourcesDir;
 };
 
