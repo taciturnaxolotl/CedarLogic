@@ -65,6 +65,14 @@ export interface Document {
   isLocked(): boolean;
   setLocked(on: boolean): void;
 
+  // Gate parameters. A double-click asks for an editor; the shell polls for
+  // the gate and builds fields from the library's own list.
+  takeParamRequest(): number;
+  gateParams(gateId: number): unknown[];
+  beginParamEdit(): void;
+  setParam(name: string, isGui: boolean, value: string): void;
+  commitParamEdit(gateId: number): boolean;
+
   // Palette. Gates are grouped by library, as the desktop's section chooser
   // groups them, and a tile is drawn by the engine rather than approximated.
   libraryNames(): VectorLike<string>;

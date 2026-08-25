@@ -265,3 +265,44 @@ footer {
 
 .toggle { color: var(--muted); display: flex; align-items: center; gap: 0.25rem; white-space: nowrap; cursor: pointer; }
 .toggle input { accent-color: var(--accent); }
+
+/* --- gate parameters --- */
+
+#params {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 15rem;
+  background: var(--chrome);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.18);
+}
+
+#params header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0;
+  border: 0;
+  gap: 0.5rem;
+}
+
+.param { display: grid; grid-template-columns: 1fr 5.5rem; align-items: center; gap: 0.4rem; }
+.param span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+
+.param input {
+  font: inherit;
+  color: inherit;
+  background: var(--sunk);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 0.15rem 0.3rem;
+  width: 100%;
+}
+.param input[type="checkbox"] { width: auto; justify-self: start; accent-color: var(--accent); }
+.param input:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }

@@ -112,6 +112,12 @@ public:
 	// paletteDrag().newGateToDrag.
 	virtual void requestQuickAdd() {}
 
+	// Edit this gate's parameters -- a double-click. Opening a window is the
+	// shell's job, so the page names the gate and stops there: the desktop
+	// answers with the gate's own wx dialog, the browser with a panel driving
+	// the same cmdSetParams.
+	virtual void requestGateParams(unsigned long gateId) { (void)gateId; }
+
 	// Put the cursor back to an arrow after a drag.
 	virtual void setArrowCursor() {}
 

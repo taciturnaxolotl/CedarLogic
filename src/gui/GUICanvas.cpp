@@ -261,6 +261,14 @@ void GUICanvas::printLists() {
 
 // The page's own update plus the minimap, which mirrors this canvas and has to
 // be told when its contents move.
+// The desktop's answer: the gate opens its own dialog, which submits the same
+// cmdSetParams the browser's panel does.
+void GUICanvas::requestGateParams(unsigned long gateId) {
+	auto found = gateList.find(gateId);
+	if (found == gateList.end() || found->second == NULL) return;
+	found->second->doParamsDialog(gCircuit, gCircuit->GetCommandProcessor());
+}
+
 void GUICanvas::updatePage() {
 	CircuitPage::updatePage();
 	if (minimap == NULL) return;

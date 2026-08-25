@@ -87,6 +87,7 @@ public:
 	void endDrag(input::Button b) override { klsGLCanvas::endDrag(toMouseButton(b)); }
 	void requestRepaint() override { Refresh(); }
 	void requestQuickAdd() override;
+	void requestGateParams(unsigned long gateId) override;
 	void setArrowCursor() override { SetCursor(wxCursor(wxCURSOR_ARROW)); }
 	void setAutoScroll(bool on) override { on ? autoScrollEnable() : autoScrollDisable(); }
 	bool isLocked() const override { return const_cast<GUICanvas *>(this)->klsGLCanvas::isLocked(); }

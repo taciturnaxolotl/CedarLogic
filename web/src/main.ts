@@ -8,6 +8,7 @@
 import { loadEngine, toArray, type Document, type EngineModule } from "./engine.ts";
 import { replay } from "./scene.ts";
 import { Palette } from "./palette.ts";
+import { ParamEditor } from "./params.ts";
 import { wheelSteps } from "./wheel.ts";
 
 const $ = <T extends HTMLElement>(sel: string): T =>
@@ -499,6 +500,14 @@ async function main(): Promise<void> {
   // A handle for poking at the engine from the console. Harmless in production
   // and the difference between diagnosing a problem in ten seconds and an hour.
   (window as unknown as { cedar: Document }).cedar = doc;
+
+  // Double-clicking a gate asks the page for an editor; the page names the
+  // gate and the shell opens the panel.
+  const params = new ParamEditor(doc, $<HTMLElement>("#params"), () =>
+    setStatus("parameter set"),
+  );
+  setInterval(() => params.poll(), 100);
+  canvas.addEventListener("pointerdown", () => params.poll());
 
   bindInput(doc);
   bindFiles(doc);

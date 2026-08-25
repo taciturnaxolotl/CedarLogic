@@ -693,7 +693,7 @@ void CircuitPage::OnMouseUp(const input::PointerEvent& event) {
 								}
 							}
 							if (event.leftDoubleClick() && !handled) {
-								hitGate->doParamsDialog( gCircuit, gCircuit->GetCommandProcessor() );
+								host()->requestGateParams( hitGate->getID() );
 								currentDragState = DRAG_NONE;
 								// setparams command will handle oscope update
 								handled = true;

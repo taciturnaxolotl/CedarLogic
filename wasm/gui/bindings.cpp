@@ -27,6 +27,9 @@
 #include "klsBBox.h"
 #include "render/RenderStyle.h"
 #include "render/Thumbnail.h"
+#include "commands.h"
+
+#include <cfloat>
 
 #include "SceneBuffer.h"
 
@@ -440,6 +443,72 @@ public:
 	bool isLocked() const override { return fLocked; }
 	void setLocked(bool on) { fLocked = on; }
 
+	// --- gate parameters ---------------------------------------------------
+
+	// A double-click asks for a parameter editor. The page names the gate; the
+	// shell polls for it and opens its panel.
+	void requestGateParams(unsigned long gateId) override { fParamGate = (long)gateId; }
+
+	long takeParamRequest() {
+		const long id = fParamGate;
+		fParamGate = -1;
+		return id;
+	}
+
+	// What the library says this gate's editable parameters are, and what they
+	// currently hold. The same list the desktop's dialog builds itself from, so
+	// the two editors offer the same fields in the same order.
+	emscripten::val gateParams(long gateId) {
+		emscripten::val out = emscripten::val::array();
+		auto found = gateList.find((unsigned long)gateId);
+		if (found == gateList.end() || found->second == NULL) return out;
+		guiGate *gate = found->second;
+
+		LibraryGate def;
+		if (!gateLibrary().libParser.getGate(gate->getLibraryGateName(), def)) return out;
+
+		for (const lgDlgParam &p : def.dlgParams) {
+			emscripten::val entry = emscripten::val::object();
+			entry.set("label", p.textLabel);
+			entry.set("name", p.name);
+			entry.set("gui", p.isGui);
+			entry.set("type", p.type);
+			// FLT_MAX either side means "no range given"; JavaScript would rather
+			// hear nothing than a number that big.
+			if (p.Rmin > -FLT_MAX) entry.set("min", p.Rmin);
+			if (p.Rmax < FLT_MAX) entry.set("max", p.Rmax);
+			entry.set("value", p.isGui ? gate->getGUIParam(p.name)
+			                           : gate->getLogicParam(p.name));
+			out.call<void>("push", entry);
+		}
+		return out;
+	}
+
+	// Editing a gate is one command however many fields changed, so undo puts
+	// all of them back together -- the same shape as the desktop's dialog,
+	// which submits one cmdSetParams when you press OK.
+	void beginParamEdit() {
+		fEditGui.clear();
+		fEditLogic.clear();
+	}
+
+	void setParam(const std::string &name, bool isGui, const std::string &value) {
+		(isGui ? fEditGui : fEditLogic)[name] = value;
+	}
+
+	bool commitParamEdit(long gateId) {
+		auto found = gateList.find((unsigned long)gateId);
+		if (found == gateList.end() || found->second == NULL) return false;
+		if (fEditGui.empty() && fEditLogic.empty()) return false;
+
+		submitCommand(new cmdSetParams(&fCircuit, (unsigned long)gateId,
+		                               paramSet(&fEditGui, &fEditLogic)));
+		pumpLogic();
+		updatePage();
+		fDirty = true;
+		return true;
+	}
+
 	// --- palette -----------------------------------------------------------
 
 	// The libraries, in the order the gate-definition file lists them, which is
@@ -515,10 +584,6 @@ public:
 		for (const cl::MigrationNotice &n : loaded.notices) fNotices.push_back(n.summary);
 		for (const cl::MigrationNotice &n : parser.getApplyNotices()) fNotices.push_back(n.summary);
 
-		// Ids the file used must not be handed out again.
-		for (const auto &entry : gateList)
-			if ((long)entry.first >= fNextId) fNextId = (long)entry.first + 1;
-
 		// Build the collision index for what just arrived; hit testing and
 		// drag-select both read it, so without this a freshly loaded circuit
 		// cannot be clicked on.
@@ -545,7 +610,6 @@ public:
 		// that the next load walked straight into.
 		clearPage();
 		fCircuit.reInitializeLogicCircuit();
-		fNextId = 0;
 		fDirty = true;
 	}
 
@@ -567,7 +631,10 @@ public:
 		if (!gateLibrary().gateNameToLibrary.count(type)) return -1;
 		guiGate *gate = fCircuit.createGate(type, -1, true);
 		if (gate == NULL) return -1;
-		const long id = fNextId++;
+		// The document assigns the id, and the page must key by the same one --
+		// keying by a counter of our own let the two maps disagree, and a
+		// command looking the gate up in the document would not find it.
+		const long id = (long)gate->getID();
 		gate->setGLcoords(x, y);
 		gateList[id] = gate;
 		collisionChecker.addObject(gate);
@@ -615,12 +682,14 @@ private:
 	CanvasCamera fCamera;
 	cl::wasm::SceneBuffer fScene;
 	std::string fLoadError;
-	long fNextId = 0;
 	std::vector<std::string> fNotices;
 	int fViewW = 0;
 	int fViewH = 0;
 	bool fDirty = true;
 	bool fLocked = false;
+	long fParamGate = -1;
+	ParameterMap fEditGui;
+	ParameterMap fEditLogic;
 	// A simulation step asked for a repaint; whether it earns one depends on
 	// whether the content signature moved.
 	bool fSimDirty = false;
@@ -677,6 +746,11 @@ EMSCRIPTEN_BINDINGS(cedarlogic_gui) {
 		.function("setTimeStep", &Document::setTimeStep)
 		.function("isLocked", &Document::isLocked)
 		.function("setLocked", &Document::setLocked)
+		.function("takeParamRequest", &Document::takeParamRequest)
+		.function("gateParams", &Document::gateParams)
+		.function("beginParamEdit", &Document::beginParamEdit)
+		.function("setParam", &Document::setParam)
+		.function("commitParamEdit", &Document::commitParamEdit)
 		.function("libraryNames", &Document::libraryNames)
 		.function("gatesInLibrary", &Document::gatesInLibrary)
 		.function("libraryOf", &Document::libraryOf)
