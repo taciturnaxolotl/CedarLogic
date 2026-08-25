@@ -49,7 +49,7 @@ body {
 #app {
   display: grid;
   grid-template-columns: 15rem 1fr;
-  grid-template-rows: var(--bar) 1fr auto;
+  grid-template-rows: auto 1fr auto;
   grid-template-areas:
     "header header"
     "palette main"
@@ -63,13 +63,15 @@ header {
   grid-area: header;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0 0.6rem;
+  /* Wraps rather than scrolls. A scrolling toolbar needs overflow, and overflow
+     clips an absolutely-positioned menu to the bar's own height -- the export
+     menu opened three pixels tall. */
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  min-height: var(--bar);
+  padding: 0.15rem 0.6rem;
   border-bottom: 1px solid var(--rule);
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-header::-webkit-scrollbar { display: none; }
 
 h1 {
   margin: 0 0.25rem 0 0;
@@ -343,3 +345,36 @@ footer {
 }
 .param input[type="checkbox"] { width: auto; justify-self: start; accent-color: var(--accent); }
 .param input:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+/* --- disclosure menu --- */
+
+.menu { position: relative; }
+
+.menu summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.menu summary::-webkit-details-marker { display: none; }
+.menu summary:hover { border-color: var(--rule); background: color-mix(in oklch, var(--ink) 6%, transparent); }
+.menu[open] summary { border-color: var(--accent); color: var(--accent); }
+
+.menu > div {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  z-index: 10;
+  min-width: 13rem;
+  display: flex;
+  flex-direction: column;
+  background: var(--chrome);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 0.2rem;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.18);
+}
+
+.menu > div button { text-align: left; border-radius: 2px; }

@@ -350,15 +350,23 @@ function bindTabs(doc: Document): () => void {
 
 // ─── files ───────────────────────────────────────────────────────────────────
 
-function saveCircuit(doc: Document): void {
-  const blob = new Blob([doc.saveCircuit()], { type: "text/plain" });
+/** Hand a blob to the browser as a download. */
+function download(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "circuit.cdl";
+  a.download = name;
   a.click();
   URL.revokeObjectURL(url);
-  setStatus("saved circuit.cdl");
+}
+
+function saveText(text: string, name: string, what: string): void {
+  download(new Blob([text], { type: "text/plain" }), name);
+  setStatus(`saved ${name} (${what})`);
+}
+
+function saveCircuit(doc: Document): void {
+  saveText(doc.saveCircuit(), "circuit.cdl", "current format");
 }
 
 // The desktop's File > Export as Image: the whole circuit fitted to the page,
@@ -396,12 +404,7 @@ function exportImage(module: EngineModule, doc: Document): void {
       setStatus("could not make an image", true);
       return;
     }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "circuit.png";
-    a.click();
-    URL.revokeObjectURL(url);
+    download(blob, "circuit.png");
     setStatus(`exported circuit.png (${width}x${height})`);
   }, "image/png");
 }
@@ -417,7 +420,16 @@ function reportLoad(doc: Document, name: string, error: string, refreshTabs?: ()
     // the read was clean.
     setStatus(`${name} — ${notices.length} note${notices.length === 1 ? "" : "s"}:\n${notices.join("\n")}`);
   } else {
-    setStatus(`${name} — ${doc.gateCount()} gates, ${doc.wireCount()} wires`);
+    // A multi-page file is not described by the page you happen to land on.
+    let total = 0;
+    let used = 0;
+    for (let i = 0; i < doc.pageCount(); i++) {
+      const gates = doc.gatesOnPage(i);
+      total += gates;
+      if (gates > 0) used++;
+    }
+    const pages = used > 1 ? ` across ${used} pages` : "";
+    setStatus(`${name} — ${total} gates${pages}`);
   }
   doc.zoomAll();
   refreshTabs?.();
@@ -495,7 +507,26 @@ function syncToolbar(doc: Document): void {
 }
 
 function bindFiles(module: EngineModule, doc: Document, refreshTabs: () => void): void {
-  $<HTMLButtonElement>("#export").addEventListener("click", () => exportImage(module, doc));
+  const menu = $<HTMLDetailsElement>("#exportmenu");
+  const closeMenu = (): void => menu.removeAttribute("open");
+
+  $<HTMLButtonElement>("#export").addEventListener("click", () => {
+    closeMenu();
+    exportImage(module, doc);
+  });
+  $<HTMLButtonElement>("#exportv2").addEventListener("click", () => {
+    closeMenu();
+    saveText(doc.saveCircuitV2(), "circuit-v2.cdl", "CedarLogic 2");
+  });
+  $<HTMLButtonElement>("#exportlegacy").addEventListener("click", () => {
+    closeMenu();
+    saveText(doc.saveCircuitLegacy(), "circuit-v1.cdl", "CedarLogic 1.x");
+  });
+
+  // A menu left open behind a click elsewhere is clutter.
+  document.addEventListener("click", (e) => {
+    if (menu.open && !menu.contains(e.target as Node)) closeMenu();
+  });
   $<HTMLButtonElement>("#open").addEventListener("click", () => fileEl.click());
 
   fileEl.addEventListener("change", () => {

@@ -161,6 +161,12 @@ public:
 		return true;
 	}
 
+	std::vector<CircuitPage *> pageList() {
+		std::vector<CircuitPage *> pages;
+		for (auto &p : fPages) pages.push_back(&p->page);
+		return pages;
+	}
+
 	int gatesOnPage(int index) const {
 		if (index < 0 || index >= (int)fPages.size()) return 0;
 		return (int)fPages[index]->page.gateList.size();
@@ -670,11 +676,19 @@ public:
 		return "";
 	}
 
-	// The circuit as v3 .cdl text, for the shell to download.
-	std::string saveCircuit() {
-		std::vector<CircuitPage *> pages;
-		for (auto& p : fPages) pages.push_back(&p->page);
-		return CircuitParse::serializeV3(pages);
+	// The circuit as .cdl text, for the shell to download. The desktop's File
+	// menu offers the same three: the current format, the pre-v3 XML, and the
+	// oldest one that CedarLogic 1.x can still open.
+	std::string saveCircuit() { return CircuitParse::serializeV3(pageList()); }
+
+	std::string saveCircuitV2() {
+		CircuitParse parser([](int) -> CircuitPage * { return nullptr; });
+		return parser.serializeV2(pageList(), (unsigned int)fCurrent);
+	}
+
+	std::string saveCircuitLegacy() {
+		CircuitParse parser([](int) -> CircuitPage * { return nullptr; });
+		return parser.serializeLegacy(pageList(), (unsigned int)fCurrent);
 	}
 
 	// Anything the last load wanted to say: a gate type that no longer exists, a
@@ -839,6 +853,8 @@ EMSCRIPTEN_BINDINGS(cedarlogic_gui) {
 		.function("renderGateThumbnail", &Document::renderGateThumbnail)
 		.function("loadCircuit", &Document::loadCircuit)
 		.function("saveCircuit", &Document::saveCircuit)
+		.function("saveCircuitV2", &Document::saveCircuitV2)
+		.function("saveCircuitLegacy", &Document::saveCircuitLegacy)
 		.function("renderForExport", &Document::renderForExport)
 		.function("loadNotices", &Document::loadNotices)
 		.function("clearCircuit", &Document::clearCircuit)

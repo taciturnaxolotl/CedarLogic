@@ -17,7 +17,17 @@
           <button id="new" type="button" title="New circuit">New</button>
           <button id="open" type="button" title="Open a .cdl (⌘O)">Open…</button>
           <button id="save" type="button" title="Save as .cdl (⌘S)">Save</button>
-          <button id="export" type="button" title="Export the circuit as a PNG (⌘E)">Image…</button>
+          <!-- The desktop's File menu offers the same three exports. A
+               disclosure rather than a custom popup: the browser positions and
+               dismisses it, and it works from the keyboard for free. -->
+          <details id="exportmenu" class="menu">
+            <summary title="Export the circuit">Export…</summary>
+            <div>
+              <button id="export" type="button">As image (⌘E)</button>
+              <button id="exportv2" type="button">As CedarLogic 2 (.cdl)</button>
+              <button id="exportlegacy" type="button">As CedarLogic 1.x (.cdl)</button>
+            </div>
+          </details>
         </div>
 
         <div class="group">

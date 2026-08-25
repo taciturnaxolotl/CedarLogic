@@ -23,8 +23,10 @@ export interface Document {
   background(): string;
   /** Read a .cdl. Returns "" on success, or a message. Migrates legacy files. */
   loadCircuit(text: string): string;
-  /** The circuit as v3 .cdl text. */
+  /** The circuit as .cdl text, in each of the three formats the desktop writes. */
   saveCircuit(): string;
+  saveCircuitV2(): string;
+  saveCircuitLegacy(): string;
   /** Anything the last load wanted to say. Silence means a clean read. */
   loadNotices(): VectorLike<string>;
   clearCircuit(): void;
