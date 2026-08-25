@@ -26,10 +26,19 @@ project(CedarLogicGUIWASM VERSION 0.1.0)
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/../../CedarLogic.h.in" CedarLogic.h)
 
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 set(REPO "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+
+# The gate library is compiled in, the same way and by the same module the app
+# uses. It used to ride along in emscripten's virtual filesystem, which meant
+# the browser build had its own answer to "where do the resources live" -- now
+# there is one answer and no filesystem involved at all.
+set(CMAKE_MODULE_PATH "${REPO}/cmake/module")
+include(EmbedResources)
+embed_resources(EMBEDDED_RES_CPP "${REPO}/res" cl_gatedefs.xml)
 
 # Extra link flags for debugging a browser crash, e.g.
 #   -DCEDAR_WASM_EXTRA_LINK="-sASSERTIONS=2 -g2"
@@ -75,6 +84,7 @@ add_executable(cedarlogic-gui
 	bindings.cpp
 	headless.cpp
 	text_metrics.cpp
+	${EMBEDDED_RES_CPP}
 	${CORE_SRC}
 	${COMMAND_SRC}
 	${LOGIC_SRC}
@@ -111,7 +121,6 @@ set_target_properties(cedarlogic-gui PROPERTIES
 	LINK_FLAGS "\
 		--bind \
 		-fwasm-exceptions \
-		--embed-file ${REPO}/res/cl_gatedefs.xml@/res/cl_gatedefs.xml \
 		-s MODULARIZE=1 \
 		-s EXPORT_ES6=1 \
 		-s EXPORT_NAME='CedarLogicGUI' \

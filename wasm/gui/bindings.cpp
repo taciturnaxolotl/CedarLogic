@@ -13,6 +13,7 @@
 
 #include "CanvasCamera.h"
 #include "CircuitObserver.h"
+#include "EmbeddedRes.h"
 #include "CircuitParse.h"
 #include "SimBridge.h"
 #include "Settings.h"
@@ -32,16 +33,22 @@ using namespace emscripten;
 
 namespace {
 
-// The gate definitions, parsed once. Embedded into the wasm filesystem at build
-// time (see CMakeLists.txt) so the module is self-contained: no fetch, no
-// ordering problem between the library arriving and the first gate being made.
-const char *kGateDefsPath = "/res/cl_gatedefs.xml";
-
+// The gate definitions, parsed once from the copy compiled into the module
+// (see EmbeddedRes.h). Nothing is fetched and no filesystem is involved, so
+// there is no ordering problem between the library arriving and the first gate
+// being made.
 bool ensureLibraryLoaded(std::string &error) {
 	if (!gateLibrary().libraries.empty()) return true;
+
+	const std::string xml = cl::res::text("cl_gatedefs.xml");
+	if (xml.empty()) {
+		error = "the gate library is missing from this build";
+		return false;
+	}
+
 	// The constructor parses, then destroys its parser -- so calling parseFile()
 	// afterwards would read through a dangling pointer.
-	gateLibrary().libParser = LibraryParse(kGateDefsPath);
+	gateLibrary().libParser = LibraryParse(xml);
 	if (gateLibrary().libraries.empty()) {
 		error = "gate library did not parse";
 		return false;
