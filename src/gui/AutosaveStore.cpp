@@ -70,6 +70,27 @@ void removeIfPresent(const wxString& path) {
 	if (wxFileName::FileExists(path)) wxRemoveFile(path);
 }
 
+// The record for this session, naming what the snapshot is of and when it was
+// taken. `takenAt` is a parameter rather than always "now" because an adopted
+// snapshot is older than the moment it changed hands, and the user is deciding
+// whether to recover it on the strength of that time.
+void writeRecordAt(const std::string& originalPath, const wxString& takenAt) {
+	const wxString path = recordFor(sessionId());
+	wxTextFile file;
+	if (wxFileName::FileExists(path)) {
+		if (!file.Open(path)) return;
+		file.Clear();
+	} else if (!file.Create(path)) {
+		return;
+	}
+	file.AddLine("original: " + wxString(originalPath));
+	file.AddLine("taken: " + takenAt);
+	file.AddLine(wxString::Format("pid: %ld", (long)wxGetProcessId()));
+	file.AddLine("host: " + wxGetHostName());
+	file.Write();
+	file.Close();
+}
+
 }  // namespace
 
 namespace autosaveStore {
@@ -88,20 +109,7 @@ bool commitPending() {
 }
 
 void writeRecord(const std::string& originalPath) {
-	const wxString path = recordFor(sessionId());
-	wxTextFile file;
-	if (wxFileName::FileExists(path)) {
-		if (!file.Open(path)) return;
-		file.Clear();
-	} else if (!file.Create(path)) {
-		return;
-	}
-	file.AddLine("original: " + wxString(originalPath));
-	file.AddLine("taken: " + wxDateTime::Now().Format("%Y-%m-%d %H:%M"));
-	file.AddLine(wxString::Format("pid: %ld", (long)wxGetProcessId()));
-	file.AddLine("host: " + wxGetHostName());
-	file.Write();
-	file.Close();
+	writeRecordAt(originalPath, wxDateTime::Now().Format("%Y-%m-%d %H:%M"));
 }
 
 void clearOwn() {
@@ -159,6 +167,20 @@ std::vector<AutosaveEntry> findRecoverable() {
 		found.push_back(entry);
 	}
 	return found;
+}
+
+bool adopt(const AutosaveEntry& entry) {
+	if (entry.snapshotPath.empty()) return false;
+
+	// Move rather than copy: one snapshot, changing hands, so no launch after
+	// this one can offer the same work twice.
+	if (!wxRenameFile(entry.snapshotPath, snapshotFor(sessionId()),
+	                  /*overwrite=*/true)) {
+		return false;
+	}
+	writeRecordAt(entry.originalPath, entry.takenAt);
+	if (!entry.recordPath.empty()) removeIfPresent(entry.recordPath);
+	return true;
 }
 
 void discard(const AutosaveEntry& entry) {

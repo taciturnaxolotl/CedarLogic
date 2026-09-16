@@ -600,7 +600,7 @@ void MainFrame::OnClose(wxCloseEvent& event) {
 	pauseTimers();
 
 	// Allow the user to save the file, unless we are in the midst of terminating the app!!, KAS 4/26/07	
-	if (commandProcessor->IsDirty() && !destroy) {
+	if (fileIsDirty() && !destroy) {
 		wxMessageDialog dialog( this, "Circuit has not been saved.  Would you like to save it?", "Save Circuit", wxYES_DEFAULT|wxYES_NO|wxCANCEL|wxICON_QUESTION);
 		switch (dialog.ShowModal()) {
 		case wxID_YES:
@@ -657,7 +657,7 @@ void MainFrame::OnAbout(wxCommandEvent& WXUNUSED(event)) {
 
 void MainFrame::OnNew(wxCommandEvent& event) {
 
-	if (commandProcessor->IsDirty()) {
+	if (fileIsDirty()) {
 		wxMessageDialog dialog( this, "Circuit has not been saved.  Would you like to save it?", "Save Circuit", wxYES_DEFAULT|wxYES_NO|wxCANCEL|wxICON_QUESTION);
 		switch (dialog.ShowModal()) {
 		case wxID_YES:
@@ -695,6 +695,7 @@ void MainFrame::OnNew(wxCommandEvent& event) {
 	currentTempNum++;
     openedFilename = "";
 	recoveredFrom = "";
+	recoveredUnsaved = false;
 	loadedFileFormat = 3;  // a fresh circuit saves as v3
 	saveFormatDecided = false;
 
@@ -706,7 +707,7 @@ void MainFrame::OnOpen(wxCommandEvent& event) {
 	
 
 	currentCanvas->getCircuit()->setSimulate(false);
-	if (commandProcessor->IsDirty()) {
+	if (fileIsDirty()) {
 		wxMessageDialog dialog( this, "Circuit has not been saved.  Would you like to save it?", "Save Circuit", wxYES_DEFAULT|wxYES_NO|wxCANCEL|wxICON_QUESTION);
 		switch (dialog.ShowModal()) {
 		case wxID_YES:
@@ -748,7 +749,7 @@ void MainFrame::loadCircuitFile( string fileName ){
 	loadCircuitFile(fileName, false);
 }
 
-void MainFrame::loadCircuitFile( string fileName, bool asCopy ){
+bool MainFrame::loadCircuitFile( string fileName, bool asCopy ){
 	wxString path = fileName;
 
 	// Someone else editing this? Advisory only -- we can still open it, and
@@ -765,12 +766,11 @@ void MainFrame::loadCircuitFile( string fileName, bool asCopy ){
 			wxYES_NO | wxCANCEL | wxYES_DEFAULT | wxICON_EXCLAMATION);
 		dialog.SetYesNoCancelLabels("Open a Copy", "Open Anyway", "Cancel");
 		const int answer = dialog.ShowModal();
-		if (answer == wxID_CANCEL) return;
+		if (answer == wxID_CANCEL) return false;
 		if (answer == wxID_YES) {
 			// A copy: load the contents but hold no path, so Save goes to Save
 			// As and cannot land on the file the other session is editing.
-			loadCircuitFile(fileName, /*asCopy=*/true);
-			return;
+			return loadCircuitFile(fileName, /*asCopy=*/true);
 		}
 	}
 
@@ -783,11 +783,12 @@ void MainFrame::loadCircuitFile( string fileName, bool asCopy ){
 	if (!CircuitParse::readCircuit(path.ToStdString(), loaded, loadError)) {
 		if (!renderMode().headlessRender)
 			wxMessageBox(wxString(loadError), "Load Error", wxOK | wxICON_ERROR, this);
-		return;
+		return false;
 	}
 
 	openedFilename = asCopy ? "" : path;
 	recoveredFrom = "";   // whatever was recovered before, this is not it
+	recoveredUnsaved = false;
 	// Not in a headless render: that is a read-only pass over the file, and
 	// taking the lock there would stomp on whoever actually has it open.
 	if (!asCopy && !renderMode().headlessRender) documentLock.acquire(fileName);
@@ -867,6 +868,8 @@ void MainFrame::loadCircuitFile( string fileName, bool asCopy ){
 			}
 		}
 	}
+
+	return true;
 }
 
 void MainFrame::OnSave(wxCommandEvent& event) {
@@ -881,12 +884,14 @@ void MainFrame::OnSave(wxCommandEvent& event) {
 		if (success) {
 			removeTempFile();
 			commandProcessor->MarkAsSaved();
+			recoveredUnsaved = false;   // it has a home now
 		} else if (lastSaveError.rfind("Warning:", 0) == 0) {
 			// The file was written, but with a caveat (e.g. bus features can't be
 			// represented in v1.x). Treat it as saved.
 			wxMessageBox(lastSaveError, "Save Warning", wxOK | wxICON_WARNING, this);
 			removeTempFile();
 			commandProcessor->MarkAsSaved();
+			recoveredUnsaved = false;
 		} else {
 			wxString errorMsg = "Failed to save file:\n\n" + lastSaveError;
 			wxMessageBox(errorMsg, "Save Error", wxOK | wxICON_ERROR, this);
@@ -939,6 +944,7 @@ void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) {
 			removeTempFile();
 			openedFilename = path;
 			recoveredFrom = "";   // it has a home of its own now
+			recoveredUnsaved = false;
 			// The document moved, so the lock follows it: drop the old one and
 			// mark the new file as ours.
 			documentLock.acquire(path.ToStdString());
@@ -1666,20 +1672,35 @@ void MainFrame::offerRecovery() {
 			"Last autosaved " + entry.takenAt + ".";
 		wxMessageDialog dialog(this, message, "Recover Work",
 		                       wxYES_DEFAULT | wxYES_NO | wxICON_QUESTION);
-		if (dialog.ShowModal() == wxID_YES) {
-			doOpenFile = false;
-			// As a copy, which is exactly what a snapshot is: it leaves
-			// openedFilename empty and takes no lock on the snapshot file. The
-			// path is deliberately NOT the recovered document's -- the snapshot
-			// is not that file, and Save must not quietly overwrite the last
-			// good copy on disk with it. Empty sends Ctrl+S to Save As, where
-			// the original name is offered as the default.
-			loadCircuitFile(entry.snapshotPath, /*asCopy=*/true);
-			recoveredFrom = entry.originalPath;
-			SetTitle(VERSION_TITLE() + " - recovered " + of);
-			commandProcessor->MarkAsSaved();   // recovered state is the baseline
+		if (dialog.ShowModal() != wxID_YES) {
+			autosaveStore::discard(entry);   // they have seen it and said no
+			continue;
 		}
-		autosaveStore::discard(entry);
+
+		doOpenFile = false;
+		// As a copy, which is exactly what a snapshot is: it leaves
+		// openedFilename empty and takes no lock on the snapshot file. The
+		// path is deliberately NOT the recovered document's -- the snapshot
+		// is not that file, and Save must not quietly overwrite the last
+		// good copy on disk with it. Empty sends Ctrl+S to Save As, where
+		// the original name is offered as the default.
+		if (!loadCircuitFile(entry.snapshotPath, /*asCopy=*/true)) {
+			// Unreadable, so it is not ours to delete: the user has been told
+			// why, and a file on disk can still be looked at by hand.
+			continue;
+		}
+		recoveredFrom = entry.originalPath;
+		SetTitle(VERSION_TITLE() + " - recovered " + of);
+
+		// Take the snapshot over rather than deleting it. Recovering puts the
+		// work back on screen, not on disk -- it still has no file of its own --
+		// so dropping the snapshot here would leave one copy, in memory, until
+		// this session's first autosave, and a second crash in that window takes
+		// the lot. Adopting it keeps something on disk the whole way through,
+		// and counting the document as unsaved means closing asks about it and
+		// autosave refreshes it even if they never touch a gate.
+		autosaveStore::adopt(entry);
+		recoveredUnsaved = true;
 	}
 }
 
@@ -1699,7 +1720,11 @@ void MainFrame::autosave() {
 	}
 	// The record names the snapshot only once the snapshot is really there.
 	if (autosaveStore::commitPending()) {
-		autosaveStore::writeRecord(openedFilename.ToStdString());
+		// A recovered circuit has no path of its own yet, but it is still of
+		// some document, and that name is what makes the prompt after a second
+		// crash say more than "a circuit that was never saved".
+		autosaveStore::writeRecord(openedFilename.empty()
+			? recoveredFrom : openedFilename.ToStdString());
 	} else {
 		wxLogDebug("Autosave failed: could not replace the previous snapshot");
 	}
@@ -1738,7 +1763,9 @@ bool MainFrame::save(string filename, int format) {
 }
 
 bool MainFrame::fileIsDirty() {
-	return commandProcessor->IsDirty();
+	// Recovered work counts as unsaved before it is edited at all: the command
+	// stack is empty, but the circuit on screen answers to no file on disk.
+	return commandProcessor->IsDirty() || recoveredUnsaved;
 }
 
 void MainFrame::removeTempFile() {

@@ -132,7 +132,8 @@ public:
 	void loadCircuitFile( string fileName );
 	// asCopy loads the contents but claims neither the path nor its lock, so
 	// Save goes to Save As and cannot overwrite what another session has open.
-	void loadCircuitFile( string fileName, bool asCopy );
+	// Reports whether the file was read and put on screen.
+	bool loadCircuitFile( string fileName, bool asCopy );
 	void openFileFromFinder( const wxString& fileName );
 
 	//Julian: Added to simplify timer use
@@ -264,6 +265,11 @@ private:
 	// Document a recovered snapshot came from, for the Save As default name.
 	// Empty unless this session started by recovering something.
 	string recoveredFrom;
+	// Recovered work that has not been given a home yet. It exists nowhere but in
+	// this window and its snapshot, so it counts as unsaved from the moment it
+	// comes back -- before any edit -- which is what makes closing ask about it
+	// and keeps autosave taking snapshots of it. Cleared once it is saved.
+	bool recoveredUnsaved = false;
 	// Held for as long as this window has a document open; released on close,
 	// and moved by Save As. Advisory -- see FileLock.h.
 	FileLock documentLock;

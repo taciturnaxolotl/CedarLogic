@@ -63,7 +63,17 @@ void clearOwn();
 // their orphaned records cleaned up, as is anything older than a month.
 std::vector<AutosaveEntry> findRecoverable();
 
-// Forget one entry once it has been recovered or declined.
+// Take another session's snapshot over as this one's own, keeping what it says
+// it is and when it was taken. Recovering work does not put it on disk anywhere
+// new -- it only puts it back on screen -- so deleting the snapshot at that
+// moment leaves the only copy in memory until the first autosave of the new
+// session, and a second crash inside that window takes the lot. Adopting it
+// instead means there is always a snapshot to come back to. Reports whether the
+// snapshot could be taken over; if not, it is left alone for the next launch to
+// offer again.
+bool adopt(const AutosaveEntry& entry);
+
+// Forget one entry, once it has been declined or superseded.
 void discard(const AutosaveEntry& entry);
 
 }  // namespace autosaveStore
