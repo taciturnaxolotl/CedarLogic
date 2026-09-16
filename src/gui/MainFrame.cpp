@@ -19,6 +19,7 @@
 #include "SimBridge.h"
 #include "Settings.h"
 #include "EmbeddedRes.h"
+#include "ToolbarIcons.h"
 #include "GateLibrary.h"
 #include "guiWire.h"
 #include <fstream>
@@ -316,22 +317,11 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	toolBar->AddTool(Tool_NewTab, "New Tab", sfSymbol("plus.square"), "New Tab");
 	toolBar->AddStretchableSpace();
 #else
-	// On Windows/Linux, load modern SVG icons via wxBitmapBundle (crisp at any DPI).
-	// The SVGs are authored with a #333333 stroke/fill; recolor at load time so
-	// the icons stay legible on both a light and a dark toolbar.
+	// On Windows/Linux, load modern SVG icons via wxBitmapBundle (crisp at any DPI),
+	// tinted to contrast with the toolbar they land on. See ToolbarIcons.h.
 	const wxSize iconSize(24, 24);
-	const bool darkMode = wxSystemSettings::GetAppearance().IsDark();
-	const wxString iconColor = darkMode ? "#E6E6E6" : "#333333";
 	auto svgIcon = [&](const char* name) -> wxBitmapBundle {
-		wxString svg = cl::res::text(("icons/" + std::string(name) + ".svg").c_str());
-		if (!svg.empty()) {
-			svg.Replace("#333333", iconColor);
-			// FromSVG takes a mutable buffer (nanosvg parses it in place).
-			wxScopedCharBuffer buf = svg.utf8_str();
-			wxBitmapBundle b = wxBitmapBundle::FromSVG(buf.data(), iconSize);
-			if (b.IsOk()) return b;
-		}
-		return wxBitmapBundle(wxArtProvider::GetBitmap(wxART_QUESTION, wxART_TOOLBAR));
+		return cl::toolbarIcon(toolBar, name, iconSize);
 	};
 
 	toolBar->SetToolBitmapSize(iconSize);

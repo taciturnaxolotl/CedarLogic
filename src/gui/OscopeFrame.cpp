@@ -10,6 +10,7 @@
 
 #include "MainApp.h"
 #include "EmbeddedRes.h"
+#include "ToolbarIcons.h"
 #include "OscopeFrame.h"
 #include "wx/filedlg.h"
 #include "wx/menu.h"
@@ -54,20 +55,11 @@ OscopeFrame::OscopeFrame(wxWindow *parent, GUICircuit* gCircuit)
 	oscopeToolBar->AddTool(ID_OSCOPE_SAVE, "Save", sfSymbol("square.and.arrow.down"), "Save layout");
 #else
 	// Modern SVG icons via wxBitmapBundle, matching the main toolbar. The SVGs are
-	// authored with a #333333 stroke; recolor at load time so they read on both a
-	// light and a dark toolbar.
+	// authored with a #333333 stroke; recolor at load time so they read against
+	// the toolbar they land on. See ToolbarIcons.h.
 	const wxSize oscopeIconSize(18, 18);
-	const bool oscopeDark = wxSystemSettings::GetAppearance().IsDark();
-	const wxString oscopeIconColor = oscopeDark ? "#E6E6E6" : "#333333";
 	auto svgIcon = [&](const char* name) -> wxBitmapBundle {
-		wxString svg = cl::res::text(("icons/" + std::string(name) + ".svg").c_str());
-		if (!svg.empty()) {
-			svg.Replace("#333333", oscopeIconColor);
-			wxScopedCharBuffer buf = svg.utf8_str();
-			wxBitmapBundle b = wxBitmapBundle::FromSVG(buf.data(), oscopeIconSize);
-			if (b.IsOk()) return b;
-		}
-		return wxBitmapBundle(wxArtProvider::GetBitmap(wxART_QUESTION, wxART_TOOLBAR));
+		return cl::toolbarIcon(oscopeToolBar, name, oscopeIconSize);
 	};
 
 	oscopeToolBar->SetToolBitmapSize(oscopeIconSize);
