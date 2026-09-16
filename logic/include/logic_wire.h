@@ -92,6 +92,14 @@ public:
 	// Disconnect a gate input from this wire's output:
 	void disconnectOutput( IDType gateID, string gateInputID );
 
+	// Drop every reference to a gate, whichever pin it sat on, and report how
+	// many went. The two calls above take a gate AND a pin name, so they only
+	// unhook what the gate itself remembers being hooked to. A gate being
+	// destroyed needs the stronger guarantee that nothing is left pointing at
+	// it: a wire that keeps a dead gate in its output list hands that id
+	// straight to the simulation on the next step. See Circuit::deleteGate.
+	size_t forgetGate( IDType gateID );
+
 	// Get the first non-external input of the wire:
 	// If there are no non-external inputs, then it returns a WireInput with gateID == ID_NONE;
 	WireInput getFirstInput( void );

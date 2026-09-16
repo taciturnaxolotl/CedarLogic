@@ -194,6 +194,21 @@ void Wire::disconnectOutput( IDType gateID, string gateInputID ) {
 	outputList.erase( WireOutput( gateID, gateInputID ) );
 }
 
+// Every trace of a gate, whichever pin it sat on. Used when the gate is going
+// away for good and the wire must not be left naming it.
+size_t Wire::forgetGate( IDType gateID ) {
+	size_t removed = 0;
+	for( ID_SET< WireInput >::iterator i = inputList.begin(); i != inputList.end(); ) {
+		if( i->gateID == gateID ) { inputList.erase( i++ ); removed++; }
+		else { ++i; }
+	}
+	for( ID_SET< WireOutput >::iterator o = outputList.begin(); o != outputList.end(); ) {
+		if( o->gateID == gateID ) { outputList.erase( o++ ); removed++; }
+		else { ++o; }
+	}
+	return removed;
+}
+
 
 // Get the first non-external input of the wire:
 // If there are no non-external inputs, then it returns a WireInput with gateID == ID_NONE;

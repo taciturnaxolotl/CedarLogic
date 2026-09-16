@@ -310,17 +310,28 @@ void Circuit::deleteGate( IDType theGate ) {
 		disconnectGateInput( theGate, myGate->getFirstConnectedInput() );
 	}
 
-	// Remove the gate from the update list, since disconnectGateInput()
-	// will add it, and we don't want it updating after it's gone!
-	gateUpdateList.erase( theGate );
-
 	// Delete the gate's outputs:
 	while( myGate->getFirstConnectedOutput() != "" ) {
 		disconnectGateOutput( theGate, myGate->getFirstConnectedOutput() );
 	}
 	
 	// Remove the gate from the circuit:
+	// Before it goes, make sure no wire is left naming it. The disconnect loops
+	// above ask the GATE which wires it is on, so they only unhook what the gate
+	// itself remembers. Any wire that holds a connection the gate has forgotten
+	// survives that, and a wire's output list feeds gate ids straight into the
+	// next simulation step -- which is the crash this used to produce, arriving
+	// somewhere that looked unrelated. Sweep instead of trusting the gate's own
+	// bookkeeping: deleting is a user action, not a hot path.
+	for( ID_MAP< IDType, WIRE_PTR >::iterator w = wireList.begin(); w != wireList.end(); ++w ) {
+		if( w->second == nullptr ) continue;
+		if( w->second->forgetGate( theGate ) > 0 ) {
+			WARNING("Circuit::deleteGate() - a wire still referenced the gate.");
+			wireUpdateList.insert( w->first );   // its state may change now
+		}
+	}
 	gateList.erase( theGate );
+	gateUpdateList.erase( theGate );
 	if ( polledGates.find( theGate ) != polledGates.end() ) polledGates.erase( theGate );
 }
 

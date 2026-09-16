@@ -1007,3 +1007,33 @@ TEST_CASE("deleting a gate that is queued for update leaves no dangling id") {
 	stepN(c, 3);
 	CHECK(true);
 }
+
+TEST_CASE("no wire keeps a reference to a deleted gate") {
+	// The invariant behind the crash: an id reaches the simulation through a
+	// wire's output list, so a wire outliving a gate it names is the real
+	// defect. deleteGate sweeps the wires rather than trusting the gate to
+	// remember every wire it was ever on.
+	Circuit c;
+	IDType drv = makeDriver(c, 1);
+	IDType a = c.newGate("AND");
+	IDType b = c.newGate("AND");
+	c.setGateParameter(a, "INPUT_BITS", "2");
+	c.setGateParameter(b, "INPUT_BITS", "2");
+
+	// One wire driving two gates, so the wire's output list holds both.
+	c.connectGateOutput(drv, "OUT_0", 500);
+	c.connectGateInput(a, "IN_0", 500);
+	c.connectGateInput(b, "IN_0", 500);
+	stepN(c, 3);
+
+	c.deleteGate(a);
+
+	// The wire must no longer name the deleted gate, and the survivor must be
+	// untouched. Reading the wire's state is enough to walk its lists.
+	stepN(c, 3);
+	CHECK(c.getWireState(500) == ONE);
+
+	c.deleteGate(b);
+	c.deleteGate(drv);
+	stepN(c, 3);
+}
