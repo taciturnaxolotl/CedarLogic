@@ -343,27 +343,48 @@ void Circuit::deleteWire( IDType theWire ) {
 	WIRE_PTR myWire = wireList[theWire];
 	
 	// Delete the wire's inputs:
+	// The loop re-reads the wire each time, so it only ends when the callee
+	// actually removes the entry. disconnectGateOutput declines to do that when
+	// the gate has already gone, which used to spin here forever. Drop the
+	// entry ourselves if the call did not.
 	WireInput tempI = myWire->getFirstInput();
 	while( tempI.gateID != ID_NONE ) {
 		disconnectGateOutput( tempI.gateID, tempI.gateOutputID );
-		tempI = myWire->getFirstInput();
+		WireInput next = myWire->getFirstInput();
+		if( next.gateID == tempI.gateID && next.gateOutputID == tempI.gateOutputID ) {
+			WARNING("Circuit::deleteWire() - input would not detach; dropping it.");
+			myWire->disconnectInput( tempI.gateID, tempI.gateOutputID );
+			next = myWire->getFirstInput();
+		}
+		tempI = next;
 	}
 
 	// Remove the wire from all connected junctions:
 	// (This will put all of the connected wires into the update list to have their
 	// state updated during the next step.)
+	// forgetWire, not disconnectJunction: a wire connected to one junction twice
+	// appears once in this deduplicated set, so a single disconnect would leave
+	// the junction holding a wire that is about to be destroyed.
 	ID_SET< IDType > wireJuncs = myWire->getJunctions();
 	ID_SET< IDType >::iterator theJunc = wireJuncs.begin();
 	while( theJunc != wireJuncs.end() ) {
 		disconnectJunction( *theJunc, theWire );
+		if( JUNC_PTR junc = getJunction( *theJunc ) ) junc->forgetWire( theWire );
 		theJunc++;
 	}
 
 	// Delete the wire's outputs:
+	// Same guard as the input loop above.
 	WireOutput tempO = myWire->getFirstOutput();
 	while( tempO.gateID != ID_NONE ) {
 		disconnectGateInput( tempO.gateID, tempO.gateInputID );
-		tempO = myWire->getFirstOutput();
+		WireOutput next = myWire->getFirstOutput();
+		if( next.gateID == tempO.gateID && next.gateInputID == tempO.gateInputID ) {
+			WARNING("Circuit::deleteWire() - output would not detach; dropping it.");
+			myWire->disconnectOutput( tempO.gateID, tempO.gateInputID );
+			next = myWire->getFirstOutput();
+		}
+		tempO = next;
 	}
 
 	// Remove the wire from the update list, since disconnectGateOutput()

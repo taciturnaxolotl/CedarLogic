@@ -35,6 +35,13 @@ public:
 	// plugged to this junction.
 	bool disconnectWire( IDType wireID );
 
+	// Drop every copy of a wire and report how many went. disconnectWire above
+	// removes one copy per call by design, so connecting a wire twice takes two
+	// disconnects to undo. That is wrong for a wire being destroyed: the caller
+	// walks a deduplicated set of junctions and so calls once, leaving the
+	// junction naming a wire that no longer exists. See Circuit::deleteWire.
+	size_t forgetWire( IDType wireID );
+
 	// Get the list of wires that are attached to this junction:
 	// Return a blank list if there are none.
 	ID_SET< IDType > getWires( void ) {

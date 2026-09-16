@@ -180,11 +180,18 @@ void klsClipboard::copyBlock( GUICircuit* gCircuit, GUICanvas* gCanvas, vector <
 	// Now actually generate copy of wire
 	for (unsigned int i = 0; i < copyWires.size(); i++) {
 		vector < wireConnection > wconns = copyWires[i]->getConnections();
+		// A wire needs two ends to be worth copying, and the wire has to still
+		// be in the circuit for its bus ids to be readable. Neither was checked:
+		// a wire left with fewer than two connections read past the end of the
+		// list, and a missing wire was dereferenced through an accessor whose
+		// whole job is to return null.
+		guiWire *sourceWire = gCircuit->getWire(copyWires[i]->getID());
+		if (wconns.size() < 2 || sourceWire == nullptr) continue;
 		// now generate the connections - connections 1 and 2 must be passed to create the wire
 		//	after which all connections may be done in succession.
 		cmdConnectWire *conn1 = new cmdConnectWire(gCircuit, copyWires[i]->getID(), wconns[0].gid, wconns[0].connection);
 		cmdConnectWire *conn2 = new cmdConnectWire(gCircuit, copyWires[i]->getID(), wconns[1].gid, wconns[1].connection);
-		cmdTemp = new cmdCreateWire(gCanvas, gCircuit, gCircuit->getWire(copyWires[i]->getID())->getIDs(), conn1, conn2);
+		cmdTemp = new cmdCreateWire(gCanvas, gCircuit, sourceWire->getIDs(), conn1, conn2);
 		oss << cmdTemp->toString() << endl;
 		delete cmdTemp;
 		for (unsigned int j = 2; j < wconns.size(); j++) {

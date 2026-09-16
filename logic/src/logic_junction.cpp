@@ -45,3 +45,9 @@ bool Junction::disconnectWire( IDType wireID ) {
 
 	return ( wireList.find( wireID ) == wireList.end() );
 }
+
+// Every copy, for a wire that is being destroyed. multiset::erase(key) removes
+// them all, which is exactly what one-at-a-time disconnectWire must not do.
+size_t Junction::forgetWire( IDType wireID ) {
+	return wireList.erase( wireID );
+}
