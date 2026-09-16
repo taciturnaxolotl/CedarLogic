@@ -183,6 +183,14 @@ endif()
 ### Build Config.
 ###
 
+# Our sources are UTF-8. Without this MSVC reads them in whatever ANSI code page
+# the build machine happens to use, which turns non-ASCII characters in string
+# literals into mojibake on screen and non-ASCII in comments into warnings. It
+# sits below the wxWidgets fetch on purpose so it only reaches our own targets.
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
+
 # Glob all the source files to be added when CedarLogic executable is added later.
 file(GLOB SRC_FILES
 	"${PROJECT_SOURCE_DIR}/src/*.cpp"

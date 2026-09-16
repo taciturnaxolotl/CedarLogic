@@ -44,7 +44,7 @@ void applyRenames(CircuitFile &cf, std::vector<MigrationNotice> &out) {
 				n.autoFixed = true;
 				if (r.note) {
 					n.severity = Severity::Warning;
-					n.summary = oldName + " is deprecated — replaced with " + r.to;
+					n.summary = oldName + " is deprecated, replaced with " + r.to;
 					n.detail = r.note;
 				} else {
 					n.severity = Severity::Info;

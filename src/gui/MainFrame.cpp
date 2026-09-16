@@ -1262,10 +1262,12 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 
 	// Resolution box with better spacing
 	wxStaticBoxSizer* resBox = new wxStaticBoxSizer(wxVERTICAL, &exportDialog, "Resolution");
-	wxString resolutions[] = {"Screen (2×)", "Print (4×)", "High Quality (6×)"};
-	wxRadioButton* screen2x = new wxRadioButton(&exportDialog, wxID_ANY, "Screen (2×)", wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
-	wxRadioButton* print4x = new wxRadioButton(&exportDialog, wxID_ANY, "Print (4×)");
-	wxRadioButton* high6x = new wxRadioButton(&exportDialog, wxID_ANY, "High Quality (6×)");
+	// The multiplication sign goes in as a \u escape in a wide literal. Written
+	// as raw UTF-8 bytes in a narrow literal it gets re-read one byte at a time
+	// under the Windows ANSI code page and reaches the dialog as mojibake.
+	wxRadioButton* screen2x = new wxRadioButton(&exportDialog, wxID_ANY, L"Screen (2\u00d7)", wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
+	wxRadioButton* print4x = new wxRadioButton(&exportDialog, wxID_ANY, L"Print (4\u00d7)");
+	wxRadioButton* high6x = new wxRadioButton(&exportDialog, wxID_ANY, L"High Quality (6\u00d7)");
 	print4x->SetValue(true); // Default to Print
 	resBox->Add(screen2x, 0, wxALL, 5);
 	resBox->Add(print4x, 0, wxALL, 5);
