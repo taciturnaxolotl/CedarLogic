@@ -997,7 +997,16 @@ void guiWire::mergeSegments() {
 			(isectWalk->second).insert((isectWalk->second).begin(), isectSegIDs.begin(), isectSegIDs.end());
 			vector < long > newIsectVector;
 			for (unsigned int i = 0; i < (isectWalk->second).size(); i++) {
-				if (newSegMap[mapIDs[(isectWalk->second)[i]]].isVertical() != (segWalk->second).isVertical()) newIsectVector.push_back(mapIDs[(isectWalk->second)[i]]);
+				// Resolve without inventing. Both of these are maps, so indexing
+				// with an id the wire does not have would add a zero to mapIDs
+				// and then a blank segment to newSegMap, quietly attaching the
+				// crossing to a segment of no length, which then gets written
+				// back out on the next save.
+				map< long, long >::iterator mapped = mapIDs.find((isectWalk->second)[i]);
+				if (mapped == mapIDs.end()) continue;
+				map< long, wireSegment >::iterator target = newSegMap.find(mapped->second);
+				if (target == newSegMap.end()) continue;
+				if (target->second.isVertical() != (segWalk->second).isVertical()) newIsectVector.push_back(mapped->second);
 			}
 			(isectWalk->second) = newIsectVector;
 			isectWalk++;

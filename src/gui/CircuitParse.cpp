@@ -314,6 +314,20 @@ void CircuitParse::applyWireShape(const cl::WireInstance &w) {
 		for (const cl::WireConn &c : ms.connects) {
 			wireConnection nwc;
 			nwc.gid = strtoul(c.gateUuid.c_str(), nullptr, 10);
+			// This shape is walked later by routing code that resolves each of
+			// these gates and uses the result without checking. A file naming a
+			// gate that is not on this page crashed there, a long way from here,
+			// so drop the connection now and say so.
+			if (gCircuit->getGate(nwc.gid) == nullptr) {
+				cl::MigrationNotice n;
+				n.severity = cl::Severity::Warning;
+				n.summary = "A connection on wire " +
+				            (w.ids.empty() ? string("(no id)") : w.ids.front()) +
+				            " names gate " + c.gateUuid + ", which is not on this page.";
+				n.detail = "That connection was dropped. The rest of the wire loaded normally.";
+				applyNotices.push_back(std::move(n));
+				continue;
+			}
 			nwc.connection = c.pin;
 			seg.connections.push_back(nwc);
 		}
@@ -323,6 +337,9 @@ void CircuitParse::applyWireShape(const cl::WireInstance &w) {
 	}
 
 	guiWire *wire = gCircuit->getWire(ids.front());
+	// An empty shape leaves setSegmentMap dereferencing begin() and rbegin() on
+	// an empty map, so keep whatever routing the wire already has.
+	if (shape.empty()) return;
 	wire->setIDs(ids);
 	wire->setSegmentMap(shape);
 }

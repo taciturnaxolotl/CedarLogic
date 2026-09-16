@@ -23,16 +23,25 @@ cmdAddTab::cmdAddTab(GUICircuit* gCircuit, wxAuiNotebook* book,
 }
 
 bool cmdAddTab::Do() {
-	canvases->push_back(new GUICanvas(canvasBook, gCircuit, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS));
+	// Reuse the canvas from the first Do, so a redo restores the very object
+	// the rest of the undo history is still pointing at.
+	if (addedCanvas == nullptr) {
+		addedCanvas = new GUICanvas(canvasBook, gCircuit, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS);
+	}
+	canvases->push_back(addedCanvas);
 	wxString oss;
 	oss << "Page " << canvases->size();
-	canvasBook->AddPage(canvases->at(canvases->size() - 1), oss, (false));
+	addedCanvas->Show();
+	canvasBook->AddPage(addedCanvas, oss, (false));
 	return true;
 }
 
 bool cmdAddTab::Undo() {
 	canvases->erase(canvases->end() - 1);
-	canvasBook->DeletePage(canvasBook->GetPageCount() - 1);
+	// RemovePage, not DeletePage: the latter destroys the window, and commands
+	// still in the undo history hold pointers to it.
+	canvasBook->RemovePage(canvasBook->GetPageCount() - 1);
+	if (addedCanvas != nullptr) addedCanvas->Hide();
 	return true;
 }
 
