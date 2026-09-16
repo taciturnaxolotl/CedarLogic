@@ -19,6 +19,7 @@
 #include "wx/stdpaths.h"
 #ifdef WITH_SKIA
 #include "render/SkiaProbe.h"   // headless --skia-probe (no Skia headers leak here)
+#include "render/RendererHealth.h"
 #endif
 #include "wx/fileconf.h"
 
@@ -761,9 +762,19 @@ void MainApp::SetCurrentCanvas(wxGLCanvas *canvas)
 		// the newest profile macOS offers and the one Ganesh expects. Windows and
 		// Linux already hand out a modern compatibility context, so they keep the
 		// driver default.
-		wxGLContextAttrs ctxAttrs;
-		ctxAttrs.CoreProfile().EndList();
-		glContext = new wxGLContext(canvas, NULL, &ctxAttrs);
+		//
+		// Except when simulating an old machine. The processor fallback draws
+		// with the fixed pipeline, which a core profile removes, so a forced
+		// failure has to take the legacy context too. Otherwise the test would
+		// cover a combination no real machine has: Windows and Linux, where the
+		// fallback actually runs, are on compatibility contexts already.
+		if (cl::render::forceGLFailure()) {
+			glContext = new wxGLContext(canvas);
+		} else {
+			wxGLContextAttrs ctxAttrs;
+			ctxAttrs.CoreProfile().EndList();
+			glContext = new wxGLContext(canvas, NULL, &ctxAttrs);
+		}
 #else
 		glContext = new wxGLContext(canvas);
 #endif

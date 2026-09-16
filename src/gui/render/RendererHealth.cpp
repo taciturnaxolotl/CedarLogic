@@ -69,7 +69,7 @@ void noteRendererFailure(const char* what) {
 	// Also on stderr, which is where it lands when the app is run from a terminal
 	// on macOS or Linux. On Windows the app has no console, so the message a user
 	// actually sees is the one rendererFailureMessage builds.
-	std::fprintf(stderr, "CedarLogic: cannot draw canvas (%s). GL is %s.\n",
+	std::fprintf(stderr, "CedarLogic: drawing on the processor (%s). GL is %s.\n",
 	             gFailure.c_str(), glImplementation().c_str());
 }
 
@@ -88,15 +88,18 @@ std::string rendererFailureMessage() {
 		return
 			"CedarLogic ran into a rendering issue; more information is below\n\n"
 			"Graphics: " + glImplementation() + "\n\n"
-			"This computer has no working 3D graphics. Turn on 3D acceleration "
-			"for the virtual machine, or install a graphics driver.";
+			"This computer has no working 3D graphics, so CedarLogic is drawing "
+			"with the processor instead. Circuits still work, but the display "
+			"will be slow. Turn on 3D acceleration for the virtual machine, or "
+			"install a graphics driver.";
 	}
 
 	return
 		"CedarLogic ran into a rendering issue; more information is below\n\n"
 		"Graphics: " + glImplementation() + "\n"
 		"Error: " + gFailure + "\n\n"
-		"This is a bug in CedarLogic. Please report it with the two lines above.";
+		"CedarLogic is drawing with the processor instead, which is slow. This "
+		"is a bug in CedarLogic. Please report it with the two lines above.";
 }
 
 bool forceGLFailure() {

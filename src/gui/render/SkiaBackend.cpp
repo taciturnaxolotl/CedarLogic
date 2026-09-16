@@ -28,6 +28,7 @@
 #include "encode/SkPngEncoder.h"
 #include "render/SkiaProbe.h"
 #include "render/RendererHealth.h"
+#include "render/RasterPresent.h"
 #include "render/SkiaScene.h"
 #include "core/SkFontMetrics.h"
 #include "core/SkFontMgr.h"
@@ -313,24 +314,84 @@ bool skiaRenderToPng(const char* path, int width, int height,
 	return SkPngEncoder::Encode(&out, pixmap, SkPngEncoder::Options{});
 }
 
+// One frame's drawing target, and how it reaches the screen.
+//
+// Normally that is the window's own framebuffer through Ganesh, and presenting
+// is a flush. When the graphics driver cannot carry Ganesh, the same frame is
+// drawn into a CPU image and copied into the window instead. Callers draw the
+// same way for both, which is the point: the fallback is not a second renderer,
+// it is the same renderer with a different way out.
+class WindowFrame {
+public:
+	WindowFrame(int width, int height, int fboId)
+			: fWidth(width), fHeight(height) {
+		SkiaBackend& backend = SkiaBackend::get();
+		fSurface = backend.windowSurface(width, height, fboId);
+		if (fSurface) {
+			fCtx = backend.context();
+			// The GL context is shared with wx and the other canvases, so its
+			// state changes behind Skia's back between frames. Invalidate Skia's
+			// cached GL state each frame or stale bindings corrupt the render
+			// (flashing, stretched glyphs from a wrong texture/transform).
+			if (fCtx) fCtx->resetContext();
+			return;
+		}
+		fSurface = backend.rasterSurface(width, height);
+	}
+
+	bool valid() const { return fSurface != nullptr; }
+	SkSurface* surface() { return fSurface.get(); }
+	SkCanvas* canvas() { return fSurface->getCanvas(); }
+
+	bool present() {
+		if (fCtx) {
+			// Flush the recorded work to GL; the caller does the SwapBuffers.
+			fCtx->flushAndSubmit();
+			return true;
+		}
+		// Read the CPU image out bottom-up, the order OpenGL wants it, and copy
+		// it into the window with the one drawing call every driver has.
+		// The buffers are kept between frames: this runs on every repaint, and a
+		// full-window image is megabytes, so allocating a pair each time would
+		// add churn to the one path that is already the slow one.
+		static std::vector<unsigned char> src, dst;
+		SkImageInfo info = SkImageInfo::Make(fWidth, fHeight, kRGB_888x_SkColorType,
+		                                     kUnpremul_SkAlphaType);
+		const size_t srcRow = (size_t)fWidth * 4;
+		const size_t dstRow = (size_t)fWidth * 3;
+		src.resize((size_t)fHeight * srcRow);
+		dst.resize((size_t)fHeight * dstRow);
+		if (!fSurface->readPixels(info, src.data(), srcRow, 0, 0)) return false;
+
+		for (int y = 0; y < fHeight; y++) {
+			const unsigned char* s = src.data() + (size_t)y * srcRow;
+			unsigned char* d = dst.data() + (size_t)(fHeight - 1 - y) * dstRow;
+			for (int x = 0; x < fWidth; x++) {
+				d[x * 3 + 0] = s[x * 4 + 0];
+				d[x * 3 + 1] = s[x * 4 + 1];
+				d[x * 3 + 2] = s[x * 4 + 2];
+			}
+		}
+		presentRGB(fWidth, fHeight, dst.data());
+		return true;
+	}
+
+private:
+	int fWidth, fHeight;
+	sk_sp<SkSurface> fSurface;
+	GrDirectContext* fCtx = nullptr;   // null on the CPU path
+};
+
 bool skiaRenderWindow(int width, int height, int fboId,
                       const std::function<void(Scene&)>& draw, float strokeScale) {
 	SkiaBackend& backend = SkiaBackend::get();
-	sk_sp<SkSurface> surface = backend.windowSurface(width, height, fboId);
-	if (!surface) return false;
-	GrDirectContext* ctx = backend.context();
-	// The GL context is shared with wx and (until they migrate) other GL canvases,
-	// so its state changes behind Skia's back between frames. Invalidate Skia's
-	// cached GL state each frame or stale bindings corrupt the render (flashing,
-	// stretched glyphs from a wrong texture/transform).
-	if (ctx) ctx->resetContext();
-	SkCanvas* canvas = surface->getCanvas();
+	WindowFrame frame(width, height, fboId);
+	if (!frame.valid()) return false;
+	SkCanvas* canvas = frame.canvas();
 	canvas->clear(SK_ColorWHITE);
 	SkiaScene scene(canvas, backend.defaultFont(), strokeScale);
 	draw(scene);
-	// Flush the recorded work to GL and hand back to the caller to SwapBuffers.
-	if (ctx) ctx->flushAndSubmit();
-	return true;
+	return frame.present();
 }
 
 bool SkiaBackend::minimapCacheHit(unsigned long long key, int w, int h) const {
@@ -365,11 +426,9 @@ bool skiaRenderWindowScene(int width, int height, int fboId,
                            const std::function<void(Scene&)>& drawScene,
                            const std::function<void(Scene&)>& drawOverlay) {
 	SkiaBackend& backend = SkiaBackend::get();
-	sk_sp<SkSurface> surface = backend.windowSurface(width, height, fboId);
-	if (!surface) return false;
-	GrDirectContext* ctx = backend.context();
-	if (ctx) ctx->resetContext();
-	SkCanvas* canvas = surface->getCanvas();
+	WindowFrame frame(width, height, fboId);
+	if (!frame.valid()) return false;
+	SkCanvas* canvas = frame.canvas();
 	canvas->clear(SK_ColorWHITE);
 
 	// Grid: camera-dependent (fills the viewport), so drawn live every frame.
@@ -409,8 +468,7 @@ bool skiaRenderWindowScene(int width, int height, int fboId,
 		drawOverlay(overlay);
 	}
 
-	if (ctx) ctx->flushAndSubmit();
-	return true;
+	return frame.present();
 }
 
 bool skiaRenderWindowCached(int width, int height, int fboId,
@@ -419,11 +477,9 @@ bool skiaRenderWindowCached(int width, int height, int fboId,
                             const std::function<void(Scene&)>& drawOverlay,
                             float strokeScale) {
 	SkiaBackend& backend = SkiaBackend::get();
-	sk_sp<SkSurface> surface = backend.windowSurface(width, height, fboId);
-	if (!surface) return false;
-	GrDirectContext* ctx = backend.context();
-	if (ctx) ctx->resetContext();
-	SkCanvas* canvas = surface->getCanvas();
+	WindowFrame frame(width, height, fboId);
+	if (!frame.valid()) return false;
+	SkCanvas* canvas = frame.canvas();
 	canvas->clear(SK_ColorWHITE);
 
 	if (backend.minimapCacheHit(contentKey, width, height)) {
@@ -434,14 +490,13 @@ bool skiaRenderWindowCached(int width, int height, int fboId,
 		SkiaScene scene(canvas, backend.defaultFont(), strokeScale);
 		drawStatic(scene);
 		// Snapshot the circuit layer (before the overlay) for reuse on pan.
-		backend.setMinimapCache(surface->makeImageSnapshot(), contentKey,
+		backend.setMinimapCache(frame.surface()->makeImageSnapshot(), contentKey,
 		                        width, height);
 	}
 	// The moving overlay (viewport rectangle) is always redrawn on top.
 	SkiaScene overlay(canvas, backend.defaultFont(), strokeScale);
 	drawOverlay(overlay);
-	if (ctx) ctx->flushAndSubmit();
-	return true;
+	return frame.present();
 }
 
 bool skiaRenderToSvg(const char* path, int width, int height,

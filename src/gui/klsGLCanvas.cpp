@@ -15,6 +15,7 @@
 #include "paramDialog.h"
 #include "render/RendererHealth.h"
 #include "wx/msgdlg.h"
+#include <cstdio>
 
 // Included to use the min() and max() templates:
 #include <algorithm>
@@ -175,7 +176,7 @@ void klsGLCanvas::wxOnPaint(wxPaintEvent& event) {
 	wxPaintDC dc(this);
 	wxGetApp().SetCurrentCanvas(this);
 	// With a context current, ask the driver what it is. Costs nothing after the
-	// first answer, and it is the one fact a "the canvas is blank" report never
+	// first answer, and it is the one fact a "drawing is slow" report never
 	// carries. See render/RendererHealth.h.
 	cl::render::noteGLImplementation(
 		(const char*)glGetString(GL_VENDOR),
@@ -185,32 +186,33 @@ void klsGLCanvas::wxOnPaint(wxPaintEvent& event) {
 	// blending, and pixel store per draw. (The old fixed-function setup would
 	// also be invalid under the core profile macOS now asks for.)
 	if (!renderSkiaLive()) {
-		// Skia declined the frame (see SkiaBackend, which reports why once).
-		// Clear anyway: an untouched back buffer swaps in as black, and a black
-		// canvas reads as a broken app rather than a renderer that gave up.
+		// Neither the graphics driver nor the processor fallback could produce a
+		// frame. Clear anyway: an untouched back buffer swaps in as black, and a
+		// black canvas reads as a broken app rather than a renderer that gave up.
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
-		// White is also indistinguishable from an empty circuit that drew
-		// perfectly, so say out loud what happened.
-		announceRendererFailure();
 	}
+	// Outside the branch on purpose. The usual outcome now is that the fallback
+	// drew the frame, so nothing looks wrong except the speed, and the reason for
+	// the speed is exactly what wants saying.
+	announceRendererFailure();
 
 	// Show the new buffer:
 	glFlush();
 	SwapBuffers();
 }
 
-// Tell the user, once per run, that the canvas is blank because this machine's
-// OpenGL is not up to it. Without this the app looks like it started fine and
-// then silently refuses every gate. Deferred with CallAfter, because a modal
-// dialog opened from inside a paint handler repaints the window it came from.
+// Tell the user, once per run, that the graphics driver could not be used and
+// the processor is drawing instead. Without this the program is just mysteriously
+// slow. Deferred with CallAfter, because a modal dialog opened from inside a
+// paint handler repaints the window it came from.
 void klsGLCanvas::announceRendererFailure() {
 	static bool announced = false;
 	if (announced || !cl::render::rendererFailed()) return;
 	announced = true;
 	const wxString msg = cl::render::rendererFailureMessage();
 	CallAfter([msg] {
-		wxMessageBox(msg, "Cannot draw circuits", wxOK | wxICON_WARNING);
+		wxMessageBox(msg, "Rendering issue", wxOK | wxICON_WARNING);
 	});
 }
 
