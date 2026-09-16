@@ -410,6 +410,13 @@ void Circuit::deleteJunction( IDType theJunc ) {
 	ID_SET< IDType >::iterator theWire = juncWires.begin();
 	while( theWire != juncWires.end() ) {
 		disconnectJunction( theJunc, *theWire );
+		// disconnectJunction only tells the wire to forget this junction when
+		// the junction reports the wire fully detached, which it does not for a
+		// wire attached twice. The junction is about to be destroyed either way,
+		// so make sure no wire is left naming it -- otherwise those wires
+		// quietly stop being grouped and the simulation goes wrong with no
+		// warning at all.
+		if( WIRE_PTR w = getWire( *theWire ) ) w->removeJunction( theJunc );
 		theWire++;
 	}
 

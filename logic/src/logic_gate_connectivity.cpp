@@ -196,12 +196,22 @@ IDType Gate_JUNCTION::disconnectInput( string inputID ) {
 	if( wireID != ID_NONE ) {
 		// Unhook the wire from the Junction in the Circuit:
 		myCircuit->disconnectJunction( (*(myCircuit->getJunctionIDs()))[myID], wireID );
-	}
 
-	// Erase the wire from our tracking list, so that we won't keep it anymore:
-	if( myWireCounts[wireID] == 1 ) {
-		myWires.erase( wireID );
-		myWireCounts.erase( wireID );
+		// Erase the wire from our tracking list, so that we won't keep it anymore:
+		// The count has to come DOWN, not just be tested for one. Testing alone
+		// meant a wire connected twice stuck at two and was never released, so
+		// this gate went on naming it after it was destroyed. Looking the count
+		// up with operator[] also invented a zero for a wire we never recorded,
+		// including for ID_NONE, which is why this is inside the guard now.
+		ID_MAP< IDType, unsigned long >::iterator count = myWireCounts.find( wireID );
+		if( count != myWireCounts.end() ) {
+			if( count->second > 1 ) {
+				count->second -= 1;
+			} else {
+				myWires.erase( wireID );
+				myWireCounts.erase( count );
+			}
+		}
 	}
 
 	return wireID;

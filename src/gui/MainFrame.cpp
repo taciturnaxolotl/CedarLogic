@@ -438,22 +438,15 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	simTimer = new wxTimer(this, TIMER_ID);
 	idleTimer = new wxTimer(this, IDLETIMER_ID);
 	stopTimers();
-	startTimers(TIMER_POLL_MS);
 
-	// Start the cadence pump (see MainFrame.h). One event in flight at a time, so
-	// a busy GUI thread can't accumulate a backlog of pump events.
+	// The cadence pump (see MainFrame.h). One event in flight at a time, so a
+	// busy GUI thread cannot accumulate a backlog of pump events.
+	// Bound here, but neither the timers nor the thread start until the end of
+	// the constructor: a pump event runs drainLogicMessages, which opens the
+	// file named on the command line, and offerRecovery below puts up a modal
+	// dialog whose nested event loop would dispatch exactly that. The circuit
+	// would be torn down and rebuilt underneath the recovery prompt.
 	Bind(wxEVT_THREAD, &MainFrame::OnSimPump, this, ID_SIM_PUMP);
-	simPumpRun = true;
-	simPumpThread = std::thread([this]() {
-		while (simPumpRun.load()) {
-			// Poll well under the step interval so a step fires close to when it is
-			// actually due; a coarse poll is what quantised the cadence (see OnTimer).
-			std::this_thread::sleep_for(std::chrono::milliseconds(2));
-			if (!simPumpRun.load()) break;
-			if (simPumpPending.exchange(true)) continue;
-			wxQueueEvent(this, new wxThreadEvent(wxEVT_THREAD, ID_SIM_PUMP));
-		}
-	});
 
 	// Setup the "Maximize Catch" flag:
 	sizeChanged = false;
@@ -486,6 +479,21 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	this->openedFilename = cmdFilename;
 
 	offerRecovery();
+
+	// Now that the recovery prompt has been answered, let the clock run. Doing
+	// this earlier let a pump event load a file while the prompt was still open.
+	startTimers(TIMER_POLL_MS);
+	simPumpRun = true;
+	simPumpThread = std::thread([this]() {
+		while (simPumpRun.load()) {
+			// Poll well under the step interval so a step fires close to when it is
+			// actually due; a coarse poll is what quantised the cadence (see OnTimer).
+			std::this_thread::sleep_for(std::chrono::milliseconds(2));
+			if (!simPumpRun.load()) break;
+			if (simPumpPending.exchange(true)) continue;
+			wxQueueEvent(this, new wxThreadEvent(wxEVT_THREAD, ID_SIM_PUMP));
+		}
+	});
 
 	// Autosave on the GUI thread. It used to run on its own thread, which walked
 	// every gate and wire to serialise them while the main thread was free to be

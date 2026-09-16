@@ -103,7 +103,16 @@ std::string rendererFailureMessage() {
 }
 
 bool forceGLFailure() {
-	static const bool forced = std::getenv("CEDAR_FORCE_GL_FAILURE") != nullptr;
+	// Empty, "0", "false" and "no" all mean off, so that clearing the variable
+	// with CEDAR_FORCE_GL_FAILURE= does what it looks like it does rather than
+	// silently switching the fallback on.
+	static const bool forced = [] {
+		const char* v = std::getenv("CEDAR_FORCE_GL_FAILURE");
+		if (v == nullptr || *v == '\0') return false;
+		std::string s = v;
+		for (char& c : s) c = (char)std::tolower((unsigned char)c);
+		return s != "0" && s != "false" && s != "no";
+	}();
 	return forced;
 }
 
