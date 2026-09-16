@@ -75,6 +75,14 @@ guiGate* GUICircuit::createGate(string gateName, long id, bool noOscope) {
 	}
 
 	if (id == -1) id = getNextAvailableGateID();
+
+	// Refuse an id that is already taken. Storing over the entry would destroy
+	// the gate living there, and the canvas, the collision checker and every
+	// wire connected to it all keep raw pointers that would be left dangling.
+	// A file naming the same gate id twice is enough to reach this. Every
+	// caller already handles a null return as "could not make that gate".
+	if (gateList.find(id) != gateList.end()) return nullptr;
+
 	guiGate* newGate = NULL;
 	
 

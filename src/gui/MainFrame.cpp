@@ -689,6 +689,15 @@ void MainFrame::OnNew(wxCommandEvent& event) {
 		canvases.erase(canvases.end() - 1);
 	}
 
+	// DeletePage destroys those canvas windows, and three things were still
+	// pointing at them: this frame's current canvas, the circuit's idea of the
+	// current canvas, and the minimap's borrowed gate and wire lists. Starting
+	// a new circuit from any tab but the first then drew through freed memory.
+	// The open path below does exactly this; new never did.
+	currentCanvas = canvases[0];
+	gCircuit->setCurrentCanvas(currentCanvas);
+	currentCanvas->setMinimap(miniMap);
+
 	currentCanvas->Update(); // Render();
 	this->SetTitle(VERSION_TITLE()); // KAS
 	removeTempFile();
