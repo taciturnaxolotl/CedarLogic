@@ -105,6 +105,9 @@ public:
 	// Render the live frame through Skia's Ganesh GL backend. Returns true if it
 	// painted (caller then just SwapBuffers). Base is a no-op.
 	virtual bool renderSkiaLive() { return false; }
+	// Say once, in a dialog, that this machine's OpenGL is too weak to draw the
+	// canvas. A no-op while the renderer is healthy. See render/RendererHealth.h.
+	void announceRendererFailure();
 	// Unwind any subclass-specific drag state on an abnormal drag end (lost mouse
 	// capture). endDrag() only clears the base flags; subclasses that track their
 	// own drag (new-gate placement, paste, gate move) override this to cancel it.

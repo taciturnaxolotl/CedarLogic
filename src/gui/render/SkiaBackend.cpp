@@ -27,6 +27,7 @@
 #include "core/SkStream.h"
 #include "encode/SkPngEncoder.h"
 #include "render/SkiaProbe.h"
+#include "render/RendererHealth.h"
 #include "render/SkiaScene.h"
 #include "core/SkFontMetrics.h"
 #include "core/SkFontMgr.h"
@@ -80,21 +81,21 @@ SkiaBackend& SkiaBackend::get() {
 
 bool SkiaBackend::ensureContext() {
 	if (fContext) return true;
+	// The test hook, so the blank-canvas path can be walked on a machine whose
+	// graphics are fine. See RendererHealth.h.
+	if (forceGLFailure()) return false;
 	fInterface = GrGLMakeNativeInterface();
 	fContext = GrDirectContexts::MakeGL(fInterface);
 	return fContext != nullptr;
 }
 
-// Say once, on stderr, why the window cannot be painted. Every failure here ends
-// as an unpainted (black) window, which on its own points nowhere -- and the two
-// causes want opposite fixes: a GL context Ganesh will not accept is a driver or
-// Skia-build problem, a framebuffer it will not wrap is ours.
+// Say once why the window cannot be painted. Every failure here ends as an
+// unpainted window, which on its own points nowhere -- and the two causes want
+// opposite fixes: a GL context Ganesh will not accept is a driver problem, a
+// framebuffer it will not wrap is ours. RendererHealth keeps the answer so the
+// app can tell the user rather than leaving a blank rectangle to do it.
 static void reportWindowSurfaceFailure(const char* what) {
-	static bool said = false;
-	if (said) return;
-	said = true;
-	std::fprintf(stderr, "CedarLogic: Skia cannot draw to the window (%s). "
-	                     "The canvas will stay blank.\n", what);
+	noteRendererFailure(what);
 }
 
 sk_sp<SkSurface> SkiaBackend::windowSurface(int width, int height, int fboId,

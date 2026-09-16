@@ -43,6 +43,11 @@ gateImage::gateImage( string gateName, wxWindow *parent, wxWindowID id,
 	inImage = false;
 	renderedPx = 0;
 
+	// The palette is a white surface by construction (see PaletteCanvas), and
+	// erasing is suppressed below, so the tile has to know what to paint under
+	// its thumbnail.
+	SetBackgroundColour(*wxWHITE);
+
 	this->gateName = gateName;
 	update();
 	SetToolTip(gateLibrary().libraries[gateLibrary().gateNameToLibrary[gateName]][gateName].caption);
@@ -53,6 +58,11 @@ gateImage::~gateImage() {
 
 void gateImage::OnPaint(wxPaintEvent &event) {
 	wxPaintDC dc(this);
+	// Erasing is a no-op to keep the palette from flickering, so the tile clears
+	// its own background here. Without this a tile whose thumbnail failed to
+	// render shows whatever was last in that rectangle rather than a blank box.
+	dc.SetBackground(wxBrush(GetBackgroundColour()));
+	dc.Clear();
 	// Sections other than the one on screen are never laid out, so their tiles
 	// have nothing drawn yet; the first paint after being shown is where they
 	// get it. (Rendering all ~420 of them up front just to throw most away is
@@ -190,8 +200,10 @@ bool gateImage::generateImageSkia() {
 	// Layout settles over several size events (the panel columns, then the
 	// scrollbar appearing and narrowing them). Only the last one changes the
 	// picture, so redraw on a genuine change of size and not on each pass.
-	if (px == renderedPx) return true;
-	renderedPx = px;
+	// The bitmap has to be checked too: renderedPx records the size we last drew
+	// *successfully*, so a tile that failed once is retried rather than being
+	// skipped here and left blank for the rest of the session.
+	if (px == renderedPx && gBitmap.IsOk()) return true;
 
 	wxImage img(px, px);
 	cl::render::Transform t = thumbnailTransform(gate, px);
@@ -206,6 +218,7 @@ bool gateImage::generateImageSkia() {
 
 	gImage = img;
 	gBitmap = wxBitmap(img, -1, scale);
+	renderedPx = px;
 	return true;
 }
 

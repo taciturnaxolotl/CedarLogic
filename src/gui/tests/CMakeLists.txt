@@ -63,3 +63,22 @@ if(ENABLE_SANITIZERS AND NOT MSVC)
 endif()
 
 add_test(NAME cmdserialize_tests COMMAND test_cmdserialize)
+
+# How CedarLogic tells a software OpenGL stand-in from a real graphics driver,
+# which decides what it advises someone whose canvas will not draw. Free of
+# wxWidgets, OpenGL, and Skia, so it just needs the one source file.
+add_executable(test_rendererhealth
+	"${CMAKE_CURRENT_SOURCE_DIR}/test_rendererhealth.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/render/RendererHealth.cpp"
+)
+target_include_directories(test_rendererhealth PRIVATE
+	"${PROJECT_SOURCE_DIR}/include/gui"
+)
+target_link_libraries(test_rendererhealth PRIVATE doctest::doctest)
+
+if(ENABLE_SANITIZERS AND NOT MSVC)
+	target_compile_options(test_rendererhealth PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+	target_link_options(test_rendererhealth PRIVATE -fsanitize=address,undefined)
+endif()
+
+add_test(NAME rendererhealth_tests COMMAND test_rendererhealth)
