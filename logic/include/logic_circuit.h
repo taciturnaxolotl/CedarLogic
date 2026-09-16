@@ -166,9 +166,18 @@ public:
 	ID_MAP< string, unsigned long >* getJunctionUseCounter();
 
 protected:
-	// For use by the Junction and Wire classes only:
-	WIRE_PTR getWire(IDType theWire);
-	JUNC_PTR getJunction(IDType theJunc);
+	// Resolve by id without inventing an entry.
+	//
+	// gateList[id] on a miss does not merely return nothing: std::map's
+	// operator[] default-constructs a null pointer, INSERTS it under that id,
+	// and hands it back to be dereferenced. So an unchecked lookup both faults
+	// on the spot and leaves a phantom behind, after which every later
+	// `find(id) != end()` guard in this file succeeds on a gate that is not
+	// there and the crash reappears somewhere that looks careful. Every read of
+	// these three maps goes through here.
+	GATE_PTR getGate(IDType theGate) const;
+	WIRE_PTR getWire(IDType theWire) const;
+	JUNC_PTR getJunction(IDType theJunc) const;
 
 private:
 	// All the gates in the circuit, and the ID counter:

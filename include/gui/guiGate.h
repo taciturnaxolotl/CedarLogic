@@ -236,9 +236,15 @@ public:
 	// instead so it tracks the visible body.
 	klsBBox getSelectionBBox( void ) { return selectionBBox; };
 
-	// Get a hotspot from its name.
+	// Get a hotspot from its name, or nullptr if this gate has no such pin.
+	//
+	// Not hotspots[name]: on a miss that INSERTS a null and hands it back, and
+	// the entry it leaves behind is worse than the null it returns. calcBBox
+	// walks every hotspot on each move and redraw and dereferences them all, so
+	// one bad lookup arms a crash that goes off later, somewhere unrelated.
 	gateHotspot * getHotspot(const std::string &hotspotName) {
-		return hotspots[hotspotName];
+		auto it = hotspots.find(hotspotName);
+		return it != hotspots.end() ? it->second : nullptr;
 	}
 
 	// Get the gate's vertices (for SVG export, etc.)

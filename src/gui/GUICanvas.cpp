@@ -1575,7 +1575,10 @@ klsCommand * GUICanvas::createGateConnectionCommand(IDType gate1Id, const string
 		!gate2->isConnected(hotspot2)) {
 
 
-		vector<IDType> wireIds(gate1->getHotspot(hotspot1)->getBusLines());
+		gateHotspot *hs1 = gate1->getHotspot(hotspot1);
+		if (hs1 == nullptr) return nullptr;   // no such pin on this gate
+
+		vector<IDType> wireIds(hs1->getBusLines());
 
 		// Get the correct number of new, unique wire ids.
 		for (int i = 0; i < (int)wireIds.size(); i++) {

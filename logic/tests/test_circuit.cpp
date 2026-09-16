@@ -946,3 +946,64 @@ TEST_CASE("Every declared gate param round-trips through set/getParameter") {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Regression: a gate id that outlives its gate must not crash the simulation.
+//
+// Reported as a 0xC0000005 access violation on Windows, root-caused by hand
+// disassembling the shipped 3.0.2 binary: Gate::updateGate ran with `this`
+// null, faulting on the write to ourCircuit. The cause was gateList[id] --
+// std::map::operator[] default-constructs a null shared_ptr for a missing key,
+// inserts it, and hands it back to be dereferenced on the spot.
+//
+// These drive the public API into the states that produce a dangling id, and
+// assert only that the engine keeps running. Before the fix each one faults.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("deleting a gate mid-simulation does not crash the next step") {
+	Circuit c;
+	IDType drv = makeDriver(c, 1);
+	IDType gate = c.newGate("AND");
+	c.setGateParameter(gate, "INPUT_BITS", "2");
+	c.connectGateOutput(drv, "OUT_0", 900);
+	c.connectGateInput(gate, "IN_0", 900);
+	stepN(c, 5);
+
+	// Deleting touches gateUpdateList, gateList and the event queue in one go.
+	c.deleteGate(gate);
+	stepN(c, 5);   // used to dereference the deleted gate's id
+	CHECK(true);
+}
+
+TEST_CASE("connecting to a gate that was never created is refused, not fatal") {
+	Circuit c;
+	// newGate reports failure for a type the registry does not know, rather
+	// than handing back an id that names nothing.
+	IDType bogus = c.newGate("NOT_A_REAL_GATE_TYPE");
+	CHECK(bogus == ID_NONE);
+
+	// The GUI can still ask to wire up an id the core never accepted.
+	c.connectGateInput(12345, "IN_0", 901);
+	c.connectGateOutput(12345, "OUT_0", 902);
+	stepN(c, 5);
+	CHECK(true);
+}
+
+TEST_CASE("a re-used gate id is refused rather than silently aliased") {
+	Circuit c;
+	IDType first = c.newGate("AND", 77);
+	CHECK(first == 77);
+	CHECK(c.newGate("OR", 77) == ID_NONE);
+	stepN(c, 2);
+}
+
+TEST_CASE("deleting a gate that is queued for update leaves no dangling id") {
+	Circuit c;
+	IDType gate = c.newGate("AND");
+	// setGateParameter puts the gate on gateUpdateList; deleting before the
+	// next step is what strands the id.
+	c.setGateParameter(gate, "INPUT_BITS", "2");
+	c.deleteGate(gate);
+	stepN(c, 3);
+	CHECK(true);
+}

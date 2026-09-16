@@ -72,8 +72,14 @@ bool cmdConnectWire::validateBusLines() const {
 
 	guiWire *wire = gCircuit->getWire(wireId);
 	guiGate *gate = gCircuit->getGate(gateId);
+	// Do and Undo below already guard these; this path did not, and it is the
+	// one reached straight from a paste, where the ids come from clipboard text
+	// and need not name anything that exists.
+	if (wire == nullptr || gate == nullptr) return false;
 
-	int busLines = gate->getHotspot(hotspot)->getBusLines();
+	gateHotspot *hs = gate->getHotspot(hotspot);
+	if (hs == nullptr) return false;   // no such pin on this gate
+	int busLines = hs->getBusLines();
 
 	// No connections on this wire? Cool. We'll make it a bus when we connect.
 	if (wire->getConnections().empty()) {

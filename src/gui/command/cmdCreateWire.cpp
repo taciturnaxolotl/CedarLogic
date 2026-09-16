@@ -84,8 +84,14 @@ bool cmdCreateWire::validateBusLines() const {
 	std::string hotspot1 = conn1->getHotspot();
 	std::string hotspot2 = conn2->getHotspot();
 
-	int busLines1 = gate1->getHotspot(hotspot1)->getBusLines();
-	int busLines2 = gate2->getHotspot(hotspot2)->getBusLines();
+	// A pin name the gate does not actually have. Reachable from a saved or
+	// pasted circuit naming a pin the gate's current library definition lacks.
+	gateHotspot *hs1 = gate1->getHotspot(hotspot1);
+	gateHotspot *hs2 = gate2->getHotspot(hotspot2);
+	if (hs1 == nullptr || hs2 == nullptr) return false;
+
+	int busLines1 = hs1->getBusLines();
+	int busLines2 = hs2->getBusLines();
 
 	return busLines1 == busLines2 && busLines1 == wireIds.size();
 }
