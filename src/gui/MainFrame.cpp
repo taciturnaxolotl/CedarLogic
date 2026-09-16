@@ -1660,7 +1660,15 @@ void MainFrame::offerRecovery() {
 	// the snapshots for the next real session to offer.
 	if (renderMode().headlessRender) return;
 
-	std::vector<AutosaveEntry> pending = autosaveStore::findRecoverable();
+	// Whether a leftover file holds a circuit, which is how a snapshot caught
+	// mid-write is told from one that was merely never renamed into place.
+	autosaveStore::ReadableTest readable = [](const std::string& path) {
+		cl::LoadResult ignored;
+		std::string error;
+		return CircuitParse::readCircuit(path, ignored, error);
+	};
+
+	std::vector<AutosaveEntry> pending = autosaveStore::findRecoverable(readable);
 	for (unsigned int i = 0; i < pending.size(); i++) {
 		const AutosaveEntry& entry = pending[i];
 		wxString of = entry.originalPath.empty()
