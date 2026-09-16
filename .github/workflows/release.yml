@@ -109,11 +109,29 @@ jobs:
           EXE_SIZE=$(stat -c%s "$EXE_PATH")
           echo "exe_size=$EXE_SIZE" >> $GITHUB_OUTPUT
 
+      # Keep the symbols for this exact build. A crash report from the field
+      # carries module+offset; without the matching .pdb those offsets can never
+      # be turned back into a function and a line, and the build that produced
+      # them disappears the moment this runner is recycled. The installer now
+      # carries a copy too, so reports from a fresh install symbolize
+      # themselves. This zip is what resolves reports from older installs.
+      - name: Stage debug symbols
+        shell: pwsh
+        run: |
+          $pdb = Get-ChildItem -Path build -Filter CedarLogic.pdb -Recurse |
+                 Sort-Object Length -Descending | Select-Object -First 1
+          if (-not $pdb) { throw "No CedarLogic.pdb was produced; crash reports would stay unreadable." }
+          $ver = "${{ steps.version.outputs.version }}"
+          Write-Host "PDB: $($pdb.FullName) ($([math]::Round($pdb.Length/1MB,1)) MB)"
+          Compress-Archive -Path $pdb.FullName -DestinationPath "build/CedarLogic-$ver-win32.pdb.zip" -Force
+
       - name: Upload Windows Installer
         uses: actions/upload-artifact@v7
         with:
           name: windows-installer
-          path: build/CedarLogic-*-win32.exe
+          path: |
+            build/CedarLogic-*-win32.exe
+            build/CedarLogic-*-win32.pdb.zip
 
   build-linux:
     needs: skia

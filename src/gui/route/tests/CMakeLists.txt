@@ -12,6 +12,11 @@ if(BUILD_TESTING)
 		# doctest 2.4.x pins an ancient cmake_minimum_required that CMake >= 4.0
 		# refuses; opt back in until doctest ships a newer minimum.
 		set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+		# doctest installs its headers and cmake config by default, which CPack
+		# then sweeps into the installer -- users were getting include/doctest and
+		# lib/cmake/doctest dropped into Program Files. It is a test dependency;
+		# it has no business in the package.
+		set(DOCTEST_NO_INSTALL ON)
 		FetchContent_MakeAvailable(doctest)
 	endif()
 
