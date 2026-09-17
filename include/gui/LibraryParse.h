@@ -92,6 +92,23 @@ struct LibraryGate {
 	vector < lgDlgParam > dlgParams; // The parameters to be listed in the "settings dialog".
 	map < string, string > guiParams;
 	map < string, string > logicParams;
+
+	// Whether the library owns this GUI param outright: it supplies the value,
+	// and no params dialog lets anyone edit it. Those are the hit boxes and draw
+	// boxes (CLICK_BOX, LED_BOX, VALUE_BOX, KEYPAD_BOX_*) -- part of how a gate
+	// is drawn, not anything a circuit records. They are kept out of saved files
+	// and ignored when read back, so the library stays free to retune a gate's
+	// boxes instead of being pinned by every circuit ever saved. Everything else
+	// -- the angle a gate was turned to, a typed-in label, anything a dialog
+	// exposes -- belongs to the user and round-trips untouched.
+	bool ownsGUIParam( const string &name ) const {
+		// Nothing here to own it: it came from a gate constructor, or the user.
+		if( guiParams.find( name ) == guiParams.end() ) return false;
+		// A params dialog can reach it, so it is the user's to set.
+		for( unsigned int i = 0; i < dlgParams.size(); i++ )
+			if( dlgParams[i].isGui && dlgParams[i].name == name ) return false;
+		return true;
+	}
 };
 
 class LibraryParse {

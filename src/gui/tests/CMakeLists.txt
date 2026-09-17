@@ -87,3 +87,32 @@ if(ENABLE_SANITIZERS AND NOT MSVC)
 endif()
 
 add_test(NAME rendererhealth_tests COMMAND test_rendererhealth)
+
+# Which GUI params a circuit file may carry: the rule that keeps a gate's
+# drawing boxes (hit boxes, keypad cells) out of saved circuits, so the library
+# can retune them without old files pinning the originals. Checked against the
+# real shipped cl_gatedefs.xml. LibraryParse reaches for wxWidgets in one place,
+# so stub/ shadows that header (and MainApp.h) and the test builds with no
+# wxWidgets present.
+add_executable(test_gatelibrary
+	"${CMAKE_CURRENT_SOURCE_DIR}/test_gatelibrary.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/LibraryParse.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/GateLibrary.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/XMLParser.cpp"
+)
+# stub/ comes first so its MainApp.h wins over the real one.
+target_include_directories(test_gatelibrary PRIVATE
+	"${CMAKE_CURRENT_SOURCE_DIR}/stub"
+	"${PROJECT_SOURCE_DIR}/include/gui"
+	"${PROJECT_SOURCE_DIR}/logic/include"
+)
+target_link_libraries(test_gatelibrary PRIVATE doctest::doctest)
+target_compile_definitions(test_gatelibrary PRIVATE
+	"GATEDEFS_PATH=\"${PROJECT_SOURCE_DIR}/res/cl_gatedefs.xml\"")
+
+if(ENABLE_SANITIZERS AND NOT MSVC)
+	target_compile_options(test_gatelibrary PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+	target_link_options(test_gatelibrary PRIVATE -fsanitize=address,undefined)
+endif()
+
+add_test(NAME gatelibrary_tests COMMAND test_gatelibrary)

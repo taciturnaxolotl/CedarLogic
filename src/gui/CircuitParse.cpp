@@ -377,11 +377,23 @@ void CircuitParse::parseGateToSend(string type, string ID, string position, vect
 		paramSet(newGate->getAllGUIParams(), newGate->getAllLogicParams()), true);
 	libparams.Do();
 
+	// Every circuit saved before this filter existed carries the library's hit
+	// boxes and draw boxes baked in, because save used to echo the whole GUI
+	// param set back out. Letting those win would freeze a gate's boxes at
+	// whatever the library shipped the day the file was written, so retuning a
+	// gate could never reach an existing circuit: the keypad would draw its new
+	// digit grid while every click still landed on the old one. The library's
+	// values, already applied at createGate, stay put.
+	LibraryGate libGateParams;
+	gateLibrary().libParser.getGate(type, libGateParams);
+
 	for (unsigned int i = 0; i < params.size(); i++) {
 		if (!(params[i].isGUI)) {
 			newGate->setLogicParam( params[i].paramName, params[i].paramValue );
 			gCanvas->getCircuit()->sendMessageToCore(klsMessage::Message(klsMessage::MT_SET_GATE_PARAM, new klsMessage::Message_SET_GATE_PARAM(id, params[i].paramName, params[i].paramValue)));
-		} else newGate->setGUIParam( params[i].paramName, params[i].paramValue );
+		} else if (!libGateParams.ownsGUIParam( params[i].paramName )) {
+			newGate->setGUIParam( params[i].paramName, params[i].paramValue );
+		}
 	}
 	if( logicType.size() > 0 ) {
 		// Loop through the hotspots and pass logic core hotspot settings:
@@ -444,13 +456,16 @@ static cl::GateInstance buildGate(guiGate *g) {
 	g->getGLcoords(x, y);
 	gi.at = { x, y };
 
+	LibraryGate lg = gateLibrary().libraries[g->getLibraryName()][g->getLibraryGateName()];
+
 	// angle is a first-class field in the model, not a GUI param.
 	for (const auto &p : *g->getAllGUIParams()) {
 		if (p.first == "angle") { gi.angle = atof(p.second.c_str()); continue; }
+		// Hit boxes and draw boxes are the library's, not the circuit's.
+		if (lg.ownsGUIParam(p.first)) continue;
 		gi.params.push_back({ p.first, p.second, true });
 	}
 	// Logic params, skipping FILE_IN/FILE_OUT (runtime paths, as saveGate does).
-	LibraryGate lg = gateLibrary().libraries[g->getLibraryName()][g->getLibraryGateName()];
 	for (const auto &p : *g->getAllLogicParams()) {
 		bool isFile = false;
 		for (size_t i = 0; i < lg.dlgParams.size() && !isFile; i++)
