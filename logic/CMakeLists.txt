@@ -67,8 +67,22 @@ if(BUILD_TESTING)
 		target_compile_options(XMLParser PRIVATE -Wall -pedantic)
 	endif()
 
+	# Same for UpdateInfo: the appcast parsing and version comparison are pure,
+	# so they can be tested here without wx. fetchAppcast is the only part that
+	# touches the network, and it is a no-op on this target.
+	add_library(UpdateInfo STATIC "../src/gui/UpdateInfo.cpp")
+	target_include_directories(UpdateInfo PUBLIC "../include/gui/")
+	if(NOT MSVC)
+		target_compile_options(UpdateInfo PRIVATE -Wall -pedantic)
+	endif()
+	if(WIN32)
+		# fetchAppcast uses WinINet on Windows, so the test build needs it too.
+		# PUBLIC so it reaches test_logic, which links this library.
+		target_link_libraries(UpdateInfo PUBLIC wininet)
+	endif()
+
 	add_executable(test_logic tests/test.cpp tests/test_circuit.cpp)
-	target_link_libraries(test_logic PRIVATE doctest::doctest Logic XMLParser)
+	target_link_libraries(test_logic PRIVATE doctest::doctest Logic XMLParser UpdateInfo)
 
 	# Inject the fixture path so the XML reading test is independent of cwd.
 	target_compile_definitions(test_logic PRIVATE

@@ -1,6 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 #include "XMLParser.h"
+#include "UpdateInfo.h"
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -511,5 +512,127 @@ TEST_CASE("XMLParser survives line endings and truncation, [XMLParser]") {
         REQUIRE(parser.readCloseTag() == "");
         REQUIRE(parser.readTag() == "");
         REQUIRE(parser.readTagValue("a") == "");
+    }
+}
+
+// The crash dialog offers an update only if it can tell that one exists, so the
+// appcast reading has to be right about a feed that has nothing newer. The
+// fixtures below are shaped like what scripts/update-appcast.sh actually writes:
+// the version is a child element of <item>, not an attribute of <enclosure>.
+TEST_CASE("UpdateInfo version comparison, [UpdateInfo]") {
+    using cl::update::parseVersion;
+    using cl::update::newerThan;
+
+    SUBCASE("Parses dotted versions") {
+        auto v = parseVersion("3.1.2");
+        REQUIRE(v.valid);
+        REQUIRE(v.count == 3);
+        REQUIRE(v.parts[0] == 3);
+        REQUIRE(v.parts[1] == 1);
+        REQUIRE(v.parts[2] == 2);
+    }
+
+    SUBCASE("Tolerates a leading v and a pre-release suffix") {
+        REQUIRE(parseVersion("v3.10.0").parts[1] == 10);
+        REQUIRE(parseVersion("3.1.2-rc1").parts[2] == 2);
+    }
+
+    SUBCASE("Rejects text with no digits") {
+        REQUIRE_FALSE(parseVersion("").valid);
+        REQUIRE_FALSE(parseVersion("nope").valid);
+    }
+
+    SUBCASE("Compares numerically, not as text") {
+        REQUIRE(newerThan(parseVersion("3.10.0"), parseVersion("3.9.9")));
+        REQUIRE(newerThan(parseVersion("3.1.2"), parseVersion("3.1.1")));
+        REQUIRE_FALSE(newerThan(parseVersion("3.1.1"), parseVersion("3.1.2")));
+    }
+
+    SUBCASE("A missing component counts as zero") {
+        REQUIRE_FALSE(newerThan(parseVersion("3.1"), parseVersion("3.1.0")));
+        REQUIRE_FALSE(newerThan(parseVersion("3.1.0"), parseVersion("3.1")));
+        REQUIRE(newerThan(parseVersion("3.1.1"), parseVersion("3.1")));
+    }
+
+    SUBCASE("Equal versions are not newer") {
+        REQUIRE_FALSE(newerThan(parseVersion("3.1.1"), parseVersion("3.1.1")));
+    }
+}
+
+TEST_CASE("UpdateInfo splits a feed URL, [UpdateInfo]") {
+    using cl::update::splitUrl;
+    std::string host, path;
+
+    SUBCASE("Splits host from path") {
+        REQUIRE(splitUrl("https://taciturnaxolotl.github.io/CedarLogic/appcast.xml", host, path));
+        REQUIRE(host == "taciturnaxolotl.github.io");
+        REQUIRE(path == "/CedarLogic/appcast.xml");
+    }
+
+    SUBCASE("A bare host gets a root path") {
+        REQUIRE(splitUrl("https://example.com", host, path));
+        REQUIRE(path == "/");
+    }
+
+    SUBCASE("Rejects a URL with no scheme or no host") {
+        REQUIRE_FALSE(splitUrl("notaurl", host, path));
+        REQUIRE_FALSE(splitUrl("https://", host, path));
+    }
+}
+
+TEST_CASE("UpdateInfo reads the appcast, [UpdateInfo]") {
+    using cl::update::appcastLatest;
+    using cl::update::Version;
+
+    // Real shape: <sparkle:version> is an element on the item, and the
+    // enclosure's attributes are spread over several lines.
+    const std::string feed =
+        "<rss><channel>"
+        "<item><title>Version 3.1.2</title>"
+        "<sparkle:version>3.1.2</sparkle:version>"
+        "<enclosure\n"
+        "  url=\"https://example/CedarLogic-3.1.2-Darwin.dmg\"\n"
+        "  sparkle:edSignature=\"mac==\"\n"
+        "  length=\"14439159\"\n"
+        "  sparkle:os=\"macos\"/></item>"
+        "<item><sparkle:version>3.1.3</sparkle:version>"
+        "<enclosure url=\"https://example/CedarLogic-3.1.3-win32.exe\" "
+        "sparkle:edSignature=\"win==\" length=\"22064351\" "
+        "sparkle:os=\"windows\" sparkle:installerArguments=\"/S\"/></item>"
+        "<item><sparkle:version>2.9.0</sparkle:version>"
+        "<enclosure url=\"https://example/old.dmg\" sparkle:os=\"macos\"/></item>"
+        "</channel></rss>";
+
+    SUBCASE("Picks the newest release for the requested platform") {
+        Version v;
+        REQUIRE(appcastLatest(feed, "macos", v));
+        CHECK(v.parts[0] == 3);
+        CHECK(v.parts[1] == 1);
+        CHECK(v.parts[2] == 2);
+    }
+
+    SUBCASE("Platforms do not bleed into each other") {
+        Version v;
+        REQUIRE(appcastLatest(feed, "windows", v));
+        CHECK(v.parts[2] == 3);
+    }
+
+    SUBCASE("A platform with no enclosure reports unknown, not up to date") {
+        Version v;
+        REQUIRE_FALSE(appcastLatest(feed, "linux", v));
+        REQUIRE_FALSE(appcastLatest("<rss></rss>", "macos", v));
+    }
+
+    SUBCASE("An item with no version anywhere is skipped") {
+        Version v;
+        REQUIRE_FALSE(appcastLatest("<item><enclosure sparkle:os=\"macos\"/></item>", "macos", v));
+    }
+
+    SUBCASE("The attribute form of the version still works") {
+        Version v;
+        REQUIRE(appcastLatest("<item><enclosure sparkle:version=\"4.0.1\" "
+                              "sparkle:os=\"windows\"/></item>", "windows", v));
+        CHECK(v.parts[0] == 4);
+        CHECK(v.parts[2] == 1);
     }
 }

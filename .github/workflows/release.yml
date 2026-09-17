@@ -33,6 +33,7 @@ jobs:
     runs-on: windows-latest
     outputs:
       exe_size: ${{ steps.package.outputs.exe_size }}
+      winsparkle_signature: ${{ steps.sign.outputs.signature }}
     steps:
       - uses: actions/checkout@v7
 
@@ -90,14 +91,37 @@ jobs:
 
       - name: Configure CMake
         shell: bash
+        env:
+          SPARKLE_ED_PUBLIC_KEY: ${{ secrets.SPARKLE_ED_PUBLIC_KEY }}
         run: |
           cmake -B build -A Win32 \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
             -DUSE_SYSTEM_SKIA=OFF -DSKIA_ROOT="$PWD/skia-dist" \
+            -DSPARKLE_ED_PUBLIC_KEY="$SPARKLE_ED_PUBLIC_KEY" \
             -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}"
 
       - name: Build
         run: cmake --build build --config Release
+
+      # Launch the built exe once before shipping it. --render-gate builds the
+      # main window, which parses the embedded gate library, then renders one
+      # gate and exits non-zero on failure. This is the exact path that crashed
+      # on startup in 3.1.0/3.1.1 (issue #103): CI built the Windows exe but
+      # never ran it, so a library that failed to parse shipped to everyone.
+      # It has to run here, on a Windows checkout, because that is where the
+      # line endings that triggered it come from.
+      - name: Smoke test (launch and render a gate)
+        shell: bash
+        run: |
+          EXE=$(find build -name CedarLogic.exe -path '*Release*' | head -1)
+          if [ -z "$EXE" ]; then echo "::error::no CedarLogic.exe under build/"; exit 1; fi
+          echo "Smoke testing $EXE"
+          "$EXE" --render-gate AA_AND2 0 smoke.png
+          if [ ! -s smoke.png ]; then
+            echo "::error::--render-gate produced no output; the exe likely crashed at startup"
+            exit 1
+          fi
+          echo "Smoke test passed: gate library parsed and rendered."
 
       - name: Package
         id: package
@@ -108,6 +132,52 @@ jobs:
           EXE_PATH=$(ls CedarLogic-*-win32.exe | head -1)
           EXE_SIZE=$(stat -c%s "$EXE_PATH")
           echo "exe_size=$EXE_SIZE" >> $GITHUB_OUTPUT
+
+      # Sign the installer with the same Ed25519 pair Sparkle uses on macOS; the
+      # two tools read the same key format. The exe carries the matching public
+      # key as an "EdDSAPub" resource, so WinSparkle verifies the download
+      # against this signature before running it. Without the pair the updater
+      # installs whatever the feed points at, authenticated by nothing but TLS.
+      - name: Sign installer (EdDSA)
+        id: sign
+        shell: bash
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          SPARKLE_ED_PUBLIC_KEY: ${{ secrets.SPARKLE_ED_PUBLIC_KEY }}
+        run: |
+          if [ -z "$SPARKLE_ED_PRIVATE_KEY" ]; then
+            echo "::error::SPARKLE_ED_PRIVATE_KEY is not set, so this release would ship updates nobody can verify."
+            exit 1
+          fi
+          if [ -z "$SPARKLE_ED_PUBLIC_KEY" ]; then
+            echo "::error::SPARKLE_ED_PUBLIC_KEY is not set, so the exe would carry no key to verify against."
+            exit 1
+          fi
+          KEY_FILE="$RUNNER_TEMP/winsparkle.key"
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" > "$KEY_FILE"
+
+          # winsparkle-tool.exe ships in bin/ of the WinSparkle dist that
+          # FetchContent unpacked under build/_deps.
+          TOOL=$(find build/_deps -name winsparkle-tool.exe | head -1)
+          if [ -z "$TOOL" ]; then echo "::error::winsparkle-tool.exe not found under build/_deps"; exit 1; fi
+          TOOL=$(cd "$(dirname "$TOOL")" && pwd)/winsparkle-tool.exe
+
+          cd build
+          EXE_PATH=$(ls CedarLogic-*-win32.exe | head -1)
+          OUT=$("$TOOL" sign -f "$KEY_FILE" --verbose "$EXE_PATH")
+          rm -f "$KEY_FILE"
+
+          SIGNATURE=$(echo "$OUT" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
+          if [ -z "$SIGNATURE" ]; then
+            echo "::error::winsparkle-tool produced no signature: $OUT"
+            exit 1
+          fi
+
+          # Prove the signature verifies against the public key the exe embeds, so a
+          # key mismatch fails here rather than on every user's machine.
+          "$TOOL" verify -p "$SPARKLE_ED_PUBLIC_KEY" -s "$SIGNATURE" "$EXE_PATH"
+
+          echo "signature=$SIGNATURE" >> $GITHUB_OUTPUT
 
       # Keep the symbols for this exact build. A crash report from the field
       # carries module+offset; without the matching .pdb those offsets can never
@@ -502,6 +572,7 @@ jobs:
             "${{ needs.build-macos.outputs.dmg_size }}" \
             "${{ needs.build-windows.outputs.exe_size }}" \
             "${{ needs.build-macos.outputs.sparkle_signature }}" \
+            "${{ needs.build-windows.outputs.winsparkle_signature }}" \
             "$RELEASE_BODY" \
             "${{ github.repository }}"
 

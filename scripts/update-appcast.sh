@@ -1,6 +1,6 @@
 #!/bin/bash
 # Update the Sparkle/WinSparkle appcast.xml with a new release
-# Usage: ./update-appcast.sh VERSION TAG DMG_SIZE EXE_SIZE SPARKLE_SIGNATURE RELEASE_NOTES REPO
+# Usage: ./update-appcast.sh VERSION TAG DMG_SIZE EXE_SIZE SPARKLE_SIGNATURE WINSPARKLE_SIGNATURE RELEASE_NOTES REPO
 
 set -e
 
@@ -9,8 +9,17 @@ TAG="$2"
 DMG_SIZE="$3"
 EXE_SIZE="$4"
 SPARKLE_SIGNATURE="$5"
-RELEASE_NOTES="$6"
-REPO="$7"
+WINSPARKLE_SIGNATURE="$6"
+RELEASE_NOTES="$7"
+REPO="$8"
+
+# WinSparkle verifies the download against the key compiled into the exe, so an
+# empty signature would make every client reject the feed. Fail here instead of
+# publishing a feed nobody can install from.
+if [ -z "$WINSPARKLE_SIGNATURE" ]; then
+    echo "update-appcast.sh: missing WinSparkle signature (arg 6)" >&2
+    exit 1
+fi
 
 PUBDATE=$(date -R)
 DMG_URL="https://github.com/${REPO}/releases/download/${TAG}/CedarLogic-${VERSION}-Darwin.dmg"
@@ -79,6 +88,7 @@ cat > docs/appcast.xml << APPCAST_EOF
       <description><![CDATA[${RELEASE_NOTES_HTML}]]></description>
       <enclosure
         url="${EXE_URL}"
+        sparkle:edSignature="${WINSPARKLE_SIGNATURE}"
         length="${EXE_SIZE}"
         type="application/octet-stream"
         sparkle:os="windows"

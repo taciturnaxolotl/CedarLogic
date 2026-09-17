@@ -27,9 +27,13 @@
 // dialog) compile everywhere; the trace writer is per-platform below.
 #include <cstdio>
 #include <cctype>
+#include <cstdlib>
 #include <string>
+#include <atomic>
+#include <thread>
 #include "wx/dialog.h"
 #include "wx/sizer.h"
+#include "UpdateInfo.h"
 #include "wx/stattext.h"
 #include "wx/textctrl.h"
 #include "wx/button.h"
@@ -69,6 +73,7 @@ IMPLEMENT_APP(MainApp)
 
 static std::string g_crashLogPath;
 static std::string g_crashHeader;
+static std::string g_startupMarkerPath;
 
 static std::string readFile(const std::string &path) {
     std::string out;
@@ -79,6 +84,46 @@ static std::string readFile(const std::string &path) {
     while ((got = fread(buf, 1, sizeof(buf), f)) > 0) out.append(buf, got);
     fclose(f);
     return out;
+}
+
+// ===== Startup marker =====================================================
+// A crash log alone only says the last run died somewhere. To tell a startup
+// crash from one that happened later, the app writes a marker as its first act
+// and deletes it once the main window exists. If the marker survives to the next
+// launch, the previous run never got that far.
+//
+// The file holds an attempt counter, so a first failure can be treated as
+// possibly-a-fluke and only repeated failures trigger recovery.
+
+// Startup crashes before this count are treated as ordinary crashes; at or above
+// it the app offers an update before retrying the work that keeps failing.
+static const int kStartupCrashRecoveryThreshold = 2;
+
+static std::string readMarker() {
+    std::string s = readFile(g_startupMarkerPath);
+    while (!s.empty() && (s[s.size() - 1] == '\n' || s[s.size() - 1] == '\r'))
+        s.erase(s.size() - 1);
+    return s;
+}
+
+// How many consecutive launches have died during startup, including the one in
+// progress. Zero means the last run reached a main window.
+static int startupAttempt() {
+    std::string body = readMarker();
+    if (body.empty()) return 0;
+    int n = atoi(body.c_str());
+    return n > 0 ? n : 1; // a marker with no readable count still means one failure
+}
+
+static void writeMarker(int attempt) {
+    FILE *f = fopen(g_startupMarkerPath.c_str(), "wb");
+    if (!f) return;
+    fprintf(f, "%d\n", attempt);
+    fclose(f);
+}
+
+static void clearMarker() {
+    remove(g_startupMarkerPath.c_str());
 }
 
 // Percent-encode everything outside the RFC 3986 unreserved set so a trace can
@@ -320,6 +365,8 @@ static void posixCrashHandler(int sig, siginfo_t *, void *) {
 static void installCrashHandler() {
     wxFileName fn(wxStandardPaths::Get().GetTempDir(), "CedarLogic_crashtrace.log");
     g_crashLogPath = fn.GetFullPath().ToStdString();
+    wxFileName marker(wxStandardPaths::Get().GetTempDir(), "CedarLogic_startup.marker");
+    g_startupMarkerPath = marker.GetFullPath().ToStdString();
     g_crashHeader = "CedarLogic " + VERSION_NUMBER() + " (" +
                     std::to_string((int)(sizeof(void *) * 8)) + "-bit) on " +
                     wxGetOsDescription().ToStdString() + "\n\n";
@@ -339,23 +386,50 @@ static void installCrashHandler() {
 #endif
 }
 
-// Shown on the next launch if a crash log from a previous run is present: the
-// reliable, full-featured counterpart to the crash-time nudge. The process is
-// healthy here, so this is a normal wx dialog -- the trace in a read-only box,
-// a copy button, and a button that opens a prefilled GitHub issue.
-static void showPendingCrashReport(wxWindow *parent) {
+// Shown on the next launch after a crash: the reliable, full-featured
+// counterpart to the crash-time nudge. The process is healthy here, so this is
+// a normal wx dialog.
+//
+// It leads with an update check rather than a bug report, because a fix that
+// already ships beats a report that has not been written yet -- and it deflects
+// duplicate reports for bugs that are already closed. The appcast is read here
+// instead of taken from the updater, which cannot be asked "what is newer than
+// me" without showing its own window, and because a version cached from the last
+// healthy run would by definition predate the fix.
+//
+// duringStartup says the previous run died before its main window appeared.
+// Those are the crashes the user cannot report and the updater cannot reach, so
+// the wording says the app never started rather than merely misbehaved.
+//
+// Returns true if the user chose to update. Only the startup-crash caller acts
+// on it, by stepping aside so the download can proceed; the deferred call after
+// a normal start ignores it, since the app is already up and its updater is
+// running, so "Update now" there simply closes the dialog.
+static bool showPendingCrashReport(wxWindow *parent, bool duringStartup) {
     const std::string &logPath = g_crashLogPath;
     std::string trace = readFile(logPath);
-    if (trace.empty()) return;
+    if (trace.empty()) return false;
 
-    wxDialog dlg(parent, wxID_ANY, "Report a crash", wxDefaultPosition,
-                 wxSize(700, 500), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+    wxDialog dlg(parent, wxID_ANY,
+        duringStartup ? "CedarLogic did not start" : "Report a crash",
+        wxDefaultPosition, wxSize(700, 520),
+        wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     wxBoxSizer *root = new wxBoxSizer(wxVERTICAL);
     root->Add(new wxStaticText(&dlg, wxID_ANY,
-        "CedarLogic closed unexpectedly the last time it ran. Reporting this "
-        "helps get it fixed.\nOpen a GitHub issue (the full report is copied to "
-        "your clipboard so you can paste it in)."),
+        duringStartup
+            ? "CedarLogic closed before its window appeared the last time it ran. "
+              "If a newer version fixes this, installing it is the quickest way back."
+            : "CedarLogic closed unexpectedly the last time it ran. Reporting this "
+              "helps get it fixed.\nOpen a GitHub issue (the full report is copied to "
+              "your clipboard so you can paste it in)."),
         0, wxALL, 12);
+
+    // The update offer, filled in once the feed answers.
+    wxStaticText *updateLine = new wxStaticText(&dlg, wxID_ANY, "Checking for a newer version...");
+    wxFont bold = updateLine->GetFont();
+    bold.SetWeight(wxFONTWEIGHT_BOLD);
+    updateLine->SetFont(bold);
+    root->Add(updateLine, 0, wxLEFT | wxRIGHT | wxBOTTOM, 12);
 
     wxTextCtrl *txt = new wxTextCtrl(&dlg, wxID_ANY, wxString::FromUTF8(trace),
         wxDefaultPosition, wxDefaultSize,
@@ -364,15 +438,66 @@ static void showPendingCrashReport(wxWindow *parent) {
     root->Add(txt, 1, wxEXPAND | wxLEFT | wxRIGHT, 12);
 
     wxBoxSizer *btns = new wxBoxSizer(wxHORIZONTAL);
+    wxButton *updateBtn = new wxButton(&dlg, wxID_ANY, "Update now");
     wxButton *copyBtn = new wxButton(&dlg, wxID_ANY, "Copy to clipboard");
     wxButton *issueBtn = new wxButton(&dlg, wxID_ANY, "Open GitHub issue");
-    wxButton *closeBtn = new wxButton(&dlg, wxID_CANCEL, "Dismiss");
+    // Labelled by what it does rather than "Dismiss": during a startup crash the
+    // user is choosing to retry the work that just failed, and that should read
+    // as a choice, not as closing a window.
+    wxButton *closeBtn = new wxButton(&dlg, wxID_CANCEL,
+        duringStartup ? "Continue anyway" : "Dismiss");
+    btns->Add(updateBtn, 0, wxALL, 6);
     btns->Add(copyBtn, 0, wxALL, 6);
     btns->AddStretchSpacer();
     btns->Add(issueBtn, 0, wxALL, 6);
     btns->Add(closeBtn, 0, wxALL, 6);
     root->Add(btns, 0, wxEXPAND | wxALL, 6);
     dlg.SetSizer(root);
+
+    updateBtn->Enable(false); // nothing to update to until the feed says so
+
+    // Read the feed off the main thread and poll for it. wxMilliSleep yields to
+    // the event loop, so the dialog paints and stays responsive while this runs,
+    // and the thread never has to touch a wx object. The flags are atomic
+    // because two threads see them; join() below is what makes `newest` safe to
+    // read on this thread.
+    static const char *kAppcastUrl =
+        "https://taciturnaxolotl.github.io/CedarLogic/appcast.xml";
+    cl::update::Version newest;
+    std::atomic<bool> done(false);
+    std::atomic<bool> ok(false);
+    std::thread fetcher([&]() {
+        std::string xml = cl::update::fetchAppcast(kAppcastUrl);
+#ifdef _WIN32
+        ok.store(!xml.empty() && cl::update::appcastLatest(xml, "windows", newest));
+#elif defined(__APPLE__)
+        ok.store(!xml.empty() && cl::update::appcastLatest(xml, "macos", newest));
+#else
+        ok.store(false);
+#endif
+        done.store(true);
+    });
+
+    const cl::update::Version current = cl::update::parseVersion(VERSION_NUMBER());
+    for (int waited = 0; !done.load() && waited < 10000; waited += 100)
+        wxMilliSleep(100);
+    if (fetcher.joinable()) fetcher.join();
+
+    const bool haveUpdate = ok.load() && cl::update::newerThan(newest, current);
+    if (!ok.load()) {
+        updateLine->SetLabel("Could not check for updates. Reporting this is the "
+                             "best way to get it fixed.");
+    } else if (haveUpdate) {
+        wxString v;
+        v.Printf("Version %d.%d.%d is available and may already fix this.",
+                 newest.parts[0], newest.parts[1], newest.parts[2]);
+        updateLine->SetLabel(v);
+        updateBtn->Enable(true);
+        updateBtn->SetDefault();
+    } else {
+        updateLine->SetLabel("You are on the latest version, so this is worth reporting.");
+    }
+    dlg.Layout();
 
     std::string report = crashIssueBody(trace);
     auto copyReport = [report]() {
@@ -387,8 +512,12 @@ static void showPendingCrashReport(wxWindow *parent) {
         wxLaunchDefaultBrowser(wxString::FromUTF8(crashIssueUrl(trace)));
     });
 
-    dlg.ShowModal();
+    const int kUpdate = 100;
+    updateBtn->Bind(wxEVT_BUTTON, [&](wxCommandEvent &) { dlg.EndModal(kUpdate); });
+
+    bool choseUpdate = dlg.ShowModal() == kUpdate;
     remove(logPath.c_str()); // only prompt once per crash
+    return choseUpdate;
 }
 
 static const wxCmdLineEntryDesc g_cmdLineDesc[] =
@@ -413,6 +542,12 @@ MainApp::MainApp()
 bool MainApp::OnInit()
 {
     installCrashHandler();
+
+    // Arm the startup marker before anything can fail, so a crash below is
+    // recognisable as a startup crash on the next launch rather than merely "a
+    // crash". Cleared once the main window exists.
+    const int previousStartupFailures = startupAttempt();
+    writeMarker(previousStartupFailures + 1);
 #ifdef _WIN32
     // Windows' default timer resolution (~15.6 ms) rounds wxTimer waits up to
     // the next system tick, so the 20 ms render/sim timers actually fire at
@@ -534,6 +669,39 @@ bool MainApp::OnInit()
 	//**********************************
 
 
+    //////////////////////////////////////////////////////////////////////////
+    // Startup-crash recovery
+    //
+    // If the last run died before its window appeared, the work below is very
+    // likely to die the same way again. Offer a fix first: the report dialog,
+    // which checks the appcast and names a newer version when one exists. This
+    // is the only chance a broken install gets, because the updater is
+    // initialised further down and a crash above it means it never runs, so the
+    // app can never update itself out of that state on its own.
+    //
+    // One failure is treated as possibly a fluke; the dialog only pre-empts
+    // startup once it has happened twice running. Headless runs (--render and
+    // friends, used by CI) never see it, since a modal dialog would hang them.
+    //////////////////////////////////////////////////////////////////////////
+    bool crashReportHandled = false;
+    if (previousStartupFailures + 1 >= kStartupCrashRecoveryThreshold &&
+        !renderMode().headlessRender) {
+        crashReportHandled = true;
+        if (showPendingCrashReport(NULL, /*duringStartup=*/true)) {
+            // The user chose to update. Hand them the download rather than
+            // driving the in-app updater from here: WinSparkle's installer wants
+            // to relaunch the app, and its UI runs on a thread that OnInit
+            // returning would tear down mid-interaction. The dialog has already
+            // named the exact version, so the releases page is one click. Then
+            // step aside instead of continuing into the same crash; the marker
+            // stays, so if the download does not fix it the dialog returns.
+            wxLaunchDefaultBrowser(
+                "https://github.com/taciturnaxolotl/CedarLogic/releases/latest");
+            return false;
+        }
+        // "Continue anyway": fall through and try to start normally.
+    }
+
     // create the main application window
     MainFrame *frame = new MainFrame(VERSION_TITLE(), cmdFilename);
 
@@ -614,6 +782,10 @@ bool MainApp::OnInit()
     mainframe = frame;
     //End of edit***********************************************
 
+    // The main window exists, so this run is not a startup crash. Clearing the
+    // marker here is what lets the next launch tell the two apart.
+    clearMarker();
+
 #ifdef __APPLE__
     // Initialize Sparkle auto-updater
     SparkleUpdater_Initialize();
@@ -628,8 +800,12 @@ bool MainApp::OnInit()
     // application would exit immediately
 
     // If the previous run left a crash trace, offer it for reporting once the
-    // main window is up (deferred so it appears over a painted frame).
-    CallAfter([this]() { showPendingCrashReport(mainframe); });
+    // main window is up (deferred so it appears over a painted frame). Skipped
+    // when the startup-crash path above already showed it, so one crash never
+    // produces two dialogs.
+    if (!crashReportHandled) {
+        CallAfter([this]() { showPendingCrashReport(mainframe, /*duringStartup=*/false); });
+    }
 
     return true;
 }

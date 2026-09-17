@@ -157,7 +157,11 @@ endif()
 # Windows: Download and setup WinSparkle for auto-updates
 if(WIN32)
     include(FetchContent)
-    set(WINSPARKLE_VERSION "0.8.1")
+    # 0.9.0 is the first release that can verify EdDSA signatures. On 0.8.1 the
+    # downloader had no EdDSA support at all and, with no DSA key configured
+    # either, logged "Using unsigned updates!" and ran the payload anyway -- so
+    # every Windows update was installed unauthenticated.
+    set(WINSPARKLE_VERSION "0.9.4")
     FetchContent_Declare(
         WinSparkle
         URL "https://github.com/vslavik/winsparkle/releases/download/v${WINSPARKLE_VERSION}/WinSparkle-${WINSPARKLE_VERSION}.zip"
@@ -166,16 +170,16 @@ if(WIN32)
     FetchContent_MakeAvailable(WinSparkle)
     set(WINSPARKLE_DIR "${winsparkle_SOURCE_DIR}")
 
-    # The WinSparkle zip ships a separate import lib + DLL per architecture:
-    # Release/ is x86, x64/Release/ is x64, ARM64/Release/ is ARM64. Pick the one
-    # matching the target, or the link fails with LNK4272 (machine-type conflict)
-    # on any non-x86 build.
+    # The WinSparkle zip ships a separate import lib + DLL per architecture.
+    # Pick the one matching the target, or the link fails with LNK4272
+    # (machine-type conflict) on any non-x86 build. Note the x86 directory was
+    # renamed from Release/ to Win32/Release/ in 0.9.0.
     if(CMAKE_GENERATOR_PLATFORM MATCHES "[Aa][Rr][Mm]64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "[Aa][Rr][Mm]64")
         set(WINSPARKLE_ARCH_DIR "ARM64/Release")
     elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(WINSPARKLE_ARCH_DIR "x64/Release")
     else()
-        set(WINSPARKLE_ARCH_DIR "Release")
+        set(WINSPARKLE_ARCH_DIR "Win32/Release")
     endif()
 endif()
 
@@ -289,6 +293,10 @@ endif()
 if(WIN32)
     target_include_directories(CedarLogic PRIVATE "${WINSPARKLE_DIR}/include")
     target_link_libraries(CedarLogic PRIVATE "${WINSPARKLE_DIR}/${WINSPARKLE_ARCH_DIR}/WinSparkle.lib")
+    # UpdateInfo.cpp reads the appcast with WinINet for the crash dialog's update
+    # offer. Linked explicitly rather than relying on wininet.h's self-link
+    # pragma, so the Windows build cannot turn on a missing-library surprise.
+    target_link_libraries(CedarLogic PRIVATE wininet)
     # Stage the DLL beside the exe. It was only handled by install(), so a plain
     # build produced a binary that could not start ("error while loading shared
     # libraries") until the DLL was copied by hand.
@@ -336,8 +344,23 @@ endif()
 if (WIN32)
     # Compile icon.rc into the exe. Without it the binary carries no RT_GROUP_ICON
     # and Explorer/taskbar/Alt-Tab fall back to the generic executable icon.
+    #
+    # It is generated from icon.rc.in so the EdDSA public key can ride along in
+    # the same resource script. WinSparkle looks for a resource named "EdDSAPub"
+    # of type "EDDSA" and, when it finds one, verifies every downloaded update
+    # against it before running the installer. A build with no key omits the
+    # resource entirely rather than emitting an empty one.
     enable_language(RC)
-    target_sources(CedarLogic PRIVATE "${PROJECT_SOURCE_DIR}/icon.rc")
+    set(CEDARLOGIC_ICON "${PROJECT_SOURCE_DIR}/res/icon.ico")
+    if(SPARKLE_ED_PUBLIC_KEY)
+        set(WINSPARKLE_EDDSA_RESOURCE "EdDSAPub EDDSA \"${SPARKLE_ED_PUBLIC_KEY}\"")
+    else()
+        set(WINSPARKLE_EDDSA_RESOURCE "")
+        message(STATUS "No SPARKLE_ED_PUBLIC_KEY: Windows updates will not be signature-verified")
+    endif()
+    configure_file("${PROJECT_SOURCE_DIR}/icon.rc.in"
+                   "${CMAKE_CURRENT_BINARY_DIR}/icon.rc" @ONLY)
+    target_sources(CedarLogic PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/icon.rc")
 
     target_compile_options(CedarLogic PRIVATE /MP)
     target_compile_definitions(CedarLogic PRIVATE

@@ -150,9 +150,13 @@ For local development/testing without a Developer ID, you can use ad-hoc signing
 codesign --deep --force --sign - build/CedarLogic.app
 ```
 
-### Auto-Update Support (Optional - macOS only)
+### Auto-Update Support (Optional)
 
-CedarLogic uses [Sparkle](https://sparkle-project.org/) for automatic updates on macOS. Sparkle requires EdDSA signatures to verify updates. Windows uses [WinSparkle](https://winsparkle.org/) which doesn't require signature configuration.
+CedarLogic uses [Sparkle](https://sparkle-project.org/) for automatic updates on macOS and [WinSparkle](https://winsparkle.org/) on Windows. Both verify every download against an EdDSA signature before installing it, and both use the *same* key pair, so one `generate_keys` run covers both platforms.
+
+Each side reads the public key differently: Sparkle takes it from `SUPublicEDKey` in the bundle's Info.plist, while WinSparkle looks for a Windows resource named `EdDSAPub` of type `EDDSA`. Passing `-DSPARKLE_ED_PUBLIC_KEY` at configure time fills in both.
+
+Leave the key out and you get a build with no updater on macOS, and a Windows build whose updater accepts payloads without checking them. WinSparkle needs 0.9.0 or newer for this at all; earlier versions have no EdDSA support and silently install unsigned updates.
 
 **Generate Sparkle keys:**
 
