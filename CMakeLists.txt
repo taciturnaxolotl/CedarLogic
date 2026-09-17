@@ -353,7 +353,11 @@ if (WIN32)
     enable_language(RC)
     set(CEDARLOGIC_ICON "${PROJECT_SOURCE_DIR}/res/icon.ico")
     if(SPARKLE_ED_PUBLIC_KEY)
-        set(WINSPARKLE_EDDSA_RESOURCE "EdDSAPub EDDSA \"${SPARKLE_ED_PUBLIC_KEY}\"")
+        # Braces matter: `EdDSAPub EDDSA "..."` makes rc.exe treat the quoted
+        # text as a *filename* to load, so the build fails looking for a file
+        # named after the key. `{"..."}` is an inline raw-data block, which is
+        # the form winsparkle-tool prints and what the library reads back.
+        set(WINSPARKLE_EDDSA_RESOURCE "EdDSAPub EDDSA {\"${SPARKLE_ED_PUBLIC_KEY}\"}")
     else()
         set(WINSPARKLE_EDDSA_RESOURCE "")
         message(STATUS "No SPARKLE_ED_PUBLIC_KEY: Windows updates will not be signature-verified")
