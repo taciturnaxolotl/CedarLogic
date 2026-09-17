@@ -168,7 +168,27 @@ if(WIN32)
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     )
     FetchContent_MakeAvailable(WinSparkle)
-    set(WINSPARKLE_DIR "${winsparkle_SOURCE_DIR}")
+
+    # Find the real dist root rather than assuming it is the extract directory.
+    # CMake only strips an archive's leading directory when the archive holds
+    # exactly one top-level entry. The 0.9.x zips were packaged on a Mac and
+    # carry a stray __MACOSX/ alongside WinSparkle-<version>/, which makes two,
+    # so the contents land one level deeper than they did for 0.8.1. Locating
+    # the header keeps this working either way, and if upstream cleans up its
+    # packaging nothing here has to change.
+    file(GLOB_RECURSE WINSPARKLE_HEADER
+         "${winsparkle_SOURCE_DIR}/*/include/winsparkle.h"
+         "${winsparkle_SOURCE_DIR}/include/winsparkle.h")
+    if(NOT WINSPARKLE_HEADER)
+        message(FATAL_ERROR
+            "WinSparkle ${WINSPARKLE_VERSION}: no include/winsparkle.h under "
+            "'${winsparkle_SOURCE_DIR}'. The dist layout must have changed.")
+    endif()
+    list(GET WINSPARKLE_HEADER 0 WINSPARKLE_HEADER)
+    # <root>/include/winsparkle.h -> <root>
+    get_filename_component(WINSPARKLE_DIR "${WINSPARKLE_HEADER}" DIRECTORY)
+    get_filename_component(WINSPARKLE_DIR "${WINSPARKLE_DIR}" DIRECTORY)
+    message(STATUS "WinSparkle ${WINSPARKLE_VERSION} dist: ${WINSPARKLE_DIR}")
 
     # The WinSparkle zip ships a separate import lib + DLL per architecture.
     # Pick the one matching the target, or the link fails with LNK4272
@@ -180,6 +200,13 @@ if(WIN32)
         set(WINSPARKLE_ARCH_DIR "x64/Release")
     else()
         set(WINSPARKLE_ARCH_DIR "Win32/Release")
+    endif()
+
+    # Fail here, with the path, rather than at link time with LNK1104.
+    if(NOT EXISTS "${WINSPARKLE_DIR}/${WINSPARKLE_ARCH_DIR}/WinSparkle.lib")
+        message(FATAL_ERROR
+            "WinSparkle ${WINSPARKLE_VERSION}: no WinSparkle.lib at "
+            "'${WINSPARKLE_DIR}/${WINSPARKLE_ARCH_DIR}'.")
     endif()
 endif()
 
