@@ -7,37 +7,34 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 3.1.1</title>
-      <pubDate>Wed, 16 Sep 2026 05:45:34 +0000</pubDate>
-      <sparkle:version>3.1.1</sparkle:version>
-      <sparkle:shortVersionString>3.1.1</sparkle:shortVersionString>
+      <title>Version 3.1.2</title>
+      <pubDate>Thu, 17 Sep 2026 12:43:57 +0000</pubDate>
+      <sparkle:version>3.1.2</sparkle:version>
+      <sparkle:shortVersionString>3.1.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<p>This releases fixes several bugs that could cause CedarLogic to crash occasionally. Deleting a gate can sometimes leave a wire still pointing at it, and the next simulation step then crashes the program.</p>
-<p>Also fixed: starting a new circuit from a second tab could keep using a tab it had just closed, deleting a wire attached to a missing gate could hang the program, undoing a new tab and then redoing it worked on the wrong tab, and junction labels could quietly stop joining wires together.</p>
-<p>Crash reports are now properly readable! The PDB file needed to decode the symbols is now properly shipped with the installer.</p>
-<p>Recovering work after a crash is way more reliable as well now and will avoid deleting the recovery file unless you absolutely 100% save it to the old file.</p>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.1.0...v3.1.1</p>]]></description>
+      <description><![CDATA[<p>Thank you to @DavidDGTNT for catching #103 which was caused by a line ending normalization bug in the bundled gate libraries.</p>
+<p>Windows sparkle updates are now signed and validated before downloading and on a fatal crash of the program it now checks if there is an update available and suggests downloading it before reporting.</p>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.1.1...v3.1.2</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.1.1/CedarLogic-3.1.1-Darwin.dmg"
-        sparkle:edSignature="ddOBoQa0Qx+dul7LdM4mU5TSJfAB+YKR5JLgDhQrN9KrdRuhaSmeFimkZzIa/QLTKJ1Wnl8JzrbA65zBIRL5BQ=="
-        length="14439159"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.1.2/CedarLogic-3.1.2-Darwin.dmg"
+        sparkle:edSignature="YYncrUY2JlElYwOGGKEgRgTIVi/wPJWRLymLIf+fnyAGYB/JZyOmWy5HGL/2dsocn35X5hzrur8MVzDF4j7JBw=="
+        length="14409667"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 3.1.1</title>
-      <pubDate>Wed, 16 Sep 2026 05:45:34 +0000</pubDate>
-      <sparkle:version>3.1.1</sparkle:version>
-      <sparkle:shortVersionString>3.1.1</sparkle:shortVersionString>
-      <description><![CDATA[<p>This releases fixes several bugs that could cause CedarLogic to crash occasionally. Deleting a gate can sometimes leave a wire still pointing at it, and the next simulation step then crashes the program.</p>
-<p>Also fixed: starting a new circuit from a second tab could keep using a tab it had just closed, deleting a wire attached to a missing gate could hang the program, undoing a new tab and then redoing it worked on the wrong tab, and junction labels could quietly stop joining wires together.</p>
-<p>Crash reports are now properly readable! The PDB file needed to decode the symbols is now properly shipped with the installer.</p>
-<p>Recovering work after a crash is way more reliable as well now and will avoid deleting the recovery file unless you absolutely 100% save it to the old file.</p>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.1.0...v3.1.1</p>]]></description>
+      <title>Version 3.1.2</title>
+      <pubDate>Thu, 17 Sep 2026 12:43:57 +0000</pubDate>
+      <sparkle:version>3.1.2</sparkle:version>
+      <sparkle:shortVersionString>3.1.2</sparkle:shortVersionString>
+      <description><![CDATA[<p>Thank you to @DavidDGTNT for catching #103 which was caused by a line ending normalization bug in the bundled gate libraries.</p>
+<p>Windows sparkle updates are now signed and validated before downloading and on a fatal crash of the program it now checks if there is an update available and suggests downloading it before reporting.</p>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.1.1...v3.1.2</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.1.1/CedarLogic-3.1.1-win32.exe"
-        length="22064351"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.1.2/CedarLogic-3.1.2-win32.exe"
+        sparkle:edSignature="V7U5zlEYbstBC6QKmsA/nnLMR67OSIrm/MJilpgZzYNjqvDJerZ33XLH++GJrOr6W1DpVCqYjOkXJSfVWQojCg=="
+        length="22133641"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
