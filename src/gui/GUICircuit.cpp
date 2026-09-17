@@ -112,7 +112,7 @@ guiGate* GUICircuit::createGate(string gateName, long id, bool noOscope) {
 
 	for (unsigned int i = 0; i < gateDef.shape.size(); i++) {
 		lgLine tempLine = gateDef.shape[i];
-		newGate->insertLine(tempLine.x1, tempLine.y1, tempLine.x2, tempLine.y2, tempLine.isLabel);
+		newGate->insertLine(tempLine.x1, tempLine.y1, tempLine.x2, tempLine.y2, tempLine.labelGroup);
 	}
 	for (unsigned int i = 0; i < gateDef.arcs.size(); i++) {
 		lgArc a = gateDef.arcs[i];

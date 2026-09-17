@@ -230,19 +230,27 @@ void guiGate::drawToScene(cl::render::Scene& scene,
 		scene.strokeCircle(Point(circ.cx, circ.cy), circ.r, s);
 	}
 
-	// Label lines are counter-rotated so text stays upright under the model's
-	// rotation -- mirror draw()'s handling.
+	// Captions ride round with the gate but stay upright: each one is undone by
+	// the inverse of the model's linear part about its own pivot, so the model
+	// transform carries the pivot to its new place and leaves the strokes facing
+	// the reader. Inverting the matrix rather than negating the angle also undoes
+	// the mirror a flipped BUSEND applies, which a plain counter-rotation cannot.
 	if (!labelVertices.empty()) {
-		istringstream iss(gparams["angle"]);
-		float angle = 0;
-		iss >> angle;
+		const double det = mModel[0] * mModel[5] - mModel[4] * mModel[1];
 		std::vector<Point> lp;
 		lp.reserve(labelVertices.size());
-		if (angle != 0) {
-			float rad = angle * DEG2RAD, cosA = cos(rad), sinA = sin(rad);
+		if (fabs(det) > 1e-9) {
+			// Inverse of [m0 m4 ; m1 m5].
+			const float i00 = (float)( mModel[5] / det), i01 = (float)(-mModel[4] / det);
+			const float i10 = (float)(-mModel[1] / det), i11 = (float)( mModel[0] / det);
 			for (size_t i = 0; i < labelVertices.size(); i++) {
-				float x = labelVertices[i].x, y = labelVertices[i].y;
-				lp.push_back(Point(x * cosA + y * sinA, -x * sinA + y * cosA));
+				const int g = (i < labelVertexGroup.size()) ? labelVertexGroup[i] : -1;
+				const GLPoint2f pivot = (g >= 0 && g < (int)labelPivots.size())
+				                        ? labelPivots[g] : GLPoint2f(0, 0);
+				const float dx = labelVertices[i].x - pivot.x;
+				const float dy = labelVertices[i].y - pivot.y;
+				lp.push_back(Point(pivot.x + i00 * dx + i01 * dy,
+				                   pivot.y + i10 * dx + i11 * dy));
 			}
 		} else {
 			for (size_t i = 0; i < labelVertices.size(); i++)
@@ -308,10 +316,12 @@ void guiGate::insertCircle( float cx, float cy, float r, int segs, bool isLabel 
 }
 
 // Insert a line in the line list.
-void guiGate::insertLine( float x1, float y1, float x2, float y2, bool isLabel ) {
-	if (isLabel) {
+void guiGate::insertLine( float x1, float y1, float x2, float y2, int labelGroup ) {
+	if (labelGroup >= 0) {
 		labelVertices.push_back( GLPoint2f( x1, y1 ) );
 		labelVertices.push_back( GLPoint2f( x2, y2 ) );
+		labelVertexGroup.push_back( labelGroup );
+		labelVertexGroup.push_back( labelGroup );
 	} else {
 		vertices.push_back( GLPoint2f( x1, y1 ) );
 		vertices.push_back( GLPoint2f( x2, y2 ) );
@@ -383,6 +393,30 @@ void guiGate::calcBBox( void ) {
 	modelDrawBBox.reset();
 	accumulate( false, modelDrawBBox, false );
 	accumulate( true, modelDrawBBox, false );
+
+	// Where each caption turns about. A caption stays upright while the gate
+	// rotates, so it needs a fixed point to pivot on; the centre of its own
+	// strokes keeps it in the cell or beside the pin it belongs to. Pivoting on
+	// the gate's centre instead (which is what no pivot at all amounts to) slides
+	// every caption across the body by up to its own diagonal.
+	labelPivots.clear();
+	int groupCount = 0;
+	for (unsigned int i = 0; i < labelVertexGroup.size(); i++)
+		groupCount = std::max( groupCount, labelVertexGroup[i] + 1 );
+	if (groupCount > 0) {
+		std::vector<klsBBox> groupBox( groupCount );
+		for (unsigned int i = 0; i < labelVertices.size() && i < labelVertexGroup.size(); i++) {
+			const int g = labelVertexGroup[i];
+			if (g >= 0) groupBox[g].addPoint( labelVertices[i] );
+		}
+		labelPivots.resize( groupCount, GLPoint2f(0, 0) );
+		for (int g = 0; g < groupCount; g++) {
+			if (groupBox[g].empty()) continue;
+			labelPivots[g] = GLPoint2f(
+				(groupBox[g].getLeft() + groupBox[g].getRight()) * 0.5f,
+				(groupBox[g].getBottom() + groupBox[g].getTop()) * 0.5f );
+		}
+	}
 
 	// Recalculate the world-space bbox:
 	updateBBoxes();

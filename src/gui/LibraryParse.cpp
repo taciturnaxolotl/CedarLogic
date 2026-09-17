@@ -107,11 +107,14 @@ void LibraryParse::parseFile() {
 
 				} else if (temp == "shape") {
 
+					// Each <label_offset> block is one caption, numbered so the
+					// renderer can keep its strokes together when the gate turns.
+					int nextLabelGroup = 0;
 					do {
 						temp = mParse->readTag();
 						if (temp == "") break;
 						if( temp == "offset" || temp == "label_offset" ) {
-							bool isLabelOffset = (temp == "label_offset");
+							int labelGroup = (temp == "label_offset") ? nextLabelGroup++ : -1;
 							float offX = 0.0, offY = 0.0;
 							temp = mParse->readTag();
 							if( temp == "point" ) {
@@ -127,7 +130,7 @@ void LibraryParse::parseFile() {
 							do {
 								temp = mParse->readTag();
 								if (temp == "") break;
-								parseShapeObject( temp, &newGate, offX, offY, isLabelOffset );
+								parseShapeObject( temp, &newGate, offX, offY, labelGroup );
 							} while (!mParse->isCloseTag(mParse->getCurrentIndex())); // end offset
 							mParse->readCloseTag();
 						} else {
@@ -212,7 +215,8 @@ void LibraryParse::parseFile() {
 }
 
 // Parse the shape object from the mParse file, adding an offset if needed:
-bool LibraryParse::parseShapeObject( string type, LibraryGate* newGate, double offX, double offY, bool isLabel ) {
+bool LibraryParse::parseShapeObject( string type, LibraryGate* newGate, double offX, double offY, int labelGroup ) {
+	const bool isLabel = (labelGroup >= 0);
 	float x1, y1, x2, y2;
 	char dump;
 	string temp;
@@ -226,7 +230,7 @@ bool LibraryParse::parseShapeObject( string type, LibraryGate* newGate, double o
 		// Apply the offset:
 		x1 += offX; x2 += offX;
 		y1 += offY; y2 += offY;
-		newGate->shape.push_back( lgLine( x1, y1, x2, y2, isLabel) );
+		newGate->shape.push_back( lgLine( x1, y1, x2, y2, labelGroup) );
 		return true;
 	} else if( type == "arc" ) {
 		// "arc cx,cy,radius,startDeg,sweepDeg" -- a structured curve kept whole so

@@ -177,8 +177,9 @@ public:
 	// Return true if this gate is selected.
 	bool clickSelect( GLfloat x, GLfloat y );
 
-	// Insert a line in the line list.
-	void insertLine( float x1, float y1, float x2, float y2, bool isLabel = false );
+	// Insert a line in the line list. `labelGroup` is the caption the line belongs
+	// to (see lgLine), or -1 for body geometry.
+	void insertLine( float x1, float y1, float x2, float y2, int labelGroup = -1 );
 
 	// Insert a structured arc (Workstream G). Kept whole -- the Skia path strokes
 	// it smooth, the GL path tessellates it -- rather than baked into chords.
@@ -350,6 +351,12 @@ protected:
 	
 	vector<GLPoint2f> vertices;
 	vector<GLPoint2f> labelVertices;
+	// Which caption each label vertex belongs to, parallel to labelVertices; see
+	// lgLine::labelGroup. A caption turns as one piece about labelPivots[group],
+	// the centre of its own strokes, so it rides round with the rotated gate and
+	// still reads left-to-right.
+	vector<int> labelVertexGroup;
+	vector<GLPoint2f> labelPivots;
 	// Structured arcs (Workstream G): drawn smooth under Skia, tessellated for GL.
 	// GateArc is declared in the public section (getArcs()).
 	vector<GateArc> arcs;

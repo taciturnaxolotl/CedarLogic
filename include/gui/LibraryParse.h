@@ -34,9 +34,14 @@ struct lgHotspot {
 };
 
 struct lgLine {
-	lgLine( float nX1 = 0, float nY1 = 0, float nX2 = 0, float nY2 = 0, bool nIsLabel = false ) : x1(nX1), x2(nX2), y1(nY1), y2(nY2), isLabel(nIsLabel) {}
+	lgLine( float nX1 = 0, float nY1 = 0, float nX2 = 0, float nY2 = 0, int nLabelGroup = -1 ) : x1(nX1), x2(nX2), y1(nY1), y2(nY2), labelGroup(nLabelGroup) {}
 	float x1, x2, y1, y2;
-	bool isLabel;
+	// Which <label_offset> block drew this line, or -1 for body geometry. The
+	// lines in one block spell a single caption -- "CLK", a keypad digit -- so
+	// they have to turn as a unit. A rotated gate carries each caption round to
+	// its new place and leaves it upright; turning the strokes about the gate's
+	// centre instead leaves the caption stranded where the gate used to face.
+	int labelGroup;
 };
 
 // A structured circular arc in a gate's shape (Workstream G). Unlike <line>,
@@ -103,7 +108,7 @@ public:
 	void addGate(string libName, LibraryGate newGate);
 
 	// Parse the shape object from the mParse file, adding an offset if needed:
-	bool parseShapeObject( string type, LibraryGate* newGate, double offX = 0.0, double offY = 0.0, bool isLabel = false );
+	bool parseShapeObject( string type, LibraryGate* newGate, double offX = 0.0, double offY = 0.0, int labelGroup = -1 );
 	
 	// Returns a gate from the library in lgGate.  If the gate does not
 	//	exist in the library, returns false, otherwise true.
