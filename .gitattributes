@@ -9,3 +9,8 @@ format/tests/fixtures/*.cdl -text
 *.gn text eol=lf
 *.sh text eol=lf
 *.nix text eol=lf
+
+# The gate library is baked into the executable byte for byte at build time, so
+# a CRLF checkout would ship a different binary than a LF one. Pin it to LF and
+# every platform embeds the same bytes.
+res/*.xml text eol=lf

@@ -3,6 +3,8 @@
 #include "XMLParser.h"
 #include <iostream>
 #include <sstream>
+#include <string>
+#include <vector>
 #include "logic_gate.h"
 #include "logic_circuit.h"
 #include "logic_event.h"
@@ -443,5 +445,71 @@ TEST_CASE("XMLParser reading, [XMLParser]") {
         REQUIRE(parser.readTag() == "final");
         REQUIRE(parser.readTagValue("final") == "Final");
         REQUIRE(parser.readCloseTag() == "final");
+    }
+}
+
+// A document that ends without a clean close used to walk the scanner past the
+// last line and read wild memory -- the startup crash in issue #103, where a
+// CRLF checkout of the gate library left a stray carriage return after the final
+// tag. Every case here must finish; none may read out of bounds.
+TEST_CASE("XMLParser survives line endings and truncation, [XMLParser]") {
+
+    // Walk the document with the public reader and record what it hands back.
+    auto tokenize = [](const std::string &xml) {
+        std::istringstream iss(xml);
+        XMLParser parser(&iss, false);
+        std::vector<std::string> tokens;
+        for (int i = 0; i < 100; i++) {
+            if (parser.isTag(parser.getCurrentIndex())) {
+                tokens.push_back("<" + parser.readTag() + ">");
+            } else if (parser.isCloseTag(parser.getCurrentIndex())) {
+                std::string closed = parser.readCloseTag();
+                if (closed.empty()) break; // end of document
+                tokens.push_back("</" + closed + ">");
+            } else {
+                std::string value = parser.readTagValue("");
+                if (value.empty()) break;
+                tokens.push_back(value);
+            }
+        }
+        return tokens;
+    };
+
+    SUBCASE("CRLF tokenizes the same as LF") {
+        std::vector<std::string> expected{"<library>", "<name>", "Test", "</name>", "</library>"};
+        REQUIRE(tokenize("<library>\n<name>Test</name>\n</library>\n") == expected);
+        REQUIRE(tokenize("<library>\r\n<name>Test</name>\r\n</library>\r\n") == expected);
+    }
+
+    SUBCASE("A missing trailing newline is not a cliff") {
+        std::vector<std::string> expected{"<a>", "</a>"};
+        REQUIRE(tokenize("<a></a>") == expected);
+        REQUIRE(tokenize("<a></a>\r\n") == expected);
+    }
+
+    SUBCASE("Truncated documents end instead of running away") {
+        const std::vector<std::string> openOnly{"<a>"};
+        const std::vector<std::string> dangling{"<a>", "dangling"};
+        const std::vector<std::string> pair{"<a>", "</a>"};
+        REQUIRE(tokenize("").empty());
+        REQUIRE(tokenize("<").empty());
+        REQUIRE(tokenize("<unterminated").empty());
+        REQUIRE(tokenize("<a></unterminated") == openOnly);
+        REQUIRE(tokenize("<a>dangling") == dangling);
+        REQUIRE(tokenize("<a></a>\n# comment with no newline") == pair);
+    }
+
+    SUBCASE("Reading past the end terminates rather than spinning") {
+        std::istringstream iss("<a>value</a>");
+        XMLParser parser(&iss, false);
+        REQUIRE(parser.readTag() == "a");
+        REQUIRE(parser.readTagValue("a") == "value");
+        REQUIRE(parser.readCloseTag() == "a");
+        // Nothing left: the parser reports the container closed and hands back
+        // empty strings forever instead of looping.
+        REQUIRE(parser.isCloseTag(parser.getCurrentIndex()) == true);
+        REQUIRE(parser.readCloseTag() == "");
+        REQUIRE(parser.readTag() == "");
+        REQUIRE(parser.readTagValue("a") == "");
     }
 }

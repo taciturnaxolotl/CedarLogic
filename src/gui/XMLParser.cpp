@@ -22,9 +22,16 @@ XMLParser::XMLParser(istream* strIO, bool writing)
 	if (writing) {
 		return;
 	}
+	// Lines are stored with their newline, and a CRLF document drops its carriage
+	// returns here so it tokenizes exactly like an LF one. Without this a stray
+	// \r scans as tag-value text, and the one after the last tag walks the
+	// scanner off the end of the vector (issue #103).
 	string temp;
 	while (!mStream->eof()) {
 	    getline(*mStream, temp, '\n');
+	    if (!temp.empty() && temp[temp.size() - 1] == '\r') {
+	        temp.erase(temp.size() - 1);
+	    }
 	    lines.push_back(temp + '\n');
 	}
   	lineIdx = 0;
@@ -99,6 +106,11 @@ Token XMLParser::scanNextToken() {
 			else {state = 1;} // Guess we're a tag value
 			break;
 		case 1: // TAG VAL
+			if (peekChar == (char)-1) { // Document ended mid-value; hand back what we have
+				tokenType = XML_VALUE;
+				done = true;
+				break;
+			}
 			addChar = peekChar;
 			if (addChar == 0x07) {addChar = '<';} // Check for substitute char because of scanning for '<'
 			if (peekChar != '\n' && peekChar != '<' && peekChar != '#') {tokenData += addChar;} // don't hold endlines
@@ -109,7 +121,12 @@ Token XMLParser::scanNextToken() {
 			else {getNextChar();} // munch the next char so we can look at it next time around
 			break;
 		case 2: // TAG
-			if (peekChar == '>') { // are we done?
+			if (peekChar == (char)-1) { // Unterminated tag at the end of the document
+				tokenType = XML_EOF;
+				tokenData.clear();
+				done = true;
+			}
+			else if (peekChar == '>') { // are we done?
 				getNextChar(); // munch the closing bracket
 				tokenType = XML_TAG;
 				done = true;
@@ -118,11 +135,21 @@ Token XMLParser::scanNextToken() {
 			else {tokenData += getNextChar();} // otherwise just munch it and go on
 			break;
 		case 3: // COMMENT
+			if (peekChar == (char)-1) { // Comment ran to the end of the document
+				tokenType = XML_EOF;
+				done = true;
+				break;
+			}
 			if (peekChar == '\n') {state = 0;} // on newline goto state 0
 			getNextChar(); // otherwise just munch
 			break;
 		case 4: // CLOSE TAG
-			if (peekChar == '>') { // are we done?
+			if (peekChar == (char)-1) { // Unterminated close tag at the end of the document
+				tokenType = XML_EOF;
+				tokenData.clear();
+				done = true;
+			}
+			else if (peekChar == '>') { // are we done?
 				getNextChar(); // munch the closing bracket
 				tokenType = XML_CTAG;
 				done = true;
@@ -138,6 +165,9 @@ Token XMLParser::scanNextToken() {
 // Return the next char without munching it
 //	A (char)-1 return is EOF
 char XMLParser::peekNextChar() {
+    if (lineIdx < 0 || lineIdx >= (int)(lines.size())) {
+        return (char)-1; // Already past the last line
+    }
     string checkLine = lines[lineIdx];
     int tempLineIdx = lineIdx;
     int tempLinePtr = linePtr + 1;
@@ -155,6 +185,9 @@ char XMLParser::peekNextChar() {
 // Munch the next char
 //	A (char)-1 return is EOF
 char XMLParser::getNextChar() {
+    if (lineIdx < 0 || lineIdx >= (int)(lines.size())) {
+        return (char)-1; // Already past the last line
+    }
     string checkLine = lines[lineIdx];
     linePtr++;
     if (linePtr == (int)(checkLine.size())) {// We're at the end of the line
@@ -216,8 +249,11 @@ bool XMLParser::isTag(long idx) {
 }
 
 // isCloseTag returns true iff the line contains a closing tag
+//	End of file counts: every caller uses this to ask "is this container
+//	finished", and a truncated document has finished whether it said so or not.
+//	Without this a malformed file spins those read-until-close loops forever.
 bool XMLParser::isCloseTag(long idx) {
-	return (nextToken.tokenType == XML_CTAG);
+	return (nextToken.tokenType == XML_CTAG || nextToken.tokenType == XML_EOF);
 }
 
 // readTag reads and opens a tag for reading its value
@@ -249,8 +285,11 @@ string XMLParser::readTagValue(string tagName) {
 // readCloseTag closes the most open tag
 string XMLParser::readCloseTag() {
 	// Look for a close tag and then munch it
-	while (nextToken.tokenType != XML_CTAG) {
+	while (nextToken.tokenType != XML_CTAG && nextToken.tokenType != XML_EOF) {
 		getNextToken();
+	}
+	if (nextToken.tokenType == XML_EOF) { // Nothing left to close
+		return "";
 	}
 	Token returnToken = getNextToken();
 	return returnToken.data;
