@@ -97,3 +97,30 @@ TEST_CASE("every param the library claims is a box, and nothing else is") {
 	// the proof that "the library supplies it" is not on its own the rule.
 	CHECK(released.count("PULSE_WIDTH") == 1);
 }
+
+TEST_CASE("a parsed library survives being copied") {
+	// The library is parsed into a local and then assigned into the process-wide
+	// GateLibrary, so it gets copied at least once on every startup. It used to
+	// hold a pointer to the parser that read it, which the constructor freed on
+	// the way out and never cleared; each copy inherited that dangling pointer.
+	// Nothing dereferenced it, so the app got away with it, but the class was one
+	// call away from reading freed memory.
+	std::ifstream f(GATEDEFS_PATH, std::ios::binary);
+	REQUIRE(f.good());
+	std::ostringstream ss;
+	ss << f.rdbuf();
+
+	LibraryParse parsed(ss.str());
+	LibraryParse assigned;
+	assigned = parsed;              // the assignment MainFrame does on startup
+	LibraryParse copied(assigned);  // and a copy for good measure
+
+	LibraryGate fromCopy;
+	REQUIRE(copied.getGate("DD_KEYPAD_HEX", fromCopy));
+	CHECK(fromCopy.gateName == "DD_KEYPAD_HEX");
+	CHECK(copied.getGateGUIType("DD_KEYPAD_HEX") == "KEYPAD");
+	// The original is untouched by having been copied.
+	LibraryGate fromOriginal;
+	REQUIRE(parsed.getGate("DD_KEYPAD_HEX", fromOriginal));
+	CHECK(fromOriginal.guiParams.size() == fromCopy.guiParams.size());
+}

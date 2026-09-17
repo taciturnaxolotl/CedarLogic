@@ -111,6 +111,10 @@ struct LibraryGate {
 	}
 };
 
+// A parsed gate library: the gate definitions, and nothing else. Reading the
+// XML happens entirely inside the constructor, so a LibraryParse is just its
+// gates once built -- safe to copy and assign, which is how the parsed library
+// reaches the process-wide GateLibrary.
 class LibraryParse {
 public:
 	// Parse a gate library from its XML text. The library is compiled into the
@@ -118,14 +122,9 @@ public:
 	explicit LibraryParse(const string& xml);
 	LibraryParse();
 	virtual ~LibraryParse();
-	
-	void parseFile();
 
 	// Added by Colin Broberg 11/16/16 -- need to make this a public function so that I can use it for dynamic gates
 	void addGate(string libName, LibraryGate newGate);
-
-	// Parse the shape object from the mParse file, adding an offset if needed:
-	bool parseShapeObject( string type, LibraryGate* newGate, double offX = 0.0, double offY = 0.0, int labelGroup = -1 );
 	
 	// Returns a gate from the library in lgGate.  If the gate does not
 	//	exist in the library, returns false, otherwise true.
@@ -142,7 +141,14 @@ public:
 	map < string, map < string, LibraryGate > >* getGateDefs() { return &gates; };
 
 private:
-	XMLParser* mParse;
+	// Read every library in the document into `gates`. The parser is passed in
+	// rather than held, because it is alive only while the constructor runs.
+	void parseFile( XMLParser &xparse );
+
+	// Parse one shape object, adding an offset if needed.
+	bool parseShapeObject( XMLParser &xparse, string type, LibraryGate* newGate,
+	                       double offX = 0.0, double offY = 0.0, int labelGroup = -1 );
+
 	string libName;
 	
 	// Maps library name to a map of gates, which maps to the librarygate struct

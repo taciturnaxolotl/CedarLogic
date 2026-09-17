@@ -24,18 +24,17 @@ LibraryParse::LibraryParse(const string& xml) {
 		             "Error - Missing Gate Library", wxOK | wxICON_ERROR, NULL);
 		return;
 	}
+	// The parser lives only as long as this call: once the gates are read it has
+	// nothing left to say, and the stream it reads from is a local here anyway.
 	istringstream x(xml);
-	mParse = new XMLParser(&x, false);
-	parseFile();
-	delete mParse;
+	XMLParser xparse(&x, false);
+	parseFile(xparse);
 }
 
 LibraryParse::LibraryParse() {
-	return;
 }
 
 LibraryParse::~LibraryParse() {
-	//delete mParse;
 }
 
 // Added by Colin Broberg 11/16/16 -- need to make this a public function so that I can use it for dynamic gates
@@ -43,26 +42,26 @@ void LibraryParse::addGate(string libName, LibraryGate newGate) {
 	gates[libName][newGate.gateName] = newGate;
 }
 
-void LibraryParse::parseFile() {
+void LibraryParse::parseFile( XMLParser &xparse ) {
 	do { // Outer loop to parse all libraries
 		// need to throw exception
-		if (mParse->readTag() != "library") return;
-		mParse->readTag();
-		libName = mParse->readTagValue("name");
-		mParse->readCloseTag();
+		if (xparse.readTag() != "library") return;
+		xparse.readTag();
+		libName = xparse.readTagValue("name");
+		xparse.readCloseTag();
 		
 		string hsName, hsType;
 		float x1, y1;
 		char dump;
 		
 		do {
-			mParse->readTag();
+			xparse.readTag();
 			LibraryGate newGate;
-			string temp = mParse->readTag();
-			newGate.gateName = mParse->readTagValue(temp);
-			mParse->readCloseTag();
+			string temp = xparse.readTag();
+			newGate.gateName = xparse.readTagValue(temp);
+			xparse.readCloseTag();
 			do {
-				temp = mParse->readTag();
+				temp = xparse.readTag();
 
 				if ( (temp == "input") || (temp == "output") ) {
 
@@ -75,35 +74,35 @@ void LibraryParse::parseFile() {
 					int busLines = 1;
 					
 					do {
-						temp = mParse->readTag();
+						temp = xparse.readTag();
 						if (temp == "") break;
 						if( temp == "name" ) {
-							hsName = mParse->readTagValue("name");
-							mParse->readCloseTag();
+							hsName = xparse.readTagValue("name");
+							xparse.readCloseTag();
 						} else if( temp == "point" ) {
-							temp = mParse->readTagValue("point");
+							temp = xparse.readTagValue("point");
 							istringstream iss(temp);
 							iss >> x1 >> dump >> y1;
-							mParse->readCloseTag(); //point
+							xparse.readCloseTag(); //point
 						} else if( temp == "inverted" ) {
-							isInverted = mParse->readTagValue("inverted");
-							mParse->readCloseTag();
+							isInverted = xparse.readTagValue("inverted");
+							xparse.readCloseTag();
 						} else if( temp == "enable_input" ) {
 							if( hsType == "output" ) { // Only outputs can have <enable_input> tags.
-								logicEInput = mParse->readTagValue("enable_input");
+								logicEInput = xparse.readTagValue("enable_input");
 							}
-							mParse->readCloseTag();
+							xparse.readCloseTag();
 						}
 						else if (temp == "bus") {
-							busLines = atoi(mParse->readTagValue("bus").c_str());
-							mParse->readCloseTag();
+							busLines = atoi(xparse.readTagValue("bus").c_str());
+							xparse.readCloseTag();
 						}
 
-					} while (!mParse->isCloseTag(mParse->getCurrentIndex())); // end input/output
+					} while (!xparse.isCloseTag(xparse.getCurrentIndex())); // end input/output
 
 					newGate.hotspots.push_back( lgHotspot( hsName, (hsType == "input"), x1, y1, (isInverted == "true"), logicEInput, busLines));
 
-					mParse->readCloseTag(); //input or output
+					xparse.readCloseTag(); //input or output
 
 				} else if (temp == "shape") {
 
@@ -111,15 +110,15 @@ void LibraryParse::parseFile() {
 					// renderer can keep its strokes together when the gate turns.
 					int nextLabelGroup = 0;
 					do {
-						temp = mParse->readTag();
+						temp = xparse.readTag();
 						if (temp == "") break;
 						if( temp == "offset" || temp == "label_offset" ) {
 							int labelGroup = (temp == "label_offset") ? nextLabelGroup++ : -1;
 							float offX = 0.0, offY = 0.0;
-							temp = mParse->readTag();
+							temp = xparse.readTag();
 							if( temp == "point" ) {
-								temp = mParse->readTagValue("point");
-								mParse->readCloseTag();
+								temp = xparse.readTagValue("point");
+								xparse.readCloseTag();
 								istringstream iss(temp);
 								iss >> offX >> dump >> offY;
 							} else {
@@ -128,22 +127,22 @@ void LibraryParse::parseFile() {
 							}
 	
 							do {
-								temp = mParse->readTag();
+								temp = xparse.readTag();
 								if (temp == "") break;
-								parseShapeObject( temp, &newGate, offX, offY, labelGroup );
-							} while (!mParse->isCloseTag(mParse->getCurrentIndex())); // end offset
-							mParse->readCloseTag();
+								parseShapeObject( xparse, temp, &newGate, offX, offY, labelGroup );
+							} while (!xparse.isCloseTag(xparse.getCurrentIndex())); // end offset
+							xparse.readCloseTag();
 						} else {
-							parseShapeObject( temp, &newGate );
+							parseShapeObject( xparse, temp, &newGate );
 						}
-					} while (!mParse->isCloseTag(mParse->getCurrentIndex())); // end shape
-					mParse->readCloseTag();
+					} while (!xparse.isCloseTag(xparse.getCurrentIndex())); // end shape
+					xparse.readCloseTag();
 
 				} else if (temp == "param_dlg_data") {
 
 					// Parse the parameters for the params dialog.
 					do {
-						temp = mParse->readTag();
+						temp = xparse.readTag();
 						if (temp == "") break;
 						if( temp == "param" ) {
 							string type = "STRING";
@@ -153,77 +152,77 @@ void LibraryParse::parseFile() {
 							float Rmin = -FLT_MAX, Rmax = FLT_MAX;
 	
 							do {
-								temp = mParse->readTag();
+								temp = xparse.readTag();
 								if (temp == "") break;
 								if( temp == "type" ) {
-									type = mParse->readTagValue("type");
-									mParse->readCloseTag();
+									type = xparse.readTagValue("type");
+									xparse.readCloseTag();
 								} else if( temp == "label" ) {
-									textLabel = mParse->readTagValue("label");
-									mParse->readCloseTag();
+									textLabel = xparse.readTagValue("label");
+									xparse.readCloseTag();
 								} else if( temp == "varname" ) {
-									temp = mParse->readTagValue("varname");
+									temp = xparse.readTagValue("varname");
 									istringstream iss(temp);
 									iss >> logicOrGui >> name;
-									mParse->readCloseTag();
+									xparse.readCloseTag();
 								} else if( temp == "range" ) {
-									temp = mParse->readTagValue("range");
+									temp = xparse.readTagValue("range");
 									istringstream iss(temp);
 									iss >> Rmin >> dump >> Rmax;
-									mParse->readCloseTag();
+									xparse.readCloseTag();
 								}
-							} while (!mParse->isCloseTag(mParse->getCurrentIndex())); // end param
+							} while (!xparse.isCloseTag(xparse.getCurrentIndex())); // end param
 							newGate.dlgParams.push_back( lgDlgParam( textLabel, name, type, (logicOrGui == "GUI"), Rmin, Rmax ) );
-							mParse->readCloseTag();
+							xparse.readCloseTag();
 						}
-					} while (!mParse->isCloseTag(mParse->getCurrentIndex())); // end param_dlg_data
-					mParse->readCloseTag();
+					} while (!xparse.isCloseTag(xparse.getCurrentIndex())); // end param_dlg_data
+					xparse.readCloseTag();
 
 				} else if (temp == "gui_type") {
-					newGate.guiType = mParse->readTagValue("gui_type");
-					mParse->readCloseTag();
+					newGate.guiType = xparse.readTagValue("gui_type");
+					xparse.readCloseTag();
 				} else if (temp == "logic_type") {
-					newGate.logicType = mParse->readTagValue("logic_type");
-					mParse->readCloseTag();
+					newGate.logicType = xparse.readTagValue("logic_type");
+					xparse.readCloseTag();
 				} else if (temp == "gui_param") {
 					string paramName, paramVal;
-					istringstream iss(mParse->readTagValue("gui_param"));
+					istringstream iss(xparse.readTagValue("gui_param"));
 					iss >> paramName >> paramVal;
 					newGate.guiParams[paramName] = paramVal;
-					mParse->readCloseTag();
+					xparse.readCloseTag();
 				} else if (temp == "logic_param") {
 					string paramName, paramVal;
-					istringstream iss(mParse->readTagValue("logic_param"));
+					istringstream iss(xparse.readTagValue("logic_param"));
 					iss >> paramName >> paramVal;
 					newGate.logicParams[paramName] = paramVal;
-					mParse->readCloseTag();
+					xparse.readCloseTag();
 				} else if (temp == "caption") {
-					newGate.caption = mParse->readTagValue("caption");
+					newGate.caption = xparse.readTagValue("caption");
 					if (newGate.caption == "Inverter" && (time(0) % 1001 == 0)) { // Easter egg, rename inverters once in a while :)
 						newGate.caption = "Santa Hat (Inverter)";
 					}
-					mParse->readCloseTag();
+					xparse.readCloseTag();
 				}
-			} while (!mParse->isCloseTag(mParse->getCurrentIndex())); // end gate
+			} while (!xparse.isCloseTag(xparse.getCurrentIndex())); // end gate
 			gateLibrary().gateNameToLibrary[newGate.gateName] = libName;
 			gateLibrary().libraries[libName][newGate.gateName] = newGate;
 			gates[libName][newGate.gateName] = newGate;
-			mParse->readCloseTag(); //gate
-		} while (!mParse->isCloseTag(mParse->getCurrentIndex())); // end library
-		mParse->readCloseTag(); // clear the close tag
+			xparse.readCloseTag(); //gate
+		} while (!xparse.isCloseTag(xparse.getCurrentIndex())); // end library
+		xparse.readCloseTag(); // clear the close tag
 	} while (true); // end file
 }
 
-// Parse the shape object from the mParse file, adding an offset if needed:
-bool LibraryParse::parseShapeObject( string type, LibraryGate* newGate, double offX, double offY, int labelGroup ) {
+// Parse one shape object out of the document, adding an offset if needed:
+bool LibraryParse::parseShapeObject( XMLParser &xparse, string type, LibraryGate* newGate, double offX, double offY, int labelGroup ) {
 	const bool isLabel = (labelGroup >= 0);
 	float x1, y1, x2, y2;
 	char dump;
 	string temp;
 
 	if( type == "line" ) {
-		temp = mParse->readTagValue("line");
-		mParse->readCloseTag();
+		temp = xparse.readTagValue("line");
+		xparse.readCloseTag();
 		istringstream iss(temp);
 		iss >> x1 >> dump >> y1 >> dump >> x2 >> dump >> y2;
 
@@ -235,8 +234,8 @@ bool LibraryParse::parseShapeObject( string type, LibraryGate* newGate, double o
 	} else if( type == "arc" ) {
 		// "arc cx,cy,radius,startDeg,sweepDeg" -- a structured curve kept whole so
 		// the renderer strokes it smooth (see lgArc). Degrees from +Y, clockwise.
-		temp = mParse->readTagValue("arc");
-		mParse->readCloseTag();
+		temp = xparse.readTagValue("arc");
+		xparse.readCloseTag();
 		istringstream iss(temp);
 		float cx = 0, cy = 0, radius = 1, startDeg = 0, sweepDeg = 360;
 		iss >> cx >> dump >> cy >> dump >> radius >> dump >> startDeg >> dump >> sweepDeg;
@@ -244,8 +243,8 @@ bool LibraryParse::parseShapeObject( string type, LibraryGate* newGate, double o
 		newGate->arcs.push_back( lgArc( cx, cy, radius, startDeg, sweepDeg, isLabel ) );
 		return true;
 	} else if( type == "circle" ) {
-		temp = mParse->readTagValue("circle");
-		mParse->readCloseTag();
+		temp = xparse.readTagValue("circle");
+		xparse.readCloseTag();
 		istringstream iss(temp);
 
 		double radius = 1.0;
