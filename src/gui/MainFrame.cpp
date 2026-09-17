@@ -60,6 +60,7 @@
 #ifdef _WIN32
 #include "WinSparkleUpdater.h"
 #endif
+#include "UpdateInfo.h"   // cl::update::checksDisabled, for managed deployments
 
 DECLARE_APP(MainApp)
 
@@ -197,6 +198,13 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 #else
 	helpMenu->Append(Help_DownloadLatestVersion, "Download latest version...");
 #endif
+	// An administrator can turn update checking off for a managed deployment, so
+	// the organisation owns the installed version. Leave the item visible but
+	// disabled: a greyed-out entry explains why nothing happens, where a missing
+	// one just looks like the feature vanished.
+	if (cl::update::checksDisabled()) {
+		helpMenu->Enable(Help_DownloadLatestVersion, false);
+	}
 	helpMenu->AppendSeparator();
     helpMenu->Append(wxID_ABOUT, "&About...", "Show about dialog");
 
@@ -2112,6 +2120,14 @@ void MainFrame::OnRequestAFeature(wxCommandEvent& event) {
 }
 
 void MainFrame::OnDownloadLatestVersion(wxCommandEvent& event) {
+	// Belt and braces: the menu item is disabled under policy, but an
+	// accelerator or a programmatic menu event can still reach this handler,
+	// and it would otherwise put a request on the wire.
+	if (cl::update::checksDisabled()) {
+		wxMessageBox("Updates for CedarLogic are managed by your administrator.",
+		             "Updates are managed", wxOK | wxICON_INFORMATION, this);
+		return;
+	}
 #ifdef __APPLE__
 	SparkleUpdater_CheckForUpdates();
 #elif defined(_WIN32)

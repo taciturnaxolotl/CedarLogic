@@ -49,5 +49,20 @@ bool appcastLatest(const std::string &xml, const std::string &os, Version &out);
 // timeout, so it belongs on a worker thread.
 std::string fetchAppcast(const std::string &url);
 
+// True when an administrator has turned update checking off for this machine,
+// for deployments where the organisation owns the installed version (campus
+// software distribution, managed labs).
+//
+// Windows reads a REG_DWORD "DisableUpdateChecks" under
+//   HKLM\SOFTWARE\Policies\Cedarville University\CedarLogic
+// Anything non-zero disables checking. The key lives under SOFTWARE\Policies
+// because that tree is writable only by administrators and is what Intune and
+// Group Policy target, so a user cannot turn checking back on. Nothing here
+// ever enables checking: the policy can only switch it off.
+//
+// Other platforms always return false; macOS deployments manage Sparkle through
+// its own configuration profile instead.
+bool checksDisabled();
+
 }  // namespace update
 }  // namespace cl

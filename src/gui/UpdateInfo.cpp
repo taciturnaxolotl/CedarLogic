@@ -198,5 +198,47 @@ std::string fetchAppcast(const std::string &url) {
 #endif
 }
 
+#ifdef _WIN32
+// Read one DWORD from a registry view, so the caller can ask for the 64-bit
+// view explicitly. Returns false if the key or value is absent.
+static bool readPolicyDword(REGSAM view, const wchar_t *subkey,
+                            const wchar_t *value, DWORD &out) {
+    HKEY key = NULL;
+    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, subkey, 0, KEY_READ | view, &key) !=
+        ERROR_SUCCESS) {
+        return false;
+    }
+    DWORD type = 0, data = 0, size = sizeof(data);
+    bool ok = RegQueryValueExW(key, value, NULL, &type,
+                               reinterpret_cast<BYTE *>(&data), &size) == ERROR_SUCCESS &&
+              type == REG_DWORD;
+    RegCloseKey(key);
+    if (ok) out = data;
+    return ok;
+}
+#endif
+
+bool checksDisabled() {
+#ifdef _WIN32
+    static const wchar_t *kPolicyKey =
+        L"SOFTWARE\\Policies\\Cedarville University\\CedarLogic";
+    static const wchar_t *kPolicyValue = L"DisableUpdateChecks";
+
+    // CedarLogic ships 32-bit, so the registry redirector would silently send a
+    // plain read to SOFTWARE\WOW6432Node -- not where Group Policy or Intune
+    // writes. Ask for the 64-bit view first, which is the one an administrator
+    // actually populates, then fall back to the 32-bit view for anyone who set
+    // the policy from a 32-bit tool or on a 32-bit machine.
+    DWORD disabled = 0;
+    if (readPolicyDword(KEY_WOW64_64KEY, kPolicyKey, kPolicyValue, disabled) ||
+        readPolicyDword(KEY_WOW64_32KEY, kPolicyKey, kPolicyValue, disabled)) {
+        return disabled != 0;
+    }
+    return false;
+#else
+    return false;
+#endif
+}
+
 }  // namespace update
 }  // namespace cl

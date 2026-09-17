@@ -456,46 +456,59 @@ static bool showPendingCrashReport(wxWindow *parent, bool duringStartup) {
 
     updateBtn->Enable(false); // nothing to update to until the feed says so
 
-    // Read the feed off the main thread and poll for it. wxMilliSleep yields to
-    // the event loop, so the dialog paints and stays responsive while this runs,
-    // and the thread never has to touch a wx object. The flags are atomic
-    // because two threads see them; join() below is what makes `newest` safe to
-    // read on this thread.
-    static const char *kAppcastUrl =
-        "https://taciturnaxolotl.github.io/CedarLogic/appcast.xml";
+    // Where an administrator has disabled update checking, say so and make no
+    // request at all. This dialog reads the feed itself rather than going
+    // through the updater, so it is a second way out of the machine and has to
+    // honour the policy on its own account.
+    const bool managed = cl::update::checksDisabled();
     cl::update::Version newest;
-    std::atomic<bool> done(false);
-    std::atomic<bool> ok(false);
-    std::thread fetcher([&]() {
-        std::string xml = cl::update::fetchAppcast(kAppcastUrl);
-#ifdef _WIN32
-        ok.store(!xml.empty() && cl::update::appcastLatest(xml, "windows", newest));
-#elif defined(__APPLE__)
-        ok.store(!xml.empty() && cl::update::appcastLatest(xml, "macos", newest));
-#else
-        ok.store(false);
-#endif
-        done.store(true);
-    });
+    bool haveUpdate = false;
 
-    const cl::update::Version current = cl::update::parseVersion(VERSION_NUMBER());
-    for (int waited = 0; !done.load() && waited < 10000; waited += 100)
-        wxMilliSleep(100);
-    if (fetcher.joinable()) fetcher.join();
-
-    const bool haveUpdate = ok.load() && cl::update::newerThan(newest, current);
-    if (!ok.load()) {
-        updateLine->SetLabel("Could not check for updates. Reporting this is the "
-                             "best way to get it fixed.");
-    } else if (haveUpdate) {
-        wxString v;
-        v.Printf("Version %d.%d.%d is available and may already fix this.",
-                 newest.parts[0], newest.parts[1], newest.parts[2]);
-        updateLine->SetLabel(v);
-        updateBtn->Enable(true);
-        updateBtn->SetDefault();
+    if (managed) {
+        updateLine->SetLabel("Updates are managed by your administrator. "
+                             "Reporting this is the best way to get it fixed.");
+        updateBtn->Hide();
     } else {
-        updateLine->SetLabel("You are on the latest version, so this is worth reporting.");
+        // Read the feed off the main thread and poll for it. wxMilliSleep yields
+        // to the event loop, so the dialog paints and stays responsive while this
+        // runs, and the thread never has to touch a wx object. The flags are
+        // atomic because two threads see them; join() below is what makes
+        // `newest` safe to read on this thread.
+        static const char *kAppcastUrl =
+            "https://taciturnaxolotl.github.io/CedarLogic/appcast.xml";
+        std::atomic<bool> done(false);
+        std::atomic<bool> ok(false);
+        std::thread fetcher([&]() {
+            std::string xml = cl::update::fetchAppcast(kAppcastUrl);
+#ifdef _WIN32
+            ok.store(!xml.empty() && cl::update::appcastLatest(xml, "windows", newest));
+#elif defined(__APPLE__)
+            ok.store(!xml.empty() && cl::update::appcastLatest(xml, "macos", newest));
+#else
+            ok.store(false);
+#endif
+            done.store(true);
+        });
+
+        const cl::update::Version current = cl::update::parseVersion(VERSION_NUMBER());
+        for (int waited = 0; !done.load() && waited < 10000; waited += 100)
+            wxMilliSleep(100);
+        if (fetcher.joinable()) fetcher.join();
+
+        haveUpdate = ok.load() && cl::update::newerThan(newest, current);
+        if (!ok.load()) {
+            updateLine->SetLabel("Could not check for updates. Reporting this is the "
+                                 "best way to get it fixed.");
+        } else if (haveUpdate) {
+            wxString v;
+            v.Printf("Version %d.%d.%d is available and may already fix this.",
+                     newest.parts[0], newest.parts[1], newest.parts[2]);
+            updateLine->SetLabel(v);
+            updateBtn->Enable(true);
+            updateBtn->SetDefault();
+        } else {
+            updateLine->SetLabel("You are on the latest version, so this is worth reporting.");
+        }
     }
     dlg.Layout();
 
@@ -791,8 +804,14 @@ bool MainApp::OnInit()
     SparkleUpdater_Initialize();
 #endif
 #ifdef _WIN32
-    // Initialize WinSparkle auto-updater
-    WinSparkleUpdater_Initialize();
+    // Initialize WinSparkle auto-updater, unless an administrator has turned
+    // update checking off for this machine (see cl::update::checksDisabled).
+    // Skipping win_sparkle_init() entirely means no background thread and no
+    // request ever leaves the machine, rather than relying on WinSparkle's own
+    // setting, which a user's HKCU value takes precedence over.
+    if (!cl::update::checksDisabled()) {
+        WinSparkleUpdater_Initialize();
+    }
 #endif
 
     // success: wxApp::OnRun() will be called which will enter the main message
