@@ -770,8 +770,17 @@ bool MainApp::OnInit()
         frame->SetSize(renderW + 220, renderH + 140);
         frame->Show(true);
         wxYield();
+        // Nothing may step the simulation on its own from here on: the picture
+        // has to be of a circuit this code stepped a known number of times, not
+        // of wherever a free-running timer had got to. settleSimulation drives
+        // every step from now until the render.
+        frame->stopTimers();
         frame->load(cmdFilename);
         wxYield();
+        // Settle the circuit before drawing it. Without this the picture caught
+        // the simulation wherever the logic thread happened to have got to, so
+        // the same file could render two different images. See settleSimulation.
+        frame->settleSimulation();
         bool ok = renderPdf
             ? frame->renderToPdfSkia(renderOutput, renderW, renderH,
                                      /*showGrid=*/true, /*noColor=*/false)

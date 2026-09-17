@@ -152,6 +152,16 @@ public:
 	// format: 1 = v1 XML, 2 = v2 XML, 3 = v3 S-expression (the default).
 	bool save(string filename, int format = 3);
 	void load(string filename);
+	// Run the simulation until the wire states stop changing, so a headless
+	// render shows a settled circuit rather than whichever half-propagated
+	// moment the logic thread happened to reach. Stops the timers and keeps
+	// them stopped: it has to be the only thing stepping for the result to be
+	// repeatable, so this is for one-shot rendering, not the live canvas.
+	// Returns true once a step changes nothing, false if it reaches the step
+	// limit first -- a circuit with a free-running clock never settles, and is
+	// rendered after a fixed number of steps instead, which is just as
+	// repeatable.
+	bool settleSimulation(int maxSteps = 200);
 	// Make `canvas` the active page (selecting its tab) so an undo/redo that
 	// affects another page is shown where it happens. No-op if null or current.
 	void switchToCanvas(GUICanvas *canvas);

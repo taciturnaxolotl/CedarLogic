@@ -81,6 +81,11 @@ static const int TIMER_POLL_MS = 8;
 // work would take longer than the gap it is chasing.
 static const int MAX_CATCHUP_STEPS = 10;
 
+// How long settleSimulation waits for the logic thread to answer one step
+// before giving up. Generous: it only has to exceed the slowest single step a
+// circuit can take, and hitting it at all means the core has stopped replying.
+static const int SETTLE_STEP_TIMEOUT_MS = 5000;
+
 BEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(wxID_EXIT,  MainFrame::OnQuit)
     EVT_MENU(wxID_ABOUT, MainFrame::OnAbout)
@@ -1078,6 +1083,68 @@ void MainFrame::stepSimulation() {
 }
 
 void MainFrame::OnIdle(wxTimerEvent& event) { drainLogicMessages(); }
+
+// Run the simulation to a fixed point. See MainFrame.h.
+//
+// A headless render used to photograph the circuit mid-flight: load it, pump
+// the event loop once, draw. How far the logic thread had got by then came down
+// to thread scheduling, so the same file rendered twice could differ -- a net
+// came out driven in one run and high-impedance in the next. That left the
+// golden-image harness unable to tell a real change from a coin toss.
+//
+// Stepping to a fixed point removes the race at its source rather than papering
+// over it with a sleep: keep stepping until a whole step goes by with no wire
+// changing state, and the picture is of the settled circuit every time.
+bool MainFrame::settleSimulation(int maxSteps) {
+	if (gCircuit == nullptr) return true;
+
+	// Take sole charge of stepping. A running sim timer would interleave steps
+	// of its own with the ones below, which is the race being removed here.
+	stopTimers();
+
+	auto wireStates = [&]() {
+		std::vector<StateType> snapshot;
+		for (const auto &w : gCircuit->wires()) {
+			if (!w.second) continue;
+			for (StateType s : w.second->getState()) snapshot.push_back(s);
+		}
+		return snapshot;
+	};
+
+	// One synchronized step: ask for it, then wait for the core's answer.
+	// getSimulate() goes back to true when MT_DONESTEP is drained, and draining
+	// that is also what applies the step's wire states, so it marks the point
+	// where the step is fully visible here.
+	auto stepOnce = [&]() {
+		gCircuit->setSimulate(false);
+		gCircuit->sendMessageToCore(klsMessage::Message(
+			klsMessage::MT_STEPSIM, new klsMessage::Message_STEPSIM(1)));
+		const wxLongLong deadline =
+			wxGetLocalTimeMillis() + SETTLE_STEP_TIMEOUT_MS;
+		while (!gCircuit->getSimulate() && wxGetLocalTimeMillis() < deadline) {
+			drainLogicMessages();
+			if (gCircuit->getSimulate()) break;
+			wxMilliSleep(1);
+		}
+		drainLogicMessages();   // anything queued behind the DONESTEP
+		return gCircuit->getSimulate();
+	};
+
+	// Apply anything the load left in flight, then let the first synchronized
+	// step set the baseline. Comparing against the state as loaded would mean
+	// comparing against however much had been applied by then.
+	drainLogicMessages();
+	if (!stepOnce()) return false;
+	std::vector<StateType> before = wireStates();
+
+	for (int step = 1; step < maxSteps; step++) {
+		if (!stepOnce()) return false;             // the core stopped answering
+		std::vector<StateType> after = wireStates();
+		if (after == before) return true;          // a step changed nothing
+		before.swap(after);
+	}
+	return false;   // still moving: a clock, or something that never settles
+}
 
 void MainFrame::drainLogicMessages() {
 	wxCriticalSectionLocker locker(simBridge().m_critsect);
