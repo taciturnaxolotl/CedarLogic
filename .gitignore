@@ -43,3 +43,9 @@ __pycache__/
 
 # Autosave/crash-recovery file written by the app into its working directory
 crashfile.temp
+
+# Lock files the app writes beside an open document (~<name>.lck). Runtime
+# state naming a host and a process id, so it belongs to whoever has the file
+# open, never to the repository -- and opening a test fixture deletes any that
+# was committed.
+~*.lck
