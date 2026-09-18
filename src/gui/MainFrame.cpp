@@ -332,12 +332,18 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 #else
 	// On Windows/Linux, load modern SVG icons via wxBitmapBundle (crisp at any DPI),
 	// tinted to contrast with the toolbar they land on. See ToolbarIcons.h.
+	//
+	// Nothing calls SetToolBitmapSize, and that is the point. Naming a size makes
+	// wx scale it by whole factors only (wxToolBarBase::AdjustToolBitmapSize),
+	// which rounds 125% and 150% displays down to 1x and leaves 24px icons in a
+	// bar sized for 30 or 36. Left alone, wx takes the size from the bundles and
+	// each one rasterizes to fit. iconSize below is what the SVGs are drawn for,
+	// not a ceiling.
 	const wxSize iconSize(24, 24);
 	auto svgIcon = [&](const char* name) -> wxBitmapBundle {
 		return cl::toolbarIcon(toolBar, name, iconSize);
 	};
 
-	toolBar->SetToolBitmapSize(iconSize);
 	toolBar->AddTool(wxID_NEW, "New", svgIcon("new"), "New");
 	toolBar->AddTool(wxID_OPEN, "Open", svgIcon("open"), "Open");
 	toolBar->AddTool(wxID_SAVE, "Save", svgIcon("save"), "Save");
@@ -351,8 +357,8 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	toolBar->AddTool(Tool_ZoomIn, "Zoom In", svgIcon("zoomin"), "Zoom In");
 	toolBar->AddTool(Tool_ZoomOut, "Zoom Out", svgIcon("zoomout"), "Zoom Out");
 	toolBar->AddSeparator();
-	pauseIcon = svgIcon("pause").GetBitmap(iconSize);
-	playIcon = svgIcon("play").GetBitmap(iconSize);
+	pauseIcon = svgIcon("pause");
+	playIcon = svgIcon("play");
 	toolBar->AddTool(Tool_Pause, "Pause/Resume", pauseIcon, "Pause/Resume", wxITEM_CHECK);
 	toolBar->AddTool(Tool_Step, "Step", svgIcon("step"), "Step");
 	timeStepModSlider = new wxSlider(toolBar, wxID_ANY, appConfig().timeStepMod, 1, 500, wxDefaultPosition, wxSize(125,-1), wxSL_HORIZONTAL);
@@ -369,8 +375,8 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	toolBar->AddControl( timeStepModSlider );
 	toolBar->AddControl( timeStepModVal );
 	toolBar->AddSeparator();
-	lockedIcon = svgIcon("locked").GetBitmap(iconSize);
-	unlockedIcon = svgIcon("unlocked").GetBitmap(iconSize);
+	lockedIcon = svgIcon("locked");
+	unlockedIcon = svgIcon("unlocked");
 	toolBar->AddTool(Tool_Lock, "Lock state", unlockedIcon, "Lock state", wxITEM_CHECK);
 	toolBar->AddSeparator();
 	toolBar->AddTool(wxID_ABOUT, "About", svgIcon("about"), "About");

@@ -14,6 +14,7 @@
 #include "MainApp.h"
 #include "PaletteFrame.h"
 #include "wx/wxprec.h"
+#include "wx/bmpbndl.h"
 #include "wx/thread.h"
 #include "wx/toolbar.h"
 #include "wx/gbsizer.h"
@@ -224,10 +225,14 @@ private:
 
 	wxPanel* mainPanel;
 	wxToolBar* toolBar;
-	wxBitmap pauseIcon;
-	wxBitmap playIcon;
-	wxBitmap lockedIcon;
-	wxBitmap unlockedIcon;
+	// Bundles, not bitmaps: these four get swapped onto their tools at runtime,
+	// and a bundle keeps rasterizing itself to whatever the display asks for.
+	// Flattening one to a wxBitmap pins it to a single size, which leaves it
+	// blurred next to the rest of the bar on a HiDPI screen.
+	wxBitmapBundle pauseIcon;
+	wxBitmapBundle playIcon;
+	wxBitmapBundle lockedIcon;
+	wxBitmapBundle unlockedIcon;
 
 	//Julian: Re-added timers to fix refresh error
 	wxTimer* simTimer;

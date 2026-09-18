@@ -56,13 +56,13 @@ OscopeFrame::OscopeFrame(wxWindow *parent, GUICircuit* gCircuit)
 #else
 	// Modern SVG icons via wxBitmapBundle, matching the main toolbar. The SVGs are
 	// authored with a #333333 stroke; recolor at load time so they read against
-	// the toolbar they land on. See ToolbarIcons.h.
+	// the toolbar they land on. See ToolbarIcons.h. No SetToolBitmapSize, for
+	// the same reason the main toolbar skips it -- see MainFrame's toolbar setup.
 	const wxSize oscopeIconSize(18, 18);
 	auto svgIcon = [&](const char* name) -> wxBitmapBundle {
 		return cl::toolbarIcon(oscopeToolBar, name, oscopeIconSize);
 	};
 
-	oscopeToolBar->SetToolBitmapSize(oscopeIconSize);
 	oscopeToolBar->AddTool(ID_OSCOPE_PAUSE, "Pause", svgIcon("pause"), "Pause/Reset", wxITEM_CHECK);
 	oscopeToolBar->AddSeparator();
 	oscopeToolBar->AddTool(ID_OSCOPE_ADD, "Add Signal", svgIcon("plus"), "Add signal");
