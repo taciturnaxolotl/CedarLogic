@@ -32,7 +32,6 @@
 #include "wx/image.h"
 #include "wx/thread.h"
 #include "wx/toolbar.h"
-#include "wx/artprov.h"
 #include "wx/clipbrd.h"
 #include "wx/dataobj.h"
 #include "wx/config.h"
@@ -43,7 +42,6 @@
 #include "wx/dialog.h"
 #include "wx/button.h"
 #include "wx/bmpbndl.h"
-#include "wx/artprov.h"
 #include "wx/settings.h"
 #include "wx/file.h"
 #include "CircuitParse.h"
@@ -282,85 +280,39 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	//////////////////////////////////////////////////////////////////////////
 	toolBar = new wxToolBar(this, TOOLBAR_ID, wxPoint(0,0), wxDefaultSize, wxTB_HORIZONTAL|wxNO_BORDER| wxTB_FLAT);
 
-#ifdef __WXOSX__
-	// On macOS, use native SF Symbols for toolbar icons (requires macOS 11+)
-	auto sfSymbol = [](const char* name) -> wxBitmap {
-		wxBitmap bmp = NativeIcon_GetSFSymbol(name, 18);
-		if (bmp.IsOk()) return bmp;
-		return wxArtProvider::GetBitmap(wxART_QUESTION, wxART_TOOLBAR);
-	};
-
-	toolBar->AddTool(wxID_NEW, "New", sfSymbol("doc.badge.plus"), "New");
-	toolBar->AddTool(wxID_OPEN, "Open", sfSymbol("folder"), "Open");
-	toolBar->AddTool(wxID_SAVE, "Save", sfSymbol("square.and.arrow.down"), "Save");
-	toolBar->AddSeparator();
-	toolBar->AddTool(wxID_UNDO, "Undo", sfSymbol("arrow.uturn.backward"), "Undo");
-	toolBar->AddTool(wxID_REDO, "Redo", sfSymbol("arrow.uturn.forward"), "Redo");
-	toolBar->AddSeparator();
-	toolBar->AddTool(wxID_COPY, "Copy", sfSymbol("doc.on.doc"), "Copy");
-	toolBar->AddTool(wxID_PASTE, "Paste", sfSymbol("clipboard"), "Paste");
-	toolBar->AddSeparator();
-	toolBar->AddTool(Tool_ZoomIn, "Zoom In", sfSymbol("plus.magnifyingglass"), "Zoom In");
-	toolBar->AddTool(Tool_ZoomOut, "Zoom Out", sfSymbol("minus.magnifyingglass"), "Zoom Out");
-	toolBar->AddSeparator();
-	pauseIcon = sfSymbol("pause.fill");
-	playIcon = sfSymbol("play.fill");
-	toolBar->AddTool(Tool_Pause, "Pause/Resume", pauseIcon, "Pause/Resume", wxITEM_CHECK);
-	toolBar->AddTool(Tool_Step, "Step", sfSymbol("forward.frame.fill"), "Step");
-	timeStepModSlider = new wxSlider(toolBar, wxID_ANY, appConfig().timeStepMod, 1, 500, wxDefaultPosition, wxSize(125,-1), wxSL_HORIZONTAL);
-	wxString oss;
-	oss << appConfig().timeStepMod << "ms";
-	timeStepModVal = new wxStaticText(toolBar, wxID_ANY, oss, wxDefaultPosition, wxSize(45, -1), wxSUNKEN_BORDER | wxALIGN_RIGHT | wxST_NO_AUTORESIZE);
-	// Label + tooltip so it's clear this sets the simulation step size / speed.
-	wxStaticText* timeStepModLabel = new wxStaticText(toolBar, wxID_ANY, "Sim step ");
-	const wxString stepTip = "Simulation time per step (ms). Lower = faster simulation, higher = slower.";
-	timeStepModLabel->SetToolTip(stepTip);
-	timeStepModSlider->SetToolTip(stepTip);
-	timeStepModVal->SetToolTip(stepTip);
-	toolBar->AddControl( timeStepModLabel );
-	toolBar->AddControl( timeStepModSlider );
-	toolBar->AddControl( timeStepModVal );
-	toolBar->AddSeparator();
-	lockedIcon = sfSymbol("lock.fill");
-	unlockedIcon = sfSymbol("lock.open.fill");
-	toolBar->AddTool(Tool_Lock, "Lock state", unlockedIcon, "Lock state", wxITEM_CHECK);
-	toolBar->AddSeparator();
-	toolBar->AddTool(wxID_ABOUT, "About", sfSymbol("info.circle"), "About");
-	toolBar->AddSeparator();
-	toolBar->AddTool(Tool_NewTab, "New Tab", sfSymbol("plus.square"), "New Tab");
-	toolBar->AddStretchableSpace();
-#else
-	// On Windows/Linux, load modern SVG icons via wxBitmapBundle (crisp at any DPI),
-	// tinted to contrast with the toolbar they land on. See ToolbarIcons.h.
+	// One toolbar, described once. Each button names its icon twice, the Apple
+	// way and ours, and cl::toolbarIcon picks (see ToolbarIcons.h). SF Symbols
+	// want 18pt to sit right beside a 24px SVG.
 	//
 	// Nothing calls SetToolBitmapSize, and that is the point. Naming a size makes
 	// wx scale it by whole factors only (wxToolBarBase::AdjustToolBitmapSize),
 	// which rounds 125% and 150% displays down to 1x and leaves 24px icons in a
-	// bar sized for 30 or 36. Left alone, wx takes the size from the bundles and
-	// each one rasterizes to fit. iconSize below is what the SVGs are drawn for,
-	// not a ceiling.
-	const wxSize iconSize(24, 24);
-	auto svgIcon = [&](const char* name) -> wxBitmapBundle {
-		return cl::toolbarIcon(toolBar, name, iconSize);
+	// bar sized for 30 or 36. Left alone, wx takes the size from the icons
+	// themselves and each one rasterizes to fit.
+	auto icon = [&](const char* sfSymbol, const char* svgName) {
+		return cl::toolbarIcon(toolBar, sfSymbol, 18, svgName, wxSize(24, 24));
 	};
 
-	toolBar->AddTool(wxID_NEW, "New", svgIcon("new"), "New");
-	toolBar->AddTool(wxID_OPEN, "Open", svgIcon("open"), "Open");
-	toolBar->AddTool(wxID_SAVE, "Save", svgIcon("save"), "Save");
+	toolBar->AddTool(wxID_NEW, "New", icon("doc.badge.plus", "new"), "New");
+	toolBar->AddTool(wxID_OPEN, "Open", icon("folder", "open"), "Open");
+	toolBar->AddTool(wxID_SAVE, "Save", icon("square.and.arrow.down", "save"), "Save");
 	toolBar->AddSeparator();
-	toolBar->AddTool(wxID_UNDO, "Undo", svgIcon("undo"), "Undo");
-	toolBar->AddTool(wxID_REDO, "Redo", svgIcon("redo"), "Redo");
+	toolBar->AddTool(wxID_UNDO, "Undo", icon("arrow.uturn.backward", "undo"), "Undo");
+	toolBar->AddTool(wxID_REDO, "Redo", icon("arrow.uturn.forward", "redo"), "Redo");
 	toolBar->AddSeparator();
-	toolBar->AddTool(wxID_COPY, "Copy", svgIcon("copy"), "Copy");
-	toolBar->AddTool(wxID_PASTE, "Paste", svgIcon("paste"), "Paste");
+	toolBar->AddTool(wxID_COPY, "Copy", icon("doc.on.doc", "copy"), "Copy");
+	toolBar->AddTool(wxID_PASTE, "Paste", icon("clipboard", "paste"), "Paste");
 	toolBar->AddSeparator();
-	toolBar->AddTool(Tool_ZoomIn, "Zoom In", svgIcon("zoomin"), "Zoom In");
-	toolBar->AddTool(Tool_ZoomOut, "Zoom Out", svgIcon("zoomout"), "Zoom Out");
+	toolBar->AddTool(Tool_ZoomIn, "Zoom In", icon("plus.magnifyingglass", "zoomin"), "Zoom In");
+	toolBar->AddTool(Tool_ZoomOut, "Zoom Out", icon("minus.magnifyingglass", "zoomout"), "Zoom Out");
 	toolBar->AddSeparator();
-	pauseIcon = svgIcon("pause");
-	playIcon = svgIcon("play");
+	// Held onto because OnPause and OnLock swap them in as the state changes.
+	pauseIcon = icon("pause.fill", "pause");
+	playIcon = icon("play.fill", "play");
+	lockedIcon = icon("lock.fill", "locked");
+	unlockedIcon = icon("lock.open.fill", "unlocked");
 	toolBar->AddTool(Tool_Pause, "Pause/Resume", pauseIcon, "Pause/Resume", wxITEM_CHECK);
-	toolBar->AddTool(Tool_Step, "Step", svgIcon("step"), "Step");
+	toolBar->AddTool(Tool_Step, "Step", icon("forward.frame.fill", "step"), "Step");
 	timeStepModSlider = new wxSlider(toolBar, wxID_ANY, appConfig().timeStepMod, 1, 500, wxDefaultPosition, wxSize(125,-1), wxSL_HORIZONTAL);
 	wxString oss;
 	oss << appConfig().timeStepMod << "ms";
@@ -375,13 +327,15 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	toolBar->AddControl( timeStepModSlider );
 	toolBar->AddControl( timeStepModVal );
 	toolBar->AddSeparator();
-	lockedIcon = svgIcon("locked");
-	unlockedIcon = svgIcon("unlocked");
 	toolBar->AddTool(Tool_Lock, "Lock state", unlockedIcon, "Lock state", wxITEM_CHECK);
 	toolBar->AddSeparator();
-	toolBar->AddTool(wxID_ABOUT, "About", svgIcon("about"), "About");
+	toolBar->AddTool(wxID_ABOUT, "About", icon("info.circle", "about"), "About");
 	toolBar->AddSeparator();
-	toolBar->AddTool(Tool_NewTab, "New Tab", svgIcon("newtab"), "New Tab");
+	toolBar->AddTool(Tool_NewTab, "New Tab", icon("plus.square", "newtab"), "New Tab");
+#ifdef __WXOSX__
+	// Keeps the tools left-aligned under the unified title bar, which otherwise
+	// spreads them across the full window width.
+	toolBar->AddStretchableSpace();
 #endif
 	SetToolBar(toolBar);
 	toolBar->Show(true);

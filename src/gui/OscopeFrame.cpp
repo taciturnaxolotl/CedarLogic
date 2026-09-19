@@ -17,7 +17,6 @@
 #include "wx/settings.h"
 #include "GUICircuit.h"
 #include "wx/clipbrd.h"
-#include "wx/artprov.h"
 #include "wx/bmpbndl.h"
 #include "wx/file.h"
 #include <fstream>
@@ -38,40 +37,21 @@ OscopeFrame::OscopeFrame(wxWindow *parent, GUICircuit* gCircuit)
 	// Create the toolbar
 	oscopeToolBar = new wxToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTB_HORIZONTAL | wxTB_FLAT | wxTB_NODIVIDER);
 
-#ifdef __WXOSX__
-	auto sfSymbol = [](const char* name) -> wxBitmap {
-		wxBitmap bmp = NativeIcon_GetSFSymbol(name, 15);
-		if (bmp.IsOk()) return bmp;
-		return wxArtProvider::GetBitmap(wxART_QUESTION, wxART_TOOLBAR);
+	// Same arrangement as the main toolbar, smaller: each button names its icon
+	// the Apple way and ours, and cl::toolbarIcon picks. No SetToolBitmapSize,
+	// for the reason spelled out over in MainFrame's toolbar setup.
+	auto icon = [&](const char* sfSymbol, const char* svgName) {
+		return cl::toolbarIcon(oscopeToolBar, sfSymbol, 15, svgName, wxSize(18, 18));
 	};
 
-	oscopeToolBar->AddTool(ID_OSCOPE_PAUSE, "Pause", sfSymbol("pause.fill"), "Pause/Reset", wxITEM_CHECK);
+	oscopeToolBar->AddTool(ID_OSCOPE_PAUSE, "Pause", icon("pause.fill", "pause"), "Pause/Reset", wxITEM_CHECK);
 	oscopeToolBar->AddSeparator();
-	oscopeToolBar->AddTool(ID_OSCOPE_ADD, "Add Signal", sfSymbol("plus"), "Add signal");
-	oscopeToolBar->AddTool(ID_OSCOPE_REMOVE, "Remove Signal", sfSymbol("minus"), "Remove selected signal");
+	oscopeToolBar->AddTool(ID_OSCOPE_ADD, "Add Signal", icon("plus", "plus"), "Add signal");
+	oscopeToolBar->AddTool(ID_OSCOPE_REMOVE, "Remove Signal", icon("minus", "minus"), "Remove selected signal");
 	oscopeToolBar->AddSeparator();
-	oscopeToolBar->AddTool(ID_OSCOPE_EXPORT, "Export", sfSymbol("doc.on.clipboard"), "Export to clipboard");
-	oscopeToolBar->AddTool(ID_OSCOPE_LOAD, "Load", sfSymbol("folder"), "Load layout");
-	oscopeToolBar->AddTool(ID_OSCOPE_SAVE, "Save", sfSymbol("square.and.arrow.down"), "Save layout");
-#else
-	// Modern SVG icons via wxBitmapBundle, matching the main toolbar. The SVGs are
-	// authored with a #333333 stroke; recolor at load time so they read against
-	// the toolbar they land on. See ToolbarIcons.h. No SetToolBitmapSize, for
-	// the same reason the main toolbar skips it -- see MainFrame's toolbar setup.
-	const wxSize oscopeIconSize(18, 18);
-	auto svgIcon = [&](const char* name) -> wxBitmapBundle {
-		return cl::toolbarIcon(oscopeToolBar, name, oscopeIconSize);
-	};
-
-	oscopeToolBar->AddTool(ID_OSCOPE_PAUSE, "Pause", svgIcon("pause"), "Pause/Reset", wxITEM_CHECK);
-	oscopeToolBar->AddSeparator();
-	oscopeToolBar->AddTool(ID_OSCOPE_ADD, "Add Signal", svgIcon("plus"), "Add signal");
-	oscopeToolBar->AddTool(ID_OSCOPE_REMOVE, "Remove Signal", svgIcon("minus"), "Remove selected signal");
-	oscopeToolBar->AddSeparator();
-	oscopeToolBar->AddTool(ID_OSCOPE_EXPORT, "Export", svgIcon("copy"), "Export to clipboard");
-	oscopeToolBar->AddTool(ID_OSCOPE_LOAD, "Load", svgIcon("open"), "Load layout");
-	oscopeToolBar->AddTool(ID_OSCOPE_SAVE, "Save", svgIcon("save"), "Save layout");
-#endif
+	oscopeToolBar->AddTool(ID_OSCOPE_EXPORT, "Export", icon("doc.on.clipboard", "copy"), "Export to clipboard");
+	oscopeToolBar->AddTool(ID_OSCOPE_LOAD, "Load", icon("folder", "open"), "Load layout");
+	oscopeToolBar->AddTool(ID_OSCOPE_SAVE, "Save", icon("square.and.arrow.down", "save"), "Save layout");
 
 	oscopeToolBar->Realize();
 #ifdef __WXOSX__
