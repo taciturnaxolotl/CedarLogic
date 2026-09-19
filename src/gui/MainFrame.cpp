@@ -1134,11 +1134,7 @@ void MainFrame::drainLogicMessages() {
 	if ( gCircuit->panic ) {
 		gCircuit->panic = false;
 		toolBar->ToggleTool( Tool_Pause, true );
-#ifdef __WXOSX__
-		NativeIcon_SetToolbarSFSymbol(toolBar, Tool_Pause, "play.fill", 18);
-#else
-		toolBar->SetToolNormalBitmap(Tool_Pause, playIcon);
-#endif
+		setToolIcon(Tool_Pause, playIcon, "play.fill");
 		simTimer->Stop();
 		simBridge().appSystemTime.Start(0);
 		simBridge().appSystemTime.Pause();
@@ -1560,21 +1556,23 @@ void MainFrame::OnStep(wxCommandEvent& event) {
 	currentCanvas->getCircuit()->setSimulate(false);
 }
 
+void MainFrame::setToolIcon(int toolId, const wxBitmapBundle& icon, const char* sfSymbol) {
+#ifdef __WXOSX__
+	// Straight to AppKit: wx 3.2 derives its own alternate (checked-state) image
+	// for a toggle tool on this platform and gets it wrong. See NativeIcons.h.
+	NativeIcon_SetToolbarSFSymbol(toolBar, toolId, sfSymbol, 18);
+#else
+	toolBar->SetToolNormalBitmap(toolId, icon);
+#endif
+}
+
 void MainFrame::OnLock(wxCommandEvent& event) {
 	if (toolBar->GetToolState(Tool_Lock)) {
 		lock();
-#ifdef __WXOSX__
-		NativeIcon_SetToolbarSFSymbol(toolBar, Tool_Lock, "lock.fill", 18);
-#else
-		toolBar->SetToolNormalBitmap(Tool_Lock, lockedIcon);
-#endif
+		setToolIcon(Tool_Lock, lockedIcon, "lock.fill");
 	} else {
 		unlock();
-#ifdef __WXOSX__
-		NativeIcon_SetToolbarSFSymbol(toolBar, Tool_Lock, "lock.open.fill", 18);
-#else
-		toolBar->SetToolNormalBitmap(Tool_Lock, unlockedIcon);
-#endif
+		setToolIcon(Tool_Lock, unlockedIcon, "lock.open.fill");
 	}
 }
 
@@ -1638,20 +1636,12 @@ void MainFrame::PauseSim() {
 		simTimer->Stop();
 		simBridge().appSystemTime.Start(0);
 		simBridge().appSystemTime.Pause();
-#ifdef __WXOSX__
-		NativeIcon_SetToolbarSFSymbol(toolBar, Tool_Pause, "play.fill", 18);
-#else
-		toolBar->SetToolNormalBitmap(Tool_Pause, playIcon);
-#endif
+		setToolIcon(Tool_Pause, playIcon, "play.fill");
 	}
 	else {
 		simBridge().appSystemTime.Start(0);
 		simTimer->Start(TIMER_POLL_MS);
-#ifdef __WXOSX__
-		NativeIcon_SetToolbarSFSymbol(toolBar, Tool_Pause, "pause.fill", 18);
-#else
-		toolBar->SetToolNormalBitmap(Tool_Pause, pauseIcon);
-#endif
+		setToolIcon(Tool_Pause, pauseIcon, "pause.fill");
 	}
 }
 

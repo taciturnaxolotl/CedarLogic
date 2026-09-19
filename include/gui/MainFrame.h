@@ -150,6 +150,9 @@ public:
 	void removeTempFile();
 	void lock();
 	void unlock();
+	// Swap the image on a toggle tool as its state changes. Named both ways for
+	// the same reason cl::toolbarIcon is, and it defers to that for the sizes.
+	void setToolIcon(int toolId, const wxBitmapBundle& icon, const char* sfSymbol);
 	// format: 1 = v1 XML, 2 = v2 XML, 3 = v3 S-expression (the default).
 	bool save(string filename, int format = 3);
 	void load(string filename);
