@@ -126,14 +126,19 @@ else()
     set(wxUSE_PROTOCOL_HTTP OFF)
 
     # Skia's PDF backend needs libjpeg-turbo, whose symbols duplicate wxWidgets'
-    # bundled libjpeg on Windows (LNK2005 on _jpeg_*). Drop wx's copy there so
-    # Skia's is the only libjpeg; the app exposes PNG/SVG/PDF export instead of
-    # JPEG (a poor format for line-art schematics anyway). wxTIFF pulls jpeglib.h
-    # for JPEG-in-TIFF, so it must go too -- the app never reads/writes TIFF.
-    if(WIN32)
-        set(wxUSE_LIBJPEG OFF)
-        set(wxUSE_LIBTIFF OFF)
-    endif()
+    # bundled libjpeg on Windows (LNK2005 on _jpeg_*). Drop wx's copy so Skia's
+    # is the only libjpeg; the app exposes PNG/SVG/PDF export instead of JPEG (a
+    # poor format for line-art schematics anyway). wxTIFF pulls jpeglib.h for
+    # JPEG-in-TIFF, so it must go too -- the app never reads/writes TIFF.
+    #
+    # Off on every platform, not just Windows. On Linux wx links the system
+    # libjpeg/libtiff, which put libjpeg.so.8 and libtiff.so.6 in the shipped
+    # binary's DT_NEEDED for image formats nothing in the app ever touches.
+    # Distros disagree about that soname (Debian ships libjpeg.so.62), so the
+    # release archive refused to start on Debian until the user hand-installed
+    # Ubuntu's libjpeg8.
+    set(wxUSE_LIBJPEG OFF)
+    set(wxUSE_LIBTIFF OFF)
 
     FetchContent_MakeAvailable(wxWidgets_fetch)
     set(wxWidgets_LIBRARIES wx::html wx::aui wx::adv wx::gl wx::core wx::base)
