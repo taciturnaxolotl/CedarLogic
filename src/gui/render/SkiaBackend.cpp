@@ -44,6 +44,7 @@
 #include "gpu/GrBackendSurface.h"
 #include "gpu/GrDirectContext.h"
 #include "gpu/GrTypes.h"
+#include "gpu/gl/GrGLAssembleInterface.h"
 #include "gpu/gl/GrGLInterface.h"
 #include "gpu/gl/GrGLTypes.h"
 #include "gpu/ganesh/SkSurfaceGanesh.h"
@@ -57,6 +58,9 @@
 #include "ports/SkFontScanner_FreeType.h"
 #endif
 #endif
+#ifdef __linux__
+#include <dlfcn.h>
+#endif
 
 
 namespace cl {
@@ -65,6 +69,41 @@ namespace {
 // Sized GL internal format for an 8-bit RGBA framebuffer (GL_RGBA8). Declared
 // locally to avoid pulling a platform GL header into this TU.
 const unsigned int kGLRGBA8 = 0x8058;
+
+#ifdef __linux__
+// Skia's "native" GL interface on Linux is GLX and nothing else: MakeGLX hands
+// back null the moment glXGetCurrentContext() does. On a Wayland session
+// wxGLCanvas makes an EGL context, so there is no GLX context to find, Ganesh
+// was given nothing, and every Wayland user fell back to drawing on the
+// processor behind the "Rendering issue" dialog.
+//
+// Assemble the interface from EGL instead. libEGL is already in the process --
+// wx loaded it to create the context -- so it is reached through the dynamic
+// linker rather than added to the link line, which keeps the app running on
+// machines that have no EGL at all.
+typedef GrGLFuncPtr (*EGLGetProcAddressFn)(const char*);
+typedef void* (*EGLGetCurrentContextFn)();
+
+GrGLFuncPtr eglGetGLProc(void* ctx, const char name[]) {
+	EGLGetProcAddressFn getProc = reinterpret_cast<EGLGetProcAddressFn>(ctx);
+	if (GrGLFuncPtr p = getProc(name)) return p;
+	// EGL before 1.5 only promises extension entry points, so core ones come
+	// from the GL dispatch library the app already links.
+	return reinterpret_cast<GrGLFuncPtr>(dlsym(RTLD_DEFAULT, name));
+}
+
+sk_sp<const GrGLInterface> makeEGLInterface() {
+	void* getProc = dlsym(RTLD_DEFAULT, "eglGetProcAddress");
+	if (!getProc) return nullptr;
+	// No current EGL context means EGL is loaded but unused (an X11 session
+	// where GLX is the real path), and an interface assembled here would
+	// describe nothing.
+	EGLGetCurrentContextFn current = reinterpret_cast<EGLGetCurrentContextFn>(
+		dlsym(RTLD_DEFAULT, "eglGetCurrentContext"));
+	if (!current || !current()) return nullptr;
+	return GrGLMakeAssembledInterface(getProc, eglGetGLProc);
+}
+#endif
 
 // Where a bundled face may be found, set once at startup (see setFontSearchDir).
 // Empty until then, and empty in headless tools that never call it.
@@ -86,6 +125,10 @@ bool SkiaBackend::ensureContext() {
 	// graphics are fine. See RendererHealth.h.
 	if (forceGLFailure()) return false;
 	fInterface = GrGLMakeNativeInterface();
+#ifdef __linux__
+	// GLX found nothing; this is a Wayland session. See makeEGLInterface.
+	if (!fInterface) fInterface = makeEGLInterface();
+#endif
 	fContext = GrDirectContexts::MakeGL(fInterface);
 	return fContext != nullptr;
 }

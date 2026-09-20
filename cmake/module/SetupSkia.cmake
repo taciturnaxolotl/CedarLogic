@@ -105,10 +105,12 @@ elseif(APPLE)
         "-framework CoreFoundation" "-framework CoreGraphics"
         "-framework CoreText" "-framework OpenGL")
 else()
-    # Skia's GL backend (and wxGLCanvas) use GLX; link legacy libGL, which
-    # provides glX* -- under GLVND OPENGL_opengl_LIBRARY is libOpenGL, which does
-    # not. Bare "GL" defers to -lGL at link time (find_package(OpenGL) runs after
-    # this module).
+    # Skia's GL backend (and wxGLCanvas on an X11 session) use GLX; link legacy
+    # libGL, which provides glX* -- under GLVND OPENGL_opengl_LIBRARY is
+    # libOpenGL, which does not. Bare "GL" defers to -lGL at link time
+    # (find_package(OpenGL) runs after this module). A Wayland session has no
+    # GLX context to find, and SkiaBackend reaches EGL through dlsym there --
+    # hence CMAKE_DL_LIBS, and no libEGL on the link line.
     find_package(Fontconfig QUIET)
     find_package(PkgConfig QUIET)   # may already be found above; harmless
     target_link_libraries(cedar_skia INTERFACE GL ${CMAKE_DL_LIBS} pthread)
