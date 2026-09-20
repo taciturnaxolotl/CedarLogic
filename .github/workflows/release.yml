@@ -205,7 +205,8 @@ jobs:
 
   build-linux:
     needs: skia
-    runs-on: ubuntu-24.04
+    # matches skia build and allows running on older glibc versions
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7
 
