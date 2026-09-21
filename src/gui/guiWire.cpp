@@ -19,6 +19,7 @@
 #include "Settings.h"
 #include <cmath>
 #include <cstring>
+#include <set>
 #include <stack>
 #include <utility>
 #include "guiGate.h"
@@ -1021,9 +1022,47 @@ void guiWire::mergeSegments() {
 	generateRenderInfo();
 }
 
+// Move everything attached to `deadID` onto the nearest segment that has some
+// length to it, searching outward through the intersection graph. False when
+// there are connections and nowhere to put them.
+static bool rehomeConnections(map< long, wireSegment > &segs, long deadID) {
+	map< long, wireSegment >::iterator dead = segs.find(deadID);
+	if (dead == segs.end() || (dead->second).connections.empty()) return true;
+
+	// Visited set because two zero-length segments can intersect each other.
+	set< long > seen;
+	vector< long > frontier;
+	seen.insert(deadID);
+	frontier.push_back(deadID);
+	for (size_t i = 0; i < frontier.size(); i++) {
+		map< long, wireSegment >::iterator cur = segs.find(frontier[i]);
+		if (cur == segs.end()) continue;
+		map< GLfloat, vector< long > >::iterator isect = (cur->second).intersects.begin();
+		for (; isect != (cur->second).intersects.end(); isect++) {
+			for (size_t j = 0; j < (isect->second).size(); j++) {
+				// find, never operator[]: operator[] invents a blank segment.
+				map< long, wireSegment >::iterator n = segs.find((isect->second)[j]);
+				if (n == segs.end()) continue;
+				if ((n->second).begin == (n->second).end) {
+					if (seen.insert(n->first).second) frontier.push_back(n->first);
+					continue;
+				}
+				vector< wireConnection > &dest = (n->second).connections;
+				dest.insert(dest.begin(), (dead->second).connections.begin(),
+				            (dead->second).connections.end());
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 // Take out the flaring segments of length zero.  They are so annoying that I am dedicating (as you can see) a function to
 //	their ultimate horrible deaths.
 void guiWire::removeZeroLengthSegments() {
+	// Nothing to tidy, and newSegMap[headSegment] below would invent a segment.
+	if (segMap.empty()) return;
+
 	map < long, wireSegment > newSegMap = segMap; // Start with a copy of the segment map; I really don't trust these buggers
 	map < long, wireSegment >::iterator segWalk = newSegMap.begin();
 	vector < long > eraseIDs; // hold a list of IDs we need to bomb
@@ -1053,25 +1092,15 @@ void guiWire::removeZeroLengthSegments() {
 		if (!((segWalk->second).begin == (segWalk->second).end)) { segWalk++; continue; }
 		if (newSegMap.size() == 2 && foundOne) break;
 		foundOne = true;
-		// Otherwise make it go away
+
+		// An untidy segment beats a gate that has come unattached.
+		if (!rehomeConnections(newSegMap, segWalk->first)) { segWalk++; continue; }
 		eraseIDs.push_back(segWalk->first);
-		map < GLfloat, vector < long > >::iterator isect = (segWalk->second).intersects.begin(); // Get the intersection
-		bool connectionsDone = false;
-		// Just hook up the connections to the first one we see...
-		//	THAT ISN'T ANOTHER STUPID ZERO-LENGTH SECTOR THAT DESERVES TO DIE
-		while (!connectionsDone) {
-			for (unsigned int i = 0; i < (isect->second).size() && !connectionsDone; i++) {
-				if (!connectionsDone && !(newSegMap[(isect->second)[i]].begin == newSegMap[(isect->second)[i]].end)) {
-					newSegMap[(isect->second)[i]].connections.insert(newSegMap[(isect->second)[i]].connections.begin(), (segWalk->second).connections.begin(), (segWalk->second).connections.end());
-					connectionsDone = true;
-				}
-			}
-			if (!connectionsDone) isect = segMap[(isect->second)[0]].intersects.begin();
-		}
 		segWalk++;
 	}
 	// DIE A HORRIBLE AND REVOLTING DEATH IN THE DIGITAL DUSTBIN!!!
 	for (unsigned int i = 0; i < eraseIDs.size(); i++) newSegMap.erase(eraseIDs[i]);
+	assert(!newSegMap.empty() && "erased every segment of a wire that had one with length");
 	commitSegMap(std::move(newSegMap));
 	// Now make sure the intersection maps do not refer to the woebegone segments
 	refreshIntersections(true);
