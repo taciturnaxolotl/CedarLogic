@@ -145,3 +145,20 @@ if(ENABLE_SANITIZERS AND NOT MSVC)
 endif()
 
 add_test(NAME segmentmap_tests COMMAND test_segmentmap)
+
+# Crash-report issue text. Pure string work: no wxWidgets, no platform headers.
+add_executable(test_crashissue
+	"${CMAKE_CURRENT_SOURCE_DIR}/test_crashissue.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/CrashIssue.cpp"
+)
+target_include_directories(test_crashissue PRIVATE
+	"${PROJECT_SOURCE_DIR}/include/gui"
+)
+target_link_libraries(test_crashissue PRIVATE doctest::doctest)
+
+if(ENABLE_SANITIZERS AND NOT MSVC)
+	target_compile_options(test_crashissue PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+	target_link_options(test_crashissue PRIVATE -fsanitize=address,undefined)
+endif()
+
+add_test(NAME crashissue_tests COMMAND test_crashissue)
