@@ -530,6 +530,14 @@ if(APPLE)
     set(CPACK_BUNDLE_NAME "CedarLogic")
     set(CPACK_BUNDLE_PLIST "${CMAKE_SOURCE_DIR}/res/macos/Info.plist.in")
     set(CPACK_BUNDLE_ICON "${CMAKE_SOURCE_DIR}/res/macos/CedarLogic.icns")
+    # The Applications symlink comes for free, but on its own it is only an icon
+    # sitting next to another icon: nothing says to drag one onto the other, and
+    # opening the app where it lies is the easier thing to do. That copy runs
+    # from the read-only image, so it cannot update itself and dies outright if
+    # the image is ejected. Hence a background with an arrow on it, and a script
+    # that puts the icons where the arrow points.
+    set(CPACK_DMG_BACKGROUND_IMAGE "${CMAKE_SOURCE_DIR}/res/macos/dmg-background.tiff")
+    set(CPACK_DMG_DS_STORE_SETUP_SCRIPT "${CMAKE_SOURCE_DIR}/res/macos/dmg-setup.applescript")
 endif()
 
 include(CPack)
