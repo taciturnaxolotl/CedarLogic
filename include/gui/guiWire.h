@@ -17,6 +17,7 @@
 #include "logic_values.h" // StateType
 #include "klsCollisionChecker.h"
 #include "wireSegment.h"
+#include "SegmentMap.h"
 
 // Engine-neutral rendering seam (Workstream G); defined in gui/render/.
 namespace cl { namespace render { class Scene; struct RenderStyle; } }
@@ -187,7 +188,7 @@ private:
 
 
 	// Store the tree in a non-pointered way for easy copy
-	map < long, wireSegment > segMap;
+	cl::wire::SegmentMap segMap;
 	map < long, wireSegment > oldSegMap;
 	long nextSegID;
 

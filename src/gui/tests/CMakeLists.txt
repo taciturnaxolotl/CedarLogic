@@ -116,3 +116,32 @@ if(ENABLE_SANITIZERS AND NOT MSVC)
 endif()
 
 add_test(NAME gatelibrary_tests COMMAND test_gatelibrary)
+
+# Segment-map tidying (issue #110). wireSegment only borrows GLfloat/GLPoint2f
+# from the GL wrapper, so the same gl_shim.h the collision test uses is enough.
+add_executable(test_segmentmap
+	"${CMAKE_CURRENT_SOURCE_DIR}/test_segmentmap.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/SegmentMap.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/wireSegment.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/klsCollisionChecker.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/gl_defs.cpp"
+)
+# stub_gl/ comes first so its MainApp.h wins: gl_defs.cpp carries a DECLARE_APP
+# it does not use, and the real header would pull in wxWidgets.
+target_include_directories(test_segmentmap BEFORE PRIVATE
+	"${CMAKE_CURRENT_SOURCE_DIR}/stub_gl"
+	"${PROJECT_SOURCE_DIR}/include/gui"
+	"${PROJECT_SOURCE_DIR}/logic/include"
+)
+target_link_libraries(test_segmentmap PRIVATE doctest::doctest)
+target_compile_options(test_segmentmap PRIVATE
+	"$<$<CXX_COMPILER_ID:MSVC>:/FI${_shim}>"
+	"$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:SHELL:-include ${_shim}>"
+)
+
+if(ENABLE_SANITIZERS AND NOT MSVC)
+	target_compile_options(test_segmentmap PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+	target_link_options(test_segmentmap PRIVATE -fsanitize=address,undefined)
+endif()
+
+add_test(NAME segmentmap_tests COMMAND test_segmentmap)
