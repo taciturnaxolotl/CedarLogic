@@ -6,9 +6,8 @@
 
 #include "StartupMarker.h"
 
-#include "CrashIssue.h"
-
 #include <cstdio>
+#include <string>
 #include <cstdlib>
 
 namespace cl {
@@ -26,8 +25,20 @@ StartupMarker::StartupMarker(const std::string &tempDir) : path(tempDir) {
     path += "CedarLogic_startup.marker";
 }
 
+// Local so this file does not depend on the crash reporter to read a counter.
+static std::string readWholeFile(const std::string &path) {
+    std::string out;
+    FILE *f = fopen(path.c_str(), "rb");
+    if (!f) return out;
+    char buf[256];
+    size_t got;
+    while ((got = fread(buf, 1, sizeof(buf), f)) > 0) out.append(buf, got);
+    fclose(f);
+    return out;
+}
+
 int StartupMarker::consecutiveFailures() const {
-    std::string body = crash::readFile(path);
+    std::string body = readWholeFile(path);
     while (!body.empty() &&
            (body[body.size() - 1] == '\n' || body[body.size() - 1] == '\r'))
         body.erase(body.size() - 1);

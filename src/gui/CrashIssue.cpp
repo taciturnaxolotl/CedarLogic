@@ -12,17 +12,10 @@
 namespace cl {
 namespace crash {
 
-// How much of the body the prefilled URL carries. The rest is on the clipboard.
-static const size_t kUrlBodyLimit = 6000;
-
-// Largest cut at or below `n` that does not land inside a character. A symbol
-// or an OS name can be non-ASCII, and half a UTF-8 sequence percent-encodes
-// into bytes no decoder will accept.
-static size_t utf8Floor(const std::string &s, size_t n) {
-    if (n >= s.size()) return s.size();
-    while (n > 0 && (static_cast<unsigned char>(s[n]) & 0xC0) == 0x80) n--;
-    return n;
-}
+// What the prefilled link may carry, after encoding. The rest is on the
+// clipboard, which the issue template tells the reporter to paste.
+static const size_t kUrlTitleBudget = 200;
+static const size_t kUrlBodyBudget = 6000;
 
 std::string readFile(const std::string &path) {
     std::string out;
@@ -78,16 +71,37 @@ std::string crashIssueBody(const std::string &trace) {
         "### Version\n\n" + crashVersionLine(trace) + "\n";
 }
 
-// Prefilled "new issue" URL. The full body always goes on the clipboard too;
-// the copy in the URL is capped so it stays within what browsers/GitHub accept.
+// Bytes in the UTF-8 character starting at `i`, or 1 for anything malformed so
+// the walk always advances.
+static size_t charLen(const std::string &s, size_t i) {
+    const unsigned char c = s[i];
+    const size_t n = (c < 0x80) ? 1 : (c >> 5) == 0x6 ? 2
+                   : (c >> 4) == 0xE ? 3 : (c >> 3) == 0x1E ? 4 : 1;
+    return (i + n <= s.size()) ? n : 1;
+}
+
+// Encode until the budget is spent, a whole character at a time. Capping the
+// source instead would miss by 3x, since one byte encodes to three.
+static std::string encodeCapped(const std::string &s, size_t budget) {
+    std::string out;
+    for (size_t i = 0; i < s.size();) {
+        const size_t n = charLen(s, i);
+        const std::string piece = urlEncode(s.substr(i, n));
+        if (out.size() + piece.size() > budget) break;
+        out += piece;
+        i += n;
+    }
+    return out;
+}
+
+// Prefilled "new issue" URL. The body always goes on the clipboard in full.
 std::string crashIssueUrl(const std::string &trace) {
-    std::string body = crashIssueBody(trace);
-    const std::string firstFrame = crashTraceBody(trace);
-    const std::string first = firstFrame.substr(0, firstFrame.find('\n'));
+    const std::string body = crashTraceBody(trace);
+    const std::string first = body.substr(0, body.find('\n'));
     const std::string title = first.empty() ? "Crash" : "Crash: " + first;
-    if (body.size() > kUrlBodyLimit) body.resize(utf8Floor(body, kUrlBodyLimit));
     return "https://github.com/taciturnaxolotl/CedarLogic/issues/new?title=" +
-           urlEncode(title) + "&body=" + urlEncode(body);
+           encodeCapped(title, kUrlTitleBudget) + "&body=" +
+           encodeCapped(crashIssueBody(trace), kUrlBodyBudget);
 }
 
 }  // namespace crash

@@ -3,10 +3,8 @@
 
    CrashTrace: writing a stack trace when the app dies.
 
-   A trace is written when the app crashes, then offered for reporting: on
-   Windows right away (native MessageBox) and, on every platform, via a wx
-   dialog the next time the app starts. The report path and header are computed
-   once at startup so the crash handler itself stays allocation-light.
+   Writes the file and nothing else; the next launch offers it. Paths are
+   computed at startup so the handler itself allocates nothing.
 *****************************************************************************/
 
 #pragma once

@@ -3,18 +3,10 @@
 
    StartupMarker: telling a startup crash from a later one.
 
-   A crash log alone only says the last run died somewhere. To tell a startup
-   crash from one that happened later, the app writes a marker as its first act
-   and deletes it once the main window exists. If the marker survives to the next
-   launch, the previous run never got that far.
-
-   The file holds an attempt counter, so a first failure can be treated as
-   possibly-a-fluke and only repeated failures trigger recovery.
-
-   Deliberately not RAII. The marker exists to survive abnormal termination, and
-   a destructor runs in none of the cases it is there to detect -- not on a
-   crash, not on std::_Exit -- while it would run on the "Update now" path, the
-   one place the marker has to be left behind.
+   Armed as the app's first act, disarmed once a window exists; surviving to the
+   next launch means the last run never got that far. Counts attempts so one
+   failure can be a fluke. Not RAII on purpose: a destructor runs on none of the
+   deaths this detects, and would run on the one path that must keep the marker.
 *****************************************************************************/
 
 #pragma once

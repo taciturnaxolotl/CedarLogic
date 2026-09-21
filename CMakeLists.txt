@@ -484,8 +484,8 @@ if (WIN32)
     install(TARGETS CedarLogic RUNTIME DESTINATION ".")
     install(FILES "${WINSPARKLE_DIR}/${WINSPARKLE_ARCH_DIR}/WinSparkle.dll" DESTINATION ".")
     # The debug symbols, beside the exe. The in-app crash handler symbolizes
-    # against whatever .pdb sits next to the program (see writeCrashTrace in
-    # MainApp.cpp), so shipping it is the difference between a crash report
+    # against whatever .pdb sits next to the program (see CrashTrace.cpp), so
+    # shipping it is the difference between a crash report
     # naming a function and file:line, and one that is a column of hex offsets
     # nobody can act on. The linker records the .pdb's BUILD path, which on a CI
     # runner is a directory that never existed on the user's machine, so without

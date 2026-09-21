@@ -3,19 +3,14 @@
 
    SegmentMap: a wire's segments, keyed by id.
 
-   Exists to make one mistake impossible. The segments used to live in a plain
-   std::map, whose operator[] inserts on a miss, so looking up an id the wire no
-   longer had silently grew a blank segment and the caller worked on it anyway.
-   That shipped as a crash twice. There is no operator[] here: `at` for an id
-   that must exist, `find` for one that might not, `put` to add one on purpose.
-
+   No operator[], because inserting on a miss is what let a stale id grow a
+   blank segment: `at` must exist, `find` may not, `put` adds on purpose.
    Free of wx, OpenGL and guiGate, so it can be tested without a display.
 *****************************************************************************/
 
 #ifndef SEGMENTMAP_H_
 #define SEGMENTMAP_H_
 
-#include <cassert>
 #include <cstddef>
 #include <map>
 #include <utility>
@@ -31,17 +26,11 @@ public:
 	SegmentMap() {}
 	explicit SegmentMap(Store segs) : segs_(std::move(segs)) {}
 
-	// The segment with this id, which the caller knows is there.
-	wireSegment &at(long id) {
-		Store::iterator i = segs_.find(id);
-		assert(i != segs_.end() && "segment id not in this wire");
-		return i->second;
-	}
-	const wireSegment &at(long id) const {
-		Store::const_iterator i = segs_.find(id);
-		assert(i != segs_.end() && "segment id not in this wire");
-		return i->second;
-	}
+	// The segment with this id, which the caller knows is there. Checked in
+	// every build: a miss here is a bug, and throwing reports it through the
+	// crash handler instead of walking off the end of the tree.
+	wireSegment &at(long id) { return segs_.at(id); }
+	const wireSegment &at(long id) const { return segs_.at(id); }
 
 	// Null when there is no such segment. For an id read back out of an
 	// intersects list, which may name a segment that has since gone.
