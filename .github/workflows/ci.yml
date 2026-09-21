@@ -116,6 +116,77 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+  # Windows is the only build that sees MSVC, <windows.h> and the 32-bit target,
+  # so it is the only one that can catch what those bring. It used to run at tag
+  # time only, in release.yml, which meant a Windows-only compile error was
+  # invisible until after the release tag had been published: v3.2.0 was tagged
+  # and then failed to build over a `std::max(` that <windows.h> turns into
+  # `std::(`. Packaging, signing and NSIS stay in release.yml; this job only has
+  # to answer "does it compile and start".
+  build-windows:
+    name: Full Windows build + smoke test
+    needs: skia
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup sccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: ci-windows-msvc
+          variant: sccache
+
+      - name: Cache wxWidgets
+        uses: actions/cache@v6
+        with:
+          path: build/_deps
+          key: wxwidgets-windows-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: |
+            wxwidgets-windows-
+
+      - name: Ensure build/_deps exists
+        shell: bash
+        run: mkdir -p build/_deps
+
+      # x86 to match the 32-bit app (see cmake/skia-args/windows.gn).
+      - name: Download Skia dist
+        uses: actions/download-artifact@v8
+        with:
+          name: skia-windows
+          path: skia-dist
+
+      # No SPARKLE_ED_PUBLIC_KEY on purpose. It only embeds the update-signing
+      # key, which nothing here installs updates with, and leaving it out keeps
+      # this job working on pull requests from forks, which get no secrets.
+      - name: Configure
+        shell: bash
+        run: >
+          cmake -B build -A Win32
+          -DCMAKE_C_COMPILER_LAUNCHER=sccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          -DUSE_SYSTEM_SKIA=OFF
+          -DSKIA_ROOT="$PWD/skia-dist"
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      # Same check release.yml runs before shipping: --render-gate builds the
+      # main window, parses the embedded gate library, renders one gate and
+      # exits non-zero if any of that fails. A build that compiles but cannot
+      # start is what shipped as 3.1.0 (issue #103).
+      - name: Smoke test (launch and render a gate)
+        shell: bash
+        run: |
+          EXE=$(find build -name CedarLogic.exe -path '*Release*' | head -1)
+          if [ -z "$EXE" ]; then echo "::error::no CedarLogic.exe under build/"; exit 1; fi
+          echo "Smoke testing $EXE"
+          "$EXE" --render-gate AA_AND2 0 smoke.png
+          if [ ! -s smoke.png ]; then
+            echo "::error::--render-gate produced no output; the exe likely crashed at startup"
+            exit 1
+          fi
+          echo "Smoke test passed: gate library parsed and rendered."
+
   # Build the WebAssembly engine and run the behavioral gate truth-table harness
   # against the real shipping logic core.
   wasm:
