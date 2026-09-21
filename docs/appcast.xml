@@ -7,48 +7,36 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 3.2.0</title>
-      <pubDate>Mon, 21 Sep 2026 03:48:38 +0000</pubDate>
-      <sparkle:version>3.2.0</sparkle:version>
-      <sparkle:shortVersionString>3.2.0</sparkle:shortVersionString>
+      <title>Version 3.2.1</title>
+      <pubDate>Mon, 21 Sep 2026 16:03:22 +0000</pubDate>
+      <sparkle:version>3.2.1</sparkle:version>
+      <sparkle:shortVersionString>3.2.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<p>Opening the help viewer on macOS crashed the program because wxwidgets tried to require libjpeg which conflicted with system libs.</p>
-<p>Help on Linux was similarly broken expect that it just didn't display anything.</p>
-<p>Gates are now rotated properly so a keypad gate can be rotated correctly now.</p>
-<p>Toolbar icons are properly sharp on 125% and 150% displays instead of being rounded down and blurred thanks to @DavidDGTNT. On Wayland the app will properly utilize the graphics card with skia. The Linux build is now build on an older c version to allow running it on older distros & issues with libjpeg are now fixed. On macOS, running the app straight from the disk image now tells you to drag it to Applications first.</p>
-<p>Sites that deploy CedarLogic through managed software can now switch update checking off for a whole machine:</p>
-<p>```reg</p>
-<p>HKLM\Software\Cedarville University\CedarLogic\WinSparkle</p>
-<p>CheckForUpdates  REG_SZ  "0"</p>
-<p>```</p>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.1.2...v3.2.0</p>]]></description>
+      <description><![CDATA[<p>Installing a new version used to stick it in a new folder by version which meant the older version was never replaced; this is now fixed.</p>
+<p>On a display set to 125% or 150%, the bottom of the page tabs was cut off ([#108](https://github.com/taciturnaxolotl/CedarLogic/issues/108)). The tab strip was measured at startup at whatever scale it started on and then would fail if the DPI changed. It now re-measures when the scale changes.</p>
+<p>Administrators turning update checks off for a managed deployment now are able to check if the setting applied with `CedarLogic.exe --update-status`. The registry keys have also been tweaked to work with both 64 bit and 32 bit keys and be a bit more permissive in what values are accepted.</p>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.2.0...v3.2.1</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.2.0/CedarLogic-3.2.0-Darwin.dmg"
-        sparkle:edSignature="fuDhMT6OMNJhmkC7w/qamOgkcKjxgJHIjumYWSic2VgUwfxPhLKkA6S9wCMLHbFsjY+Prt7YPWwJuWwgf+9/AA=="
-        length="13502128"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.2.1/CedarLogic-3.2.1-Darwin.dmg"
+        sparkle:edSignature="5yPQ0duNjwazDNiYCEdPLKC2jZLHz6TAo70QkZqBIRR7Lu1o/JYDoktj12ANf7TuJT/NdCHzlCwy3FCwhsAaDQ=="
+        length="13505518"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 3.2.0</title>
-      <pubDate>Mon, 21 Sep 2026 03:48:38 +0000</pubDate>
-      <sparkle:version>3.2.0</sparkle:version>
-      <sparkle:shortVersionString>3.2.0</sparkle:shortVersionString>
-      <description><![CDATA[<p>Opening the help viewer on macOS crashed the program because wxwidgets tried to require libjpeg which conflicted with system libs.</p>
-<p>Help on Linux was similarly broken expect that it just didn't display anything.</p>
-<p>Gates are now rotated properly so a keypad gate can be rotated correctly now.</p>
-<p>Toolbar icons are properly sharp on 125% and 150% displays instead of being rounded down and blurred thanks to @DavidDGTNT. On Wayland the app will properly utilize the graphics card with skia. The Linux build is now build on an older c version to allow running it on older distros & issues with libjpeg are now fixed. On macOS, running the app straight from the disk image now tells you to drag it to Applications first.</p>
-<p>Sites that deploy CedarLogic through managed software can now switch update checking off for a whole machine:</p>
-<p>```reg</p>
-<p>HKLM\Software\Cedarville University\CedarLogic\WinSparkle</p>
-<p>CheckForUpdates  REG_SZ  "0"</p>
-<p>```</p>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.1.2...v3.2.0</p>]]></description>
+      <title>Version 3.2.1</title>
+      <pubDate>Mon, 21 Sep 2026 16:03:22 +0000</pubDate>
+      <sparkle:version>3.2.1</sparkle:version>
+      <sparkle:shortVersionString>3.2.1</sparkle:shortVersionString>
+      <description><![CDATA[<p>Installing a new version used to stick it in a new folder by version which meant the older version was never replaced; this is now fixed.</p>
+<p>On a display set to 125% or 150%, the bottom of the page tabs was cut off ([#108](https://github.com/taciturnaxolotl/CedarLogic/issues/108)). The tab strip was measured at startup at whatever scale it started on and then would fail if the DPI changed. It now re-measures when the scale changes.</p>
+<p>Administrators turning update checks off for a managed deployment now are able to check if the setting applied with `CedarLogic.exe --update-status`. The registry keys have also been tweaked to work with both 64 bit and 32 bit keys and be a bit more permissive in what values are accepted.</p>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.2.0...v3.2.1</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.2.0/CedarLogic-3.2.0-win32.exe"
-        sparkle:edSignature="aNA0vOfOiwF8MhMJfWxYOjtv4x+g24kRwm3kemAq9ZyQjKHXljvvQFq521eL+OOscshrZiANygKmB8OBreNeAg=="
-        length="19923720"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.2.1/CedarLogic-3.2.1-win32.exe"
+        sparkle:edSignature="CkzoOqKuomZxImBYx8L7SsGuIsgy8h/MULFL/JvRhhcph0KkhwDV39OBbAczQ1VbjyKgXbMuPITPft3icfD1DQ=="
+        length="19942358"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
