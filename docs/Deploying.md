@@ -187,31 +187,41 @@ is why `DisableUpdateChecks` exists as a separate key: CedarLogic checks it
 before WinSparkle starts at all, so there is no background thread and no HKCU
 value that can undo it.
 
-If you set a machine-wide default here anyway, CedarLogic reads these values in
-both registry views on WinSparkle's behalf, so the plain 64-bit path works.
-WinSparkle on its own would only ever have looked under `WOW6432Node`, and a
-value written by 64-bit tools would have been ignored without a word.
-`--update-status` reports the value when it finds one, along with a reminder
-that it is not enforced.
+If you set a machine-wide default here anyway, write it in the 32-bit view
+(`HKLM\SOFTWARE\WOW6432Node\...`). CedarLogic is a 32-bit program and the updater
+reads the registry without asking for a view, so a value written at the plain
+64-bit path is never seen. `--update-status` looks in both views and will tell
+you when it finds a value that nothing can read, which is the one way to catch
+that mistake short of waiting to see whether updates happen.
+
+Note the direction of the fallback: a machine-wide value here is only ever a
+default, because the updater reads HKCU first. Use `DisableUpdateChecks` when
+the answer is not the user's to change.
 
 ### Where these actually land on 64-bit Windows
 
 CedarLogic and its installer are both 32-bit, and the installer does not ask for
-the 64-bit registry view, so Windows redirects the paths it *writes*:
+the 64-bit registry view, so Windows redirects the machine-wide paths it
+*writes*:
 
 | Written path | Real location |
 | --- | --- |
 | `HKLM\SOFTWARE\Microsoft\...\Uninstall\...` | `HKLM\SOFTWARE\WOW6432Node\Microsoft\...\Uninstall\...` |
 | `HKLM\SOFTWARE\Cedarville University\...` | `HKLM\SOFTWARE\WOW6432Node\Cedarville University\...` |
-| `HKCU\Software\Cedarville University\...` | `HKCU\Software\WOW6432Node\Cedarville University\...` |
+| `HKCU\Software\Cedarville University\...` | not redirected, same key either way |
+
+Redirection applies to `HKLM\SOFTWARE`; `HKCU\SOFTWARE` is shared, so 32-bit and
+64-bit processes see one physical copy of the per-user settings and there is no
+`HKCU\Software\WOW6432Node`. See [Registry Keys Affected by
+WOW64](https://learn.microsoft.com/en-us/windows/win32/winprog64/shared-registry-keys).
 
 Add and Remove Programs shows both views, so the uninstall entry appears
 normally. A script does not get that for free: PowerShell run as 64-bit reads
-the 64-bit view and will find none of these. Read the redirected paths, or run
-the script 32-bit.
+the 64-bit view and will find none of the `HKLM` entries. Read the redirected
+paths, or run the script 32-bit.
 
 Reads are a different story, and deliberately so. Anything an administrator is
-expected to write by hand, CedarLogic looks for in both views: the
+expected to write by hand, CedarLogic looks for in both machine views: the
 `DisableUpdateChecks` policy, and the WinSparkle settings it reads on
 WinSparkle's behalf. Write those at the plain path and forget redirection
 exists.

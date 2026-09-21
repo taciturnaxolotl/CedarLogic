@@ -639,7 +639,14 @@ bool MainApp::OnInit()
         if (st.sparkleFound) {
             out += "\nWinSparkle  CheckForUpdates = \"" + st.sparkleValue +
                    "\"  (found in " + st.sparkleWhere + ")\n";
-            if (!st.disabled && st.sparkleValue == "0") {
+            if (!st.sparkleReachable) {
+                out +=
+                    "        This value has no effect. CedarLogic is 32-bit, so\n"
+                    "        the updater reads HKLM\\SOFTWARE\\WOW6432Node and never\n"
+                    "        sees the plain path. Write it in the 32-bit view, or\n"
+                    "        better, use DisableUpdateChecks above, which is read\n"
+                    "        from both views and cannot be overridden by a user.\n";
+            } else if (!st.disabled && st.sparkleValue == "0") {
                 out +=
                     "        This is NOT the policy, and it is not enforced: a\n"
                     "        user's own copy under HKCU overrides it. To turn\n"

@@ -85,6 +85,7 @@ struct PolicyStatus {
     bool sparkleFound = false;
     std::string sparkleWhere;
     std::string sparkleValue;
+    bool sparkleReachable = true;  // false: exists, but nothing can read it
 
     std::string platformNote;   // set where no policy mechanism exists
 };
@@ -92,12 +93,11 @@ struct PolicyStatus {
 PolicyStatus describeUpdatePolicy();
 
 #ifdef _WIN32
-// Reads one WinSparkle setting, looking in both registry views rather than
-// whichever one the process happens to get. Installed as WinSparkle's
-// config_read so that a machine-wide value an administrator wrote with 64-bit
-// tools is actually seen by this 32-bit program. Returns false when absent.
+// One of WinSparkle's settings, for reporting only. `reachable` is false when
+// the value sits where WinSparkle cannot read it. False if absent.
 bool readWinSparkleSetting(const char *name, std::wstring &out,
-                           std::string *whereFound = nullptr);
+                           std::string *whereFound = nullptr,
+                           bool *reachable = nullptr);
 #endif
 
 }  // namespace update

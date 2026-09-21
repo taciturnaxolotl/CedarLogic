@@ -263,24 +263,29 @@ static const wchar_t *const kPolicyValue = L"DisableUpdateChecks";
 static const wchar_t *const kSparkleKey =
     L"Software\\Cedarville University\\CedarLogic\\WinSparkle";
 
-// WinSparkle opens the registry with no view flag, so from this 32-bit program
-// it only ever sees SOFTWARE\WOW6432Node. An administrator setting a
-// machine-wide default with 64-bit tools writes the plain path, which
-// WinSparkle then never finds. Look in both views, keeping WinSparkle's own
-// precedence: the user's setting first, the machine's only as a default.
-bool readWinSparkleSetting(const char *name, std::wstring &out,
-                           std::string *whereFound) {
-    std::wstring wide;
-    for (const char *p = name; p && *p; ++p) wide += static_cast<wchar_t>(*p);
+// ASCII only, so a byte at a time is exact. Not a UTF-8 conversion.
+static std::wstring widenAscii(const char *s) {
+    std::wstring w;
+    for (; s && *s; ++s) w += static_cast<wchar_t>(*s);
+    return w;
+}
 
-    struct Source { HKEY root; REGSAM view; const char *label; };
-    // HKCU's 32-bit view comes first because that is where WinSparkle itself
-    // writes, so a setting the user already has keeps winning.
+
+// Reporting only: nothing here changes what WinSparkle does. Searches the two
+// places WinSparkle looks, then the HKLM view it cannot reach from a 32-bit
+// process -- a value written there is silently dead, which is the mistake
+// `--update-status` exists to catch.
+bool readWinSparkleSetting(const char *name, std::wstring &out,
+                           std::string *whereFound, bool *reachable) {
+    const std::wstring wide = widenAscii(name);
+
+    // HKCU before HKLM, matching WinSparkle's own RegistryRead. HKCU takes no
+    // view flag: HKCU\SOFTWARE is shared, not redirected.
+    struct Source { HKEY root; REGSAM view; const char *label; bool reachable; };
     static const Source kSources[] = {
-        {HKEY_CURRENT_USER,  KEY_WOW64_32KEY, "HKCU (WOW6432Node)"},
-        {HKEY_CURRENT_USER,  KEY_WOW64_64KEY, "HKCU"},
-        {HKEY_LOCAL_MACHINE, KEY_WOW64_64KEY, "HKLM"},
-        {HKEY_LOCAL_MACHINE, KEY_WOW64_32KEY, "HKLM (WOW6432Node)"},
+        {HKEY_CURRENT_USER,  0,               "HKCU",               true},
+        {HKEY_LOCAL_MACHINE, KEY_WOW64_32KEY, "HKLM (WOW6432Node)", true},
+        {HKEY_LOCAL_MACHINE, KEY_WOW64_64KEY, "HKLM",               false},
     };
 
     for (const Source &src : kSources) {
@@ -309,11 +314,13 @@ bool readWinSparkleSetting(const char *name, std::wstring &out,
         RegCloseKey(key);
         if (ok) {
             if (whereFound) *whereFound = src.label;
+            if (reachable) *reachable = src.reachable;
             return true;
         }
     }
     return false;
 }
+
 #endif
 
 PolicyStatus describeUpdatePolicy() {
@@ -336,9 +343,11 @@ PolicyStatus describeUpdatePolicy() {
 
     std::wstring sparkle;
     std::string where;
-    if (readWinSparkleSetting("CheckForUpdates", sparkle, &where)) {
+    bool reachable = true;
+    if (readWinSparkleSetting("CheckForUpdates", sparkle, &where, &reachable)) {
         st.sparkleFound = true;
         st.sparkleWhere = where;
+        st.sparkleReachable = reachable;
         for (wchar_t c : sparkle) st.sparkleValue += static_cast<char>(c);
     }
 #else
