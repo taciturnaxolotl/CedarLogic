@@ -7,34 +7,48 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 3.1.2</title>
-      <pubDate>Thu, 17 Sep 2026 12:43:57 +0000</pubDate>
-      <sparkle:version>3.1.2</sparkle:version>
-      <sparkle:shortVersionString>3.1.2</sparkle:shortVersionString>
+      <title>Version 3.2.0</title>
+      <pubDate>Mon, 21 Sep 2026 03:48:38 +0000</pubDate>
+      <sparkle:version>3.2.0</sparkle:version>
+      <sparkle:shortVersionString>3.2.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<p>Thank you to @DavidDGTNT for catching #103 which was caused by a line ending normalization bug in the bundled gate libraries.</p>
-<p>Windows sparkle updates are now signed and validated before downloading and on a fatal crash of the program it now checks if there is an update available and suggests downloading it before reporting.</p>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.1.1...v3.1.2</p>]]></description>
+      <description><![CDATA[<p>Opening the help viewer on macOS crashed the program because wxwidgets tried to require libjpeg which conflicted with system libs.</p>
+<p>Help on Linux was similarly broken expect that it just didn't display anything.</p>
+<p>Gates are now rotated properly so a keypad gate can be rotated correctly now.</p>
+<p>Toolbar icons are properly sharp on 125% and 150% displays instead of being rounded down and blurred thanks to @DavidDGTNT. On Wayland the app will properly utilize the graphics card with skia. The Linux build is now build on an older c version to allow running it on older distros & issues with libjpeg are now fixed. On macOS, running the app straight from the disk image now tells you to drag it to Applications first.</p>
+<p>Sites that deploy CedarLogic through managed software can now switch update checking off for a whole machine:</p>
+<p>```reg</p>
+<p>HKLM\Software\Cedarville University\CedarLogic\WinSparkle</p>
+<p>CheckForUpdates  REG_SZ  "0"</p>
+<p>```</p>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.1.2...v3.2.0</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.1.2/CedarLogic-3.1.2-Darwin.dmg"
-        sparkle:edSignature="YYncrUY2JlElYwOGGKEgRgTIVi/wPJWRLymLIf+fnyAGYB/JZyOmWy5HGL/2dsocn35X5hzrur8MVzDF4j7JBw=="
-        length="14409667"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.2.0/CedarLogic-3.2.0-Darwin.dmg"
+        sparkle:edSignature="fuDhMT6OMNJhmkC7w/qamOgkcKjxgJHIjumYWSic2VgUwfxPhLKkA6S9wCMLHbFsjY+Prt7YPWwJuWwgf+9/AA=="
+        length="13502128"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 3.1.2</title>
-      <pubDate>Thu, 17 Sep 2026 12:43:57 +0000</pubDate>
-      <sparkle:version>3.1.2</sparkle:version>
-      <sparkle:shortVersionString>3.1.2</sparkle:shortVersionString>
-      <description><![CDATA[<p>Thank you to @DavidDGTNT for catching #103 which was caused by a line ending normalization bug in the bundled gate libraries.</p>
-<p>Windows sparkle updates are now signed and validated before downloading and on a fatal crash of the program it now checks if there is an update available and suggests downloading it before reporting.</p>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.1.1...v3.1.2</p>]]></description>
+      <title>Version 3.2.0</title>
+      <pubDate>Mon, 21 Sep 2026 03:48:38 +0000</pubDate>
+      <sparkle:version>3.2.0</sparkle:version>
+      <sparkle:shortVersionString>3.2.0</sparkle:shortVersionString>
+      <description><![CDATA[<p>Opening the help viewer on macOS crashed the program because wxwidgets tried to require libjpeg which conflicted with system libs.</p>
+<p>Help on Linux was similarly broken expect that it just didn't display anything.</p>
+<p>Gates are now rotated properly so a keypad gate can be rotated correctly now.</p>
+<p>Toolbar icons are properly sharp on 125% and 150% displays instead of being rounded down and blurred thanks to @DavidDGTNT. On Wayland the app will properly utilize the graphics card with skia. The Linux build is now build on an older c version to allow running it on older distros & issues with libjpeg are now fixed. On macOS, running the app straight from the disk image now tells you to drag it to Applications first.</p>
+<p>Sites that deploy CedarLogic through managed software can now switch update checking off for a whole machine:</p>
+<p>```reg</p>
+<p>HKLM\Software\Cedarville University\CedarLogic\WinSparkle</p>
+<p>CheckForUpdates  REG_SZ  "0"</p>
+<p>```</p>
+<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.1.2...v3.2.0</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.1.2/CedarLogic-3.1.2-win32.exe"
-        sparkle:edSignature="V7U5zlEYbstBC6QKmsA/nnLMR67OSIrm/MJilpgZzYNjqvDJerZ33XLH++GJrOr6W1DpVCqYjOkXJSfVWQojCg=="
-        length="22133641"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.2.0/CedarLogic-3.2.0-win32.exe"
+        sparkle:edSignature="aNA0vOfOiwF8MhMJfWxYOjtv4x+g24kRwm3kemAq9ZyQjKHXljvvQFq521eL+OOscshrZiANygKmB8OBreNeAg=="
+        length="19923720"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
