@@ -576,7 +576,14 @@ bool MainApp::OnInit()
 	loadSettings();
 	
     wxFileSystem::AddHandler( new wxZipFSHandler );
-#ifdef __APPLE__
+#ifdef _WIN32
+	// Windows hands the .chm to the system help viewer.
+	helpController = new wxHelpController;
+	helpController->Initialize(appConfig().appSettings.helpFile);
+#else
+	// Everywhere else wx renders the help book itself, from the same loose
+	// HTML the .chm is built from. Linux used to be pointed at the .chm too,
+	// which wx cannot open without libmspack, so help there did nothing at all.
 	helpController = new wxHtmlHelpController(wxHF_DEFAULT_STYLE | wxHF_OPEN_FILES);
 	// Only load help if the file exists to avoid blocking
 	if (wxFileExists(appConfig().appSettings.helpFile)) {
@@ -584,9 +591,6 @@ bool MainApp::OnInit()
 			wxLogWarning("Failed to load help file: %s", appConfig().appSettings.helpFile);
 		}
 	}
-#else
-	helpController = new wxHelpController;
-	helpController->Initialize(appConfig().appSettings.helpFile);
 #endif
 
 
@@ -889,10 +893,16 @@ void MainApp::loadSettings() {
 	wxConfigBase::DontCreateOnDemand();
 
 	wxString str;
-	#ifdef __APPLE__
-	conf->Read("HelpFile", &str, "res/help/KLS_Logic.hhp");
-#else
+#ifdef _WIN32
 	conf->Read("HelpFile", &str, "res/KLS_Logic.chm");
+#else
+	conf->Read("HelpFile", &str, "res/help/KLS_Logic.hhp");
+	// Older builds pointed every platform at the Windows .chm, and that value is
+	// still sitting in existing config files. wx cannot read a .chm here, so
+	// honouring it would just open an empty help window.
+	if (str.Lower().EndsWith(".chm")) {
+		str = "res/help/KLS_Logic.hhp";
+	}
 #endif
 	appConfig().appSettings.helpFile = appConfig().resourcesDir + str;
 

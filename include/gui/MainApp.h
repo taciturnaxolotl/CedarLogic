@@ -67,10 +67,10 @@ public:
     // settings likewise moved to gateLibrary() and appConfig().
 
     // Help system
-#ifdef __APPLE__
-    wxHtmlHelpController* helpController;
-#else
+#ifdef _WIN32
     wxHelpController* helpController;
+#else
+    wxHtmlHelpController* helpController;
 #endif
     
 	// Palette drag state (newGateToDrag / showDragImage) moved to the PaletteDrag
