@@ -137,6 +137,16 @@ else()
     # Distros disagree about that soname (Debian ships libjpeg.so.62), so the
     # release archive refused to start on Debian until the user hand-installed
     # Ubuntu's libjpeg8.
+    #
+    # macOS is the reason this must stay off rather than merely being tidy.
+    # There the two libjpegs link without complaint and the linker takes half of
+    # each: 3.1.2 shipped jpeg_CreateDecompress and jpeg_read_header from wx's
+    # libjpeg 9d and jpeg_start_decompress from Skia's libjpeg-turbo 2.1.4. The
+    # two disagree on the layout of jpeg_decompress_struct (v9 added
+    # color_transform and split min_DCT_scaled_size in two), so a struct built by
+    # one half was read by the other and every JPEG decode segfaulted -- which
+    # took out the help viewer, the only thing in the app that reads JPEG.
+    # Turning JPEG back on for one platform re-arms that.
     set(wxUSE_LIBJPEG OFF)
     set(wxUSE_LIBTIFF OFF)
 
