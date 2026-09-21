@@ -401,8 +401,11 @@ void guiGate::calcBBox( void ) {
 	// every caption across the body by up to its own diagonal.
 	labelPivots.clear();
 	int groupCount = 0;
+	// Unqualified, as everywhere else in this file: on Windows <windows.h>
+	// arrives via gl_wrapper.h and defines max as a macro, so a qualified
+	// std::max( expands to std::( and will not compile.
 	for (unsigned int i = 0; i < labelVertexGroup.size(); i++)
-		groupCount = std::max( groupCount, labelVertexGroup[i] + 1 );
+		groupCount = max( groupCount, labelVertexGroup[i] + 1 );
 	if (groupCount > 0) {
 		std::vector<klsBBox> groupBox( groupCount );
 		for (unsigned int i = 0; i < labelVertices.size() && i < labelVertexGroup.size(); i++) {
