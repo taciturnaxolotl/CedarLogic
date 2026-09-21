@@ -30,6 +30,7 @@
 #include <cstdlib>
 #include <string>
 #include <atomic>
+#include <memory>
 #include <thread>
 #include "wx/dialog.h"
 #include "wx/sizer.h"
@@ -41,6 +42,7 @@
 #include "wx/dataobj.h"
 #include "wx/font.h"
 #include "wx/filename.h"
+#include "wx/timer.h"
 #include "wx/utils.h"
 
 #ifdef __APPLE__
@@ -126,6 +128,13 @@ static void clearMarker() {
     remove(g_startupMarkerPath.c_str());
 }
 
+// A one-shot run never reaches a window, so it must retract the marker it armed.
+[[noreturn]] static void exitOneShot(int code) {
+    clearMarker();
+    std::fflush(nullptr);
+    std::_Exit(code);
+}
+
 // Percent-encode everything outside the RFC 3986 unreserved set so a trace can
 // ride safely in a GitHub issue URL's query string.
 static std::string urlEncode(const std::string &s) {
@@ -179,37 +188,11 @@ static std::string crashIssueUrl(const std::string &trace) {
 }
 
 #ifdef _WIN32
-// Copy text to the clipboard with only Win32 APIs, safe to call from the
-// crash handler where wx and the app heap can't be trusted.
-static void nativeSetClipboard(const std::string &text) {
-    if (!OpenClipboard(NULL)) return;
-    EmptyClipboard();
-    HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, text.size() + 1);
-    if (h) {
-        void *dst = GlobalLock(h);
-        if (dst) { memcpy(dst, text.c_str(), text.size() + 1); GlobalUnlock(h); SetClipboardData(CF_TEXT, h); }
-    }
-    CloseClipboard();
-}
-
-// Best-effort nudge from inside the crash handler: the process is in an
-// undefined state, so use only native APIs (no wx/GL). Copy the trace to the
-// clipboard and offer to open a prefilled GitHub issue right now. The reliable,
-// full-featured path is the dialog shown on the next launch.
-static void offerCrashReportNative(const std::string &logPath) {
-    std::string trace = readFile(logPath);
-    if (trace.empty()) return;
-    nativeSetClipboard(crashIssueBody(trace));
-    int r = MessageBoxW(NULL,
-        L"CedarLogic closed unexpectedly.\n\n"
-        L"A crash report was saved and copied to your clipboard. "
-        L"Open a GitHub issue to report it now?",
-        L"CedarLogic crashed", MB_YESNO | MB_ICONERROR | MB_SYSTEMMODAL);
-    if (r == IDYES) {
-        std::string url = crashIssueUrl(trace);
-        std::wstring wurl(url.begin(), url.end());
-        ShellExecuteW(NULL, L"open", wurl.c_str(), NULL, NULL, SW_SHOWNORMAL);
-    }
+// No allocation and no CRT buffering, for a stack too exhausted to afford either.
+static void rawWriteLine(HANDLE h, const char *s) {
+    if (h == INVALID_HANDLE_VALUE || !s) return;
+    DWORD wrote = 0;
+    WriteFile(h, s, (DWORD)strlen(s), &wrote, NULL);
 }
 
 // Shorten a compiler-emitted absolute source path to a repo-relative one with
@@ -230,22 +213,47 @@ static const char *shortSourcePath(const char *full, char *buf, size_t bufLen) {
 // %TEMP%\CedarLogic_crashtrace.log. Turns "it just crashed" into an actual
 // function + file:line, which matters for a GUI app where the nastiest bugs
 // only surface through live interaction and can't be caught under a debugger.
+//
+// Writes the file and nothing else. A message box here pumps messages back into
+// a dead process, faults, and re-enters this handler over its own report.
 static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
+    // Never reset: a second fault must not truncate the first one's report.
+    static LONG entered = 0;
+    if (InterlockedExchange(&entered, 1) != 0) return EXCEPTION_CONTINUE_SEARCH;
+
     const std::string &logPath = g_crashLogPath;
+    const DWORD code = ep->ExceptionRecord->ExceptionCode;
+
+    // One guard page left. The walk below needs far more and would fault again.
+    if (code == EXCEPTION_STACK_OVERFLOW) {
+        HANDLE h = CreateFileA(logPath.c_str(), GENERIC_WRITE, 0, NULL,
+                               CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        rawWriteLine(h, g_crashHeader.c_str());
+        rawWriteLine(h,
+                     "Stack overflow (0xC00000FD).\n\n"
+                     "  No stack trace: unwinding needs stack this crash has "
+                     "already used up.\n"
+                     "  Almost always unbounded recursion.\n");
+        if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
+
     FILE *f = fopen(logPath.c_str(), "wb"); // binary: clean '\n', no '\r\n'
     if (f == NULL) return EXCEPTION_CONTINUE_SEARCH;
 
     HANDLE proc = GetCurrentProcess();
-    SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME);
+    // NO_PROMPTS: dbghelp otherwise opens its own dialogs from a dead process.
+    SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME |
+                  SYMOPT_FAIL_CRITICAL_ERRORS | SYMOPT_NO_PROMPTS);
     SymInitialize(proc, NULL, TRUE);
 
     fputs(g_crashHeader.c_str(), f);
     fprintf(f, "Unhandled exception 0x%08lX at %p\n",
-            ep->ExceptionRecord->ExceptionCode, ep->ExceptionRecord->ExceptionAddress);
+            code, ep->ExceptionRecord->ExceptionAddress);
 
     // For an access violation, ExceptionInformation[0] is 0=read/1=write/8=DEP
     // and [1] is the faulting address -- the actual bad pointer we dereferenced.
-    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
+    if (code == EXCEPTION_ACCESS_VIOLATION &&
         ep->ExceptionRecord->NumberParameters >= 2) {
         ULONG_PTR kind = ep->ExceptionRecord->ExceptionInformation[0];
         fprintf(f, "  %s address 0x%p\n",
@@ -265,7 +273,10 @@ static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
     }
     fprintf(f, "\n");
 
-    CONTEXT *ctx = ep->ContextRecord;
+    // StackWalk64 mutates the CONTEXT as it unwinds; the OS still needs the real
+    // one to bucket the crash, so walk a copy.
+    CONTEXT walkCtx = *ep->ContextRecord;
+    CONTEXT *ctx = &walkCtx;
     STACKFRAME64 frame = {};
     DWORD machine;
 #if defined(_M_X64)
@@ -320,8 +331,7 @@ static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
     fflush(f);
     fclose(f);
 
-    offerCrashReportNative(logPath);
-    return EXCEPTION_CONTINUE_SEARCH; // let the OS still report/terminate as usual
+    return EXCEPTION_CONTINUE_SEARCH; // unchanged, so WER and any debugger still work
 }
 #else
 // POSIX (macOS/Linux): catch fatal signals and write a backtrace to the log
@@ -386,9 +396,8 @@ static void installCrashHandler() {
 #endif
 }
 
-// Shown on the next launch after a crash: the reliable, full-featured
-// counterpart to the crash-time nudge. The process is healthy here, so this is
-// a normal wx dialog.
+// Shown on the next launch after a crash. The only place the user is told about
+// it: the handler that writes the trace cannot be trusted to put up a window.
 //
 // It leads with an update check rather than a bug report, because a fix that
 // already ships beats a report that has not been written yet -- and it deflects
@@ -401,10 +410,7 @@ static void installCrashHandler() {
 // Those are the crashes the user cannot report and the updater cannot reach, so
 // the wording says the app never started rather than merely misbehaved.
 //
-// Returns true if the user chose to update. Only the startup-crash caller acts
-// on it, by stepping aside so the download can proceed; the deferred call after
-// a normal start ignores it, since the app is already up and its updater is
-// running, so "Update now" there simply closes the dialog.
+// Returns true if the user chose to update. Only the startup caller acts on it.
 static bool showPendingCrashReport(wxWindow *parent, bool duringStartup) {
     const std::string &logPath = g_crashLogPath;
     std::string trace = readFile(logPath);
@@ -461,54 +467,35 @@ static bool showPendingCrashReport(wxWindow *parent, bool duringStartup) {
     // through the updater, so it is a second way out of the machine and has to
     // honour the policy on its own account.
     const bool managed = cl::update::checksDisabled();
-    cl::update::Version newest;
-    bool haveUpdate = false;
+
+    // shared_ptr because a stalled fetch may outlive the dialog.
+    struct FeedResult {
+        std::atomic<bool> done{false};
+        std::atomic<bool> ok{false};
+        cl::update::Version newest;  // published by `done`
+    };
+    auto feed = std::make_shared<FeedResult>();
 
     if (managed) {
         updateLine->SetLabel("Updates are managed by your administrator. "
                              "Reporting this is the best way to get it fixed.");
         updateBtn->Hide();
     } else {
-        // Read the feed off the main thread and poll for it. wxMilliSleep yields
-        // to the event loop, so the dialog paints and stays responsive while this
-        // runs, and the thread never has to touch a wx object. The flags are
-        // atomic because two threads see them; join() below is what makes
-        // `newest` safe to read on this thread.
         static const char *kAppcastUrl =
             "https://taciturnaxolotl.github.io/CedarLogic/appcast.xml";
-        std::atomic<bool> done(false);
-        std::atomic<bool> ok(false);
-        std::thread fetcher([&]() {
+        std::thread([feed]() {
             std::string xml = cl::update::fetchAppcast(kAppcastUrl);
 #ifdef _WIN32
-            ok.store(!xml.empty() && cl::update::appcastLatest(xml, "windows", newest));
+            feed->ok.store(!xml.empty() &&
+                           cl::update::appcastLatest(xml, "windows", feed->newest));
 #elif defined(__APPLE__)
-            ok.store(!xml.empty() && cl::update::appcastLatest(xml, "macos", newest));
+            feed->ok.store(!xml.empty() &&
+                           cl::update::appcastLatest(xml, "macos", feed->newest));
 #else
-            ok.store(false);
+            feed->ok.store(false);
 #endif
-            done.store(true);
-        });
-
-        const cl::update::Version current = cl::update::parseVersion(VERSION_NUMBER());
-        for (int waited = 0; !done.load() && waited < 10000; waited += 100)
-            wxMilliSleep(100);
-        if (fetcher.joinable()) fetcher.join();
-
-        haveUpdate = ok.load() && cl::update::newerThan(newest, current);
-        if (!ok.load()) {
-            updateLine->SetLabel("Could not check for updates. Reporting this is the "
-                                 "best way to get it fixed.");
-        } else if (haveUpdate) {
-            wxString v;
-            v.Printf("Version %d.%d.%d is available and may already fix this.",
-                     newest.parts[0], newest.parts[1], newest.parts[2]);
-            updateLine->SetLabel(v);
-            updateBtn->Enable(true);
-            updateBtn->SetDefault();
-        } else {
-            updateLine->SetLabel("You are on the latest version, so this is worth reporting.");
-        }
+            feed->done.store(true);
+        }).detach();
     }
     dlg.Layout();
 
@@ -528,7 +515,42 @@ static bool showPendingCrashReport(wxWindow *parent, bool duringStartup) {
     const int kUpdate = 100;
     updateBtn->Bind(wxEVT_BUTTON, [&](wxCommandEvent &) { dlg.EndModal(kUpdate); });
 
-    bool choseUpdate = dlg.ShowModal() == kUpdate;
+    // Polled on the event loop: sleeping for the feed would freeze the dialog.
+    wxTimer feedPoll(&dlg);
+    if (!managed) {
+        const cl::update::Version current =
+            cl::update::parseVersion(VERSION_NUMBER());
+        // Counter lives in the closure: the timer first fires from ShowModal(),
+        // below, by which point this block's locals are gone.
+        dlg.Bind(wxEVT_TIMER, [&, feed, current, elapsedMs = 0](wxTimerEvent &) mutable {
+            elapsedMs += 100;
+            const bool timedOut = elapsedMs >= 10000;
+            if (!feed->done.load() && !timedOut) return;
+            feedPoll.Stop();
+
+            // `done` was stored after `newest`, so it publishes `newest` too.
+            if (!feed->done.load() || !feed->ok.load()) {
+                updateLine->SetLabel("Could not check for updates. Reporting "
+                                     "this is the best way to get it fixed.");
+            } else if (cl::update::newerThan(feed->newest, current)) {
+                wxString v;
+                v.Printf("Version %d.%d.%d is available and may already fix this.",
+                         feed->newest.parts[0], feed->newest.parts[1],
+                         feed->newest.parts[2]);
+                updateLine->SetLabel(v);
+                updateBtn->Enable(true);
+                updateBtn->SetDefault();
+            } else {
+                updateLine->SetLabel("You are on the latest version, so this is "
+                                     "worth reporting.");
+            }
+            dlg.Layout();
+        });
+        feedPoll.Start(100);
+    }
+
+    const bool choseUpdate = dlg.ShowModal() == kUpdate;
+    feedPoll.Stop();
     remove(logPath.c_str()); // only prompt once per crash
     return choseUpdate;
 }
@@ -669,8 +691,7 @@ bool MainApp::OnInit()
             }
         }
         fputs(out.c_str(), stdout);
-        fflush(nullptr);
-        std::_Exit(st.disabled ? 1 : 0);
+        exitOneShot(st.disabled ? 1 : 0);
     }
 
 #ifdef WITH_SKIA
@@ -683,8 +704,7 @@ bool MainApp::OnInit()
         if (argc >= 5) { w = wxAtoi(argv[3]); h = wxAtoi(argv[4]); }
         bool ok = cl::render::skiaProbeToPng(
             wxString(argv[2]).ToStdString().c_str(), w, h);
-        fflush(nullptr);
-        std::_Exit(ok ? 0 : 1);
+        exitOneShot(ok ? 0 : 1);
     }
 #endif
 
@@ -761,21 +781,17 @@ bool MainApp::OnInit()
     // startup once it has happened twice running. Headless runs (--render and
     // friends, used by CI) never see it, since a modal dialog would hang them.
     //////////////////////////////////////////////////////////////////////////
-    bool crashReportHandled = false;
     if (previousStartupFailures + 1 >= kStartupCrashRecoveryThreshold &&
         !renderMode().headlessRender) {
-        crashReportHandled = true;
         if (showPendingCrashReport(NULL, /*duringStartup=*/true)) {
-            // The user chose to update. Hand them the download rather than
-            // driving the in-app updater from here: WinSparkle's installer wants
-            // to relaunch the app, and its UI runs on a thread that OnInit
-            // returning would tear down mid-interaction. The dialog has already
-            // named the exact version, so the releases page is one click. Then
-            // step aside instead of continuing into the same crash; the marker
-            // stays, so if the download does not fix it the dialog returns.
+            // The releases page rather than the in-app updater: its installer
+            // relaunches us, on a thread that OnInit returning would tear down.
             wxLaunchDefaultBrowser(
                 "https://github.com/taciturnaxolotl/CedarLogic/releases/latest");
-            return false;
+            // Not `return false`: wx skips OnExit then, and OnExit is where
+            // this app terminates itself (see there).
+            std::fflush(nullptr);
+            std::_Exit(0);
         }
         // "Continue anyway": fall through and try to start normally.
     }
@@ -792,8 +808,7 @@ bool MainApp::OnInit()
         bool ok = wireDrag
             ? frame->dumpWireDrag(wsGateA, wsGateB, wsAngleA, wsAngleB, renderOutput)
             : frame->dumpWireShape(wsGateA, wsGateB, wsAngleA, wsAngleB, renderOutput);
-        fflush(nullptr);
-        std::_Exit(ok ? 0 : 1);
+        exitOneShot(ok ? 0 : 1);
     }
 
     if (renderMode().headlessRender && renderGate) {
@@ -805,8 +820,7 @@ bool MainApp::OnInit()
         wxYield();
         bool ok = frame->renderSingleGate(gateName, gateAngle, renderOutput,
                                           renderW, renderH);
-        fflush(nullptr);
-        std::_Exit(ok ? 0 : 1);
+        exitOneShot(ok ? 0 : 1);
     }
 
     if (renderMode().headlessRender) {
@@ -820,11 +834,11 @@ bool MainApp::OnInit()
             try {
                 cl::loadCircuit(ss.str());
             } catch (const std::exception &) {
-                std::_Exit(1);
+                exitOneShot(1);
             } catch (...) {
                 // See CircuitParse::readCircuit: in this binary the typed
                 // handler alone does not catch a throw from libCircuitFile.
-                std::_Exit(1);
+                exitOneShot(1);
             }
         }
         // Realize + size the window so the canvas has a client size, load the
@@ -855,8 +869,7 @@ bool MainApp::OnInit()
             : frame->renderToPngSkia(renderOutput, renderW, renderH);
         // The PNG is written; exit immediately rather than tear down the (shown)
         // frame + autosave thread, which otherwise hangs this one-shot process.
-        fflush(nullptr);
-        std::_Exit(ok ? 0 : 1);
+        exitOneShot(ok ? 0 : 1);
     }
 
     //**********************************************************
@@ -897,12 +910,9 @@ bool MainApp::OnInit()
     // application would exit immediately
 
     // If the previous run left a crash trace, offer it for reporting once the
-    // main window is up (deferred so it appears over a painted frame). Skipped
-    // when the startup-crash path above already showed it, so one crash never
-    // produces two dialogs.
-    if (!crashReportHandled) {
-        CallAfter([this]() { showPendingCrashReport(mainframe, /*duringStartup=*/false); });
-    }
+    // main window is up (deferred so it appears over a painted frame). Harmless
+    // if the startup path above already ran: it deleted the trace.
+    CallAfter([this]() { showPendingCrashReport(mainframe, /*duringStartup=*/false); });
 
     return true;
 }
