@@ -64,7 +64,7 @@ guiWire::guiWire() : klsCollisionObject(COLL_WIRE) {
 	// Start segs at 1, since 0 is reserved for the base vertical segment
 	nextSegID = 1;
 	// 0 is the base vertical segment
-	segMap.put(0, wireSegment()).verticalSeg = true;
+	segMap.put(wireSegment()).verticalSeg = true;
 	// Reset state of currentDragSeg is -1
 	currentDragSegment = -1;
 	headSegment = 0; // since the base vertical seg is 0
@@ -124,13 +124,13 @@ void guiWire::addConnection(guiGate* iGate, string connection, bool openMode) {
 	//	When mergeSegments is called, extension of existing segments is accomplished.
 	if (segMap.at(closestSeg).isHorizontal()) { // create the vertical seg
 		if (segMap.at(closestSeg).begin == segMap.at(closestSeg).end) segMap.at(closestSeg).end.x += 1;
-		segMap.put(nextSegID, wireSegment(GLPoint2f(hsPoint.x, min(hsPoint.y, segMap.at(closestSeg).begin.y)), GLPoint2f(hsPoint.x, max(hsPoint.y, segMap.at(closestSeg).begin.y)), true, nextSegID));
+		segMap.put(wireSegment(GLPoint2f(hsPoint.x, min(hsPoint.y, segMap.at(closestSeg).begin.y)), GLPoint2f(hsPoint.x, max(hsPoint.y, segMap.at(closestSeg).begin.y)), true, nextSegID));
 		segMap.at(closestSeg).intersects[hsPoint.x].push_back(nextSegID);
 		segMap.at(nextSegID).intersects[segMap.at(closestSeg).begin.y].push_back(closestSeg);
 	}
 	else { // create the horizontal seg
 		if (segMap.at(closestSeg).begin == segMap.at(closestSeg).end) segMap.at(closestSeg).end.y += 1;
-		segMap.put(nextSegID, wireSegment(GLPoint2f(min(hsPoint.x, segMap.at(closestSeg).begin.x), hsPoint.y), GLPoint2f(max(hsPoint.x, segMap.at(closestSeg).begin.x), hsPoint.y), false, nextSegID));
+		segMap.put(wireSegment(GLPoint2f(min(hsPoint.x, segMap.at(closestSeg).begin.x), hsPoint.y), GLPoint2f(max(hsPoint.x, segMap.at(closestSeg).begin.x), hsPoint.y), false, nextSegID));
 		segMap.at(closestSeg).intersects[hsPoint.y].push_back(nextSegID);
 		segMap.at(nextSegID).intersects[segMap.at(closestSeg).begin.x].push_back(closestSeg);
 	}
@@ -351,9 +351,8 @@ void guiWire::calcBBox() {
 	this->makeValidBBox();
 }
 
-// Take existing segment connections and update their map keys, returns true if interesting segment is found
-bool guiWire::refreshIntersections(bool removeBadSegs) {
-	bool retVal = false;
+// Take existing segment connections and update their map keys
+void guiWire::refreshIntersections() {
 	// Update the intersection maps for the new locations
 	map < long, wireSegment >::iterator segWalk = segMap.begin();
 	while (segWalk != segMap.end()) {
@@ -361,12 +360,9 @@ bool guiWire::refreshIntersections(bool removeBadSegs) {
 		map < GLfloat, vector < long > >::iterator isectWalk = (segWalk->second).intersects.begin();
 		while (isectWalk != (segWalk->second).intersects.end()) {
 			for (unsigned int j = 0; j < (isectWalk->second).size(); j++) {
-				// Simply set value at new location...
-				// Resolve without inventing: operator[] on an id the wire no longer
-				// has would add a blank segment and key the crossing off its empty
-				// geometry.
+				// Resolve without inventing; a stale id is dropped.
 				const wireSegment *target = segMap.find((isectWalk->second)[j]);
-				if (target == NULL) { if (removeBadSegs) retVal = true; continue; }
+				if (target == NULL) continue;
 				if ((segWalk->second).isVertical()) refreshMap[target->begin.y].push_back((isectWalk->second)[j]);
 				else refreshMap[target->begin.x].push_back((isectWalk->second)[j]);
 			}
@@ -376,7 +372,6 @@ bool guiWire::refreshIntersections(bool removeBadSegs) {
 		(segWalk->second).intersects = refreshMap;
 		segWalk++;
 	}
-	return retVal;
 }
 
 bool guiWire::isSelected(void) {
@@ -562,6 +557,7 @@ void guiWire::commitSegMap(map < long, wireSegment > newSegMap) {
 }
 
 void guiWire::setSegmentMap(map < long, wireSegment > newSegMap) {
+	if (newSegMap.empty()) return; // no shape to adopt; keep the one we have
 	commitSegMap(std::move(newSegMap));
 	headSegment = ((segMap.begin())->first);
 	nextSegID = ((segMap.rbegin())->first) + 1;
@@ -607,7 +603,7 @@ void guiWire::calcShape() {
 		for (const std::pair<float, long> &cr : rs.crossings)
 			ws.intersects[cr.first].push_back(cr.second);
 		ws.calcBBox();
-		segMap.put(rs.id, ws);
+		segMap.put(ws);
 	}
 	nextSegID = routed.nextId;
 
@@ -653,7 +649,7 @@ bool guiWire::startSegDrag(klsCollisionObject* mouse) {
 	((wireSegment*)(*cgWalk))->connections.clear();
 	currentDragSegment = ((wireSegment*)(*(cg.begin())))->id;
 	for (unsigned int i = 0; i < segsToAddWhenFound.size(); i++) {
-		segMap.put(segsToAddWhenFound[i].id, segsToAddWhenFound[i]);
+		segMap.put(segsToAddWhenFound[i]);
 	}
 	mouseCoords = mouse->getBBox();
 	return true;
@@ -778,7 +774,7 @@ void guiWire::updateConnectionPos(unsigned long gid, string connection) {
 		// We found the segment we're looking for
 		if (segMap.at(currentDragSegment).isVertical()) {
 			// If the seg is vertical then create a horizontal seg to handle the connection and remove the connection from the vertical seg
-			segMap.put(nextSegID, wireSegment(newLocation, GLPoint2f(segMap.at(currentDragSegment).begin.x, newLocation.y), false, nextSegID));
+			segMap.put(wireSegment(newLocation, GLPoint2f(segMap.at(currentDragSegment).begin.x, newLocation.y), false, nextSegID));
 			segMap.at(nextSegID).intersects[segMap.at(currentDragSegment).begin.x].push_back(currentDragSegment);
 			segMap.at(nextSegID).connections.push_back(segMap.at(currentDragSegment).connections[connID]);
 			segMap.at(currentDragSegment).intersects[newLocation.y].push_back(nextSegID);
@@ -793,7 +789,7 @@ void guiWire::updateConnectionPos(unsigned long gid, string connection) {
 			if (j != connID) {
 				GLPoint2f connPoint;
 				gateOf(segMap.at(currentDragSegment).connections[j])->getHotspotCoords(segMap.at(currentDragSegment).connections[j].connection, connPoint.x, connPoint.y);
-				segMap.put(nextSegID, wireSegment(connPoint, connPoint, true, nextSegID));
+				segMap.put(wireSegment(connPoint, connPoint, true, nextSegID));
 				segMap.at(nextSegID).intersects[connPoint.y].push_back(currentDragSegment);
 				segMap.at(nextSegID).connections.push_back(segMap.at(currentDragSegment).connections[j]);
 				segMap.at(currentDragSegment).intersects[connPoint.x].push_back(nextSegID);
@@ -821,7 +817,7 @@ void guiWire::updateConnectionPos(unsigned long gid, string connection) {
 		// We found the segment we're looking for
 		if (segMap.at(currentDragSegment).isHorizontal()) {
 			// If the seg is horizontal then create a vertical seg to handle the connection and remove the connection from the horizontal seg
-			segMap.put(nextSegID, wireSegment(newLocation, GLPoint2f(newLocation.x, segMap.at(currentDragSegment).begin.y), true, nextSegID));
+			segMap.put(wireSegment(newLocation, GLPoint2f(newLocation.x, segMap.at(currentDragSegment).begin.y), true, nextSegID));
 			segMap.at(nextSegID).intersects[segMap.at(currentDragSegment).begin.y].push_back(currentDragSegment);
 			segMap.at(nextSegID).connections.push_back(segMap.at(currentDragSegment).connections[connID]);
 			segMap.at(currentDragSegment).intersects[newLocation.x].push_back(nextSegID);
@@ -836,7 +832,7 @@ void guiWire::updateConnectionPos(unsigned long gid, string connection) {
 			if (j != connID) {
 				GLPoint2f connPoint;
 				gateOf(segMap.at(currentDragSegment).connections[j])->getHotspotCoords(segMap.at(currentDragSegment).connections[j].connection, connPoint.x, connPoint.y);
-				segMap.put(nextSegID, wireSegment(connPoint, connPoint, false, nextSegID));
+				segMap.put(wireSegment(connPoint, connPoint, false, nextSegID));
 				segMap.at(nextSegID).intersects[connPoint.x].push_back(currentDragSegment);
 				segMap.at(nextSegID).connections.push_back(segMap.at(currentDragSegment).connections[j]);
 				segMap.at(currentDragSegment).intersects[connPoint.y].push_back(nextSegID);
@@ -988,6 +984,7 @@ void guiWire::mergeSegments() {
 		segWalk++;
 	}
 	// Iron out the segment ids for intersections, and trim endpoints if necessary
+	if (newSegMap.empty()) return; // nothing to iron out, and no head to name
 	segWalk = newSegMap.begin();
 	headSegment = (segWalk->first);
 	while (segWalk != newSegMap.end()) {
@@ -1059,20 +1056,16 @@ void guiWire::removeZeroLengthSegments() {
 		base.id = headSegment = 0; // reset head pointer id
 		base.intersects.clear(); // no intersects
 		base.connections = this->connectPoints; // and all connections
-		newSegMap.put(headSegment, base).calcBBox();
+		newSegMap.put(base).calcBBox();
 		nextSegID = 1; // reset the new seg id
 		commitSegMap(newSegMap.store());
 		return;
 	}
 
 	segWalk = newSegMap.begin();
-	bool foundOne = false;
 	while (segWalk != newSegMap.end()) {
 		// We can ignore segments of length greater than zero (yeah, really)
 		if (!((segWalk->second).begin == (segWalk->second).end)) { segWalk++; continue; }
-		if (newSegMap.size() == 2 && foundOne) break;
-		foundOne = true;
-
 		// An untidy segment beats a gate that has come unattached.
 		if (!cl::wire::rehomeConnections(newSegMap, segWalk->first)) { segWalk++; continue; }
 		eraseIDs.push_back(segWalk->first);
@@ -1080,10 +1073,10 @@ void guiWire::removeZeroLengthSegments() {
 	}
 	// DIE A HORRIBLE AND REVOLTING DEATH IN THE DIGITAL DUSTBIN!!!
 	for (unsigned int i = 0; i < eraseIDs.size(); i++) newSegMap.erase(eraseIDs[i]);
-	assert(!newSegMap.empty() && "erased every segment of a wire that had one with length");
+	if (newSegMap.empty()) return; // nothing survived; keep the shape we had
 	commitSegMap(newSegMap.store());
 	// Now make sure the intersection maps do not refer to the woebegone segments
-	refreshIntersections(true);
+	refreshIntersections();
 	// Maybe we removed the head?
 	headSegment = segMap.begin()->first;
 }

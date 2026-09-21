@@ -126,10 +126,7 @@ add_executable(test_segmentmap
 	"${PROJECT_SOURCE_DIR}/src/gui/klsCollisionChecker.cpp"
 	"${PROJECT_SOURCE_DIR}/src/gui/gl_defs.cpp"
 )
-# stub_gl/ comes first so its MainApp.h wins: gl_defs.cpp carries a DECLARE_APP
-# it does not use, and the real header would pull in wxWidgets.
-target_include_directories(test_segmentmap BEFORE PRIVATE
-	"${CMAKE_CURRENT_SOURCE_DIR}/stub_gl"
+target_include_directories(test_segmentmap PRIVATE
 	"${PROJECT_SOURCE_DIR}/include/gui"
 	"${PROJECT_SOURCE_DIR}/logic/include"
 )

@@ -175,7 +175,7 @@ private:
 	GUICircuit* gCircuit = nullptr;
 
 	// Take existing segment connections and update their map keys
-	bool refreshIntersections(bool removeBadSegs = false);
+	void refreshIntersections();
 
 	// Self-explanatory, see comments in source
 	void removeZeroLengthSegments();  // TODO

@@ -45,11 +45,13 @@ public:
 
 	bool has(long id) const { return segs_.count(id) != 0; }
 
-	// Add or replace a segment, on purpose.
-	wireSegment &put(long id, const wireSegment &seg) {
-		wireSegment &slot = segs_[id];
-		slot = seg;
-		return slot;
+	// Add or replace a segment, keyed off the id it carries: passing the key
+	// separately is how a segment and its key drift apart.
+	wireSegment &put(const wireSegment &seg) {
+		std::pair< Store::iterator, bool > r =
+			segs_.insert(Store::value_type(seg.id, seg));
+		if (!r.second) r.first->second = seg;
+		return r.first->second;
 	}
 
 	void erase(long id) { segs_.erase(id); }

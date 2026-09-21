@@ -337,9 +337,6 @@ void CircuitParse::applyWireShape(const cl::WireInstance &w) {
 	}
 
 	guiWire *wire = gCircuit->getWire(ids.front());
-	// An empty shape leaves setSegmentMap dereferencing begin() and rbegin() on
-	// an empty map, so keep whatever routing the wire already has.
-	if (shape.empty()) return;
 	wire->setIDs(ids);
 	wire->setSegmentMap(shape);
 }
