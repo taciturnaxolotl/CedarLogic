@@ -505,6 +505,19 @@ else()
 endif()
 
 set(CPACK_PACKAGE_NAME "CedarLogic")
+# The name of the installed thing, with no version in it. CPack would otherwise
+# default both of these to "CedarLogic <version>", which is what made every
+# release install itself beside the last one instead of over it: the install
+# directory, the Start Menu folder and the Add/Remove Programs key were all
+# version-stamped, so 3.2.0 shared nothing with 3.1.2 and could not see it.
+# CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL looks the old copy up by exactly
+# this registry key, so with the version in it the lookup always missed and the
+# "uninstall the old one first" step silently did nothing.
+#
+# Add/Remove Programs still shows the version: it comes from DisplayVersion,
+# which CPack writes separately from CPACK_PACKAGE_VERSION.
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "CedarLogic")
+set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "CedarLogic")
 # This exceptionally weird line is hard to understand even with the documentation.
 # CMake thinks my executable is in the 'bin' subdirectory of the installation folder.
 # I don't like to put it there, so I need to manually tell it my programs are up one level.
@@ -524,6 +537,13 @@ set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/res/LICENSE.txt)
 set(CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/cmake\\\\icon.ico)
 set(CPACK_NSIS_MUI_WELCOMEFINISHPAGE_BITMAP ${CMAKE_SOURCE_DIR}/cmake\\\\InstallLarge.bmp)
 set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+# That setting only finds a previous install under the registry key above, which
+# no release before this one used. Clear out the versioned installs the old
+# naming scheme left scattered across the machine.
+set(CPACK_NSIS_EXTRA_PREINSTALL_COMMANDS
+    "!include \\\"${CMAKE_SOURCE_DIR}/cmake/cpack\\\\RemoveLegacyVersions.nsh\\\"
+    \\\${RemoveLegacyVersions}"
+)
 set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS
     "!include \\\"${CMAKE_SOURCE_DIR}/cmake/cpack\\\\FileAssociation.nsh\\\"
     \\\${registerExtension} \\\"$INSTDIR\\\\CedarLogic.exe\\\" \\\".cdl\\\" \\\"CedarLogic Project\\\""

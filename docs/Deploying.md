@@ -83,18 +83,23 @@ The installer runs as administrator and installs for all users, so both of these
 are machine-wide. The uninstaller removes them.
 
 ```
-HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\CedarLogic <version>
+HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\CedarLogic
     DisplayName, DisplayVersion, DisplayIcon, Publisher, UninstallString,
     HelpLink, URLInfoAbout, NoModify, NoRepair        (all REG_SZ or REG_DWORD)
 
-HKLM\SOFTWARE\Cedarville University\CedarLogic <version>
+HKLM\SOFTWARE\Cedarville University\CedarLogic
     (default)   REG_SZ   the install directory
 ```
 
-Note the version in both key names. It comes from the packaging and changes
-every release, so a detection rule that hardcodes `CedarLogic 3.1.2` stops
-matching the moment a new version ships. Enumerate the subkeys and match on the
-`CedarLogic ` prefix instead, or key off `DisplayName` and `Publisher`.
+Both key names are fixed, so a detection rule can match on them directly. The
+installed version is in `DisplayVersion`, not in the key name.
+
+Releases up to and including 3.2.0 named these keys `CedarLogic <version>` and
+installed into `C:\Program Files (x86)\CedarLogic <version>`, which is why those
+versions each installed beside the last instead of over it. Installers after
+3.2.0 remove any such leftovers before installing. If you are cleaning up by
+hand, or writing a detection rule that has to cope with a machine nobody has
+upgraded yet, look for subkeys with the `CedarLogic ` prefix as well.
 
 ### The .cdl file association, under HKCR
 
