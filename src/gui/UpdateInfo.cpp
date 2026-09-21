@@ -8,6 +8,8 @@
 
 #include <cctype>
 #include <cstdlib>
+#include <cwchar>
+#include <string>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -199,45 +201,156 @@ std::string fetchAppcast(const std::string &url) {
 }
 
 #ifdef _WIN32
-// Read one DWORD from a registry view, so the caller can ask for the 64-bit
-// view explicitly. Returns false if the key or value is absent.
-static bool readPolicyDword(REGSAM view, const wchar_t *subkey,
-                            const wchar_t *value, DWORD &out) {
+// One registry read from an explicitly named view, so a caller can ask for the
+// 64-bit tree rather than accepting whatever the redirector hands a 32-bit
+// process. Accepts REG_DWORD or REG_SZ: administrators write both, and
+// rejecting one of them leaves a policy that silently does nothing.
+//
+// `typeOut` and `dataOut` report what was actually stored, for --update-status.
+static bool readPolicyFlag(REGSAM view, const wchar_t *subkey,
+                           const wchar_t *value, bool &out,
+                           std::string *typeOut = nullptr,
+                           std::string *dataOut = nullptr) {
     HKEY key = NULL;
     if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, subkey, 0, KEY_READ | view, &key) !=
         ERROR_SUCCESS) {
         return false;
     }
-    DWORD type = 0, data = 0, size = sizeof(data);
-    bool ok = RegQueryValueExW(key, value, NULL, &type,
-                               reinterpret_cast<BYTE *>(&data), &size) == ERROR_SUCCESS &&
-              type == REG_DWORD;
+    DWORD type = 0, size = 0;
+    bool ok = false;
+    if (RegQueryValueExW(key, value, NULL, &type, NULL, &size) == ERROR_SUCCESS) {
+        if (type == REG_DWORD) {
+            DWORD data = 0;
+            size = sizeof(data);
+            if (RegQueryValueExW(key, value, NULL, &type,
+                                 reinterpret_cast<BYTE *>(&data),
+                                 &size) == ERROR_SUCCESS) {
+                out = data != 0;
+                ok = true;
+                if (typeOut) *typeOut = "REG_DWORD";
+                if (dataOut) *dataOut = std::to_string(data);
+            }
+        } else if (type == REG_SZ || type == REG_EXPAND_SZ) {
+            std::wstring buf(size / sizeof(wchar_t) + 1, L'\0');
+            DWORD bytes = static_cast<DWORD>(buf.size() * sizeof(wchar_t));
+            if (RegQueryValueExW(key, value, NULL, &type,
+                                 reinterpret_cast<BYTE *>(&buf[0]),
+                                 &bytes) == ERROR_SUCCESS) {
+                std::string text;
+                for (wchar_t c : buf) {
+                    if (c == L'\0') break;
+                    text += static_cast<char>(
+                        std::tolower(static_cast<unsigned char>(c)));
+                }
+                // Everything an administrator plausibly types for "yes".
+                // Anything else counts as "no" rather than as an unreadable
+                // value: this policy can only ever turn checking off.
+                out = (text == "1" || text == "true" || text == "yes" ||
+                       text == "on");
+                ok = true;
+                if (typeOut) *typeOut = "REG_SZ";
+                if (dataOut) *dataOut = text;
+            }
+        }
+    }
     RegCloseKey(key);
-    if (ok) out = data;
     return ok;
+}
+
+static const wchar_t *const kPolicyKey =
+    L"SOFTWARE\\Policies\\Cedarville University\\CedarLogic";
+static const wchar_t *const kPolicyValue = L"DisableUpdateChecks";
+static const wchar_t *const kSparkleKey =
+    L"Software\\Cedarville University\\CedarLogic\\WinSparkle";
+
+// WinSparkle opens the registry with no view flag, so from this 32-bit program
+// it only ever sees SOFTWARE\WOW6432Node. An administrator setting a
+// machine-wide default with 64-bit tools writes the plain path, which
+// WinSparkle then never finds. Look in both views, keeping WinSparkle's own
+// precedence: the user's setting first, the machine's only as a default.
+bool readWinSparkleSetting(const char *name, std::wstring &out,
+                           std::string *whereFound) {
+    std::wstring wide;
+    for (const char *p = name; p && *p; ++p) wide += static_cast<wchar_t>(*p);
+
+    struct Source { HKEY root; REGSAM view; const char *label; };
+    // HKCU's 32-bit view comes first because that is where WinSparkle itself
+    // writes, so a setting the user already has keeps winning.
+    static const Source kSources[] = {
+        {HKEY_CURRENT_USER,  KEY_WOW64_32KEY, "HKCU (WOW6432Node)"},
+        {HKEY_CURRENT_USER,  KEY_WOW64_64KEY, "HKCU"},
+        {HKEY_LOCAL_MACHINE, KEY_WOW64_64KEY, "HKLM"},
+        {HKEY_LOCAL_MACHINE, KEY_WOW64_32KEY, "HKLM (WOW6432Node)"},
+    };
+
+    for (const Source &src : kSources) {
+        HKEY key = NULL;
+        if (RegOpenKeyExW(src.root, kSparkleKey, 0, KEY_QUERY_VALUE | src.view,
+                          &key) != ERROR_SUCCESS) {
+            continue;
+        }
+        DWORD type = 0, size = 0;
+        bool ok = false;
+        // REG_SZ only, matching WinSparkle, which stores every setting as a
+        // string and ignores a value of any other type.
+        if (RegQueryValueExW(key, wide.c_str(), NULL, &type, NULL, &size) ==
+                ERROR_SUCCESS &&
+            type == REG_SZ) {
+            std::wstring buf(size / sizeof(wchar_t) + 1, L'\0');
+            DWORD bytes = static_cast<DWORD>(buf.size() * sizeof(wchar_t));
+            if (RegQueryValueExW(key, wide.c_str(), NULL, &type,
+                                 reinterpret_cast<BYTE *>(&buf[0]),
+                                 &bytes) == ERROR_SUCCESS) {
+                buf.resize(wcslen(buf.c_str()));
+                out = buf;
+                ok = true;
+            }
+        }
+        RegCloseKey(key);
+        if (ok) {
+            if (whereFound) *whereFound = src.label;
+            return true;
+        }
+    }
+    return false;
 }
 #endif
 
-bool checksDisabled() {
+PolicyStatus describeUpdatePolicy() {
+    PolicyStatus st;
 #ifdef _WIN32
-    static const wchar_t *kPolicyKey =
-        L"SOFTWARE\\Policies\\Cedarville University\\CedarLogic";
-    static const wchar_t *kPolicyValue = L"DisableUpdateChecks";
-
-    // CedarLogic ships 32-bit, so the registry redirector would silently send a
-    // plain read to SOFTWARE\WOW6432Node -- not where Group Policy or Intune
-    // writes. Ask for the 64-bit view first, which is the one an administrator
-    // actually populates, then fall back to the 32-bit view for anyone who set
-    // the policy from a 32-bit tool or on a 32-bit machine.
-    DWORD disabled = 0;
-    if (readPolicyDword(KEY_WOW64_64KEY, kPolicyKey, kPolicyValue, disabled) ||
-        readPolicyDword(KEY_WOW64_32KEY, kPolicyKey, kPolicyValue, disabled)) {
-        return disabled != 0;
+    // The 64-bit view first: that is the plain path an administrator writes.
+    // The 32-bit view second, for anyone who set the policy from a 32-bit tool
+    // or on a 32-bit machine.
+    bool disabled = false;
+    if (readPolicyFlag(KEY_WOW64_64KEY, kPolicyKey, kPolicyValue, disabled,
+                       &st.policyType, &st.policyData)) {
+        st.policyFound = true;
+        st.policyView = "64-bit";
+    } else if (readPolicyFlag(KEY_WOW64_32KEY, kPolicyKey, kPolicyValue,
+                              disabled, &st.policyType, &st.policyData)) {
+        st.policyFound = true;
+        st.policyView = "32-bit (WOW6432Node)";
     }
-    return false;
+    st.disabled = st.policyFound && disabled;
+
+    std::wstring sparkle;
+    std::string where;
+    if (readWinSparkleSetting("CheckForUpdates", sparkle, &where)) {
+        st.sparkleFound = true;
+        st.sparkleWhere = where;
+        for (wchar_t c : sparkle) st.sparkleValue += static_cast<char>(c);
+    }
 #else
-    return false;
+    st.platformNote =
+        "No update policy mechanism on this platform. macOS deployments "
+        "configure Sparkle through a configuration profile instead.";
 #endif
+    return st;
+}
+
+bool checksDisabled() {
+    return describeUpdatePolicy().disabled;
 }
 
 }  // namespace update

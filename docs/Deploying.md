@@ -20,6 +20,11 @@ Data:  1
 Any non-zero value turns checking off. Remove the value, or set it to 0, and
 normal update checking returns.
 
+A `REG_SZ` of `1`, `true`, `yes` or `on` works too. Writing the string where the
+number was meant is an easy slip, especially since the WinSparkle setting
+described further down really is a string, so both are accepted rather than
+leaving you with a policy that silently does nothing.
+
 With the policy set:
 
 - no update check runs at startup, and no background updater thread starts
@@ -62,13 +67,47 @@ policy to the plain path above and it will be found. Both work.
 
 ### Checking it took effect
 
+Ask the program rather than the registry. It reports what it actually resolved,
+which is the only answer that matters:
+
 ```powershell
-Get-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Cedarville University\CedarLogic' `
-                 -Name DisableUpdateChecks
+& 'C:\Program Files (x86)\CedarLogic\CedarLogic.exe' --update-status
 ```
 
-Then start CedarLogic and open the Help menu: **Check for Updates...** is greyed
-out when the policy is active.
+```
+CedarLogic update status
+
+Update checks: DISABLED by administrator policy
+
+Policy  HKLM\SOFTWARE\Policies\Cedarville University\CedarLogic
+        DisableUpdateChecks = 1  (REG_DWORD, 64-bit view)
+```
+
+It exits 0 when checks are enabled and 1 when a policy has turned them off, so a
+deployment script can assert on it:
+
+```powershell
+& $exe --update-status | Out-Null
+if ($LASTEXITCODE -ne 1) { throw "CedarLogic update policy did not take effect" }
+```
+
+Pass a file path (`--update-status C:\temp\cl.txt`) to capture the report from a
+context with no console.
+
+The older way still works: start CedarLogic and open the Help menu, where
+**Check for Updates...** is greyed out when the policy is active.
+
+### Common mistakes
+
+All of these fail silently, which is why `--update-status` exists.
+
+| Mistake | What happens |
+| --- | --- |
+| Setting `CheckForUpdates` instead of `DisableUpdateChecks` | Not a policy. A user's own setting overrides it. See below. |
+| Using `0` to mean "off" | The polarity is inverted between the two values. `DisableUpdateChecks = 1` is off; `CheckForUpdates = "0"` is off. |
+| Writing the policy under `HKCU` | Only `HKLM` is read. A per-user value would defeat the point. |
+| Writing it under `SOFTWARE\Cedarville University` | The policy lives under `SOFTWARE\Policies\...`, which is the admin-only tree. |
+| Running the Intune script in user context | `HKLM` is not writable by a standard user; the script fails or writes nothing. |
 
 ## Every registry key CedarLogic touches (Windows)
 
@@ -148,10 +187,17 @@ is why `DisableUpdateChecks` exists as a separate key: CedarLogic checks it
 before WinSparkle starts at all, so there is no background thread and no HKCU
 value that can undo it.
 
+If you set a machine-wide default here anyway, CedarLogic reads these values in
+both registry views on WinSparkle's behalf, so the plain 64-bit path works.
+WinSparkle on its own would only ever have looked under `WOW6432Node`, and a
+value written by 64-bit tools would have been ignored without a word.
+`--update-status` reports the value when it finds one, along with a reminder
+that it is not enforced.
+
 ### Where these actually land on 64-bit Windows
 
-CedarLogic and its installer are both 32-bit, and neither asks for the 64-bit
-registry view, so Windows redirects their `SOFTWARE` paths:
+CedarLogic and its installer are both 32-bit, and the installer does not ask for
+the 64-bit registry view, so Windows redirects the paths it *writes*:
 
 | Written path | Real location |
 | --- | --- |
@@ -164,9 +210,11 @@ normally. A script does not get that for free: PowerShell run as 64-bit reads
 the 64-bit view and will find none of these. Read the redirected paths, or run
 the script 32-bit.
 
-The `DisableUpdateChecks` policy is the exception. CedarLogic deliberately reads
-the plain 64-bit path first, so write it where the section above says and leave
-redirection out of it.
+Reads are a different story, and deliberately so. Anything an administrator is
+expected to write by hand, CedarLogic looks for in both views: the
+`DisableUpdateChecks` policy, and the WinSparkle settings it reads on
+WinSparkle's behalf. Write those at the plain path and forget redirection
+exists.
 
 ## macOS
 

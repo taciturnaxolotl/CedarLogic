@@ -612,6 +612,60 @@ bool MainApp::OnInit()
 	//	fName.Normalize(wxPATH_NORM_LONG|wxPATH_NORM_DOTS|wxPATH_NORM_TILDE|wxPATH_NORM_ABSOLUTE);
 	//	cmdFilename = fName.GetFullPath();
     //}	
+    // `--update-status [file]`: print how update checking is configured and
+    // exit. A policy that never took effect looks exactly like one that did --
+    // an application quietly not checking for updates -- so without this an
+    // administrator has no way to tell a working deployment from a typo.
+    // Exits 0 when checks are enabled, 1 when a policy has turned them off, so
+    // a deployment script can assert on it.
+    if (argc >= 2 && wxString(argv[1]) == "--update-status") {
+        const cl::update::PolicyStatus st = cl::update::describeUpdatePolicy();
+        std::string out;
+        out += "CedarLogic update status\n\n";
+        out += std::string("Update checks: ") +
+               (st.disabled ? "DISABLED by administrator policy\n" : "enabled\n");
+        if (!st.platformNote.empty()) {
+            out += "\n" + st.platformNote + "\n";
+        } else {
+            out += "\nPolicy  HKLM\\SOFTWARE\\Policies\\Cedarville University\\CedarLogic\n";
+            out += "        DisableUpdateChecks";
+            if (st.policyFound) {
+                out += " = " + st.policyData + "  (" + st.policyType + ", " +
+                       st.policyView + " view)\n";
+            } else {
+                out += " is not set\n";
+            }
+        }
+        if (st.sparkleFound) {
+            out += "\nWinSparkle  CheckForUpdates = \"" + st.sparkleValue +
+                   "\"  (found in " + st.sparkleWhere + ")\n";
+            if (!st.disabled && st.sparkleValue == "0") {
+                out +=
+                    "        This is NOT the policy, and it is not enforced: a\n"
+                    "        user's own copy under HKCU overrides it. To turn\n"
+                    "        update checks off for the machine, set\n"
+                    "        DisableUpdateChecks above instead.\n";
+            }
+        }
+#ifdef _WIN32
+        // A GUI-subsystem program has no console of its own, so borrow the one
+        // that launched it. Redirection to a file works either way.
+        if (::AttachConsole(ATTACH_PARENT_PROCESS)) {
+            FILE *unused = nullptr;
+            freopen_s(&unused, "CONOUT$", "w", stdout);
+        }
+#endif
+        if (argc >= 3) {
+            if (FILE *f = fopen(wxString(argv[2]).ToStdString().c_str(), "w")) {
+                fputs(out.c_str(), f);
+                fclose(f);
+            }
+        }
+        fputs(out.c_str(), stdout);
+        fflush(nullptr);
+        std::_Exit(st.disabled ? 1 : 0);
+    }
+
 #ifdef WITH_SKIA
     // Headless Skia render proof: `--skia-probe <output.png> [width height]`.
     // Renders through Skia into an offscreen raster surface (no window, no GL)

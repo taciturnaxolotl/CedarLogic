@@ -53,9 +53,12 @@ std::string fetchAppcast(const std::string &url);
 // for deployments where the organisation owns the installed version (campus
 // software distribution, managed labs).
 //
-// Windows reads a REG_DWORD "DisableUpdateChecks" under
+// Windows reads "DisableUpdateChecks" under
 //   HKLM\SOFTWARE\Policies\Cedarville University\CedarLogic
-// Anything non-zero disables checking. The key lives under SOFTWARE\Policies
+// as either a REG_DWORD or a REG_SZ: writing the string "1" where a number was
+// meant is an easy slip, and silently ignoring it is the kind of failure an
+// administrator only discovers months later. Anything non-zero, or the text
+// "1"/"true"/"yes", disables checking. The key lives under SOFTWARE\Policies
 // because that tree is writable only by administrators and is what Intune and
 // Group Policy target, so a user cannot turn checking back on. Nothing here
 // ever enables checking: the policy can only switch it off.
@@ -63,6 +66,39 @@ std::string fetchAppcast(const std::string &url);
 // Other platforms always return false; macOS deployments manage Sparkle through
 // its own configuration profile instead.
 bool checksDisabled();
+
+// What checksDisabled() found and where, for `--update-status`. An
+// administrator otherwise has no way to tell a working policy from a typo,
+// since both look like an application that simply does not check for updates.
+struct PolicyStatus {
+    bool disabled = false;      // the decision checksDisabled() returns
+
+    bool policyFound = false;   // the policy value exists somewhere
+    std::string policyView;     // which registry view it came from
+    std::string policyType;     // "REG_DWORD" or "REG_SZ", as actually stored
+    std::string policyData;     // its value, rendered for a human
+
+    // WinSparkle keeps its own "CheckForUpdates" setting, which reads like the
+    // way to turn updates off and is not: the user's own copy in HKCU
+    // overrides it. Reported when present so that reaching for the wrong lever
+    // shows up as something other than silence. Never affects `disabled`.
+    bool sparkleFound = false;
+    std::string sparkleWhere;
+    std::string sparkleValue;
+
+    std::string platformNote;   // set where no policy mechanism exists
+};
+
+PolicyStatus describeUpdatePolicy();
+
+#ifdef _WIN32
+// Reads one WinSparkle setting, looking in both registry views rather than
+// whichever one the process happens to get. Installed as WinSparkle's
+// config_read so that a machine-wide value an administrator wrote with 64-bit
+// tools is actually seen by this 32-bit program. Returns false when absent.
+bool readWinSparkleSetting(const char *name, std::wstring &out,
+                           std::string *whereFound = nullptr);
+#endif
 
 }  // namespace update
 }  // namespace cl
