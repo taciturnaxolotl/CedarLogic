@@ -380,6 +380,13 @@ MainFrame::MainFrame(const wxString& title, string cmdFilename)
 	canvasBook = new wxNotebook(rightSplitter, NOTEBOOK_ID, wxDefaultPosition, wxSize(400,400), wxNB_TOP);
 #else
 	canvasBook = new wxAuiNotebook(rightSplitter, NOTEBOOK_ID, wxDefaultPosition, wxSize(400,400), wxAUI_NB_CLOSE_ON_ACTIVE_TAB| wxAUI_NB_SCROLL_BUTTONS);
+	// wx 3.2's wxAuiNotebook measures its tab strip once and never again, so
+	// after a DPI change the tab text scales but the strip keeps its old height
+	// and clips the tabs. SetTabCtrlHeight(-1) is the public way to re-measure.
+	canvasBook->Bind(wxEVT_DPI_CHANGED, [this](wxDPIChangedEvent& event) {
+		canvasBook->SetTabCtrlHeight(-1);
+		event.Skip();
+	});
 #endif
 
 	//add 1 tab: Left loop to allow for different default
