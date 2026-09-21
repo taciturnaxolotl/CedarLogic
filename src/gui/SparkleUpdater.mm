@@ -8,6 +8,8 @@
 #import <Cocoa/Cocoa.h>
 #import <Sparkle/Sparkle.h>
 
+#include <sys/mount.h>   // statfs, for the read-only test below
+
 #include <string>
 
 static SPUStandardUpdaterController *updaterController = nil;
@@ -23,6 +25,22 @@ static bool updaterConfigured() {
     NSString *key = [[NSBundle mainBundle]
         objectForInfoDictionaryKey:@"SUPublicEDKey"];
     return key.length > 0;
+}
+
+// Whether this copy could ever install an update over itself: a disk image it
+// was opened from without being dragged out, or Gatekeeper's read-only copy of
+// a quarantined app. Sparkle tests the same thing at the top of every check and
+// aborts with "opened from a read-only or a temporary location", which a
+// background check puts on screen unasked. Testing it first keeps that to the
+// times someone asked for an update.
+//
+// Sparkle ignores what statfs returns; a failed stat is read as writable here
+// rather than costing someone their updates.
+static bool runningFromReadOnlyLocation() {
+    struct statfs info;
+    NSString *path = [[NSBundle mainBundle] bundlePath];
+    if (statfs(path.fileSystemRepresentation, &info) != 0) return false;
+    return (info.f_flags & MNT_RDONLY) != 0;
 }
 
 // Read the appcast without going through Sparkle, for the crash dialog that
@@ -62,11 +80,36 @@ std::string cl_update_fetch_appcast_mac(const std::string &url) {
 
 void SparkleUpdater_Initialize() {
     if (updaterController != nil || !updaterConfigured()) return;
+    if (runningFromReadOnlyLocation()) return;
 
     updaterController = [[SPUStandardUpdaterController alloc]
         initWithStartingUpdater:YES
         updaterDelegate:nil
         userDriverDelegate:nil];
+}
+
+// Updates are the smaller half of the problem. The app's code pages are backed
+// by that read-only mount, so ejecting the disk image mid-session leaves every
+// later page fault with nowhere to go and the process hangs for good -- a
+// beachball, and whatever was unsaved. Worth a word before that happens.
+//
+// Not remembered across launches: the hazard lasts as long as the app sits
+// there, so a "do not show again" would silence something still true. Moving
+// the app stops it.
+void SparkleUpdater_WarnIfReadOnlyLocation() {
+    if (!runningFromReadOnlyLocation()) return;
+
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.alertStyle = NSAlertStyleWarning;
+    alert.messageText = @"Move CedarLogic to your Applications folder.";
+    alert.informativeText = @"This copy is running from a disk image or another "
+                            @"read-only location. If that location disappears "
+                            @"while CedarLogic is open, the app will stop "
+                            @"responding and unsaved work may be lost. Quit "
+                            @"CedarLogic, drag it into Applications, and open it "
+                            @"from there.";
+    [alert addButtonWithTitle:@"OK"];
+    [alert runModal];
 }
 
 void SparkleUpdater_CheckForUpdates() {
@@ -77,10 +120,21 @@ void SparkleUpdater_CheckForUpdates() {
     // Asked for explicitly (Help > Download Latest Version) in a build with no
     // updater. Say so, rather than having the menu item do nothing at all.
     NSAlert *alert = [[NSAlert alloc] init];
-    alert.messageText = @"Updates are not available in this build.";
-    alert.informativeText = @"This copy of CedarLogic was built locally, so it "
-                            @"cannot verify or install updates. Official "
-                            @"releases update themselves.";
+    if (updaterConfigured() && runningFromReadOnlyLocation()) {
+        // A release build that is simply in the wrong place. The remedy is the
+        // same whether it is a disk image or Gatekeeper's own read-only copy,
+        // so both get the one message.
+        alert.messageText = @"Move CedarLogic to your Applications folder to "
+                            @"update it.";
+        alert.informativeText = @"This copy is running from a disk image or "
+                                @"another read-only location, so it cannot "
+                                @"update itself. Quit CedarLogic, drag it into "
+                                @"Applications, and open it from there.";
+    } else {
+        alert.messageText = @"Updates are not available in this build.";
+        alert.informativeText = @"This copy of CedarLogic was built locally, so "
+                                @"it cannot verify or install updates.";
+    }
     [alert addButtonWithTitle:@"OK"];
     [alert runModal];
 }

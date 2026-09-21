@@ -811,6 +811,10 @@ bool MainApp::OnInit()
 #ifdef __APPLE__
     // Initialize Sparkle auto-updater
     SparkleUpdater_Initialize();
+    // Then, if this copy is somewhere it should not be run from, say so. After
+    // MainFrame's crash recovery prompt on purpose: getting the last session's
+    // work back on screen is the more urgent of the two.
+    SparkleUpdater_WarnIfReadOnlyLocation();
 #endif
 #ifdef _WIN32
     // Initialize WinSparkle auto-updater, unless an administrator has turned
