@@ -9,6 +9,10 @@
 #include <OpenGL/glu.h>
 #else
 #ifdef _WIN32
+// windows.h defines min/max as macros, which breaks std::min/std::max
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #endif
 // Linux needs GL 3.0+ for framebuffer extension functions
