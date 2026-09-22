@@ -12,6 +12,14 @@ on:
       tag:
         description: 'Version tag to build (e.g., v2.3.8); leave empty for a dry run'
         required: false
+      signing_profile:
+        description: 'Authenticode profile. The test profile signs against a root Windows does not trust, so dry runs cannot ship a real signature.'
+        required: false
+        type: choice
+        default: cedarlogic-test
+        options:
+          - cedarlogic-test
+          - cedarlogic-public
 
 concurrency:
   group: release-${{ github.ref }}
@@ -20,6 +28,8 @@ concurrency:
 env:
   # The tag being released. On a tag push that is the ref itself.
   VERSION: ${{ github.event.inputs.tag || (github.ref_type == 'tag' && github.ref_name) || 'dev' }}
+  # Tag pushes are real releases and always get the real certificate.
+  SIGNING_PROFILE: ${{ github.event.inputs.signing_profile || 'cedarlogic-public' }}
 
 jobs:
   # Build (or cache-restore) the Skia dist as part of this run, so every desktop
@@ -31,8 +41,13 @@ jobs:
   build-windows:
     needs: skia
     runs-on: windows-latest
+    # Entra's federated credential matches environment:release and nothing else.
+    environment: release
+    permissions:
+      id-token: write   # mint the OIDC token the Azure login exchanges
+      contents: read
     outputs:
-      exe_size: ${{ steps.package.outputs.exe_size }}
+      exe_size: ${{ steps.measure.outputs.exe_size }}
       winsparkle_signature: ${{ steps.sign.outputs.signature }}
     steps:
       - uses: actions/checkout@v7
@@ -111,6 +126,7 @@ jobs:
       # It has to run here, on a Windows checkout, because that is where the
       # line endings that triggered it come from.
       - name: Smoke test (launch and render a gate)
+        id: smoke
         shell: bash
         run: |
           EXE=$(find build -name CedarLogic.exe -path '*Release*' | head -1)
@@ -122,6 +138,33 @@ jobs:
             exit 1
           fi
           echo "Smoke test passed: gate library parsed and rendered."
+          # Sign this one binary, not every .exe under build/, and hand over a
+          # Windows path since the signing action is PowerShell.
+          EXE_DIR=$(cd "$(dirname "$EXE")" && pwd -W)
+          echo "exe=$EXE_DIR/CedarLogic.exe" >> $GITHUB_OUTPUT
+
+      # Smart App Control blocks unsigned executables outright, no "run anyway" (#123).
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Before cpack, so the installer packages a signed binary. SAC rechecks the
+      # app on every launch, not just at download.
+      - name: Sign CedarLogic.exe (Authenticode)
+        uses: Azure/artifact-signing-action@v2
+        with:
+          endpoint: https://eus.codesigning.azure.net/
+          signing-account-name: cedarlogicsign
+          certificate-profile-name: ${{ env.SIGNING_PROFILE }}
+          files: ${{ steps.smoke.outputs.exe }}
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          description: CedarLogic
+          description-url: https://github.com/taciturnaxolotl/CedarLogic
 
       - name: Package
         id: package
@@ -130,14 +173,42 @@ jobs:
           cd build
           cpack -G NSIS -C Release
           EXE_PATH=$(ls CedarLogic-*-win32.exe | head -1)
+          echo "installer=$(pwd -W)/$EXE_PATH" >> $GITHUB_OUTPUT
+
+      # The installer needs its own signature; SAC inspects it at download time.
+      - name: Sign installer (Authenticode)
+        uses: Azure/artifact-signing-action@v2
+        with:
+          endpoint: https://eus.codesigning.azure.net/
+          signing-account-name: cedarlogicsign
+          certificate-profile-name: ${{ env.SIGNING_PROFILE }}
+          files: ${{ steps.package.outputs.installer }}
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          description: CedarLogic Installer
+          description-url: https://github.com/taciturnaxolotl/CedarLogic
+
+      # After signing, never before: Authenticode appends bytes, and this number
+      # becomes the appcast length field every updating client trusts.
+      - name: Measure installer
+        id: measure
+        shell: bash
+        run: |
+          cd build
+          EXE_PATH=$(ls CedarLogic-*-win32.exe | head -1)
           EXE_SIZE=$(stat -c%s "$EXE_PATH")
           echo "exe_size=$EXE_SIZE" >> $GITHUB_OUTPUT
+          echo "Signed installer is $EXE_SIZE bytes."
 
       # Sign the installer with the same Ed25519 pair Sparkle uses on macOS; the
       # two tools read the same key format. The exe carries the matching public
       # key as an "EdDSAPub" resource, so WinSparkle verifies the download
       # against this signature before running it. Without the pair the updater
       # installs whatever the feed points at, authenticated by nothing but TLS.
+      #
+      # Must stay after Authenticode: this signs the file's bytes and Authenticode
+      # rewrites them, so signing first breaks auto-update for everyone installed.
       - name: Sign installer (EdDSA)
         id: sign
         shell: bash
