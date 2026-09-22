@@ -17,6 +17,7 @@
 #include "logic_values.h" // StateType
 #include "klsCollisionChecker.h"
 #include "wireSegment.h"
+#include "wire/Hotspots.h"
 #include "wire/SegmentMap.h"
 
 // Engine-neutral rendering seam (Workstream G); defined in gui/render/.
@@ -163,6 +164,20 @@ private:
 	// directly, and the assert inside marks the line where that stops being true
 	// if anyone ever adds another way to destroy a gate.
 	guiGate* gateOf(const wireConnection& c) const;
+
+	// Answers where a connection sits by resolving its gate through the
+	// circuit. The segment tree asks through this rather than reaching for a
+	// gate itself, which is what lets it be exercised without a circuit.
+	class GateHotspots : public cl::wire::Hotspots {
+	public:
+		explicit GateHotspots(const guiWire &w) : wire(w) {}
+		GLPoint2f coordsOf(const wireConnection &c) const override;
+		bool isVertical(const wireConnection &c) const override;
+	private:
+		const guiWire &wire;
+	};
+
+	GateHotspots hotspots() const { return GateHotspots(*this); }
 
 	// Atomically replace the whole segment tree. Detaches the collision
 	// sub-objects (raw pointers into the segMap values about to be freed), swaps

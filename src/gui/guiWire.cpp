@@ -95,6 +95,16 @@ guiGate* guiWire::gateOf(const wireConnection& c) const {
 	return gate;
 }
 
+GLPoint2f guiWire::GateHotspots::coordsOf(const wireConnection &c) const {
+	GLPoint2f p;
+	wire.gateOf(c)->getHotspotCoords(c.connection, p.x, p.y);
+	return p;
+}
+
+bool guiWire::GateHotspots::isVertical(const wireConnection &c) const {
+	return wire.gateOf(c)->isVerticalHotspot(c.connection);
+}
+
 // Add an input connection to the wire
 void guiWire::addConnection(guiGate* iGate, string connection, bool openMode) {
 
@@ -617,6 +627,7 @@ void guiWire::calcShape() {
 
 //	Takes a mouse pointer and finds the segment in question, initializing the segment drag operation
 bool guiWire::startSegDrag(klsCollisionObject* mouse) {
+	const cl::wire::Hotspots &hs = hotspots();
 	oldSegMap = segMap.store(); // store the initial mapping of the segment tree
 	// We should only reach this if we are hovering, so find the segment in question
 	CollisionGroup cg = this->checkSubsToObj(mouse);
@@ -630,7 +641,7 @@ bool guiWire::startSegDrag(klsCollisionObject* mouse) {
 	vector < wireSegment > segsToAddWhenFound;
 	// Check connections on the current seg, if we need to extend segments to connections then do it
 	for (unsigned int i = 0; i < ((wireSegment*)(*cgWalk))->connections.size(); i++) {
-		gateOf(((wireSegment*)(*cgWalk))->connections[i])->getHotspotCoords(((wireSegment*)(*cgWalk))->connections[i].connection, vertex.x, vertex.y);
+		vertex = hs.coordsOf(((wireSegment*)(*cgWalk))->connections[i]);
 		if (((wireSegment*)(*cgWalk))->isVertical()) {
 			segsToAddWhenFound.push_back(wireSegment(vertex, vertex, false, nextSegID++));
 			segsToAddWhenFound[segsToAddWhenFound.size() - 1].intersects[vertex.x].push_back(((wireSegment*)(*cgWalk))->id);
@@ -660,6 +671,7 @@ bool guiWire::startSegDrag(klsCollisionObject* mouse) {
 //	our drag segment connected in the tree
 void guiWire::updateSegDrag(klsCollisionObject* mouse) {
 	if (currentDragSegment == -1) return; // break out on error, seg not set
+	const cl::wire::Hotspots &hs = hotspots();
 	wireSegment &drag = segMap.at(currentDragSegment);
 	klsBBox newMouseCoords = mouse->getBBox();
 	wireSegment oldSegmentPos = drag;
@@ -692,7 +704,7 @@ void guiWire::updateSegDrag(klsCollisionObject* mouse) {
 				// Extend/shrink the endpoints if necessary, if in the middle then no mod necessary
 				for (unsigned int i = 0; i < ws->connections.size(); i++) {
 					GLPoint2f hsPoint;
-					gateOf(ws->connections[i])->getHotspotCoords(ws->connections[i].connection, hsPoint.x, hsPoint.y);
+					hsPoint = hs.coordsOf(ws->connections[i]);
 					hsMin = min(hsMin, hsPoint.x);
 					hsMax = max(hsMax, hsPoint.x);
 				}
@@ -710,7 +722,7 @@ void guiWire::updateSegDrag(klsCollisionObject* mouse) {
 				// Extend/shrink the endpoints if necessary, if in the middle then no mod necessary
 				for (unsigned int i = 0; i < ws->connections.size(); i++) {
 					GLPoint2f hsPoint;
-					gateOf(ws->connections[i])->getHotspotCoords(ws->connections[i].connection, hsPoint.x, hsPoint.y);
+					hsPoint = hs.coordsOf(ws->connections[i]);
 					hsMin = min(hsMin, hsPoint.y);
 					hsMax = max(hsMax, hsPoint.y);
 				}
@@ -750,6 +762,7 @@ void guiWire::endSegDrag() {
 //	segment.  Will set up a mouse coord from the current position
 //	and another one from the new position to pass to updateSegDrag
 void guiWire::updateConnectionPos(unsigned long gid, string connection) {
+	const cl::wire::Hotspots &hs = hotspots();
 	bool foundit = false;
 	GLPoint2f newLocation;
 	unsigned int connID = 0;
@@ -758,7 +771,7 @@ void guiWire::updateConnectionPos(unsigned long gid, string connection) {
 	while (segWalk != segMap.end() && !foundit) {
 		for (unsigned int j = 0; j < (segWalk->second).connections.size() && !foundit; j++) {
 			if ((segWalk->second).connections[j].gid == gid && (segWalk->second).connections[j].connection == connection) {
-				gateOf((segWalk->second).connections[j])->getHotspotCoords(connection, newLocation.x, newLocation.y);
+				newLocation = hs.coordsOf((segWalk->second).connections[j]);
 				foundit = true;
 				currentDragSegment = (segWalk->first);
 				connID = j;
@@ -770,7 +783,7 @@ void guiWire::updateConnectionPos(unsigned long gid, string connection) {
 	if (!foundit) return;
 	this->detachSubObjects(); // prevent coll checker pointers from invalidating
 	klsBBox origin;
-	if (!(gateOf(segMap.at(currentDragSegment).connections[connID])->isVerticalHotspot(segMap.at(currentDragSegment).connections[connID].connection))) {
+	if (!hs.isVertical(segMap.at(currentDragSegment).connections[connID])) {
 		// We found the segment we're looking for
 		if (segMap.at(currentDragSegment).isVertical()) {
 			// If the seg is vertical then create a horizontal seg to handle the connection and remove the connection from the vertical seg
@@ -788,7 +801,7 @@ void guiWire::updateConnectionPos(unsigned long gid, string connection) {
 		for (unsigned int j = 0; j < segMap.at(currentDragSegment).connections.size(); j++) {
 			if (j != connID) {
 				GLPoint2f connPoint;
-				gateOf(segMap.at(currentDragSegment).connections[j])->getHotspotCoords(segMap.at(currentDragSegment).connections[j].connection, connPoint.x, connPoint.y);
+				connPoint = hs.coordsOf(segMap.at(currentDragSegment).connections[j]);
 				segMap.put(wireSegment(connPoint, connPoint, true, nextSegID));
 				segMap.at(nextSegID).intersects[connPoint.y].push_back(currentDragSegment);
 				segMap.at(nextSegID).connections.push_back(segMap.at(currentDragSegment).connections[j]);
@@ -831,7 +844,7 @@ void guiWire::updateConnectionPos(unsigned long gid, string connection) {
 		for (unsigned int j = 0; j < segMap.at(currentDragSegment).connections.size(); j++) {
 			if (j != connID) {
 				GLPoint2f connPoint;
-				gateOf(segMap.at(currentDragSegment).connections[j])->getHotspotCoords(segMap.at(currentDragSegment).connections[j].connection, connPoint.x, connPoint.y);
+				connPoint = hs.coordsOf(segMap.at(currentDragSegment).connections[j]);
 				segMap.put(wireSegment(connPoint, connPoint, false, nextSegID));
 				segMap.at(nextSegID).intersects[connPoint.x].push_back(currentDragSegment);
 				segMap.at(nextSegID).connections.push_back(segMap.at(currentDragSegment).connections[j]);
@@ -866,6 +879,7 @@ void guiWire::updateConnectionPos(unsigned long gid, string connection) {
 
 // Take existing segments and merge concurrent segments
 void guiWire::mergeSegments() {
+	const cl::wire::Hotspots &hs = hotspots();
 	// NOTE: In removing a connection, we may have only one seg left,
 	//	but endpoints need to be trimmed.  In this case, the code is
 	//	already here, and a single pass through the loop is a small
@@ -917,7 +931,7 @@ void guiWire::mergeSegments() {
 				}
 				GLPoint2f hsPoint; float hsMin = FLT_MAX, hsMax = -FLT_MAX;
 				for (unsigned int i = 0; i < nSeg->connections.size(); i++) {
-					gateOf(nSeg->connections[i])->getHotspotCoords(nSeg->connections[i].connection, hsPoint.x, hsPoint.y);
+					hsPoint = hs.coordsOf(nSeg->connections[i]);
 					hsMin = min(hsMin, hsPoint.y);
 					hsMax = max(hsMax, hsPoint.y);
 				}
@@ -954,7 +968,7 @@ void guiWire::mergeSegments() {
 				}
 				GLPoint2f hsPoint; float hsMin = FLT_MAX, hsMax = -FLT_MAX;
 				for (unsigned int i = 0; i < nSeg->connections.size(); i++) {
-					gateOf(nSeg->connections[i])->getHotspotCoords(nSeg->connections[i].connection, hsPoint.x, hsPoint.y);
+					hsPoint = hs.coordsOf(nSeg->connections[i]);
 					hsMin = min(hsMin, hsPoint.x);
 					hsMax = max(hsMax, hsPoint.x);
 				}
@@ -992,7 +1006,7 @@ void guiWire::mergeSegments() {
 		// trim endpoints first
 		GLPoint2f hsPoint; float hsMin = FLT_MAX, hsMax = -FLT_MAX;
 		for (unsigned int i = 0; i < nSeg->connections.size(); i++) {
-			gateOf(nSeg->connections[i])->getHotspotCoords(nSeg->connections[i].connection, hsPoint.x, hsPoint.y);
+			hsPoint = hs.coordsOf(nSeg->connections[i]);
 			if (nSeg->isHorizontal()) { hsMin = min(hsMin, hsPoint.x); hsMax = max(hsMax, hsPoint.x); }
 			else { hsMin = min(hsMin, hsPoint.y); hsMax = max(hsMax, hsPoint.y); }
 		}
