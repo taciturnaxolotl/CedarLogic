@@ -189,9 +189,6 @@ private:
 	// The owning circuit (gate registry). Non-owning.
 	GUICircuit* gCircuit = nullptr;
 
-	// Take existing segment connections and update their map keys
-	void refreshIntersections();
-
 	// Self-explanatory, see comments in source
 	void removeZeroLengthSegments();  // TODO
 

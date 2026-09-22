@@ -143,6 +143,34 @@ endif()
 
 add_test(NAME segmentmap_tests COMMAND test_segmentmap)
 
+# The segment tree's own rules, separated from the wire so they can run with
+# no gate, canvas or display. Same GL shim as the segment-map test, and the
+# same files wireSegment drags in through its collision base.
+add_executable(test_wiretopology
+	"${CMAKE_CURRENT_SOURCE_DIR}/test_wiretopology.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/wire/WireTopology.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/wire/SegmentMap.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/wireSegment.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/klsCollisionChecker.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/gl_defs.cpp"
+)
+target_include_directories(test_wiretopology PRIVATE
+	"${PROJECT_SOURCE_DIR}/include/gui"
+	"${PROJECT_SOURCE_DIR}/logic/include"
+)
+target_link_libraries(test_wiretopology PRIVATE doctest::doctest)
+target_compile_options(test_wiretopology PRIVATE
+	"$<$<CXX_COMPILER_ID:MSVC>:/FI${_shim}>"
+	"$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:SHELL:-include ${_shim}>"
+)
+
+if(ENABLE_SANITIZERS AND NOT MSVC)
+	target_compile_options(test_wiretopology PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+	target_link_options(test_wiretopology PRIVATE -fsanitize=address,undefined)
+endif()
+
+add_test(NAME wiretopology_tests COMMAND test_wiretopology)
+
 # Crash-report issue text. Pure string work: no wxWidgets, no platform headers.
 add_executable(test_crashissue
 	"${CMAKE_CURRENT_SOURCE_DIR}/test_crashissue.cpp"

@@ -17,6 +17,7 @@
 #include "render/RenderStyle.h"
 #include "route/WireRoute.h"
 #include "wire/SegmentMap.h"
+#include "wire/WireTopology.h"
 #include "Settings.h"
 #include <cmath>
 #include <cstring>
@@ -340,7 +341,7 @@ void guiWire::move(GLPoint2f origin, GLPoint2f delta) {
 		segWalk++;
 	}
 	// Make sure the intersection maps have the correct points (since they moved)
-	refreshIntersections();
+	cl::wire::refreshIntersections(segMap);
 
 	this->calcBBox();
 }
@@ -359,29 +360,6 @@ void guiWire::calcBBox() {
 
 	this->resetBBox();
 	this->makeValidBBox();
-}
-
-// Take existing segment connections and update their map keys
-void guiWire::refreshIntersections() {
-	// Update the intersection maps for the new locations
-	map < long, wireSegment >::iterator segWalk = segMap.begin();
-	while (segWalk != segMap.end()) {
-		map < GLfloat, vector < long > > refreshMap;
-		map < GLfloat, vector < long > >::iterator isectWalk = (segWalk->second).intersects.begin();
-		while (isectWalk != (segWalk->second).intersects.end()) {
-			for (unsigned int j = 0; j < (isectWalk->second).size(); j++) {
-				// Resolve without inventing; a stale id is dropped.
-				const wireSegment *target = segMap.find((isectWalk->second)[j]);
-				if (target == NULL) continue;
-				if ((segWalk->second).isVertical()) refreshMap[target->begin.y].push_back((isectWalk->second)[j]);
-				else refreshMap[target->begin.x].push_back((isectWalk->second)[j]);
-			}
-			isectWalk++;
-		}
-		// ... and assign the new map
-		(segWalk->second).intersects = refreshMap;
-		segWalk++;
-	}
 }
 
 bool guiWire::isSelected(void) {
@@ -686,7 +664,7 @@ void guiWire::updateSegDrag(klsCollisionObject* mouse) {
 		drag.end.y += diff;
 	}
 	drag.calcBBox();
-	refreshIntersections();
+	cl::wire::refreshIntersections(segMap);
 	// Update the other segments by extending/shrinking
 	map < GLfloat, vector < long > >::iterator isectWalk = drag.intersects.begin();
 	while (isectWalk != drag.intersects.end()) {
@@ -740,7 +718,7 @@ void guiWire::updateSegDrag(klsCollisionObject* mouse) {
 		isectWalk++;
 	}
 
-	refreshIntersections();
+	cl::wire::refreshIntersections(segMap);
 
 	this->calcBBox();
 	mouseCoords = mouse->getBBox();
@@ -872,7 +850,7 @@ void guiWire::updateConnectionPos(unsigned long gid, string connection) {
 	klsCollisionObject shiftLocation(COLL_MOUSEBOX);
 	shiftLocation.setBBox(origin);
 	segMap.at(currentDragSegment).calcBBox();
-	refreshIntersections();
+	cl::wire::refreshIntersections(segMap);
 	// Let updateSegDrag figure out other segments for us
 	updateSegDrag(&shiftLocation);
 }
@@ -1090,7 +1068,7 @@ void guiWire::removeZeroLengthSegments() {
 	if (newSegMap.empty()) return; // nothing survived; keep the shape we had
 	commitSegMap(newSegMap.store());
 	// Now make sure the intersection maps do not refer to the woebegone segments
-	refreshIntersections();
+	cl::wire::refreshIntersections(segMap);
 	// Maybe we removed the head?
 	headSegment = segMap.begin()->first;
 }
