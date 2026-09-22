@@ -223,16 +223,20 @@ bool MainApp::OnInit()
     bool renderGate = false;   // --render-gate renders one library gate
     bool wireShape = false;    // --wire-shape dumps a routed wire's segment map
     bool wireDrag = false;     // --wire-drag dumps a wire's segment map after a seg drag
+    bool wireDragV = false;    // --wire-drag-vertical, the same but dragging an upright segment
     bool wireMerge = false;    // --wire-merge dumps a wire's segment map after a merge
     std::string gateName, gateAngle;
     std::string wsGateA, wsGateB, wsAngleA, wsAngleB;
     if (argc >= 7 && (wxString(argv[1]) == "--wire-shape" ||
                       wxString(argv[1]) == "--wire-drag" ||
+                      wxString(argv[1]) == "--wire-drag-vertical" ||
                       wxString(argv[1]) == "--wire-merge")) {
-        // --wire-shape/--wire-drag/--wire-merge <gateA> <gateB> <angleA> <angleB> <out.txt>
+        // --wire-{shape,drag,drag-vertical,merge} <gateA> <gateB> <angleA> <angleB> <out.txt>
         renderMode().headlessRender = true;
         wireShape = (wxString(argv[1]) == "--wire-shape");
-        wireDrag = (wxString(argv[1]) == "--wire-drag");
+        wireDrag = (wxString(argv[1]) == "--wire-drag") ||
+                   (wxString(argv[1]) == "--wire-drag-vertical");
+        wireDragV = (wxString(argv[1]) == "--wire-drag-vertical");
         wireMerge = (wxString(argv[1]) == "--wire-merge");
         wsGateA = argv[2].ToStdString();
         wsGateB = argv[3].ToStdString();
@@ -315,7 +319,8 @@ bool MainApp::OnInit()
         frame->Show(true);
         wxYield();
         bool ok = wireDrag
-            ? frame->dumpWireDrag(wsGateA, wsGateB, wsAngleA, wsAngleB, renderOutput)
+            ? frame->dumpWireDrag(wsGateA, wsGateB, wsAngleA, wsAngleB,
+                                  wireDragV ? "1" : "0", renderOutput)
             : wireMerge
             ? frame->dumpWireMerge(wsGateA, wsGateB, wsAngleA, wsAngleB, renderOutput)
             : frame->dumpWireShape(wsGateA, wsGateB, wsAngleA, wsAngleB, renderOutput);

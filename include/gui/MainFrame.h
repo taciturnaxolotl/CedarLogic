@@ -202,9 +202,11 @@ public:
 	// by a fixed grid delta (startSegDrag -> updateSegDrag -> endSegDrag) and dump
 	// the segment map before/after. Gives the interactive drag path -- the code a
 	// segment-graph / collision-proxy refactor touches most -- a golden net.
+	// `wantVertical` picks an upright segment to drag rather than the longest
+	// one; the longest is always flat, so without it half the move goes untried.
 	bool dumpWireDrag(const std::string &gateA, const std::string &gateB,
 	                  const std::string &angleA, const std::string &angleB,
-	                  const wxString &path);
+	                  const std::string &wantVertical, const wxString &path);
 	// Wire-router test hook (headless --wire-merge): same two-gate wire, then
 	// every segment is cut into three touching pieces and handed back, so the
 	// wire has to join them up again. A freshly routed wire never holds two

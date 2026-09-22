@@ -2023,7 +2023,7 @@ bool MainFrame::dumpWireShape(const std::string &gateA, const std::string &gateB
 
 bool MainFrame::dumpWireDrag(const std::string &gateA, const std::string &gateB,
                              const std::string &angleA, const std::string &angleB,
-                             const wxString &path) {
+                             const std::string &wantVertical, const wxString &path) {
 	if (currentCanvas == NULL || gCircuit == NULL) return false;
 	ProbeScene sc = buildProbeWire(gCircuit, currentCanvas, gateA, gateB, angleA, angleB);
 	if (sc.wire == NULL) return false;
@@ -2031,16 +2031,24 @@ bool MainFrame::dumpWireDrag(const std::string &gateA, const std::string &gateB,
 	std::ofstream f(path.ToStdString().c_str());
 	if (!f) return false;
 	f << "drag " << gateA << "@" << angleA << "." << sc.outName
-	  << " -> " << gateB << "@" << angleB << "." << sc.inName << "\n";
+	  << " -> " << gateB << "@" << angleB << "." << sc.inName
+	  << (wantVertical == "1" ? " vertical" : " longest") << "\n";
 	dumpSegMapTo(f, sc.wire->getSegmentMap(), "create");
 
-	// Pick the longest segment (begin <= end always, so no abs needed) and grab
-	// its midpoint. A zero-size mouse box exactly on that segment selects it, the
+	// Pick a segment (begin <= end always, so no abs needed) and grab its
+	// midpoint. A zero-size mouse box exactly on that segment selects it, the
 	// same point-box the canvas passes to startSegDrag/updateSegDrag (snapMouse).
+	//
+	// The longest one is not enough on its own: a routed wire's longest segment
+	// is always the flat one, so dragging it never runs the upright half of the
+	// move. Asking for an upright segment by name covers both.
 	std::map<long, wireSegment> sm = sc.wire->getSegmentMap();
+	const bool want = (wantVertical == "1");
 	const wireSegment *pick = nullptr; float bestLen = -1.0f;
 	for (const auto &kv : sm) {
 		const wireSegment &s = kv.second;
+		if (want && !s.verticalSeg) continue;
+		if (s.begin == s.end) continue; // a point cannot be dragged anywhere
 		float len = (s.end.x - s.begin.x) + (s.end.y - s.begin.y);
 		if (len > bestLen) { bestLen = len; pick = &kv.second; }
 	}
