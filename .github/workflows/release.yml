@@ -253,6 +253,20 @@ jobs:
       - name: Build
         run: cmake --build build -j$(nproc)
 
+      # The DWARF split out of the binary at link time. The shipped executable
+      # keeps only a build ID pointing at this file, so without it a Linux crash
+      # report can name a function and nothing more.
+      - name: Stage debug symbols
+        run: |
+          DEBUG=$(find build -maxdepth 2 -name 'CedarLogic.debug' | head -1)
+          if [ -z "$DEBUG" ]; then
+            echo "No CedarLogic.debug was produced; crash reports would stay unreadable." >&2
+            exit 1
+          fi
+          VER="${{ steps.version.outputs.version }}"
+          gzip -9 -c "$DEBUG" > "build/CedarLogic-$VER-Linux.debug.gz"
+          ls -lh "$DEBUG" "build/CedarLogic-$VER-Linux.debug.gz"
+
       - name: Package
         run: |
           cd build
@@ -262,7 +276,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: linux-archive
-          path: build/CedarLogic-*-Linux.tar.gz
+          path: |
+            build/CedarLogic-*-Linux.tar.gz
+            build/CedarLogic-*-Linux.debug.gz
 
   build-macos:
     needs: skia
@@ -335,6 +351,23 @@ jobs:
 
       - name: Build
         run: cmake --build build -j$(sysctl -n hw.ncpu)
+
+      # dsymutil gathered this at link time from the .o files, which die with
+      # this runner -- so it is the only copy that will ever exist. Staged
+      # before signing deliberately: codesign leaves the Mach-O UUID alone, and
+      # the UUID is what matches this bundle to the binary users install.
+      - name: Stage debug symbols
+        run: |
+          DSYM=$(find build -maxdepth 2 -name 'CedarLogic.app.dSYM' | head -1)
+          if [ -z "$DSYM" ]; then
+            echo "No CedarLogic.app.dSYM was produced; crash reports would stay unreadable." >&2
+            exit 1
+          fi
+          VER="${{ steps.version.outputs.version }}"
+          dwarfdump --uuid "$DSYM" || true
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$DSYM" "build/CedarLogic-$VER-Darwin.dSYM.zip"
+          ls -lh "build/CedarLogic-$VER-Darwin.dSYM.zip"
 
       - name: Install and Sign Application
         id: package
@@ -445,7 +478,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: macos-dmg
-          path: build/CedarLogic-*-Darwin.dmg
+          path: |
+            build/CedarLogic-*-Darwin.dmg
+            build/CedarLogic-*-Darwin.dSYM.zip
 
   build-wasm:
     runs-on: ubuntu-latest

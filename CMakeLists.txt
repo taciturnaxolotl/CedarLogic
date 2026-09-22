@@ -286,8 +286,9 @@ else()
     add_executable(CedarLogic WIN32 "${SRC_FILES}")
 endif()
 
-# Keep debug symbols on the app so the in-app crash handler can symbolize its
-# stack traces. App target only -- does not touch wxWidgets, so no dependency
+# Keep debug symbols on the app so a crash address can be turned back into a
+# function and a line -- in-process on Windows, from an archived debug file
+# everywhere else. App target only -- does not touch wxWidgets, so no dependency
 # rebuild, and the code stays optimized; this only emits/links symbol info.
 if(MSVC)
     # Windows: emit a .pdb in Release so writeCrashTrace resolves file:line.
@@ -301,12 +302,65 @@ if(MSVC)
         /MANIFEST:EMBED
         "/MANIFESTINPUT:${PROJECT_SOURCE_DIR}/res/dpiaware.manifest")
 else()
-    # POSIX: -g keeps symbols so the backtrace can name functions. On Linux that
-    # also needs -rdynamic to export them to the dynamic symbol table; macOS
-    # (ld64) resolves from the symbol table without it.
+    # POSIX: -g emits DWARF for the app's own sources. Nothing walks the stack
+    # in-process here -- the handler records the signal and lets the OS write
+    # the report -- so this exists to symbolize that report afterwards, on a
+    # machine that is not the one that crashed.
     target_compile_options(CedarLogic PRIVATE -g)
     if(NOT APPLE)
-        target_link_options(CedarLogic PRIVATE -rdynamic)
+        # -rdynamic exports symbols to the dynamic table, so frames are still
+        # named without the debug file. The build ID is what ties a stripped
+        # binary back to the debug file split out of it below; ld normally
+        # writes one already, but a crash report is a bad place to discover
+        # that this toolchain did not.
+        target_link_options(CedarLogic PRIVATE -rdynamic -Wl,--build-id=sha1)
+    endif()
+endif()
+
+# Collect the debug info somewhere that outlives the build tree.
+#
+# Release only: a local debug build already has everything a debugger needs, and
+# these steps only matter for a binary that gets handed to someone else.
+if(NOT MSVC AND CMAKE_BUILD_TYPE STREQUAL "Release")
+    if(APPLE)
+        # -g leaves the DWARF in the .o files and links only a debug map
+        # pointing at them, so the symbols die with the build tree. In 3.2.1's
+        # shipped .dmg those entries name /Users/runner/work/..., and atos
+        # resolves guiWire::setSubState with no file and no line at all.
+        # dsymutil gathers them into a bundle that can be archived and used
+        # months later. It sits beside the .app and is deliberately not
+        # installed, so it stays out of the .dmg.
+        add_custom_command(TARGET CedarLogic POST_BUILD
+            COMMAND dsymutil "$<TARGET_FILE:CedarLogic>"
+                    -o "$<TARGET_BUNDLE_DIR:CedarLogic>.dSYM"
+            COMMENT "Collecting DWARF into CedarLogic.app.dSYM"
+            VERBATIM)
+    else()
+        # Linux links the DWARF into the executable instead, which works but
+        # ships it to every user: 3.2.1's binary is 69.5MB, ~27MB of that debug
+        # info nobody downloading it will ever read. Split it into a sidecar the
+        # way Windows already does with its .pdb. Run from the output directory
+        # so the debuglink records a bare filename rather than a build path.
+        if(NOT CMAKE_OBJCOPY OR NOT CMAKE_STRIP)
+            # Better to stop here than to ship a release whose only debug info
+            # was silently dropped, which is how 3.0.2's crash reports became
+            # permanently unreadable.
+            message(FATAL_ERROR
+                "objcopy and strip are required to split debug info for a "
+                "Release build; without them a crash report cannot be "
+                "symbolized after the fact.")
+        endif()
+        add_custom_command(TARGET CedarLogic POST_BUILD
+            WORKING_DIRECTORY "$<TARGET_FILE_DIR:CedarLogic>"
+            COMMAND ${CMAKE_OBJCOPY} --only-keep-debug
+                    "$<TARGET_FILE_NAME:CedarLogic>"
+                    "$<TARGET_FILE_NAME:CedarLogic>.debug"
+            COMMAND ${CMAKE_STRIP} --strip-debug "$<TARGET_FILE_NAME:CedarLogic>"
+            COMMAND ${CMAKE_OBJCOPY}
+                    "--add-gnu-debuglink=$<TARGET_FILE_NAME:CedarLogic>.debug"
+                    "$<TARGET_FILE_NAME:CedarLogic>"
+            COMMENT "Splitting debug info into CedarLogic.debug"
+            VERBATIM)
     endif()
 endif()
 
