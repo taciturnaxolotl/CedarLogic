@@ -238,7 +238,7 @@ if(MSVC)
 endif()
 
 # Glob all the source files to be added when CedarLogic executable is added later.
-file(GLOB CONFIGURE_DEPENDS SRC_FILES
+file(GLOB SRC_FILES CONFIGURE_DEPENDS
 	"${PROJECT_SOURCE_DIR}/src/*.cpp"
 	"${PROJECT_SOURCE_DIR}/src/gui/*.cpp"
 	"${PROJECT_SOURCE_DIR}/src/logic/*.cpp"

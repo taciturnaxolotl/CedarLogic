@@ -21,7 +21,6 @@
 #else
 #include <csignal>
 #include <cstring>
-#include <execinfo.h>
 #include <unistd.h>
 #include <fcntl.h>
 #endif
@@ -31,6 +30,14 @@ namespace crash {
 
 static std::string g_crashLogPath;
 static std::string g_crashHeader;
+#ifndef _WIN32
+// The strings are finalized before the handler is installed and never changed.
+// Keep their raw storage here so the handler does not call into std::string.
+static const char *g_crashLogPathRaw;
+static const char *g_crashHeaderRaw;
+static size_t g_crashHeaderSize;
+static struct sigaction g_defaultSignalAction;
+#endif
 
 const std::string &logPath() {
     return g_crashLogPath;
@@ -183,39 +190,40 @@ static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
     return EXCEPTION_CONTINUE_SEARCH; // unchanged, so WER and any debugger still work
 }
 #else
-// POSIX (macOS/Linux): catch fatal signals and write a backtrace to the log
-// with async-signal-safe fd calls only (no malloc, no wx). Symbolization is
-// module+symbol+offset via backtrace_symbols_fd; the next-launch dialog then
-// offers it for reporting just like on Windows.
-static const char *crashSignalName(int sig) {
+// POSIX signal handlers may only use async-signal-safe functions. In
+// particular, backtrace() can allocate or acquire the loader lock, turning a
+// crash into a permanent hang. Record the signal, then let the OS produce the
+// platform report/core dump that can be symbolized outside the broken process.
+struct CrashSignalName {
+    const char *text;
+    size_t size;
+};
+
+static CrashSignalName crashSignalName(int sig) {
     switch (sig) {
-        case SIGSEGV: return "SIGSEGV (segmentation fault)";
-        case SIGABRT: return "SIGABRT (abort)";
-        case SIGBUS:  return "SIGBUS (bus error)";
-        case SIGFPE:  return "SIGFPE (floating-point exception)";
-        case SIGILL:  return "SIGILL (illegal instruction)";
-        default:      return "fatal signal";
+        case SIGSEGV: return {"SIGSEGV (segmentation fault)", sizeof("SIGSEGV (segmentation fault)") - 1};
+        case SIGABRT: return {"SIGABRT (abort)", sizeof("SIGABRT (abort)") - 1};
+        case SIGBUS:  return {"SIGBUS (bus error)", sizeof("SIGBUS (bus error)") - 1};
+        case SIGFPE:  return {"SIGFPE (floating-point exception)", sizeof("SIGFPE (floating-point exception)") - 1};
+        case SIGILL:  return {"SIGILL (illegal instruction)", sizeof("SIGILL (illegal instruction)") - 1};
+        default:      return {"fatal signal", sizeof("fatal signal") - 1};
     }
 }
 
 static void posixCrashHandler(int sig, siginfo_t *, void *) {
-    int fd = open(g_crashLogPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    int fd = open(g_crashLogPathRaw, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd >= 0) {
-        write(fd, g_crashHeader.data(), g_crashHeader.size());
-        const char *label = "Fatal signal: ";
-        write(fd, label, strlen(label));
-        const char *name = crashSignalName(sig);
-        write(fd, name, strlen(name));
+        write(fd, g_crashHeaderRaw, g_crashHeaderSize);
+        write(fd, "Fatal signal: ", 14);
+        CrashSignalName name = crashSignalName(sig);
+        write(fd, name.text, name.size);
         write(fd, "\n\n", 2);
-        void *frames[64];
-        int n = backtrace(frames, 64);
-        backtrace_symbols_fd(frames, n, fd);
         close(fd);
     }
     // Restore the default action and re-raise so the OS still produces its
     // normal crash report / core dump.
-    signal(sig, SIG_DFL);
-    raise(sig);
+    sigaction(sig, &g_defaultSignalAction, NULL);
+    kill(getpid(), sig);
 }
 #endif
 
@@ -230,6 +238,13 @@ void installCrashHandler() {
 #ifdef _WIN32
     SetUnhandledExceptionFilter(writeCrashTrace);
 #else
+    g_crashLogPathRaw = g_crashLogPath.c_str();
+    g_crashHeaderRaw = g_crashHeader.data();
+    g_crashHeaderSize = g_crashHeader.size();
+    memset(&g_defaultSignalAction, 0, sizeof(g_defaultSignalAction));
+    g_defaultSignalAction.sa_handler = SIG_DFL;
+    sigemptyset(&g_defaultSignalAction.sa_mask);
+
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
     sa.sa_sigaction = posixCrashHandler;
