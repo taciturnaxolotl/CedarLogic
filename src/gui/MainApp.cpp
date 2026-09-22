@@ -223,14 +223,17 @@ bool MainApp::OnInit()
     bool renderGate = false;   // --render-gate renders one library gate
     bool wireShape = false;    // --wire-shape dumps a routed wire's segment map
     bool wireDrag = false;     // --wire-drag dumps a wire's segment map after a seg drag
+    bool wireMerge = false;    // --wire-merge dumps a wire's segment map after a merge
     std::string gateName, gateAngle;
     std::string wsGateA, wsGateB, wsAngleA, wsAngleB;
     if (argc >= 7 && (wxString(argv[1]) == "--wire-shape" ||
-                      wxString(argv[1]) == "--wire-drag")) {
-        // --wire-shape/--wire-drag <gateA> <gateB> <angleA> <angleB> <out.txt>
+                      wxString(argv[1]) == "--wire-drag" ||
+                      wxString(argv[1]) == "--wire-merge")) {
+        // --wire-shape/--wire-drag/--wire-merge <gateA> <gateB> <angleA> <angleB> <out.txt>
         renderMode().headlessRender = true;
         wireShape = (wxString(argv[1]) == "--wire-shape");
         wireDrag = (wxString(argv[1]) == "--wire-drag");
+        wireMerge = (wxString(argv[1]) == "--wire-merge");
         wsGateA = argv[2].ToStdString();
         wsGateB = argv[3].ToStdString();
         wsAngleA = argv[4].ToStdString();
@@ -304,14 +307,17 @@ bool MainApp::OnInit()
     // create the main application window
     MainFrame *frame = new MainFrame(VERSION_TITLE(), cmdFilename);
 
-    if (renderMode().headlessRender && (wireShape || wireDrag)) {
+    if (renderMode().headlessRender && (wireShape || wireDrag || wireMerge)) {
         // Wire-router test path: two gates + a wire, dump the routed segment map
-        // (--wire-shape) or the map after a programmatic segment drag (--wire-drag).
+        // (--wire-shape), the map after a programmatic segment drag (--wire-drag),
+        // or the map after every segment is cut up and rejoined (--wire-merge).
         frame->SetSize(renderW + 220, renderH + 140);
         frame->Show(true);
         wxYield();
         bool ok = wireDrag
             ? frame->dumpWireDrag(wsGateA, wsGateB, wsAngleA, wsAngleB, renderOutput)
+            : wireMerge
+            ? frame->dumpWireMerge(wsGateA, wsGateB, wsAngleA, wsAngleB, renderOutput)
             : frame->dumpWireShape(wsGateA, wsGateB, wsAngleA, wsAngleB, renderOutput);
         exitOneShot(ok ? 0 : 1);
     }

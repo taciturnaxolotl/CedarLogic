@@ -205,6 +205,14 @@ public:
 	bool dumpWireDrag(const std::string &gateA, const std::string &gateB,
 	                  const std::string &angleA, const std::string &angleB,
 	                  const wxString &path);
+	// Wire-router test hook (headless --wire-merge): same two-gate wire, then
+	// every segment is cut into three touching pieces and handed back, so the
+	// wire has to join them up again. A freshly routed wire never holds two
+	// overlapping segments, so joining is the one part of the segment tree the
+	// other two hooks cannot reach at all.
+	bool dumpWireMerge(const std::string &gateA, const std::string &gateB,
+	                   const std::string &angleA, const std::string &angleB,
+	                   const wxString &path);
 	// Ask which format to save an old-format file in. Returns 1/2/3, or -1 to
 	// cancel. New/v3 circuits return 3 without prompting.
 	int chooseSaveFormat();

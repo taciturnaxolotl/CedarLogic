@@ -1921,10 +1921,10 @@ static ProbeScene buildProbeWire(GUICircuit *gCircuit, GUICanvas *canvas,
 	return sc;
 }
 
-// Dump a wire's segment map as deterministic text under `label`.
-static void dumpSegMapTo(std::ofstream &f, guiWire *wire, const char *label) {
+// Dump a segment map as deterministic text under `label`.
+static void dumpSegMapTo(std::ofstream &f, const std::map<long, wireSegment> &sm,
+                         const char *label) {
 	f << "-- " << label << " --\n";
-	std::map<long, wireSegment> sm = wire->getSegmentMap();
 	for (const auto &kv : sm) {
 		const wireSegment &s = kv.second;
 		f << "seg " << s.id << (s.verticalSeg ? " V " : " H ")
@@ -1941,6 +1941,67 @@ static void dumpSegMapTo(std::ofstream &f, guiWire *wire, const char *label) {
 	}
 }
 
+// Cut every segment into three collinear touching pieces. Three and not two:
+// merging the second piece into the first is what sets up the extent the third
+// piece is then tested against, so a two-way split runs the merge without ever
+// observing what it computed. Crossings follow the piece that spans them, so
+// the tree stays coherent.
+static std::map<long, wireSegment> splitEverySegment(
+		const std::map<long, wireSegment> &in, long &nextID) {
+	std::map<long, wireSegment> out;
+	for (const auto &kv : in) {
+		const wireSegment &s = kv.second;
+		if (s.begin == s.end) { out[s.id] = s; continue; } // nowhere to cut
+		// Interpolating leaves the across-axis exactly alone, so the pieces stay
+		// in the same channel and still compare equal there.
+		GLPoint2f a(s.begin.x + (s.end.x - s.begin.x) / 3.0f,
+		            s.begin.y + (s.end.y - s.begin.y) / 3.0f);
+		GLPoint2f b(s.begin.x + (s.end.x - s.begin.x) * 2.0f / 3.0f,
+		            s.begin.y + (s.end.y - s.begin.y) * 2.0f / 3.0f);
+		wireSegment p0(s.begin, a, s.verticalSeg, s.id);
+		wireSegment p1(a, b, s.verticalSeg, nextID++);
+		wireSegment p2(b, s.end, s.verticalSeg, nextID++);
+		// Connections ride on the middle piece, not the first. The first piece
+		// is the one a merge accumulates into, and a piece that already owns a
+		// hotspot gets its extent from that hotspot, which hides whatever the
+		// merge itself computed.
+		p1.connections = s.connections;
+		const float c0 = s.verticalSeg ? a.y : a.x;
+		const float c1 = s.verticalSeg ? b.y : b.x;
+		for (const auto &ix : s.intersects) {
+			wireSegment &t = ix.first <= c0 ? p0 : (ix.first <= c1 ? p1 : p2);
+			t.intersects[ix.first] = ix.second;
+		}
+		p0.calcBBox(); p1.calcBBox(); p2.calcBBox();
+		out[p0.id] = p0; out[p1.id] = p1; out[p2.id] = p2;
+	}
+	return out;
+}
+
+bool MainFrame::dumpWireMerge(const std::string &gateA, const std::string &gateB,
+                              const std::string &angleA, const std::string &angleB,
+                              const wxString &path) {
+	if (currentCanvas == NULL || gCircuit == NULL) return false;
+	ProbeScene sc = buildProbeWire(gCircuit, currentCanvas, gateA, gateB, angleA, angleB);
+	if (sc.wire == NULL) return false;
+
+	std::ofstream f(path.ToStdString().c_str());
+	if (!f) return false;
+	f << "merge " << gateA << "@" << angleA << "." << sc.outName
+	  << " -> " << gateB << "@" << angleB << "." << sc.inName << "\n";
+
+	std::map<long, wireSegment> sm = sc.wire->getSegmentMap();
+	dumpSegMapTo(f, sm, "create");
+	if (sm.empty()) { f << "-- nothing to split --\n"; return true; }
+
+	long nextID = sm.rbegin()->first + 1;
+	std::map<long, wireSegment> pieces = splitEverySegment(sm, nextID);
+	dumpSegMapTo(f, pieces, "split");
+	sc.wire->setSegmentMap(pieces); // adopting a map ends in mergeSegments
+	dumpSegMapTo(f, sc.wire->getSegmentMap(), "after merge");
+	return true;
+}
+
 bool MainFrame::dumpWireShape(const std::string &gateA, const std::string &gateB,
                               const std::string &angleA, const std::string &angleB,
                               const wxString &path) {
@@ -1953,10 +2014,10 @@ bool MainFrame::dumpWireShape(const std::string &gateA, const std::string &gateB
 	f << "wire " << gateA << "@" << angleA << "." << sc.outName
 	  << " -> " << gateB << "@" << angleB << "." << sc.inName << "\n";
 
-	dumpSegMapTo(f, sc.wire, "create"); // guiWire::calcShape output
+	dumpSegMapTo(f, sc.wire->getSegmentMap(), "create"); // guiWire::calcShape output
 	sc.B->setGLcoords(11.0f, 2.0f);     // move B -> guiGate::updateBBoxes notifies the
 	currentCanvas->Update();            // wire, driving updateConnectionPos/updateSegDrag
-	dumpSegMapTo(f, sc.wire, "after move B");
+	dumpSegMapTo(f, sc.wire->getSegmentMap(), "after move B");
 	return true;
 }
 
@@ -1971,7 +2032,7 @@ bool MainFrame::dumpWireDrag(const std::string &gateA, const std::string &gateB,
 	if (!f) return false;
 	f << "drag " << gateA << "@" << angleA << "." << sc.outName
 	  << " -> " << gateB << "@" << angleB << "." << sc.inName << "\n";
-	dumpSegMapTo(f, sc.wire, "create");
+	dumpSegMapTo(f, sc.wire->getSegmentMap(), "create");
 
 	// Pick the longest segment (begin <= end always, so no abs needed) and grab
 	// its midpoint. A zero-size mouse box exactly on that segment selects it, the
@@ -1999,7 +2060,7 @@ bool MainFrame::dumpWireDrag(const std::string &gateA, const std::string &gateB,
 	klsBBox endBox; endBox.addPoint(target); mouse.setBBox(endBox);
 	sc.wire->updateSegDrag(&mouse);
 	sc.wire->endSegDrag();
-	dumpSegMapTo(f, sc.wire, "after drag");
+	dumpSegMapTo(f, sc.wire->getSegmentMap(), "after drag");
 	return true;
 }
 
