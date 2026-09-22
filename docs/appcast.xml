@@ -7,36 +7,54 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 3.2.1</title>
-      <pubDate>Mon, 21 Sep 2026 16:03:22 +0000</pubDate>
-      <sparkle:version>3.2.1</sparkle:version>
-      <sparkle:shortVersionString>3.2.1</sparkle:shortVersionString>
+      <title>Version 3.2.2</title>
+      <pubDate>Tue, 22 Sep 2026 21:06:16 +0000</pubDate>
+      <sparkle:version>3.2.2</sparkle:version>
+      <sparkle:shortVersionString>3.2.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<p>Installing a new version used to stick it in a new folder by version which meant the older version was never replaced; this is now fixed.</p>
-<p>On a display set to 125% or 150%, the bottom of the page tabs was cut off ([#108](https://github.com/taciturnaxolotl/CedarLogic/issues/108)). The tab strip was measured at startup at whatever scale it started on and then would fail if the DPI changed. It now re-measures when the scale changes.</p>
-<p>Administrators turning update checks off for a managed deployment now are able to check if the setting applied with `CedarLogic.exe --update-status`. The registry keys have also been tweaked to work with both 64 bit and 32 bit keys and be a bit more permissive in what values are accepted.</p>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.2.0...v3.2.1</p>]]></description>
+      <description><![CDATA[<h2>Fixes</h2>
+<ul>
+  <li>Fixed a crash and possible hang when deleting gates and merging zero-length wire segments (#110, #120).</li>
+  <li>Fixed the Windows updater crash at startup caused by a missing callback (#111).</li>
+  <li>Removed the obsolete XML pre-scan from normal v3 file loading. Opening v3 files no longer sends their contents through the legacy XML parser (#117, #118, #122).</li>
+  <li>Hardened cross-platform crash reporting so fatal POSIX signals write a minimal report and defer stack dumping to the operating system.</li>
+</ul>
+<h2>Refactors</h2>
+<ul>
+  <li>Consolidated wire segment topology, drag handling, collision refresh, and joining logic into focused components.</li>
+  <li>Removed duplicated wire-drag and joining paths.</li>
+  <li>Added coverage for wire topology, segment dragging, collision handling, parser safety, and crash-report issue formatting.</li>
+</ul>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.2.1/CedarLogic-3.2.1-Darwin.dmg"
-        sparkle:edSignature="5yPQ0duNjwazDNiYCEdPLKC2jZLHz6TAo70QkZqBIRR7Lu1o/JYDoktj12ANf7TuJT/NdCHzlCwy3FCwhsAaDQ=="
-        length="13505518"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.2.2/CedarLogic-3.2.2-Darwin.dmg"
+        sparkle:edSignature="MXTTp8LNkwj4p2zxbt1ywbxnBdTiT0bHZ2JvFKanSE/9qwjQTw/4kQB6x0ysTuGJ1QlSctrET8/p9xM8kTqLCQ=="
+        length="13504613"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 3.2.1</title>
-      <pubDate>Mon, 21 Sep 2026 16:03:22 +0000</pubDate>
-      <sparkle:version>3.2.1</sparkle:version>
-      <sparkle:shortVersionString>3.2.1</sparkle:shortVersionString>
-      <description><![CDATA[<p>Installing a new version used to stick it in a new folder by version which meant the older version was never replaced; this is now fixed.</p>
-<p>On a display set to 125% or 150%, the bottom of the page tabs was cut off ([#108](https://github.com/taciturnaxolotl/CedarLogic/issues/108)). The tab strip was measured at startup at whatever scale it started on and then would fail if the DPI changed. It now re-measures when the scale changes.</p>
-<p>Administrators turning update checks off for a managed deployment now are able to check if the setting applied with `CedarLogic.exe --update-status`. The registry keys have also been tweaked to work with both 64 bit and 32 bit keys and be a bit more permissive in what values are accepted.</p>
-<p><b>Full Changelog</b>: https://github.com/taciturnaxolotl/CedarLogic/compare/v3.2.0...v3.2.1</p>]]></description>
+      <title>Version 3.2.2</title>
+      <pubDate>Tue, 22 Sep 2026 21:06:16 +0000</pubDate>
+      <sparkle:version>3.2.2</sparkle:version>
+      <sparkle:shortVersionString>3.2.2</sparkle:shortVersionString>
+      <description><![CDATA[<h2>Fixes</h2>
+<ul>
+  <li>Fixed a crash and possible hang when deleting gates and merging zero-length wire segments (#110, #120).</li>
+  <li>Fixed the Windows updater crash at startup caused by a missing callback (#111).</li>
+  <li>Removed the obsolete XML pre-scan from normal v3 file loading. Opening v3 files no longer sends their contents through the legacy XML parser (#117, #118, #122).</li>
+  <li>Hardened cross-platform crash reporting so fatal POSIX signals write a minimal report and defer stack dumping to the operating system.</li>
+</ul>
+<h2>Refactors</h2>
+<ul>
+  <li>Consolidated wire segment topology, drag handling, collision refresh, and joining logic into focused components.</li>
+  <li>Removed duplicated wire-drag and joining paths.</li>
+  <li>Added coverage for wire topology, segment dragging, collision handling, parser safety, and crash-report issue formatting.</li>
+</ul>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.2.1/CedarLogic-3.2.1-win32.exe"
-        sparkle:edSignature="CkzoOqKuomZxImBYx8L7SsGuIsgy8h/MULFL/JvRhhcph0KkhwDV39OBbAczQ1VbjyKgXbMuPITPft3icfD1DQ=="
-        length="19942358"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.2.2/CedarLogic-3.2.2-win32.exe"
+        sparkle:edSignature="R9zhEmlzbTLR3T1KyYSPY1l68bdCFDaM9hc6BSU+VWEncmFq3x9FLaJYTw9rw025QIcd8rf0guaM/nvyeccgDg=="
+        length="19981582"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
