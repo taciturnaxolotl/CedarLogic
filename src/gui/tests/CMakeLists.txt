@@ -171,6 +171,35 @@ endif()
 
 add_test(NAME wiretopology_tests COMMAND test_wiretopology)
 
+# Dragging a wire's segment, and reattaching a connection after its gate
+# moves. Same recipe as the topology test: the code under test sees a shape and
+# a table of hotspots, nothing else.
+add_executable(test_segmentdrag
+	"${CMAKE_CURRENT_SOURCE_DIR}/test_segmentdrag.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/wire/SegmentDrag.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/wire/WireTopology.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/wire/SegmentMap.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/wireSegment.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/klsCollisionChecker.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/gl_defs.cpp"
+)
+target_include_directories(test_segmentdrag PRIVATE
+	"${PROJECT_SOURCE_DIR}/include/gui"
+	"${PROJECT_SOURCE_DIR}/logic/include"
+)
+target_link_libraries(test_segmentdrag PRIVATE doctest::doctest)
+target_compile_options(test_segmentdrag PRIVATE
+	"$<$<CXX_COMPILER_ID:MSVC>:/FI${_shim}>"
+	"$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:SHELL:-include ${_shim}>"
+)
+
+if(ENABLE_SANITIZERS AND NOT MSVC)
+	target_compile_options(test_segmentdrag PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+	target_link_options(test_segmentdrag PRIVATE -fsanitize=address,undefined)
+endif()
+
+add_test(NAME segmentdrag_tests COMMAND test_segmentdrag)
+
 # Crash-report issue text. Pure string work: no wxWidgets, no platform headers.
 add_executable(test_crashissue
 	"${CMAKE_CURRENT_SOURCE_DIR}/test_crashissue.cpp"
