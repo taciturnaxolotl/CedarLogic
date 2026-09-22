@@ -5,7 +5,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
-#include "SegmentMap.h"
+#include "wire/SegmentMap.h"
 
 #include <stdexcept>
 

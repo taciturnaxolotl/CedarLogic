@@ -16,7 +16,7 @@
 #include "render/Scene.h"
 #include "render/RenderStyle.h"
 #include "route/WireRoute.h"
-#include "SegmentMap.h"
+#include "wire/SegmentMap.h"
 #include "Settings.h"
 #include <cmath>
 #include <cstring>

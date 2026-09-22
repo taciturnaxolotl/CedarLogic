@@ -1,10 +1,10 @@
 /*****************************************************************************
    Project: CEDAR Logic Simulator
 
-   SegmentMap: see SegmentMap.h
+   SegmentMap: see wire/SegmentMap.h
 *****************************************************************************/
 
-#include "SegmentMap.h"
+#include "wire/SegmentMap.h"
 
 #include <set>
 #include <vector>

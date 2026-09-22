@@ -17,7 +17,7 @@
 #include "logic_values.h" // StateType
 #include "klsCollisionChecker.h"
 #include "wireSegment.h"
-#include "SegmentMap.h"
+#include "wire/SegmentMap.h"
 
 // Engine-neutral rendering seam (Workstream G); defined in gui/render/.
 namespace cl { namespace render { class Scene; struct RenderStyle; } }

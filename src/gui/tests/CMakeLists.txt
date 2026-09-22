@@ -121,7 +121,7 @@ add_test(NAME gatelibrary_tests COMMAND test_gatelibrary)
 # from the GL wrapper, so the same gl_shim.h the collision test uses is enough.
 add_executable(test_segmentmap
 	"${CMAKE_CURRENT_SOURCE_DIR}/test_segmentmap.cpp"
-	"${PROJECT_SOURCE_DIR}/src/gui/SegmentMap.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/wire/SegmentMap.cpp"
 	"${PROJECT_SOURCE_DIR}/src/gui/wireSegment.cpp"
 	"${PROJECT_SOURCE_DIR}/src/gui/klsCollisionChecker.cpp"
 	"${PROJECT_SOURCE_DIR}/src/gui/gl_defs.cpp"
