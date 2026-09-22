@@ -54,9 +54,7 @@ CircuitParse::CircuitParse(GUICanvas* glc) {
 CircuitParse::CircuitParse(string fileName, vector< GUICanvas* > glc) {
 	gCanvases = glc;
 	gCanvas = glc[0];
-
-	fstream x(fileName.c_str(), ios::in);
-	mParse = new XMLParser(&x, false);
+	mParse = nullptr;
 	this->fileName = fileName;
 }
 
@@ -65,8 +63,8 @@ CircuitParse::~CircuitParse() {
 }
 
 void CircuitParse::loadFile(string fileName) {
-	fstream x(fileName.c_str(), ios::in);
-	mParse = new XMLParser(&x, false);
+	delete mParse;
+	mParse = nullptr;
 	this->fileName = fileName;
 }
 

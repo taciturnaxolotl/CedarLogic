@@ -117,6 +117,24 @@ endif()
 
 add_test(NAME gatelibrary_tests COMMAND test_gatelibrary)
 
+# XMLParser remains for legacy exports and library files. Its EOF handling must
+# stay safe even when it receives non-XML text.
+add_executable(test_xmlparser
+	"${CMAKE_CURRENT_SOURCE_DIR}/test_xmlparser.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/XMLParser.cpp"
+)
+target_include_directories(test_xmlparser PRIVATE
+	"${PROJECT_SOURCE_DIR}/include/gui"
+)
+target_link_libraries(test_xmlparser PRIVATE doctest::doctest)
+
+if(ENABLE_SANITIZERS AND NOT MSVC)
+	target_compile_options(test_xmlparser PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+	target_link_options(test_xmlparser PRIVATE -fsanitize=address,undefined)
+endif()
+
+add_test(NAME xmlparser_tests COMMAND test_xmlparser)
+
 # Segment-map tidying (issue #110). wireSegment only borrows GLfloat/GLPoint2f
 # from the GL wrapper, so the same gl_shim.h the collision test uses is enough.
 add_executable(test_segmentmap

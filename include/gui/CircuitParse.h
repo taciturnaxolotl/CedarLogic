@@ -5,7 +5,8 @@
    All rights reserved.
    For license information see license.txt included with distribution.   
 
-   CircuitParse: uses XMLParser to load and save user circuit files.
+   CircuitParse: loads files through the format library and writes legacy
+                 exports through XMLParser.
 *****************************************************************************/
 
 #ifndef CIRCUITPARSE_H_
@@ -38,7 +39,7 @@ public:
 };
 
 // Class CircuitParse:
-//	Uses XMLParser to read and write user circuit files
+//	Loads through the format library and uses XMLParser only for legacy exports.
 class CircuitParse {
 public:
 	CircuitParse(string, vector< GUICanvas* >);
