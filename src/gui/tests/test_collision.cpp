@@ -11,6 +11,8 @@
 
 #include "klsCollisionChecker.h"
 
+#include <cfloat>
+#include <cmath>
 #include <vector>
 #include <set>
 #include <random>
@@ -100,4 +102,75 @@ TEST_CASE("grid broad phase matches brute force across random scenes") {
 
 		for (auto *o : objs) delete o;
 	}
+}
+
+// The broad phase parks a box spanning too many cells in an "oversized" list
+// rather than bucketing it, and the count that decides which way it goes was
+// computed in int. A box wide enough to span the whole coordinate range wraps
+// that count through zero, so it reads as small and gets bucketed cell by cell,
+// which runs out of memory instead of returning.
+TEST_CASE("a box spanning the whole coordinate range is still checked, not bucketed") {
+	std::vector<klsCollisionObject *> objs;
+
+	auto *wide = new klsCollisionObject(COLL_WIRE);
+	// makeBox adds its width to x, which cannot express this span, so build it.
+	klsBBox wideBox;
+	wideBox.addPoint(GLPoint2f(-FLT_MAX, 0));
+	wideBox.addPoint(GLPoint2f(FLT_MAX, 0));   // no extent at all
+	wide->setBBox(wideBox);
+	auto *here = new klsCollisionObject(COLL_GATE);
+	here->setBBox(makeBox(0, 0, 5, 5));
+	objs.push_back(wide);
+	objs.push_back(here);
+
+	klsCollisionChecker checker;
+	for (auto *o : objs) checker.addObject(o);
+	checker.update();
+
+	for (auto *o : objs) {
+		o->setBBox(o->getBBox());
+		checker.update();
+	}
+
+	// The oversized fallback keeps the invariant: wide covers everything, so
+	// every pair is still reported.
+	CHECK(reportedRelation(objs) == bruteRelation(objs));
+
+	for (auto *o : objs) delete o;
+}
+
+TEST_CASE("a cell index beyond what an int can hold does not become one") {
+	// Casting a float out of int's range is undefined behaviour, and the box
+	// above lands there before any counting happens.
+	std::vector<klsCollisionObject *> objs;
+
+	klsBBox hugeBox;
+	hugeBox.addPoint(GLPoint2f(-FLT_MAX, -FLT_MAX));
+	hugeBox.addPoint(GLPoint2f(FLT_MAX, FLT_MAX));
+	auto *huge = new klsCollisionObject(COLL_WIRE);
+	huge->setBBox(hugeBox);
+
+	klsBBox nanBox;
+	nanBox.addPoint(GLPoint2f(0, 0));
+	nanBox.addPoint(GLPoint2f((float)NAN, 0));
+	auto *nan = new klsCollisionObject(COLL_WIRE);
+	nan->setBBox(nanBox);
+	auto *here = new klsCollisionObject(COLL_GATE);
+	here->setBBox(makeBox(0, 0, 5, 5));
+	objs.push_back(huge);
+	objs.push_back(nan);
+	objs.push_back(here);
+
+	klsCollisionChecker checker;
+	for (auto *o : objs) checker.addObject(o);
+	checker.update();
+
+	for (auto *o : objs) {
+		o->setBBox(o->getBBox());
+		checker.update();
+	}
+
+	CHECK(reportedRelation(objs) == bruteRelation(objs));
+
+	for (auto *o : objs) delete o;
 }

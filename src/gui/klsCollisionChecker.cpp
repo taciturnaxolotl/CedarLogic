@@ -73,6 +73,21 @@ public:
 private:
 	static const long long MAX_CELLS_PER_OBJECT = 1024;
 
+	// Far beyond any cell count the threshold lets through, so a coordinate
+	// that saturates here is oversized by construction.
+	static const int MAX_CELL_INDEX = 1 << 30;
+
+	// Casting a float outside int's range is undefined behaviour, and a box
+	// that runs to the ends of the coordinate range produces exactly that.
+	// Clamp it instead, well outside anything the threshold below lets through.
+	// The negated comparisons send a NaN here too, which lands it in the same
+	// oversized list rather than past the guard.
+	static int cellIndex(float v, float cellSize) {
+		if (!(v >= -((float)MAX_CELL_INDEX * cellSize))) return -MAX_CELL_INDEX;
+		if (!(v <= (float)MAX_CELL_INDEX * cellSize)) return MAX_CELL_INDEX;
+		return (int)std::floor(v / cellSize);
+	}
+
 	// The inclusive cell range a box spans, plus whether that is too many cells to
 	// bucket individually -- the one place the threshold is applied.
 	struct CellSpan { int x0, y0, x1, y1; bool tooMany; };
@@ -86,11 +101,16 @@ private:
 	// klsBBox getters are non-const, so take the box by value.
 	CellSpan cellsOf(klsBBox box) const {
 		CellSpan s;
-		s.x0 = (int)std::floor(box.getLeft() / cellSize);
-		s.y0 = (int)std::floor(box.getBottom() / cellSize);
-		s.x1 = (int)std::floor(box.getRight() / cellSize);
-		s.y1 = (int)std::floor(box.getTop() / cellSize);
-		s.tooMany = (long long)(s.x1 - s.x0 + 1) * (s.y1 - s.y0 + 1) > MAX_CELLS_PER_OBJECT;
+		s.x0 = cellIndex(box.getLeft(), cellSize);
+		s.y0 = cellIndex(box.getBottom(), cellSize);
+		s.x1 = cellIndex(box.getRight(), cellSize);
+		s.y1 = cellIndex(box.getTop(), cellSize);
+		// Widen before subtracting. In int, a box spanning the whole coordinate
+		// range subtracts to a negative count, wraps through zero, and this
+		// declares it small -- the guard failing hardest on the box that needs
+		// it most.
+		s.tooMany = ((long long)s.x1 - s.x0 + 1) * ((long long)s.y1 - s.y0 + 1)
+		            > MAX_CELLS_PER_OBJECT;
 		return s;
 	}
 
