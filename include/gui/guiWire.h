@@ -189,10 +189,8 @@ private:
 	// The owning circuit (gate registry). Non-owning.
 	GUICircuit* gCircuit = nullptr;
 
-	// Self-explanatory, see comments in source
-	void removeZeroLengthSegments();  // TODO
-
-	// Take existing segments and merge concurrent segments
+	// Tidy and join the wire's segments, keeping the collision checker and
+	// render cache in step with the result.
 	void mergeSegments();
 	void generateRenderInfo();  // TODO
 
