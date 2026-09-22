@@ -63,12 +63,12 @@ guiWire::guiWire() : klsCollisionObject(COLL_WIRE) {
 	selected = false;
 	setVerticalBar = true;
 	// Start segs at 1, since 0 is reserved for the base vertical segment
-	nextSegID = 1;
+	shape_.nextID = 1;
 	// 0 is the base vertical segment
-	segMap.put(wireSegment()).verticalSeg = true;
+	shape_.segs.put(wireSegment()).verticalSeg = true;
 	// Reset state of currentDragSeg is -1
-	currentDragSegment = -1;
-	headSegment = 0; // since the base vertical seg is 0
+	shape_.dragging = -1;
+	shape_.head = 0; // since the base vertical seg is 0
 	
 	// By default, wires have only one line.
 	// Also by default, the state of this line is HI_Z.
@@ -119,10 +119,10 @@ void guiWire::addConnection(guiGate* iGate, string connection, bool openMode) {
 	this->detachSubObjects(); // prevent coll checker pointers from invalidating
 	// Find the nearest segment
 	GLPoint2f hsPoint;
-	float minDistance = FLT_MAX; long closestSeg = headSegment;
+	float minDistance = FLT_MAX; long closestSeg = shape_.head;
 	iGate->getHotspotCoords(connection, hsPoint.x, hsPoint.y);
-	map < long, wireSegment >::iterator segWalk = segMap.begin();
-	while (segWalk != segMap.end()) {
+	map < long, wireSegment >::iterator segWalk = shape_.segs.begin();
+	while (segWalk != shape_.segs.end()) {
 		float distance = distanceToLine(hsPoint, (segWalk->second).begin, (segWalk->second).end);
 		if (distance < minDistance) {
 			minDistance = distance;
@@ -133,22 +133,22 @@ void guiWire::addConnection(guiGate* iGate, string connection, bool openMode) {
 	// closestSeg knows the nearest segment.  If it is vertical, then we just create a horizontal seg from it.
 	//	But if it is horizontal, we need a vertical seg.
 	//	When mergeSegments is called, extension of existing segments is accomplished.
-	if (segMap.at(closestSeg).isHorizontal()) { // create the vertical seg
-		if (segMap.at(closestSeg).begin == segMap.at(closestSeg).end) segMap.at(closestSeg).end.x += 1;
-		segMap.put(wireSegment(GLPoint2f(hsPoint.x, min(hsPoint.y, segMap.at(closestSeg).begin.y)), GLPoint2f(hsPoint.x, max(hsPoint.y, segMap.at(closestSeg).begin.y)), true, nextSegID));
-		segMap.at(closestSeg).intersects[hsPoint.x].push_back(nextSegID);
-		segMap.at(nextSegID).intersects[segMap.at(closestSeg).begin.y].push_back(closestSeg);
+	if (shape_.segs.at(closestSeg).isHorizontal()) { // create the vertical seg
+		if (shape_.segs.at(closestSeg).begin == shape_.segs.at(closestSeg).end) shape_.segs.at(closestSeg).end.x += 1;
+		shape_.segs.put(wireSegment(GLPoint2f(hsPoint.x, min(hsPoint.y, shape_.segs.at(closestSeg).begin.y)), GLPoint2f(hsPoint.x, max(hsPoint.y, shape_.segs.at(closestSeg).begin.y)), true, shape_.nextID));
+		shape_.segs.at(closestSeg).intersects[hsPoint.x].push_back(shape_.nextID);
+		shape_.segs.at(shape_.nextID).intersects[shape_.segs.at(closestSeg).begin.y].push_back(closestSeg);
 	}
 	else { // create the horizontal seg
-		if (segMap.at(closestSeg).begin == segMap.at(closestSeg).end) segMap.at(closestSeg).end.y += 1;
-		segMap.put(wireSegment(GLPoint2f(min(hsPoint.x, segMap.at(closestSeg).begin.x), hsPoint.y), GLPoint2f(max(hsPoint.x, segMap.at(closestSeg).begin.x), hsPoint.y), false, nextSegID));
-		segMap.at(closestSeg).intersects[hsPoint.y].push_back(nextSegID);
-		segMap.at(nextSegID).intersects[segMap.at(closestSeg).begin.x].push_back(closestSeg);
+		if (shape_.segs.at(closestSeg).begin == shape_.segs.at(closestSeg).end) shape_.segs.at(closestSeg).end.y += 1;
+		shape_.segs.put(wireSegment(GLPoint2f(min(hsPoint.x, shape_.segs.at(closestSeg).begin.x), hsPoint.y), GLPoint2f(max(hsPoint.x, shape_.segs.at(closestSeg).begin.x), hsPoint.y), false, shape_.nextID));
+		shape_.segs.at(closestSeg).intersects[hsPoint.y].push_back(shape_.nextID);
+		shape_.segs.at(shape_.nextID).intersects[shape_.segs.at(closestSeg).begin.x].push_back(closestSeg);
 	}
-	segMap.at(nextSegID).connections.push_back(temp);
-	segMap.at(closestSeg).calcBBox();
-	segMap.at(nextSegID).calcBBox();
-	nextSegID++;
+	shape_.segs.at(shape_.nextID).connections.push_back(temp);
+	shape_.segs.at(closestSeg).calcBBox();
+	shape_.segs.at(shape_.nextID).calcBBox();
+	shape_.nextID++;
 	// Now merge the segments just so's there's no complaints
 	mergeSegments();
 	this->calcBBox();
@@ -167,8 +167,8 @@ void guiWire::removeConnection(IDType gid, string connection) {
 	this->detachSubObjects(); // prevent coll checker pointers from invalidating
 	// Now I need to find the segment with this thing and update the tree
 	long segID = 0; bool found = false;
-	map < long, wireSegment >::iterator segWalk = segMap.begin();
-	while (segWalk != segMap.end() && !found) {
+	map < long, wireSegment >::iterator segWalk = shape_.segs.begin();
+	while (segWalk != shape_.segs.end() && !found) {
 		for (unsigned int i = 0; i < (segWalk->second).connections.size(); i++) {
 			if ((segWalk->second).connections[i].gid == gid && (segWalk->second).connections[i].connection == connection) {
 				// We found the match, remove it
@@ -183,19 +183,19 @@ void guiWire::removeConnection(IDType gid, string connection) {
 	// Now trim the segment if necessary and walk back through the tree.
 	// Nothing to trim when no segment claimed the connection: segID is still 0,
 	// and indexing the map with it would invent a segment.
-	while (found && segMap.has(segID) &&
-	       segMap.at(segID).connections.size() == 0 && segMap.at(segID).intersects.size() == 1) {
+	while (found && shape_.segs.has(segID) &&
+	       shape_.segs.at(segID).connections.size() == 0 && shape_.segs.at(segID).intersects.size() == 1) {
 		long oldSegID = segID;
-		const vector< long > &nextIDs = segMap.at(oldSegID).intersects.begin()->second;
+		const vector< long > &nextIDs = shape_.segs.at(oldSegID).intersects.begin()->second;
 		if (nextIDs.empty()) break;
 		segID = nextIDs[0];
-		if (!segMap.has(segID)) break;
-		GLfloat mapKey = (segMap.at(segID).isVertical() ? segMap.at(oldSegID).begin.y : segMap.at(oldSegID).begin.x);
-		for (unsigned int i = 0; i < segMap.at(segID).intersects[mapKey].size(); i++) {
-			if (segMap.at(segID).intersects[mapKey][i] == oldSegID) segMap.at(segID).intersects[mapKey].erase(segMap.at(segID).intersects[mapKey].begin() + i);
+		if (!shape_.segs.has(segID)) break;
+		GLfloat mapKey = (shape_.segs.at(segID).isVertical() ? shape_.segs.at(oldSegID).begin.y : shape_.segs.at(oldSegID).begin.x);
+		for (unsigned int i = 0; i < shape_.segs.at(segID).intersects[mapKey].size(); i++) {
+			if (shape_.segs.at(segID).intersects[mapKey][i] == oldSegID) shape_.segs.at(segID).intersects[mapKey].erase(shape_.segs.at(segID).intersects[mapKey].begin() + i);
 		}
-		segMap.erase(oldSegID);
-		if (segMap.at(segID).intersects[mapKey].size() == 0) segMap.at(segID).intersects.erase(mapKey);
+		shape_.segs.erase(oldSegID);
+		if (shape_.segs.at(segID).intersects[mapKey].size() == 0) shape_.segs.at(segID).intersects.erase(mapKey);
 	}
 	// Refresh the tree
 	mergeSegments();
@@ -314,11 +314,11 @@ bool guiWire::hover(float cx, float cy, float delta) {
 	return false;
 }
 
-// Return the begin point of the initial vertical bar seg segMap.at(headSegment).  All other segs
+// Return the begin point of the initial vertical bar seg shape_.segs.at(shape_.head).  All other segs
 //	hold a delta to this so we know where to move them when the 
 //	user shifts the whole wire
 GLPoint2f guiWire::getCenter(void) {
-	return segMap.at(headSegment).begin;
+	return shape_.segs.at(shape_.head).begin;
 }
 
 void guiWire::move(GLPoint2f origin, GLPoint2f delta) {
@@ -329,19 +329,19 @@ void guiWire::move(GLPoint2f origin, GLPoint2f delta) {
 		if (!(gateOf(connectPoints[i])->isSelected())) return;
 	}
 
-	GLPoint2f realDelta = origin + delta - segMap.at(headSegment).begin;
+	GLPoint2f realDelta = origin + delta - shape_.segs.at(shape_.head).begin;
 
-	map < long, wireSegment >::iterator segWalk = segMap.begin();
+	map < long, wireSegment >::iterator segWalk = shape_.segs.begin();
 
 	// Walk the list from second seg on out to move segs by differentials
-	while (segWalk != segMap.end()) {
+	while (segWalk != shape_.segs.end()) {
 		(segWalk->second).begin += realDelta;
 		(segWalk->second).end += realDelta;
 		(segWalk->second).calcBBox();
 		segWalk++;
 	}
 	// Make sure the intersection maps have the correct points (since they moved)
-	cl::wire::refreshIntersections(segMap);
+	cl::wire::refreshIntersections(shape_.segs);
 
 	this->calcBBox();
 }
@@ -352,8 +352,8 @@ void guiWire::move(GLPoint2f origin, GLPoint2f delta) {
 void guiWire::calcBBox() {
 	this->detachSubObjects();
 
-	map < long, wireSegment >::iterator segWalk = segMap.begin();
-	while (segWalk != segMap.end()) {
+	map < long, wireSegment >::iterator segWalk = shape_.segs.begin();
+	while (segWalk != shape_.segs.end()) {
 		this->insertSubObject(&(segWalk->second));
 		segWalk++;
 	}
@@ -417,8 +417,8 @@ void guiWire::saveWire(XMLParser* xparse) {
 	// Save the tree
 	xparse->openTag("shape");
 	// Step through the map, save each seg's info
-	map < long, wireSegment >::iterator segWalk = segMap.begin();
-	while (segWalk != segMap.end()) {
+	map < long, wireSegment >::iterator segWalk = shape_.segs.begin();
+	while (segWalk != shape_.segs.end()) {
 		if ((segWalk->second).isVertical()) xparse->openTag("vsegment");
 		else xparse->openTag("hsegment");
 		// ID
@@ -480,8 +480,8 @@ void guiWire::saveWireLegacy(XMLParser* xparse) {
 	xparse->closeTag("ID");
 	// Save the tree (same as modern format)
 	xparse->openTag("shape");
-	map < long, wireSegment >::iterator segWalk = segMap.begin();
-	while (segWalk != segMap.end()) {
+	map < long, wireSegment >::iterator segWalk = shape_.segs.begin();
+	while (segWalk != shape_.segs.end()) {
 		if ((segWalk->second).isVertical()) xparse->openTag("vsegment");
 		else xparse->openTag("hsegment");
 		// ID
@@ -531,35 +531,35 @@ void guiWire::saveWireLegacy(XMLParser* xparse) {
 	xparse->closeTag("wire");
 }
 
-map < long, wireSegment > guiWire::getSegmentMap(void) { return segMap.store(); };
+map < long, wireSegment > guiWire::getSegmentMap(void) { return shape_.segs.store(); };
 
 // Atomically swap in a new segment tree: detach the collision sub-objects (raw
-// pointers into the segMap values we're about to destroy), move the new map in,
-// then rebuild the sub-object registration via calcBBox. Every wholesale segMap
+// pointers into the shape_.segs values we're about to destroy), move the new map in,
+// then rebuild the sub-object registration via calcBBox. Every wholesale shape_.segs
 // replacement routes through here so a reassignment can never leave the collision
 // checker holding a dangling pointer into a freed wireSegment.
 void guiWire::commitSegMap(map < long, wireSegment > newSegMap) {
 	this->detachSubObjects();
-	segMap = cl::wire::SegmentMap(std::move(newSegMap));
+	shape_.segs = cl::wire::SegmentMap(std::move(newSegMap));
 	this->calcBBox();
 }
 
 void guiWire::setSegmentMap(map < long, wireSegment > newSegMap) {
 	if (newSegMap.empty()) return; // no shape to adopt; keep the one we have
 	commitSegMap(std::move(newSegMap));
-	headSegment = ((segMap.begin())->first);
-	nextSegID = ((segMap.rbegin())->first) + 1;
+	shape_.head = ((shape_.segs.begin())->first);
+	shape_.nextID = ((shape_.segs.rbegin())->first) + 1;
 	endSegDrag();
 };
 
-map < long, wireSegment > guiWire::getOldSegmentMap(void) { return oldSegMap; };
+map < long, wireSegment > guiWire::getOldSegmentMap(void) { return shape_.before.store(); };
 
 // Calculates a default three-segment shape for the wire, from source to destination, squared halfway
 void guiWire::calcShape() {
 	this->detachSubObjects(); // prevent coll checker pointers from invalidating
 
 	// Get rid of the old shape
-	segMap.clear();
+	shape_.segs.clear();
 
 	// If there are less than 2 connect points then there is no reason to create a shape
 	if (connectPoints.size() < 2) return;
@@ -578,7 +578,7 @@ void guiWire::calcShape() {
 	// is effectively always a snap; trunkPos is only consulted when it isn't.
 	in.snapTrunk = setVerticalBar;
 	in.trunkPos = 0.0f;
-	in.nextId = nextSegID;
+	in.nextId = shape_.nextID;
 
 	cl::route::RouteResult routed = cl::route::TrunkRouter().route(in);
 
@@ -591,9 +591,9 @@ void guiWire::calcShape() {
 		for (const std::pair<float, long> &cr : rs.crossings)
 			ws.intersects[cr.first].push_back(cr.second);
 		ws.calcBBox();
-		segMap.put(ws);
+		shape_.segs.put(ws);
 	}
-	nextSegID = routed.nextId;
+	shape_.nextID = routed.nextId;
 
 	// Make sure the vertical bar is not reset unless I want it to be
 	setVerticalBar = false;
@@ -606,7 +606,7 @@ void guiWire::calcShape() {
 //	Takes a mouse pointer and finds the segment in question, initializing the segment drag operation
 bool guiWire::startSegDrag(klsCollisionObject* mouse) {
 	const cl::wire::Hotspots &hs = hotspots();
-	oldSegMap = segMap.store(); // store the initial mapping of the segment tree
+	shape_.before = shape_.segs; // store the initial mapping of the segment tree
 	// We should only reach this if we are hovering, so find the segment in question
 	CollisionGroup cg = this->checkSubsToObj(mouse);
 	// If there are no segments then we shouldn't drag one
@@ -621,14 +621,14 @@ bool guiWire::startSegDrag(klsCollisionObject* mouse) {
 	for (unsigned int i = 0; i < ((wireSegment*)(*cgWalk))->connections.size(); i++) {
 		vertex = hs.coordsOf(((wireSegment*)(*cgWalk))->connections[i]);
 		if (((wireSegment*)(*cgWalk))->isVertical()) {
-			segsToAddWhenFound.push_back(wireSegment(vertex, vertex, false, nextSegID++));
+			segsToAddWhenFound.push_back(wireSegment(vertex, vertex, false, shape_.nextID++));
 			segsToAddWhenFound[segsToAddWhenFound.size() - 1].intersects[vertex.x].push_back(((wireSegment*)(*cgWalk))->id);
 
 			segsToAddWhenFound[segsToAddWhenFound.size() - 1].connections.push_back(((wireSegment*)(*cgWalk))->connections[i]);
 			((wireSegment*)(*cgWalk))->intersects[vertex.y].push_back(segsToAddWhenFound[segsToAddWhenFound.size() - 1].id);
 		}
 		else { // just horizontal
-			segsToAddWhenFound.push_back(wireSegment(vertex, vertex, true, nextSegID++));
+			segsToAddWhenFound.push_back(wireSegment(vertex, vertex, true, shape_.nextID++));
 			segsToAddWhenFound[segsToAddWhenFound.size() - 1].intersects[vertex.y].push_back(((wireSegment*)(*cgWalk))->id);
 
 			segsToAddWhenFound[segsToAddWhenFound.size() - 1].connections.push_back(((wireSegment*)(*cgWalk))->connections[i]);
@@ -636,11 +636,11 @@ bool guiWire::startSegDrag(klsCollisionObject* mouse) {
 		}
 	}
 	((wireSegment*)(*cgWalk))->connections.clear();
-	currentDragSegment = ((wireSegment*)(*(cg.begin())))->id;
+	shape_.dragging = ((wireSegment*)(*(cg.begin())))->id;
 	for (unsigned int i = 0; i < segsToAddWhenFound.size(); i++) {
-		segMap.put(segsToAddWhenFound[i]);
+		shape_.segs.put(segsToAddWhenFound[i]);
 	}
-	mouseCoords = mouse->getBBox();
+	shape_.mouse = mouse->getBBox();
 	return true;
 }
 
@@ -648,23 +648,23 @@ bool guiWire::startSegDrag(klsCollisionObject* mouse) {
 //	while the associated segments are added/modified to keep
 //	our drag segment connected in the tree
 void guiWire::updateSegDrag(klsCollisionObject* mouse) {
-	if (currentDragSegment == -1) return; // break out on error, seg not set
+	if (shape_.dragging == -1) return; // break out on error, seg not set
 	const cl::wire::Hotspots &hs = hotspots();
-	wireSegment &drag = segMap.at(currentDragSegment);
+	wireSegment &drag = shape_.segs.at(shape_.dragging);
 	klsBBox newMouseCoords = mouse->getBBox();
 	wireSegment oldSegmentPos = drag;
 	if (drag.isVertical()) {
-		float diff = newMouseCoords.getLeft() - mouseCoords.getLeft();
+		float diff = newMouseCoords.getLeft() - shape_.mouse.getLeft();
 		drag.begin.x += diff;
 		drag.end.x += diff;
 	}
 	else {
-		float diff = newMouseCoords.getTop() - mouseCoords.getTop();
+		float diff = newMouseCoords.getTop() - shape_.mouse.getTop();
 		drag.begin.y += diff;
 		drag.end.y += diff;
 	}
 	drag.calcBBox();
-	cl::wire::refreshIntersections(segMap);
+	cl::wire::refreshIntersections(shape_.segs);
 	// Update the other segments by extending/shrinking
 	map < GLfloat, vector < long > >::iterator isectWalk = drag.intersects.begin();
 	while (isectWalk != drag.intersects.end()) {
@@ -672,7 +672,7 @@ void guiWire::updateSegDrag(klsCollisionObject* mouse) {
 		// 	if on endpoint, then shrink or grow intersected segment as necessary
 		// As well, since the key to the map is x coord for horizontal segs and y coord for vertical segs...
 		for (unsigned int z = 0; z < (isectWalk->second).size(); z++) {
-			wireSegment* ws = segMap.find((isectWalk->second)[z]);
+			wireSegment* ws = shape_.segs.find((isectWalk->second)[z]);
 			if (ws == NULL) continue;  // stale id, never invent one
 			float hsMin = FLT_MAX, hsMax = -FLT_MAX;
 			// For endpoints on an intersected segment, there are three options:
@@ -718,10 +718,10 @@ void guiWire::updateSegDrag(klsCollisionObject* mouse) {
 		isectWalk++;
 	}
 
-	cl::wire::refreshIntersections(segMap);
+	cl::wire::refreshIntersections(shape_.segs);
 
 	this->calcBBox();
-	mouseCoords = mouse->getBBox();
+	shape_.mouse = mouse->getBBox();
 
 	generateRenderInfo();
 }
@@ -730,7 +730,7 @@ void guiWire::updateSegDrag(klsCollisionObject* mouse) {
 void guiWire::endSegDrag() {
 	this->detachSubObjects(); // prevent coll checker pointers from invalidating
 	// Reset the drag segment var
-	currentDragSegment = -1;
+	shape_.dragging = -1;
 	// merge segments to get rid of messiness
 	mergeSegments();
 	this->calcBBox();
@@ -744,14 +744,14 @@ void guiWire::updateConnectionPos(unsigned long gid, string connection) {
 	bool foundit = false;
 	GLPoint2f newLocation;
 	unsigned int connID = 0;
-	map < long, wireSegment >::iterator segWalk = segMap.begin();
+	map < long, wireSegment >::iterator segWalk = shape_.segs.begin();
 
-	while (segWalk != segMap.end() && !foundit) {
+	while (segWalk != shape_.segs.end() && !foundit) {
 		for (unsigned int j = 0; j < (segWalk->second).connections.size() && !foundit; j++) {
 			if ((segWalk->second).connections[j].gid == gid && (segWalk->second).connections[j].connection == connection) {
 				newLocation = hs.coordsOf((segWalk->second).connections[j]);
 				foundit = true;
-				currentDragSegment = (segWalk->first);
+				shape_.dragging = (segWalk->first);
 				connID = j;
 				break;
 			}
@@ -761,96 +761,96 @@ void guiWire::updateConnectionPos(unsigned long gid, string connection) {
 	if (!foundit) return;
 	this->detachSubObjects(); // prevent coll checker pointers from invalidating
 	klsBBox origin;
-	if (!hs.isVertical(segMap.at(currentDragSegment).connections[connID])) {
+	if (!hs.isVertical(shape_.segs.at(shape_.dragging).connections[connID])) {
 		// We found the segment we're looking for
-		if (segMap.at(currentDragSegment).isVertical()) {
+		if (shape_.segs.at(shape_.dragging).isVertical()) {
 			// If the seg is vertical then create a horizontal seg to handle the connection and remove the connection from the vertical seg
-			segMap.put(wireSegment(newLocation, GLPoint2f(segMap.at(currentDragSegment).begin.x, newLocation.y), false, nextSegID));
-			segMap.at(nextSegID).intersects[segMap.at(currentDragSegment).begin.x].push_back(currentDragSegment);
-			segMap.at(nextSegID).connections.push_back(segMap.at(currentDragSegment).connections[connID]);
-			segMap.at(currentDragSegment).intersects[newLocation.y].push_back(nextSegID);
-			segMap.at(currentDragSegment).connections.erase(segMap.at(currentDragSegment).connections.begin() + connID);
+			shape_.segs.put(wireSegment(newLocation, GLPoint2f(shape_.segs.at(shape_.dragging).begin.x, newLocation.y), false, shape_.nextID));
+			shape_.segs.at(shape_.nextID).intersects[shape_.segs.at(shape_.dragging).begin.x].push_back(shape_.dragging);
+			shape_.segs.at(shape_.nextID).connections.push_back(shape_.segs.at(shape_.dragging).connections[connID]);
+			shape_.segs.at(shape_.dragging).intersects[newLocation.y].push_back(shape_.nextID);
+			shape_.segs.at(shape_.dragging).connections.erase(shape_.segs.at(shape_.dragging).connections.begin() + connID);
 			// Now we'll handle the horizontal seg
-			currentDragSegment = nextSegID;
-			nextSegID++;
+			shape_.dragging = shape_.nextID;
+			shape_.nextID++;
 			connID = 0;
 		}
 		// make new segs for other connections on my selected segment
-		for (unsigned int j = 0; j < segMap.at(currentDragSegment).connections.size(); j++) {
+		for (unsigned int j = 0; j < shape_.segs.at(shape_.dragging).connections.size(); j++) {
 			if (j != connID) {
 				GLPoint2f connPoint;
-				connPoint = hs.coordsOf(segMap.at(currentDragSegment).connections[j]);
-				segMap.put(wireSegment(connPoint, connPoint, true, nextSegID));
-				segMap.at(nextSegID).intersects[connPoint.y].push_back(currentDragSegment);
-				segMap.at(nextSegID).connections.push_back(segMap.at(currentDragSegment).connections[j]);
-				segMap.at(currentDragSegment).intersects[connPoint.x].push_back(nextSegID);
-				nextSegID++;
+				connPoint = hs.coordsOf(shape_.segs.at(shape_.dragging).connections[j]);
+				shape_.segs.put(wireSegment(connPoint, connPoint, true, shape_.nextID));
+				shape_.segs.at(shape_.nextID).intersects[connPoint.y].push_back(shape_.dragging);
+				shape_.segs.at(shape_.nextID).connections.push_back(shape_.segs.at(shape_.dragging).connections[j]);
+				shape_.segs.at(shape_.dragging).intersects[connPoint.x].push_back(shape_.nextID);
+				shape_.nextID++;
 			}
 		}
 		// Reseat the connection on this horizontal seg
-		wireConnection wc = segMap.at(currentDragSegment).connections[connID];
-		segMap.at(currentDragSegment).connections.clear();
-		segMap.at(currentDragSegment).connections.push_back(wc);
+		wireConnection wc = shape_.segs.at(shape_.dragging).connections[connID];
+		shape_.segs.at(shape_.dragging).connections.clear();
+		shape_.segs.at(shape_.dragging).connections.push_back(wc);
 		// Extend/shrink the endpoints if necessary, if in the middle then no mod necessary
 		GLPoint2f hsPoint;
-		map < GLfloat, vector < long > >::iterator wsLeft = segMap.at(currentDragSegment).intersects.begin();
-		float isectLeft = (wsLeft != segMap.at(currentDragSegment).intersects.end() ? wsLeft->first : FLT_MAX);
-		map < GLfloat, vector < long > >::reverse_iterator wsRight = segMap.at(currentDragSegment).intersects.rbegin();
-		float isectRight = (wsRight != segMap.at(currentDragSegment).intersects.rend() ? wsRight->first : -FLT_MAX);
-		origin.addPoint(GLPoint2f(0, segMap.at(currentDragSegment).begin.y));
-		mouseCoords = origin;
-		segMap.at(currentDragSegment).begin.x = min(newLocation.x, isectLeft);
-		segMap.at(currentDragSegment).end.x = max(newLocation.x, isectRight);
+		map < GLfloat, vector < long > >::iterator wsLeft = shape_.segs.at(shape_.dragging).intersects.begin();
+		float isectLeft = (wsLeft != shape_.segs.at(shape_.dragging).intersects.end() ? wsLeft->first : FLT_MAX);
+		map < GLfloat, vector < long > >::reverse_iterator wsRight = shape_.segs.at(shape_.dragging).intersects.rbegin();
+		float isectRight = (wsRight != shape_.segs.at(shape_.dragging).intersects.rend() ? wsRight->first : -FLT_MAX);
+		origin.addPoint(GLPoint2f(0, shape_.segs.at(shape_.dragging).begin.y));
+		shape_.mouse = origin;
+		shape_.segs.at(shape_.dragging).begin.x = min(newLocation.x, isectLeft);
+		shape_.segs.at(shape_.dragging).end.x = max(newLocation.x, isectRight);
 		origin.reset();
 		origin.addPoint(GLPoint2f(0, newLocation.y));
 	}
 	else {
 		// We found the segment we're looking for
-		if (segMap.at(currentDragSegment).isHorizontal()) {
+		if (shape_.segs.at(shape_.dragging).isHorizontal()) {
 			// If the seg is horizontal then create a vertical seg to handle the connection and remove the connection from the horizontal seg
-			segMap.put(wireSegment(newLocation, GLPoint2f(newLocation.x, segMap.at(currentDragSegment).begin.y), true, nextSegID));
-			segMap.at(nextSegID).intersects[segMap.at(currentDragSegment).begin.y].push_back(currentDragSegment);
-			segMap.at(nextSegID).connections.push_back(segMap.at(currentDragSegment).connections[connID]);
-			segMap.at(currentDragSegment).intersects[newLocation.x].push_back(nextSegID);
-			segMap.at(currentDragSegment).connections.erase(segMap.at(currentDragSegment).connections.begin() + connID);
+			shape_.segs.put(wireSegment(newLocation, GLPoint2f(newLocation.x, shape_.segs.at(shape_.dragging).begin.y), true, shape_.nextID));
+			shape_.segs.at(shape_.nextID).intersects[shape_.segs.at(shape_.dragging).begin.y].push_back(shape_.dragging);
+			shape_.segs.at(shape_.nextID).connections.push_back(shape_.segs.at(shape_.dragging).connections[connID]);
+			shape_.segs.at(shape_.dragging).intersects[newLocation.x].push_back(shape_.nextID);
+			shape_.segs.at(shape_.dragging).connections.erase(shape_.segs.at(shape_.dragging).connections.begin() + connID);
 			// Now we'll handle the horizontal seg
-			currentDragSegment = nextSegID;
-			nextSegID++;
+			shape_.dragging = shape_.nextID;
+			shape_.nextID++;
 			connID = 0;
 		}
 		// make new segs for other connections on my selected segment
-		for (unsigned int j = 0; j < segMap.at(currentDragSegment).connections.size(); j++) {
+		for (unsigned int j = 0; j < shape_.segs.at(shape_.dragging).connections.size(); j++) {
 			if (j != connID) {
 				GLPoint2f connPoint;
-				connPoint = hs.coordsOf(segMap.at(currentDragSegment).connections[j]);
-				segMap.put(wireSegment(connPoint, connPoint, false, nextSegID));
-				segMap.at(nextSegID).intersects[connPoint.x].push_back(currentDragSegment);
-				segMap.at(nextSegID).connections.push_back(segMap.at(currentDragSegment).connections[j]);
-				segMap.at(currentDragSegment).intersects[connPoint.y].push_back(nextSegID);
-				nextSegID++;
+				connPoint = hs.coordsOf(shape_.segs.at(shape_.dragging).connections[j]);
+				shape_.segs.put(wireSegment(connPoint, connPoint, false, shape_.nextID));
+				shape_.segs.at(shape_.nextID).intersects[connPoint.x].push_back(shape_.dragging);
+				shape_.segs.at(shape_.nextID).connections.push_back(shape_.segs.at(shape_.dragging).connections[j]);
+				shape_.segs.at(shape_.dragging).intersects[connPoint.y].push_back(shape_.nextID);
+				shape_.nextID++;
 			}
 		}
 		// Reseat the connection on this vertical seg
-		wireConnection wc = segMap.at(currentDragSegment).connections[connID];
-		segMap.at(currentDragSegment).connections.clear();
-		segMap.at(currentDragSegment).connections.push_back(wc);
+		wireConnection wc = shape_.segs.at(shape_.dragging).connections[connID];
+		shape_.segs.at(shape_.dragging).connections.clear();
+		shape_.segs.at(shape_.dragging).connections.push_back(wc);
 		// Extend/shrink the endpoints if necessary, if in the middle then no mod necessary
 		GLPoint2f hsPoint;
-		map < GLfloat, vector < long > >::iterator wsBottom = segMap.at(currentDragSegment).intersects.begin();
-		float isectBottom = (wsBottom != segMap.at(currentDragSegment).intersects.end() ? wsBottom->first : FLT_MAX);
-		map < GLfloat, vector < long > >::reverse_iterator wsTop = segMap.at(currentDragSegment).intersects.rbegin();
-		float isectTop = (wsTop != segMap.at(currentDragSegment).intersects.rend() ? wsTop->first : -FLT_MAX);
-		origin.addPoint(GLPoint2f(segMap.at(currentDragSegment).begin.x, 0));
-		mouseCoords = origin;
-		segMap.at(currentDragSegment).begin.y = min(newLocation.y, isectBottom);
-		segMap.at(currentDragSegment).end.y = max(newLocation.y, isectTop);
+		map < GLfloat, vector < long > >::iterator wsBottom = shape_.segs.at(shape_.dragging).intersects.begin();
+		float isectBottom = (wsBottom != shape_.segs.at(shape_.dragging).intersects.end() ? wsBottom->first : FLT_MAX);
+		map < GLfloat, vector < long > >::reverse_iterator wsTop = shape_.segs.at(shape_.dragging).intersects.rbegin();
+		float isectTop = (wsTop != shape_.segs.at(shape_.dragging).intersects.rend() ? wsTop->first : -FLT_MAX);
+		origin.addPoint(GLPoint2f(shape_.segs.at(shape_.dragging).begin.x, 0));
+		shape_.mouse = origin;
+		shape_.segs.at(shape_.dragging).begin.y = min(newLocation.y, isectBottom);
+		shape_.segs.at(shape_.dragging).end.y = max(newLocation.y, isectTop);
 		origin.reset();
 		origin.addPoint(GLPoint2f(newLocation.x, 0));
 	}
 	klsCollisionObject shiftLocation(COLL_MOUSEBOX);
 	shiftLocation.setBBox(origin);
-	segMap.at(currentDragSegment).calcBBox();
-	cl::wire::refreshIntersections(segMap);
+	shape_.segs.at(shape_.dragging).calcBBox();
+	cl::wire::refreshIntersections(shape_.segs);
 	// Let updateSegDrag figure out other segments for us
 	updateSegDrag(&shiftLocation);
 }
@@ -860,7 +860,7 @@ void guiWire::updateConnectionPos(unsigned long gid, string connection) {
 // buying: the sub-objects point into segments the tidying is about to free.
 void guiWire::mergeSegments() {
 	this->detachSubObjects();
-	cl::wire::mergeSegments(segMap, hotspots(), connectPoints, headSegment, nextSegID);
+	cl::wire::mergeSegments(shape_.segs, hotspots(), connectPoints, shape_.head, shape_.nextID);
 	this->calcBBox();
 	generateRenderInfo();
 }
@@ -883,8 +883,8 @@ void guiWire::generateRenderInfo() {
 	}
 
 	// lines and segment intersections
-	map < long, wireSegment >::iterator segWalk = segMap.begin();
-	while (segWalk != segMap.end()) {
+	map < long, wireSegment >::iterator segWalk = shape_.segs.begin();
+	while (segWalk != shape_.segs.end()) {
 		glLine.begin = GLPoint2f((segWalk->second).begin.x, (segWalk->second).begin.y);
 		glLine.end = GLPoint2f((segWalk->second).end.x, (segWalk->second).end.y);
 

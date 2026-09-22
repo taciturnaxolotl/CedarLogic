@@ -19,6 +19,7 @@
 #include "wireSegment.h"
 #include "wire/Hotspots.h"
 #include "wire/SegmentMap.h"
+#include "wire/WireShape.h"
 
 // Engine-neutral rendering seam (Workstream G); defined in gui/render/.
 namespace cl { namespace render { class Scene; struct RenderStyle; } }
@@ -197,10 +198,9 @@ private:
 
 
 
-	// Store the tree in a non-pointered way for easy copy
-	cl::wire::SegmentMap segMap;
-	map < long, wireSegment > oldSegMap;
-	long nextSegID;
+	// The segments, and everything that has to travel with them: the undo
+	// snapshot, the id the next segment takes, the head, and the drag state.
+	cl::wire::WireShape shape_;
 
 	// What is the whole wire connected to?
 	vector< wireConnection > connectPoints;
@@ -208,8 +208,7 @@ private:
 	// Instance vars
 	bool selected;
 	bool setVerticalBar;
-	long headSegment; // reference segment
-	
+
 	// The wire ids for each wire in the bus.
 	// These same ids are used in the gui and logic systems.
 	// There are maps of id to guiWire in GUICircuit and GUICanvas.
@@ -220,11 +219,6 @@ private:
 	// The state for each wire in the bus.
 	// Most wires will have a vector of size 1.
 	std::vector<StateType> state;
-	
-	klsBBox mouseCoords;
-
-	// Handle a pointer for the segment being moved, -1 if not set
-	long currentDragSegment;
 
 	glWireRenderInfo renderInfo;
 };
