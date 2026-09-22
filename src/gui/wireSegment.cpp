@@ -33,5 +33,5 @@ wireSegment::wireSegment(GLPoint2f nB, GLPoint2f nE, bool nisVertical, unsigned 
 	calcBBox();
 };
 SegAxis wireSegment::axis() const {
-	return SegAxis::of(*this);
+	return SegAxis{ verticalSeg };
 }

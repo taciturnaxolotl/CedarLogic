@@ -75,8 +75,6 @@ struct SegAxis {
 	// True when the segment runs along y.
 	bool vertical = false;
 
-	static SegAxis of(const wireSegment &s) { return SegAxis{ s.verticalSeg }; }
-
 	SegAxis perp() const { return SegAxis{ !vertical }; }
 
 	bool matches(const wireSegment &s) const { return s.verticalSeg == vertical; }
@@ -86,18 +84,13 @@ struct SegAxis {
 	GLfloat along(const GLPoint2f &p) const { return vertical ? p.y : p.x; }
 	GLfloat across(const GLPoint2f &p) const { return vertical ? p.x : p.y; }
 
-	// A point built from axis-relative values. GLPoint2f is always (x, y).
-	GLPoint2f point(GLfloat a, GLfloat c) const {
-		return vertical ? GLPoint2f(c, a) : GLPoint2f(a, c);
-	}
-
-	// The edge of a mouse box a drag measures its movement from, on the axis it
-	// moves along. Not a mirror, and deliberately so: an upright segment moves
-	// along x and reads the far edge, a flat one moves along y and reads the
-	// near edge. Every caller passes a point box today, where the two agree, so
-	// a rewrite that "corrected" this would change nothing visible and quietly
-	// break the first caller that ever passes a real extent.
-	GLfloat acrossEdge(klsBBox &b) const { return vertical ? b.getTop() : b.getLeft(); }
+	// The edge of a mouse box a drag measures its movement from. Not a mirror,
+	// and deliberately so: dragging an upright segment reads the near edge in x
+	// and dragging a flat one the far edge in y, which is what the drags have
+	// always done. Every caller passes a point box today, where the two agree,
+	// so a rewrite that "corrected" this would change nothing visible and
+	// quietly break the first caller that ever passes a real extent.
+	GLfloat acrossEdge(klsBBox &b) const { return vertical ? b.getLeft() : b.getTop(); }
 };
 
 #endif

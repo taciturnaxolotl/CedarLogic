@@ -88,7 +88,7 @@ void mergeSegments(SegmentMap &segs, const Hotspots &hs,
 		// Taken from the segment the walk started on, and not from cSeg: a merge
 		// reassigns cSeg to the segment it joined, and the two are the same
 		// orientation by construction, so asking again would only obscure that.
-		const SegAxis a = SegAxis::of(*cSeg);
+		const SegAxis a = cSeg->axis();
 		bool found = false;
 
 		// Walk the list of new segments to see if we need to merge with any of them
@@ -213,7 +213,7 @@ void refreshIntersections(SegmentMap &segs) {
 				// Resolve without inventing; a stale id is dropped.
 				const wireSegment *target = segs.find((isectWalk->second)[j]);
 				if (target == NULL) continue;
-				refreshMap[SegAxis::of(segWalk->second).along(target->begin)].push_back((isectWalk->second)[j]);
+				refreshMap[segWalk->second.axis().along(target->begin)].push_back((isectWalk->second)[j]);
 			}
 			isectWalk++;
 		}

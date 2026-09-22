@@ -22,8 +22,8 @@ klsBBox boxSpanning(float x0, float y0, float x1, float y1) {
 }  // namespace
 
 TEST_CASE("along and across pick the coordinate the orientation asks for") {
-	SegAxis v = SegAxis::of(upright());
-	SegAxis h = SegAxis::of(flat());
+	SegAxis v = upright().axis();
+	SegAxis h = flat().axis();
 	GLPoint2f p(3, 7);
 
 	CHECK(v.along(p) == 7);
@@ -35,7 +35,7 @@ TEST_CASE("along and across pick the coordinate the orientation asks for") {
 TEST_CASE("along and across can be written through") {
 	// They hand back a reference, not a copy. Returning by value would compile
 	// just as happily and silently discard every assignment.
-	SegAxis v = SegAxis::of(upright());
+	SegAxis v = upright().axis();
 	GLPoint2f p(3, 7);
 
 	v.along(p) = 11;
@@ -47,16 +47,8 @@ TEST_CASE("along and across can be written through") {
 	CHECK(p.y == 11);
 }
 
-TEST_CASE("a point is rebuilt in x,y order whichever way the axis runs") {
-	SegAxis v{ true };
-	SegAxis h{ false };
-
-	CHECK(v.point(4, 9) == GLPoint2f(9, 4));   // along is y
-	CHECK(h.point(4, 9) == GLPoint2f(4, 9));   // along is x
-}
-
 TEST_CASE("perp flips, and matches compares") {
-	SegAxis v = SegAxis::of(upright());
+	SegAxis v = upright().axis();
 
 	CHECK(v.perp().vertical == false);
 	CHECK(v.perp().perp().vertical == true);
@@ -69,17 +61,18 @@ TEST_CASE("a segment knows its own axis") {
 	CHECK(flat().axis().vertical == false);
 }
 
-TEST_CASE("the mouse edge read is the near one across x and the far one across y") {
+TEST_CASE("the mouse edge read is left for upright and top for flat") {
 	// Not a mirror, and deliberately so: this is what the drags have always
-	// read. Every caller passes a point box today, where the two agree, so a
-	// rewrite that "fixed" it would change nothing visible and break the first
-	// caller that ever passes a real extent.
+	// read, and a drag asks on the axis it moves along, which is the
+	// perpendicular of the segment being dragged. Every caller passes a point
+	// box today, where the two edges agree, so a rewrite that "fixed" it would
+	// change nothing visible and break the first caller that passes an extent.
 	SegAxis v{ true };
 	SegAxis h{ false };
 	klsBBox b = boxSpanning(2, 3, 8, 9);
 
-	CHECK(h.acrossEdge(b) == 2);   // left, the near edge in x
-	CHECK(v.acrossEdge(b) == 9);   // top, the far edge in y
+	CHECK(v.acrossEdge(b) == 2);   // left
+	CHECK(h.acrossEdge(b) == 9);   // top
 
 	// On a point box, which is all a drag ever gets, they coincide.
 	klsBBox point = boxSpanning(5, 5, 5, 5);

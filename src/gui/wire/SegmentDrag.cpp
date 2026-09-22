@@ -27,22 +27,16 @@ bool beginSegDrag(long segID, WireShape &shape, const Hotspots &hs, const klsBBo
 	// Don't mess up the pointers; just add to this vector until we don't need the pointer anymore
 	vector < wireSegment > segsToAddWhenFound;
 	// Check connections on the current seg, if we need to extend segments to connections then do it
+	// Each connection gets a stub of its own, facing the other way to the
+	// segment it is being lifted off, meeting it at the connection's position.
+	const SegAxis a = picked->axis();
 	for (unsigned int i = 0; i < picked->connections.size(); i++) {
 		vertex = hs.coordsOf(picked->connections[i]);
-		if (picked->isVertical()) {
-			segsToAddWhenFound.push_back(wireSegment(vertex, vertex, false, shape.nextID++));
-			segsToAddWhenFound.back().intersects[vertex.x].push_back(picked->id);
-
-			segsToAddWhenFound.back().connections.push_back(picked->connections[i]);
-			picked->intersects[vertex.y].push_back(segsToAddWhenFound.back().id);
-		}
-		else { // just horizontal
-			segsToAddWhenFound.push_back(wireSegment(vertex, vertex, true, shape.nextID++));
-			segsToAddWhenFound.back().intersects[vertex.y].push_back(picked->id);
-
-			segsToAddWhenFound[segsToAddWhenFound.size() - 1].connections.push_back(picked->connections[i]);
-			picked->intersects[vertex.x].push_back(segsToAddWhenFound[segsToAddWhenFound.size() - 1].id);
-		}
+		segsToAddWhenFound.push_back(wireSegment(vertex, vertex, !a.vertical, shape.nextID++));
+		wireSegment &stub = segsToAddWhenFound.back();
+		stub.intersects[a.across(vertex)].push_back(picked->id);
+		stub.connections.push_back(picked->connections[i]);
+		picked->intersects[a.along(vertex)].push_back(stub.id);
 	}
 	picked->connections.clear();
 	shape.dragging = picked->id;
@@ -59,18 +53,16 @@ bool beginSegDrag(long segID, WireShape &shape, const Hotspots &hs, const klsBBo
 void updateSegDrag(WireShape &shape, const Hotspots &hs, const klsBBox &mouse) {
 	if (shape.dragging == -1) return; // break out on error, seg not set
 	wireSegment &drag = shape.segs.at(shape.dragging);
+	// A drag slides the segment across itself, so the movement is measured and
+	// written on the axis the segment does not run along. The mouse edge is read
+	// against the segment's own axis, which is what makes it the near edge for an
+	// upright drag and the far edge for a flat one.
+	const SegAxis dragAxis = drag.axis();
+	const SegAxis a = dragAxis.perp();
 	klsBBox newMouseCoords = mouse;
-	wireSegment oldSegmentPos = drag;
-	if (drag.isVertical()) {
-		float diff = newMouseCoords.getLeft() - shape.mouse.getLeft();
-		drag.begin.x += diff;
-		drag.end.x += diff;
-	}
-	else {
-		float diff = newMouseCoords.getTop() - shape.mouse.getTop();
-		drag.begin.y += diff;
-		drag.end.y += diff;
-	}
+	float diff = dragAxis.acrossEdge(newMouseCoords) - dragAxis.acrossEdge(shape.mouse);
+	a.along(drag.begin) += diff;
+	a.along(drag.end) += diff;
 	drag.calcBBox();
 	refreshIntersections(shape.segs);
 	// Update the other segments by extending/shrinking
@@ -86,42 +78,21 @@ void updateSegDrag(WireShape &shape, const Hotspots &hs, const klsBBox &mouse) {
 			// For endpoints on an intersected segment, there are three options:
 			//		the dragged seg, the extreme hotspot, or the extreme intersection
 			//		As always, begin is min, end is max
-			if (drag.isVertical()) {
-				// Extend/shrink the endpoints if necessary, if in the middle then no mod necessary
-				for (unsigned int i = 0; i < ws->connections.size(); i++) {
-					GLPoint2f hsPoint;
-					hsPoint = hs.coordsOf(ws->connections[i]);
-					hsMin = std::min(hsMin, hsPoint.x);
-					hsMax = std::max(hsMax, hsPoint.x);
-				}
-				map < GLfloat, vector < long > >::iterator wsLeft = ws->intersects.begin();
-				float isectLeft = (wsLeft != ws->intersects.end() ? wsLeft->first : FLT_MAX);
-				map < GLfloat, vector < long > >::reverse_iterator wsRight = ws->intersects.rbegin();
-				float isectRight = (wsRight != ws->intersects.rend() ? wsRight->first : -FLT_MAX);
-				ws->begin.x = std::min(drag.begin.x, hsMin);
-				ws->begin.x = std::min(ws->begin.x, isectLeft);
-				ws->end.x = std::max(drag.begin.x, hsMax);
-				ws->end.x = std::max(ws->end.x, isectRight);
-				ws->calcBBox();
+			// Extend/shrink the endpoints if necessary, if in the middle then no mod necessary
+			for (unsigned int i = 0; i < ws->connections.size(); i++) {
+				GLPoint2f hsPoint = hs.coordsOf(ws->connections[i]);
+				hsMin = std::min(hsMin, a.along(hsPoint));
+				hsMax = std::max(hsMax, a.along(hsPoint));
 			}
-			else {
-				// Extend/shrink the endpoints if necessary, if in the middle then no mod necessary
-				for (unsigned int i = 0; i < ws->connections.size(); i++) {
-					GLPoint2f hsPoint;
-					hsPoint = hs.coordsOf(ws->connections[i]);
-					hsMin = std::min(hsMin, hsPoint.y);
-					hsMax = std::max(hsMax, hsPoint.y);
-				}
-				map < GLfloat, vector < long > >::iterator wsBottom = ws->intersects.begin();
-				float isectBottom = (wsBottom != ws->intersects.end() ? wsBottom->first : FLT_MAX);
-				map < GLfloat, vector < long > >::reverse_iterator wsTop = ws->intersects.rbegin();
-				float isectTop = (wsTop != ws->intersects.rend() ? wsTop->first : -FLT_MAX);
-				ws->begin.y = std::min(drag.begin.y, hsMin);
-				ws->begin.y = std::min(ws->begin.y, isectBottom);
-				ws->end.y = std::max(drag.begin.y, hsMax);
-				ws->end.y = std::max(ws->end.y, isectTop);
-				ws->calcBBox();
-			}
+			map < GLfloat, vector < long > >::iterator wsNear = ws->intersects.begin();
+			float isectNear = (wsNear != ws->intersects.end() ? wsNear->first : FLT_MAX);
+			map < GLfloat, vector < long > >::reverse_iterator wsFar = ws->intersects.rbegin();
+			float isectFar = (wsFar != ws->intersects.rend() ? wsFar->first : -FLT_MAX);
+			a.along(ws->begin) = std::min(a.along(drag.begin), hsMin);
+			a.along(ws->begin) = std::min(a.along(ws->begin), isectNear);
+			a.along(ws->end) = std::max(a.along(drag.begin), hsMax);
+			a.along(ws->end) = std::max(a.along(ws->end), isectFar);
+			ws->calcBBox();
 		}
 		isectWalk++;
 	}
