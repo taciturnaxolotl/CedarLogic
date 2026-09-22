@@ -85,6 +85,10 @@ void mergeSegments(SegmentMap &segs, const Hotspots &hs,
 
 	while (segWalk != segs.end()) {
 		wireSegment* cSeg = &(segWalk->second);
+		// Taken from the segment the walk started on, and not from cSeg: a merge
+		// reassigns cSeg to the segment it joined, and the two are the same
+		// orientation by construction, so asking again would only obscure that.
+		const SegAxis a = SegAxis::of(*cSeg);
 		bool found = false;
 
 		// Walk the list of new segments to see if we need to merge with any of them
@@ -97,16 +101,15 @@ void mergeSegments(SegmentMap &segs, const Hotspots &hs,
 		while (walkNewSegs != newSegMap.end()) {
 			wireSegment* nSeg = &(walkNewSegs->second);
 			// Only merge with segs of same orientation
-			if (cSeg->isVertical() != nSeg->isVertical()) { walkNewSegs++; continue; }
+			if (!a.matches(*nSeg)) { walkNewSegs++; continue; }
 			// Now check channel, if not the same then don't bother
-			if (cSeg->isVertical() && (cSeg->begin.x != nSeg->begin.x)) { walkNewSegs++; continue; }
-			if (cSeg->isHorizontal() && (cSeg->begin.y != nSeg->begin.y)) { walkNewSegs++; continue; }
-			// Now a valid check can be made on endpoints.  Consider that for horizontal
-			//	segments, begin's x is always less than end's x (same for y's in vertical)
-			if (cSeg->isVertical() && ((cSeg->begin.y >= nSeg->begin.y - EQUALRANGE && cSeg->begin.y <= nSeg->end.y + EQUALRANGE) ||
-				(cSeg->end.y >= nSeg->begin.y - EQUALRANGE && cSeg->end.y <= nSeg->end.y + EQUALRANGE) ||
-				(nSeg->begin.y >= cSeg->begin.y - EQUALRANGE && nSeg->begin.y <= cSeg->end.y + EQUALRANGE) ||
-				(nSeg->end.y >= cSeg->begin.y - EQUALRANGE && nSeg->end.y <= cSeg->end.y + EQUALRANGE))) {
+			if (a.across(cSeg->begin) != a.across(nSeg->begin)) { walkNewSegs++; continue; }
+			// Now a valid check can be made on endpoints.  Consider that begin's
+			//	coordinate along the axis is always less than end's
+			if ((a.along(cSeg->begin) >= a.along(nSeg->begin) - EQUALRANGE && a.along(cSeg->begin) <= a.along(nSeg->end) + EQUALRANGE) ||
+				(a.along(cSeg->end) >= a.along(nSeg->begin) - EQUALRANGE && a.along(cSeg->end) <= a.along(nSeg->end) + EQUALRANGE) ||
+				(a.along(nSeg->begin) >= a.along(cSeg->begin) - EQUALRANGE && a.along(nSeg->begin) <= a.along(cSeg->end) + EQUALRANGE) ||
+				(a.along(nSeg->end) >= a.along(cSeg->begin) - EQUALRANGE && a.along(nSeg->end) <= a.along(cSeg->end) + EQUALRANGE)) {
 				// Bounds are checked and the segments need merged.  Always merge to the segment
 				//	already in the new seg list.  Begin point becomes min of the begin points,
 				//	end point becomes max of the end points, connections are pushed on the vector
@@ -123,51 +126,14 @@ void mergeSegments(SegmentMap &segs, const Hotspots &hs,
 				GLPoint2f hsPoint; float hsMin = FLT_MAX, hsMax = -FLT_MAX;
 				for (unsigned int i = 0; i < nSeg->connections.size(); i++) {
 					hsPoint = hs.coordsOf(nSeg->connections[i]);
-					hsMin = std::min(hsMin, hsPoint.y);
-					hsMax = std::max(hsMax, hsPoint.y);
+					hsMin = std::min(hsMin, a.along(hsPoint));
+					hsMax = std::max(hsMax, a.along(hsPoint));
 				}
 				// We'd better not trim endpoints here because future segments might merge on them!!
-				nSeg->begin.y = std::min(hsMin, nSeg->begin.y);
-				nSeg->begin.y = std::min(nSeg->begin.y, (nSeg->intersects.size() > 0 ? nSeg->intersects.begin()->first : FLT_MAX));
-				nSeg->end.y = std::max(hsMax, nSeg->end.y);
-				nSeg->end.y = std::max(nSeg->end.y, (nSeg->intersects.size() > 0 ? nSeg->intersects.rbegin()->first : -FLT_MAX));
-				mapIDs[cSeg->id] = nSeg->id;
-				if (mergingInMap) {
-					// We're merging internally within the map, so get rid of the other seg
-					newSegMap.erase(cSeg->id);
-					break; // merged twice, so surely positively done this seg.
-				}
-				cSeg = nSeg;
-				found = mergingInMap = true;
-			}
-			else if (cSeg->isHorizontal() && ((cSeg->begin.x >= nSeg->begin.x - EQUALRANGE && cSeg->begin.x <= nSeg->end.x + EQUALRANGE) ||
-				(cSeg->end.x >= nSeg->begin.x - EQUALRANGE && cSeg->end.x <= nSeg->end.x + EQUALRANGE) ||
-				(nSeg->begin.x >= cSeg->begin.x - EQUALRANGE && nSeg->begin.x <= cSeg->end.x + EQUALRANGE) ||
-				(nSeg->end.x >= cSeg->begin.x - EQUALRANGE && nSeg->end.x <= cSeg->end.x + EQUALRANGE))) {
-				// Bounds are checked and the segments need merged.  Always merge to the segment
-				//	already in the new seg list.  Begin point becomes min of the begin points,
-				//	end point becomes max of the end points, connections are pushed on the vector
-				//	and intersects are merged (ids are checked by the id map later)
-				for (unsigned int i = 0; i < cSeg->connections.size(); i++)
-					nSeg->connections.push_back(cSeg->connections[i]);
-				std::map< GLfloat, std::vector< long > >::iterator isectWalk = cSeg->intersects.begin();
-				while (isectWalk != cSeg->intersects.end()) {
-					for (unsigned int i = 0; i < (isectWalk->second).size(); i++) {
-						nSeg->intersects[isectWalk->first].push_back((isectWalk->second)[i]);
-					}
-					isectWalk++;
-				}
-				GLPoint2f hsPoint; float hsMin = FLT_MAX, hsMax = -FLT_MAX;
-				for (unsigned int i = 0; i < nSeg->connections.size(); i++) {
-					hsPoint = hs.coordsOf(nSeg->connections[i]);
-					hsMin = std::min(hsMin, hsPoint.x);
-					hsMax = std::max(hsMax, hsPoint.x);
-				}
-				// We'd better not trim endpoints here because future segments might merge on them!!
-				nSeg->begin.x = std::min(hsMin, nSeg->begin.x);
-				nSeg->begin.x = std::min(nSeg->begin.x, (nSeg->intersects.size() > 0 ? nSeg->intersects.begin()->first : FLT_MAX));
-				nSeg->end.x = std::max(hsMax, nSeg->end.x);
-				nSeg->end.x = std::max(nSeg->end.x, (nSeg->intersects.size() > 0 ? nSeg->intersects.rbegin()->first : -FLT_MAX));
+				a.along(nSeg->begin) = std::min(hsMin, a.along(nSeg->begin));
+				a.along(nSeg->begin) = std::min(a.along(nSeg->begin), (nSeg->intersects.size() > 0 ? nSeg->intersects.begin()->first : FLT_MAX));
+				a.along(nSeg->end) = std::max(hsMax, a.along(nSeg->end));
+				a.along(nSeg->end) = std::max(a.along(nSeg->end), (nSeg->intersects.size() > 0 ? nSeg->intersects.rbegin()->first : -FLT_MAX));
 				mapIDs[cSeg->id] = nSeg->id;
 				if (mergingInMap) {
 					// We're merging internally within the map, so get rid of the other seg
@@ -195,15 +161,16 @@ void mergeSegments(SegmentMap &segs, const Hotspots &hs,
 	while (segWalk != newSegMap.end()) {
 		wireSegment* nSeg = &(segWalk->second);
 		// trim endpoints first
+		const SegAxis na = nSeg->axis();
 		GLPoint2f hsPoint; float hsMin = FLT_MAX, hsMax = -FLT_MAX;
 		for (unsigned int i = 0; i < nSeg->connections.size(); i++) {
 			hsPoint = hs.coordsOf(nSeg->connections[i]);
-			if (nSeg->isHorizontal()) { hsMin = std::min(hsMin, hsPoint.x); hsMax = std::max(hsMax, hsPoint.x); }
-			else { hsMin = std::min(hsMin, hsPoint.y); hsMax = std::max(hsMax, hsPoint.y); }
+			hsMin = std::min(hsMin, na.along(hsPoint));
+			hsMax = std::max(hsMax, na.along(hsPoint));
 		}
 		if (nSeg->intersects.size() > 0) { hsMin = std::min(hsMin, nSeg->intersects.begin()->first); hsMax = std::max(hsMax, nSeg->intersects.rbegin()->first); }
-		if (nSeg->isVertical()) { nSeg->begin.y = hsMin; nSeg->end.y = hsMax; }
-		else { nSeg->begin.x = hsMin; nSeg->end.x = hsMax; }
+		na.along(nSeg->begin) = hsMin;
+		na.along(nSeg->end) = hsMax;
 		// now set the intersects
 		std::map< GLfloat, std::vector< long > >::iterator isectWalk = (segWalk->second).intersects.begin();
 		while (isectWalk != (segWalk->second).intersects.end()) {
@@ -246,8 +213,7 @@ void refreshIntersections(SegmentMap &segs) {
 				// Resolve without inventing; a stale id is dropped.
 				const wireSegment *target = segs.find((isectWalk->second)[j]);
 				if (target == NULL) continue;
-				if ((segWalk->second).isVertical()) refreshMap[target->begin.y].push_back((isectWalk->second)[j]);
-				else refreshMap[target->begin.x].push_back((isectWalk->second)[j]);
+				refreshMap[SegAxis::of(segWalk->second).along(target->begin)].push_back((isectWalk->second)[j]);
 			}
 			isectWalk++;
 		}
