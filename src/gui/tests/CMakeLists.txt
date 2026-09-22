@@ -200,6 +200,31 @@ endif()
 
 add_test(NAME segmentdrag_tests COMMAND test_segmentdrag)
 
+# Which coordinate runs along a wire segment and which runs across it. Header
+# only, but it needs the segment and its collision base to link against.
+add_executable(test_segaxis
+	"${CMAKE_CURRENT_SOURCE_DIR}/test_segaxis.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/wireSegment.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/klsCollisionChecker.cpp"
+	"${PROJECT_SOURCE_DIR}/src/gui/gl_defs.cpp"
+)
+target_include_directories(test_segaxis PRIVATE
+	"${PROJECT_SOURCE_DIR}/include/gui"
+	"${PROJECT_SOURCE_DIR}/logic/include"
+)
+target_link_libraries(test_segaxis PRIVATE doctest::doctest)
+target_compile_options(test_segaxis PRIVATE
+	"$<$<CXX_COMPILER_ID:MSVC>:/FI${_shim}>"
+	"$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:SHELL:-include ${_shim}>"
+)
+
+if(ENABLE_SANITIZERS AND NOT MSVC)
+	target_compile_options(test_segaxis PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+	target_link_options(test_segaxis PRIVATE -fsanitize=address,undefined)
+endif()
+
+add_test(NAME segaxis_tests COMMAND test_segaxis)
+
 # Crash-report issue text. Pure string work: no wxWidgets, no platform headers.
 add_executable(test_crashissue
 	"${CMAKE_CURRENT_SOURCE_DIR}/test_crashissue.cpp"

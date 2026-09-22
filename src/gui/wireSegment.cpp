@@ -32,3 +32,6 @@ wireSegment::wireSegment(GLPoint2f nB, GLPoint2f nE, bool nisVertical, unsigned 
 		klsCollisionObject(COLL_WIRE_SEG), verticalSeg(nisVertical), begin(nB), end(nE), id(nid) {
 	calcBBox();
 };
+SegAxis wireSegment::axis() const {
+	return SegAxis::of(*this);
+}
