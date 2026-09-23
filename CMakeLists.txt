@@ -225,6 +225,61 @@ if(WIN32)
     endif()
 endif()
 
+##
+# Crash reporting (Sentry)
+#
+# Off unless a DSN is configured, which keeps this out of every build that is
+# not an official release: a fork, a local build, and a contributor's checkout
+# all compile with no reporting code and no network calls at all. Pass
+# -DSENTRY_DSN=... to switch it on.
+#
+# It earns its place on macOS and Linux, where the handler deliberately walks no
+# stacks -- doing that safely from a signal handler is not possible, so those
+# platforms currently report a signal name and nothing else. Crashpad collects
+# the dump from a separate process, which has none of that problem.
+##
+set(SENTRY_DSN "" CACHE STRING
+    "Sentry DSN for crash reporting; empty disables it entirely")
+
+# Emscripten has no signals, no Mach ports and no SEH, so none of the backends
+# have anything to hook. The browser build reports through the page's JS SDK.
+if(SENTRY_DSN AND NOT EMSCRIPTEN)
+    include(FetchContent)
+    set(SENTRY_VERSION "0.17.0")
+    FetchContent_Declare(
+        sentry
+        GIT_REPOSITORY https://github.com/getsentry/sentry-native.git
+        GIT_TAG ${SENTRY_VERSION}
+        GIT_SHALLOW 1
+    )
+
+    # Skia forces /MT on the whole app (see the runtime-library block above), and
+    # sentry-native defaults to /MD. Mixing them is an LNK2038 at best. The
+    # parent's /MD -> /MT rewrite cannot reach it either: sentry sets CMP0091 to
+    # NEW, and under that policy the flag never appears in the variables being
+    # rewritten. So ask for it directly, which stamps the runtime onto sentry's
+    # targets and all twelve of crashpad's.
+    set(SENTRY_BUILD_RUNTIMESTATIC ON CACHE BOOL "" FORCE)
+    # One fewer file to install, sign and keep beside the executable.
+    set(SENTRY_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(SENTRY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(SENTRY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+
+    FetchContent_MakeAvailable(sentry)
+
+    # crashpad_handler is a separate program, and has to be: the whole point is
+    # that it is still alive and uninvolved when the app is not. It has to be
+    # installed beside the app on every platform -- see the install rules.
+    if(NOT TARGET crashpad_handler)
+        message(FATAL_ERROR
+            "sentry-native ${SENTRY_VERSION} built without crashpad_handler. "
+            "Without it a crash is never captured, so this is not a warning.")
+    endif()
+    message(STATUS "Crash reporting: sentry-native ${SENTRY_VERSION}")
+else()
+    message(STATUS "Crash reporting: disabled (no SENTRY_DSN)")
+endif()
+
 ###
 ### Build Config.
 ###
