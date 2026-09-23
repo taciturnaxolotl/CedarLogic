@@ -1,6 +1,7 @@
-# Note: Below 3.11 breaks the FetchContent capability used to pull in Catch2,
-# the unit testing framework.
-cmake_minimum_required(VERSION 3.11)
+# 3.14 for FetchContent_MakeAvailable, which every vendored dependency below is
+# pulled in with. The file also uses CONFIGURE_DEPENDS (3.12) and
+# target_link_options (3.13), so anything lower has never actually worked.
+cmake_minimum_required(VERSION 3.14)
 
 # Name project, and set version. If updating version, change it here, and then re-generate your Visual
 # Studio solution.
@@ -61,9 +62,9 @@ endif()
 # Use static runtime libs.
 # The Skia lib is built /MT, so the whole app must link /MT too or the link
 # fails (LNK2038/LNK2005). CMAKE_MSVC_RUNTIME_LIBRARY only works under policy
-# CMP0091, which cmake_minimum_required(3.11) leaves OLD and which did not take
-# effect reliably here -- so rewrite /MD -> /MT directly in the flag variables
-# (the pre-CMP0091 idiom). This reaches the app and every subdirectory.
+# CMP0091, which arrived in 3.15 and so is still OLD at our floor -- so rewrite
+# /MD -> /MT directly in the flag variables (the pre-CMP0091 idiom). This
+# reaches the app and every subdirectory.
 if(MSVC)
     foreach(flag_var
         CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
