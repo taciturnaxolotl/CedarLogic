@@ -6,6 +6,8 @@
 
 #include "UpdateInfo.h"
 
+#include "AdminPolicy.h"
+
 #include <cctype>
 #include <cstdlib>
 #include <cwchar>
@@ -207,59 +209,6 @@ std::string fetchAppcast(const std::string &url) {
 // rejecting one of them leaves a policy that silently does nothing.
 //
 // `typeOut` and `dataOut` report what was actually stored, for --update-status.
-static bool readPolicyFlag(REGSAM view, const wchar_t *subkey,
-                           const wchar_t *value, bool &out,
-                           std::string *typeOut = nullptr,
-                           std::string *dataOut = nullptr) {
-    HKEY key = NULL;
-    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, subkey, 0, KEY_READ | view, &key) !=
-        ERROR_SUCCESS) {
-        return false;
-    }
-    DWORD type = 0, size = 0;
-    bool ok = false;
-    if (RegQueryValueExW(key, value, NULL, &type, NULL, &size) == ERROR_SUCCESS) {
-        if (type == REG_DWORD) {
-            DWORD data = 0;
-            size = sizeof(data);
-            if (RegQueryValueExW(key, value, NULL, &type,
-                                 reinterpret_cast<BYTE *>(&data),
-                                 &size) == ERROR_SUCCESS) {
-                out = data != 0;
-                ok = true;
-                if (typeOut) *typeOut = "REG_DWORD";
-                if (dataOut) *dataOut = std::to_string(data);
-            }
-        } else if (type == REG_SZ || type == REG_EXPAND_SZ) {
-            std::wstring buf(size / sizeof(wchar_t) + 1, L'\0');
-            DWORD bytes = static_cast<DWORD>(buf.size() * sizeof(wchar_t));
-            if (RegQueryValueExW(key, value, NULL, &type,
-                                 reinterpret_cast<BYTE *>(&buf[0]),
-                                 &bytes) == ERROR_SUCCESS) {
-                std::string text;
-                for (wchar_t c : buf) {
-                    if (c == L'\0') break;
-                    text += static_cast<char>(
-                        std::tolower(static_cast<unsigned char>(c)));
-                }
-                // Everything an administrator plausibly types for "yes".
-                // Anything else counts as "no" rather than as an unreadable
-                // value: this policy can only ever turn checking off.
-                out = (text == "1" || text == "true" || text == "yes" ||
-                       text == "on");
-                ok = true;
-                if (typeOut) *typeOut = "REG_SZ";
-                if (dataOut) *dataOut = text;
-            }
-        }
-    }
-    RegCloseKey(key);
-    return ok;
-}
-
-static const wchar_t *const kPolicyKey =
-    L"SOFTWARE\\Policies\\Cedarville University\\CedarLogic";
-static const wchar_t *const kPolicyValue = L"DisableUpdateChecks";
 static const wchar_t *const kSparkleKey =
     L"Software\\Cedarville University\\CedarLogic\\WinSparkle";
 
@@ -326,20 +275,15 @@ bool readWinSparkleSetting(const char *name, std::wstring &out,
 PolicyStatus describeUpdatePolicy() {
     PolicyStatus st;
 #ifdef _WIN32
-    // The 64-bit view first: that is the plain path an administrator writes.
-    // The 32-bit view second, for anyone who set the policy from a 32-bit tool
-    // or on a 32-bit machine.
-    bool disabled = false;
-    if (readPolicyFlag(KEY_WOW64_64KEY, kPolicyKey, kPolicyValue, disabled,
-                       &st.policyType, &st.policyData)) {
-        st.policyFound = true;
-        st.policyView = "64-bit";
-    } else if (readPolicyFlag(KEY_WOW64_32KEY, kPolicyKey, kPolicyValue,
-                              disabled, &st.policyType, &st.policyData)) {
-        st.policyFound = true;
-        st.policyView = "32-bit (WOW6432Node)";
-    }
-    st.disabled = st.policyFound && disabled;
+    // The 64-bit view first, then the 32-bit one, and what was found comes
+    // back with the answer: an administrator otherwise cannot tell a working
+    // policy from a typo, since both look like a program that does not check.
+    cl::policy::Reading r;
+    st.disabled = cl::policy::disabledBy("DisableUpdateChecks", &r);
+    st.policyFound = r.found;
+    st.policyView = r.view;
+    st.policyType = r.type;
+    st.policyData = r.data;
 
     std::wstring sparkle;
     std::string where;

@@ -432,6 +432,24 @@ target_link_libraries(CedarLogic PRIVATE
 # SK_GL defines.
 target_link_libraries(CedarLogic PRIVATE cedar_skia)
 
+# Crash reporting, when a DSN was configured. The DSN is compiled in rather than
+# read at runtime so there is no configuration file to get out of step with the
+# build, and so a build without one has no reporting code at all.
+if(SENTRY_DSN AND NOT EMSCRIPTEN)
+    target_link_libraries(CedarLogic PRIVATE sentry::sentry)
+    target_compile_definitions(CedarLogic PRIVATE
+        CEDARLOGIC_SENTRY_DSN="${SENTRY_DSN}")
+    # The handler has to sit beside the executable at runtime, so put it there
+    # at build time too -- otherwise reporting works from an installed copy and
+    # silently does nothing when running out of the build directory.
+    add_custom_command(TARGET CedarLogic POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:crashpad_handler>"
+                "$<TARGET_FILE_DIR:CedarLogic>/$<TARGET_FILE_NAME:crashpad_handler>"
+        COMMENT "Staging crashpad_handler beside the app"
+        VERBATIM)
+endif()
+
 # macOS: Link Sparkle framework
 if(APPLE)
     target_link_libraries(CedarLogic PRIVATE "${SPARKLE_FRAMEWORK}")

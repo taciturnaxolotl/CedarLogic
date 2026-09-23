@@ -30,6 +30,7 @@
 #include <string>
 #include "UpdateInfo.h"
 #include "CrashReportDialog.h"
+#include "CrashReporter.h"
 #include "CrashTrace.h"
 #include "StartupMarker.h"
 #include "wx/filename.h"
@@ -82,6 +83,10 @@ MainApp::MainApp()
 bool MainApp::OnInit()
 {
     cl::crash::installCrashHandler();
+
+    // Brought up before anything else can fail, so a crash during startup is
+    // caught too. Collects nothing until the user has agreed to it.
+    cl::crash::startReporter();
 
     // Arm the startup marker before anything can fail, so a crash below is
     // recognisable as a startup crash on the next launch rather than merely "a
@@ -520,6 +525,9 @@ void MainApp::loadSettings() {
 }
 
 int MainApp::OnExit() {
+	// Ahead of the teardown below, which on Windows ends in a hard exit that
+	// would leave anything still queued unsent.
+	cl::crash::stopReporter();
 #ifdef _WIN32
 	// Stop the WinSparkle updater's background thread. Symmetric with the
 	// win_sparkle_init() in OnInit -- it was never called, so the updater thread
