@@ -14,12 +14,15 @@
 namespace cl {
 namespace policy {
 
-namespace {
-const char *const kKeyPathText =
-    "HKLM\\SOFTWARE\\Policies\\Cedarville University\\CedarLogic";
+// Empty where there is no policy mechanism to name: a caller printing this
+// should say nothing rather than point at a registry the platform lacks.
+const char *keyPath() {
+#ifdef _WIN32
+    return "HKLM\\SOFTWARE\\Policies\\Cedarville University\\CedarLogic";
+#else
+    return "";
+#endif
 }
-
-const char *keyPath() { return kKeyPathText; }
 
 #ifdef _WIN32
 

@@ -246,11 +246,19 @@ set(SENTRY_DSN "" CACHE STRING
 if(SENTRY_DSN AND NOT EMSCRIPTEN)
     include(FetchContent)
     set(SENTRY_VERSION "0.17.0")
+    # CMake skips a subdirectory's install() rules entirely when it is added
+    # EXCLUDE_FROM_ALL, which is the whole fix for sentry installing its own
+    # static libraries into our program folder. The keyword reached
+    # FetchContent in 3.28; older CMake sweeps up afterwards instead.
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
+        set(SENTRY_EXCLUDE EXCLUDE_FROM_ALL)
+    endif()
     FetchContent_Declare(
         sentry
         GIT_REPOSITORY https://github.com/getsentry/sentry-native.git
         GIT_TAG ${SENTRY_VERSION}
         GIT_SHALLOW 1
+        ${SENTRY_EXCLUDE}
     )
 
     # Skia forces /MT on the whole app (see the runtime-library block above), and
@@ -260,7 +268,10 @@ if(SENTRY_DSN AND NOT EMSCRIPTEN)
     # rewritten. So ask for it directly, which stamps the runtime onto sentry's
     # targets and all twelve of crashpad's.
     set(SENTRY_BUILD_RUNTIMESTATIC ON CACHE BOOL "" FORCE)
-    # One fewer file to install, sign and keep beside the executable.
+    # Static: nothing extra to find at runtime. A shared build would also keep
+    # sentry's install rules from firing, but it has to be shipped, signed and
+    # found again on three platforms, and a library the program cannot find at
+    # startup is a worse failure than a stray file in the install tree.
     set(SENTRY_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(SENTRY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(SENTRY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -631,6 +642,30 @@ else()
     install(FILES res/mime.xml DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/mime/packages RENAME CedarLogic.xml)
     install(FILES res/icon.png DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/64x64/apps RENAME CedarLogic.png)
     install_resources(res)
+endif()
+
+# The reporting helper, beside the program on every platform, because that is
+# where the program looks for it at startup. On macOS it goes inside the bundle
+# and is signed with it; the signing step signs nested binaries first, which is
+# what notarization requires.
+if(SENTRY_DSN AND NOT EMSCRIPTEN)
+    if(WIN32)
+        install(PROGRAMS "$<TARGET_FILE:crashpad_handler>" DESTINATION ".")
+    elseif(APPLE)
+        install(PROGRAMS "$<TARGET_FILE:crashpad_handler>"
+                DESTINATION "CedarLogic.app/Contents/MacOS")
+    else()
+        install(PROGRAMS "$<TARGET_FILE:crashpad_handler>"
+                DESTINATION "${CMAKE_INSTALL_BINDIR}")
+    endif()
+
+    # Where EXCLUDE_FROM_ALL was unavailable, crashpad's install rules did fire
+    # and have to be undone. Added last on purpose: CMake runs a directory's own
+    # install rules before descending, so a sweep written here would run before
+    # the files it removes exist.
+    if(NOT SENTRY_EXCLUDE)
+        add_subdirectory(cmake/install-cleanup)
+    endif()
 endif()
 
 set(CPACK_PACKAGE_NAME "CedarLogic")

@@ -53,8 +53,6 @@ wxFileName databasePath() {
 
 }  // namespace
 
-bool reportingBuilt() { return true; }
-
 void startReporter() {
     if (g_started) return;
     if (cl::policy::disabledBy(kPolicyValue)) return;
@@ -75,9 +73,8 @@ void startReporter() {
     const std::string release = "cedarlogic@" + VERSION_NUMBER();
     sentry_options_set_release(options, release.c_str());
 
-    // Paths go through the wide-character setters on Windows: an install
-    // directory or a user name containing non-ASCII is ordinary, and the narrow
-    // setters would mangle it into a path that does not exist.
+    // Wide-character setters on Windows: an install directory or a user name
+    // containing non-ASCII is ordinary, and the narrow ones would mangle it.
 #ifdef _WIN32
     sentry_options_set_handler_pathw(options, handler.GetFullPath().wc_str());
     sentry_options_set_database_pathw(options, db.GetPath().wc_str());
@@ -95,30 +92,25 @@ void stopReporter() {
     sentry_close();
 }
 
-std::string statusLine() {
+Status status() {
+    Status st;
+    st.built = true;
     cl::policy::Reading r;
-    if (cl::policy::disabledBy(kPolicyValue, &r)) {
-        return std::string("Crash reporting: DISABLED by administrator policy\n") +
-               "  Policy  " + cl::policy::keyPath() + "\n" +
-               "          " + kPolicyValue + " = " + r.data +
-               " (" + r.type + ", found in the " + r.view + " view)";
-    }
-    if (!g_started) {
-        return "Crash reporting: INACTIVE (the reporting helper was not found "
-               "beside the program)";
-    }
-    return "Crash reporting: ENABLED";
+    st.disabledByPolicy = cl::policy::disabledBy(kPolicyValue, &r);
+    st.policyFound = r.found;
+    st.policyView = r.view;
+    st.policyType = r.type;
+    st.policyData = r.data;
+    st.policyKey = cl::policy::keyPath();
+    st.active = g_started;
+    return st;
 }
 
 #else  // no DSN configured: this build reports nowhere.
 
-bool reportingBuilt() { return false; }
 void startReporter() {}
 void stopReporter() {}
-
-std::string statusLine() {
-    return "Crash reporting: NOT BUILT IN (this build has no reporting address)";
-}
+Status status() { return Status(); }
 
 #endif
 

@@ -61,6 +61,29 @@ static cl::StartupMarker &startupMarker() {
     std::_Exit(code);
 }
 
+// Print a `--...-status` report and exit. Shared by every such flag so they all
+// answer the same way: same console handling, same optional file, and an exit
+// code a deployment script can assert on.
+[[noreturn]] static void exitWithStatus(const std::string &out, bool ok,
+                                        const wxString &file) {
+#ifdef _WIN32
+    // A GUI-subsystem program has no console of its own, so borrow the one that
+    // launched it. Redirection to a file works either way.
+    if (::AttachConsole(ATTACH_PARENT_PROCESS)) {
+        FILE *unused = nullptr;
+        freopen_s(&unused, "CONOUT$", "w", stdout);
+    }
+#endif
+    if (!file.empty()) {
+        if (FILE *f = fopen(file.ToStdString().c_str(), "w")) {
+            fputs(out.c_str(), f);
+            fclose(f);
+        }
+    }
+    fputs(out.c_str(), stdout);
+    exitOneShot(ok ? 0 : 1);
+}
+
 static const wxCmdLineEntryDesc g_cmdLineDesc[] =
 {
 	{ wxCMD_LINE_PARAM, NULL, NULL, "input file", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL },
@@ -186,22 +209,36 @@ bool MainApp::OnInit()
                     "        DisableUpdateChecks above instead.\n";
             }
         }
-#ifdef _WIN32
-        // A GUI-subsystem program has no console of its own, so borrow the one
-        // that launched it. Redirection to a file works either way.
-        if (::AttachConsole(ATTACH_PARENT_PROCESS)) {
-            FILE *unused = nullptr;
-            freopen_s(&unused, "CONOUT$", "w", stdout);
+        exitWithStatus(out, !st.disabled,
+                       argc >= 3 ? wxString(argv[2]) : wxString());
+    }
+
+    // `--crash-reporting-status [file]`: the same question for crash reports.
+    // Reporting that an administrator turned off and reporting that silently
+    // failed both look like a program that sends nothing. Say which it is.
+    if (argc >= 2 && wxString(argv[1]) == "--crash-reporting-status") {
+        // Read after startReporter() ran, so this is what happened rather than
+        // what the configuration intended.
+        const cl::crash::Status st = cl::crash::status();
+        std::string out = "CedarLogic crash reporting status\n\nCrash reporting: ";
+        if (!st.built) {
+            out += "NOT BUILT IN (this build has no reporting address)\n";
+        } else if (st.disabledByPolicy) {
+            out += "DISABLED by administrator policy\n";
+        } else if (!st.active) {
+            out += "INACTIVE (the helper was not found beside the program)\n";
+        } else {
+            out += "enabled\n";
         }
-#endif
-        if (argc >= 3) {
-            if (FILE *f = fopen(wxString(argv[2]).ToStdString().c_str(), "w")) {
-                fputs(out.c_str(), f);
-                fclose(f);
-            }
+        if (!st.policyKey.empty()) {
+            out += "\nPolicy  " + st.policyKey + "\n        DisableCrashReporting";
+            out += st.policyFound
+                       ? " = " + st.policyData + "  (" + st.policyType + ", " +
+                             st.policyView + " view)\n"
+                       : " is not set\n";
         }
-        fputs(out.c_str(), stdout);
-        exitOneShot(st.disabled ? 1 : 0);
+        exitWithStatus(out, st.active,
+                       argc >= 3 ? wxString(argv[2]) : wxString());
     }
 
 #ifdef WITH_SKIA
