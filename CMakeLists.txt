@@ -125,6 +125,11 @@ else()
     set(wxUSE_FS_INET OFF)
     set(wxUSE_PROTOCOL_FTP OFF)
     set(wxUSE_PROTOCOL_HTTP OFF)
+    # Its curl backend is built whenever libcurl is present, and it calls into
+    # the socket support turned off above -- so installing libcurl for the crash
+    # reporter is enough to break the wx build. Nothing here uses wx for HTTP.
+    set(wxUSE_WEBREQUEST OFF)
+    set(wxUSE_WEBREQUEST_CURL OFF)
 
     # Skia's PDF backend needs libjpeg-turbo, whose symbols duplicate wxWidgets'
     # bundled libjpeg on Windows (LNK2005 on _jpeg_*). Drop wx's copy so Skia's

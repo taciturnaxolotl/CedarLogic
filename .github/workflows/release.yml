@@ -480,6 +480,15 @@ jobs:
               "$SPARKLE_PATH"
           fi
 
+          # The crash reporting helper is a second executable inside the
+          # bundle, so it needs its own signature, timestamp and hardened
+          # runtime -- notarization rejects the whole archive otherwise. Signed
+          # before the app for the same inside-out reason as Sparkle above.
+          HANDLER="$APP_PATH/Contents/MacOS/crashpad_handler"
+          if [ -f "$HANDLER" ]; then
+            codesign -f -s "$SIGN_ID" -o runtime --timestamp "$HANDLER"
+          fi
+
           # Sign the main app (never use --deep)
           codesign -f -s "$SIGN_ID" -o runtime --timestamp "$APP_PATH"
           codesign -dv --verbose=2 "$APP_PATH"
