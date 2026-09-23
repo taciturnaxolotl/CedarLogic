@@ -78,7 +78,7 @@ jobs:
           if (-not (Test-Path $makensis)) { throw "NSIS did not install: $makensis is missing" }
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1
+        uses: hendrikmuhs/ccache-action@v1.2.24
         with:
           key: windows-msvc
           variant: sccache
@@ -301,7 +301,7 @@ jobs:
             libgl1-mesa-dev libfontconfig1-dev libcurl4-openssl-dev
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1
+        uses: hendrikmuhs/ccache-action@v1.2.24
         with:
           key: linux-gcc
 
@@ -399,7 +399,7 @@ jobs:
           security list-keychain -d user -s "$KEYCHAIN_PATH"
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1
+        uses: hendrikmuhs/ccache-action@v1.2.24
         with:
           key: macos-clang
 
@@ -564,7 +564,7 @@ jobs:
             build/CedarLogic-*-Darwin.dSYM.zip
 
   build-wasm:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
@@ -582,7 +582,7 @@ jobs:
           actions-cache-folder: emsdk-cache
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1
+        uses: hendrikmuhs/ccache-action@v1.2.24
         with:
           key: wasm-emscripten
 
@@ -617,7 +617,7 @@ jobs:
 
   upload-release:
     needs: [build-windows, build-linux, build-macos, build-wasm]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.ref_type == 'tag'
     permissions:
       contents: write
