@@ -7,54 +7,30 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 3.2.2</title>
-      <pubDate>Tue, 22 Sep 2026 21:06:16 +0000</pubDate>
-      <sparkle:version>3.2.2</sparkle:version>
-      <sparkle:shortVersionString>3.2.2</sparkle:shortVersionString>
+      <title>Version 3.3.0</title>
+      <pubDate>Wed, 23 Sep 2026 17:41:37 +0000</pubDate>
+      <sparkle:version>3.3.0</sparkle:version>
+      <sparkle:shortVersionString>3.3.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<h2>Fixes</h2>
-<ul>
-  <li>Fixed a crash and possible hang when deleting gates and merging zero-length wire segments (#110, #120).</li>
-  <li>Fixed the Windows updater crash at startup caused by a missing callback (#111).</li>
-  <li>Removed the obsolete XML pre-scan from normal v3 file loading. Opening v3 files no longer sends their contents through the legacy XML parser (#117, #118, #122).</li>
-  <li>Hardened cross-platform crash reporting so fatal POSIX signals write a minimal report and defer stack dumping to the operating system.</li>
-</ul>
-<h2>Refactors</h2>
-<ul>
-  <li>Consolidated wire segment topology, drag handling, collision refresh, and joining logic into focused components.</li>
-  <li>Removed duplicated wire-drag and joining paths.</li>
-  <li>Added coverage for wire topology, segment dragging, collision handling, parser safety, and crash-report issue formatting.</li>
-</ul>]]></description>
+      <description><![CDATA[]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.2.2/CedarLogic-3.2.2-Darwin.dmg"
-        sparkle:edSignature="MXTTp8LNkwj4p2zxbt1ywbxnBdTiT0bHZ2JvFKanSE/9qwjQTw/4kQB6x0ysTuGJ1QlSctrET8/p9xM8kTqLCQ=="
-        length="13504613"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.3.0/CedarLogic-3.3.0-Darwin.dmg"
+        sparkle:edSignature="xX6Nzdot1MCpdgOt+KQQbFfUmzGq64690m193mZ3nCI256t19vm9lqaLjr37U2Pm2aWbb+j8DhICXVWdHs1UBQ=="
+        length="14797241"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 3.2.2</title>
-      <pubDate>Tue, 22 Sep 2026 21:06:16 +0000</pubDate>
-      <sparkle:version>3.2.2</sparkle:version>
-      <sparkle:shortVersionString>3.2.2</sparkle:shortVersionString>
-      <description><![CDATA[<h2>Fixes</h2>
-<ul>
-  <li>Fixed a crash and possible hang when deleting gates and merging zero-length wire segments (#110, #120).</li>
-  <li>Fixed the Windows updater crash at startup caused by a missing callback (#111).</li>
-  <li>Removed the obsolete XML pre-scan from normal v3 file loading. Opening v3 files no longer sends their contents through the legacy XML parser (#117, #118, #122).</li>
-  <li>Hardened cross-platform crash reporting so fatal POSIX signals write a minimal report and defer stack dumping to the operating system.</li>
-</ul>
-<h2>Refactors</h2>
-<ul>
-  <li>Consolidated wire segment topology, drag handling, collision refresh, and joining logic into focused components.</li>
-  <li>Removed duplicated wire-drag and joining paths.</li>
-  <li>Added coverage for wire topology, segment dragging, collision handling, parser safety, and crash-report issue formatting.</li>
-</ul>]]></description>
+      <title>Version 3.3.0</title>
+      <pubDate>Wed, 23 Sep 2026 17:41:37 +0000</pubDate>
+      <sparkle:version>3.3.0</sparkle:version>
+      <sparkle:shortVersionString>3.3.0</sparkle:shortVersionString>
+      <description><![CDATA[]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.2.2/CedarLogic-3.2.2-win32.exe"
-        sparkle:edSignature="R9zhEmlzbTLR3T1KyYSPY1l68bdCFDaM9hc6BSU+VWEncmFq3x9FLaJYTw9rw025QIcd8rf0guaM/nvyeccgDg=="
-        length="19981582"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.3.0/CedarLogic-3.3.0-win32.exe"
+        sparkle:edSignature="A0KPK1N3FBZSW4tf8scmz2zsTuPHonIQQL7Qgrk857JSHqppT/eLonh+y6Vh2Y9mryHWu5c6SDxpud0GMjuJCA=="
+        length="20687896"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
