@@ -276,6 +276,14 @@ if(SENTRY_DSN AND NOT EMSCRIPTEN)
     set(SENTRY_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(SENTRY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(SENTRY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    # Reach libcurl through dlopen rather than linking it. Linked, it becomes a
+    # hard dependency of the executable, and a machine without it could not
+    # start CedarLogic at all -- crash reporting must never be the reason the
+    # program will not open. Unlinked, a missing libcurl costs the reports and
+    # nothing else. The headers are still needed to build.
+    if(UNIX AND NOT APPLE)
+        set(SENTRY_LINK_CURL OFF CACHE STRING "" FORCE)
+    endif()
 
     FetchContent_MakeAvailable(sentry)
 

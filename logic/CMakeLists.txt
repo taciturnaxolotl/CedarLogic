@@ -69,8 +69,12 @@ if(BUILD_TESTING)
 
 	# Same for UpdateInfo: the appcast parsing and version comparison are pure,
 	# so they can be tested here without wx. fetchAppcast is the only part that
-	# touches the network, and it is a no-op on this target.
-	add_library(UpdateInfo STATIC "../src/gui/UpdateInfo.cpp")
+	# touches the network, and it is a no-op on this target. AdminPolicy comes
+	# with it: the update policy is read through it, and it is wx-free for the
+	# same reason.
+	add_library(UpdateInfo STATIC
+		"../src/gui/UpdateInfo.cpp"
+		"../src/gui/AdminPolicy.cpp")
 	target_include_directories(UpdateInfo PUBLIC "../include/gui/")
 	if(NOT MSVC)
 		target_compile_options(UpdateInfo PRIVATE -Wall -pedantic)
