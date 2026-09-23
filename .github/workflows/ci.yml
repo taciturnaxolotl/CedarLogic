@@ -100,6 +100,10 @@ jobs:
           name: skia-linux
           path: skia-dist
 
+      # The fake reporting address is deliberate. Crash reporting compiles out
+      # entirely when none is set, so without one here CI would never build that
+      # code and a mistake in it would first appear during a release. It reports
+      # nowhere: the address is the documented example, not this project's.
       - name: Configure
         run: >
           cmake -S . -B build -G Ninja
@@ -109,6 +113,7 @@ jobs:
           -DSKIA_ROOT=${{ github.workspace }}/skia-dist
           -DCMAKE_C_COMPILER_LAUNCHER=ccache
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DSENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
 
       - name: Build
         run: cmake --build build

@@ -108,11 +108,16 @@ jobs:
         shell: bash
         env:
           SPARKLE_ED_PUBLIC_KEY: ${{ secrets.SPARKLE_ED_PUBLIC_KEY }}
+          # A repository variable, not a secret: it identifies where reports go,
+          # not permission to send them. A fork has neither, so a fork's build
+          # compiles the reporting out and never reports into this project.
+          SENTRY_DSN: ${{ vars.SENTRY_DSN }}
         run: |
           cmake -B build -A Win32 \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
             -DUSE_SYSTEM_SKIA=OFF -DSKIA_ROOT="$PWD/skia-dist" \
             -DSPARKLE_ED_PUBLIC_KEY="$SPARKLE_ED_PUBLIC_KEY" \
+            -DSENTRY_DSN="$SENTRY_DSN" \
             -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}"
 
       - name: Build
@@ -315,10 +320,13 @@ jobs:
           path: skia-dist
 
       - name: Configure CMake
+        env:
+          SENTRY_DSN: ${{ vars.SENTRY_DSN }}
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DUSE_SYSTEM_WXWIDGETS=0 \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DUSE_SYSTEM_SKIA=OFF -DSKIA_ROOT="$PWD/skia-dist" \
+            -DSENTRY_DSN="$SENTRY_DSN" \
             -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}"
 
       - name: Build
@@ -412,12 +420,14 @@ jobs:
       - name: Configure CMake
         env:
           SPARKLE_ED_PUBLIC_KEY: ${{ secrets.SPARKLE_ED_PUBLIC_KEY }}
+          SENTRY_DSN: ${{ vars.SENTRY_DSN }}
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DUSE_SYSTEM_SKIA=OFF -DSKIA_ROOT="$PWD/skia-dist" \
             -DCPACK_PACKAGE_VERSION="${{ steps.version.outputs.version }}" \
+            -DSENTRY_DSN="$SENTRY_DSN" \
             -DSPARKLE_ED_PUBLIC_KEY="$SPARKLE_ED_PUBLIC_KEY"
 
       - name: Build
@@ -639,6 +649,49 @@ jobs:
           cp artifacts/windows-installer/* artifacts/linux-archive/* \
              artifacts/macos-dmg/* artifacts/wasm-bundle/* dist/
           cd dist && sha256sum * > checksums.txt
+
+      # Upload the debug files before anyone can install this release and crash.
+      # Sentry symbolicates with what it has at the time a report arrives:
+      # reports that land before the symbols do stay unreadable, and
+      # re-processing them later only works if the raw crash dumps were kept,
+      # which by default they are not. So this blocks the release rather than
+      # trailing behind it.
+      #
+      # All three platforms go up together: the Windows .pdb (with the .exe
+      # beside it, because on Windows the unwinding information lives in the
+      # executable rather than the .pdb), the macOS .dSYM, and the debug file
+      # split out of the Linux binary.
+      - name: Upload debug symbols
+        if: vars.SENTRY_DSN != ''
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+        run: |
+          missing=""
+          [ -z "$SENTRY_AUTH_TOKEN" ] && missing="$missing  secret SENTRY_AUTH_TOKEN (Sentry -> Settings -> Auth Tokens)\n"
+          [ -z "$SENTRY_PROJECT" ] && missing="$missing  variable SENTRY_PROJECT (the project slug, from its Sentry URL)\n"
+          # An organisation auth token carries its own org, so SENTRY_ORG is
+          # only needed alongside a personal token.
+          if [ -n "$missing" ]; then
+            echo "This release collects crashes but cannot describe them." >&2
+            echo "Every report would arrive as unreadable offsets. Missing:" >&2
+            printf "$missing" >&2
+            exit 1
+          fi
+          mkdir -p symbols
+          for z in artifacts/*/CedarLogic-*-win32.pdb.zip \
+                   artifacts/*/CedarLogic-*-Darwin.dSYM.zip; do
+            [ -e "$z" ] && unzip -q -o "$z" -d symbols/
+          done
+          for gz in artifacts/*/CedarLogic-*-Linux.debug.gz; do
+            [ -e "$gz" ] && gunzip -c "$gz" > symbols/CedarLogic.debug
+          done
+          cp artifacts/windows-installer/CedarLogic-*-win32.exe symbols/
+          find symbols -type f | head -50
+
+          curl -sL https://sentry.io/get-cli/ | bash
+          sentry-cli debug-files upload --wait symbols/
 
       # The announcement lives in the draft release for this tag (see
       # `task notes`). Everything above the footer marker is hand-written and

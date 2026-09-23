@@ -6,6 +6,8 @@
 
 #include "CrashReportDialog.h"
 
+#include "CrashReporter.h"
+
 #include "../version.h"
 #include "CrashIssue.h"
 #include "CrashTrace.h"
@@ -36,13 +38,24 @@ CrashReportDialog::CrashReportDialog(wxWindow *parent, bool duringStartup,
       report(crashIssueBody(trace)),
       feed(std::make_shared<FeedResult>()) {
     wxBoxSizer *root = new wxBoxSizer(wxVERTICAL);
-    root->Add(new wxStaticText(this, wxID_ANY,
-        duringStartup
-            ? "CedarLogic closed before its window appeared the last time it ran. "
-              "If a newer version fixes this, installing it is the quickest way back."
-            : "CedarLogic closed unexpectedly the last time it ran. Reporting this "
-              "helps get it fixed.\nOpen a GitHub issue (the full report is copied to "
-              "your clipboard so you can paste it in)."),
+    // Three things to say, chosen by two facts. Once the crash has been sent,
+    // what is left to ask for is what the user was doing -- the part no
+    // automatic report can include. A startup crash leads with the update offer
+    // either way: reinstalling is the only move left when it will not open.
+    const char *lead;
+    if (duringStartup) {
+        lead = "CedarLogic closed before its window appeared the last time it ran. "
+               "If a newer version fixes this, installing it is the quickest way back.";
+    } else if (cl::crash::status().active) {
+        lead = "CedarLogic closed unexpectedly the last time it ran, and the details "
+               "have already been sent.\nIf you can say what you were doing at the "
+               "time, open a GitHub issue -- that part we cannot see.";
+    } else {
+        lead = "CedarLogic closed unexpectedly the last time it ran. Reporting this "
+               "helps get it fixed.\nOpen a GitHub issue (the full report is copied "
+               "to your clipboard so you can paste it in).";
+    }
+    root->Add(new wxStaticText(this, wxID_ANY, lead),
         0, wxALL, 12);
 
     // The update offer, filled in once the feed answers.
