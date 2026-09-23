@@ -30,7 +30,13 @@ namespace crash {
 
 static std::string g_crashLogPath;
 static std::string g_crashHeader;
-#ifndef _WIN32
+#ifdef _WIN32
+// Where dbghelp should look for the .pdb. Computed at startup because the
+// handler must not allocate, and passed explicitly because the default does not
+// include the directory the program was installed into -- see
+// installCrashHandler().
+static std::string g_symbolSearchPath;
+#else
 // The strings are finalized before the handler is installed and never changed.
 // Keep their raw storage here so the handler does not call into std::string.
 static const char *g_crashLogPathRaw;
@@ -101,7 +107,9 @@ static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
     // NO_PROMPTS: dbghelp otherwise opens its own dialogs from a dead process.
     SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME |
                   SYMOPT_FAIL_CRITICAL_ERRORS | SYMOPT_NO_PROMPTS);
-    SymInitialize(proc, NULL, TRUE);
+    SymInitialize(proc, g_symbolSearchPath.empty() ? NULL
+                                                   : g_symbolSearchPath.c_str(),
+                  TRUE);
 
     fputs(g_crashHeader.c_str(), f);
     fprintf(f, "Unhandled exception 0x%08lX at %p\n",
@@ -148,6 +156,7 @@ static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
 #else
     machine = IMAGE_FILE_MACHINE_UNKNOWN;
 #endif
+    int resolved = 0;
     for (int i = 0; i < 96; i++) {
         if (!StackWalk64(machine, proc, GetCurrentThread(), &frame, ctx, NULL,
                          SymFunctionTableAccess64, SymGetModuleBase64, NULL))
@@ -161,6 +170,7 @@ static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
         sym->MaxNameLen = 511;
         DWORD64 disp = 0;
         if (SymFromAddr(proc, addr, &disp, sym)) {
+            resolved++;
             IMAGEHLP_LINE64 line = {};
             line.SizeOfStruct = sizeof(line);
             DWORD lineDisp = 0;
@@ -184,6 +194,27 @@ static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
             }
         }
     }
+    // A trace of bare offsets reads the same whether the .pdb was missing,
+    // mismatched, or simply never looked for, and telling those apart after the
+    // fact once cost an evening of disassembly. Say which it was, in the report.
+    if (resolved == 0) {
+        IMAGEHLP_MODULE64 mi = {};
+        mi.SizeOfStruct = sizeof(mi);
+        const char *state = "the faulting module was not found";
+        if (faultBase && SymGetModuleInfo64(proc, faultBase, &mi)) {
+            switch (mi.SymType) {
+                case SymNone:     state = "no symbols for the module"; break;
+                case SymExport:   state = "exports only, no .pdb"; break;
+                case SymPdb:      state = "a .pdb loaded but matched nothing"; break;
+                case SymDeferred: state = "symbol loading never ran"; break;
+                default:          state = "symbols of some other kind"; break;
+            }
+        }
+        fprintf(f, "\n  No names above: %s.\n  Looked in: %s\n", state,
+                g_symbolSearchPath.empty() ? "(dbghelp's default path)"
+                                           : g_symbolSearchPath.c_str());
+    }
+
     fflush(f);
     fclose(f);
 
@@ -236,6 +267,14 @@ void installCrashHandler() {
                     std::to_string((int)(sizeof(void *) * 8)) + "-bit) on " +
                     wxGetOsDescription().ToStdString() + "\n\n";
 #ifdef _WIN32
+    // Tell dbghelp where the .pdb actually is. Its default search path is the
+    // working directory plus _NT_SYMBOL_PATH, and neither is the install folder
+    // when the program is launched from a Start Menu shortcut -- so the .pdb
+    // sitting right beside the exe was never being looked at. The absolute path
+    // baked into the exe at link time points at the build machine, which is why
+    // a locally built copy symbolizes and a released one does not.
+    wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
+    g_symbolSearchPath = exe.GetPath().ToStdString();
     SetUnhandledExceptionFilter(writeCrashTrace);
 #else
     g_crashLogPathRaw = g_crashLogPath.c_str();
