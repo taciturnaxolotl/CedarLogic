@@ -7,30 +7,30 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 3.3.0</title>
-      <pubDate>Wed, 23 Sep 2026 17:41:37 +0000</pubDate>
-      <sparkle:version>3.3.0</sparkle:version>
-      <sparkle:shortVersionString>3.3.0</sparkle:shortVersionString>
+      <title>Version 3.3.1</title>
+      <pubDate>Mon, 28 Sep 2026 16:00:27 +0000</pubDate>
+      <sparkle:version>3.3.1</sparkle:version>
+      <sparkle:shortVersionString>3.3.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[]]></description>
+      <description><![CDATA[<p>Improved sentry crash handling to pass through more crashes and added a flag to crash the binary on demand.</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.3.0/CedarLogic-3.3.0-Darwin.dmg"
-        sparkle:edSignature="xX6Nzdot1MCpdgOt+KQQbFfUmzGq64690m193mZ3nCI256t19vm9lqaLjr37U2Pm2aWbb+j8DhICXVWdHs1UBQ=="
-        length="14797241"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.3.1/CedarLogic-3.3.1-Darwin.dmg"
+        sparkle:edSignature="FBK+nFRl+TUvu8e4ckg12agEL0vweqM8QRT6Qq1aJsvXToEBIIljCvdaIO+ZD2LZIrFg6S3RyeiRG5K+M95CCA=="
+        length="14794443"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 3.3.0</title>
-      <pubDate>Wed, 23 Sep 2026 17:41:37 +0000</pubDate>
-      <sparkle:version>3.3.0</sparkle:version>
-      <sparkle:shortVersionString>3.3.0</sparkle:shortVersionString>
-      <description><![CDATA[]]></description>
+      <title>Version 3.3.1</title>
+      <pubDate>Mon, 28 Sep 2026 16:00:27 +0000</pubDate>
+      <sparkle:version>3.3.1</sparkle:version>
+      <sparkle:shortVersionString>3.3.1</sparkle:shortVersionString>
+      <description><![CDATA[<p>Improved sentry crash handling to pass through more crashes and added a flag to crash the binary on demand.</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.3.0/CedarLogic-3.3.0-win32.exe"
-        sparkle:edSignature="A0KPK1N3FBZSW4tf8scmz2zsTuPHonIQQL7Qgrk857JSHqppT/eLonh+y6Vh2Y9mryHWu5c6SDxpud0GMjuJCA=="
-        length="20687896"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.3.1/CedarLogic-3.3.1-win32.exe"
+        sparkle:edSignature="RvbZt8qK9Pwa4BW83lHjOuuMp5g0gTycAyo1aUHKyvxOLWN1ywoyz5BB8aabBWWiKz6JFt9+cM2UoBlKdzItBg=="
+        length="20701992"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
