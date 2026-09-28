@@ -105,11 +105,18 @@ MainApp::MainApp()
 
 bool MainApp::OnInit()
 {
-    cl::crash::installCrashHandler();
-
-    // Brought up before anything else can fail, so a crash during startup is
-    // caught too. Collects nothing until the user has agreed to it.
+    // Both of these want the one crash hook the process has, and the last to
+    // ask for it is the one that gets it. The reporter goes first so our own
+    // handler sits in front of it and can pass the crash along once the trace
+    // is written. The other way round the trace was never written at all, and
+    // the dialog that offers it on the next launch could not appear in any
+    // build that reports crashes.
+    //
+    // Both are up before anything else can fail, so a crash during startup is
+    // caught too. An administrator can turn the reporting half off; see
+    // --crash-reporting-status.
     cl::crash::startReporter();
+    cl::crash::installCrashHandler();
 
     // Arm the startup marker before anything can fail, so a crash below is
     // recognisable as a startup crash on the next launch rather than merely "a
@@ -239,6 +246,20 @@ bool MainApp::OnInit()
         }
         exitWithStatus(out, st.active,
                        argc >= 3 ? wxString(argv[2]) : wxString());
+    }
+
+    // `--crash-test`: crash on purpose, so the reporting path can be proved on
+    // the build people actually run. Everything else about crash reporting can
+    // be inspected without it -- the helper is on disk, the policy is unset,
+    // the status says enabled -- and none of that establishes that a report
+    // ever leaves the machine. Silence from the server reads identically to a
+    // pipeline that works and a program nobody has managed to crash yet.
+    //
+    // Undocumented on purpose: it is a diagnostic, not a feature. Run it, then
+    // look for the report, then start the program again and expect the crash
+    // dialog, which is the other half of the same path.
+    if (argc >= 2 && wxString(argv[1]) == "--crash-test") {
+        std::abort();
     }
 
 #ifdef WITH_SKIA

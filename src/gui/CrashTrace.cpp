@@ -36,13 +36,28 @@ static std::string g_crashHeader;
 // include the directory the program was installed into -- see
 // installCrashHandler().
 static std::string g_symbolSearchPath;
+// Whoever held the top-level filter before us. In a build with crash reporting
+// configured that is crashpad, which installs its own and keeps no link back to
+// what it replaced. A process has room for exactly one filter, so writing the
+// trace and sending the report are only both possible if we hand the exception
+// on at the end. See installCrashHandler().
+static LPTOP_LEVEL_EXCEPTION_FILTER g_previousFilter;
 #else
 // The strings are finalized before the handler is installed and never changed.
 // Keep their raw storage here so the handler does not call into std::string.
 static const char *g_crashLogPathRaw;
 static const char *g_crashHeaderRaw;
 static size_t g_crashHeaderSize;
-static struct sigaction g_defaultSignalAction;
+
+// The handlers we displaced, one per signal, for the same reason as
+// g_previousFilter above. Plain storage and a linear scan, because a signal
+// handler may not allocate and may not take a lock.
+struct SavedSignalAction {
+    int number;
+    struct sigaction action;
+};
+static SavedSignalAction g_savedSignalActions[8];
+static size_t g_savedSignalActionCount;
 #endif
 
 const std::string &logPath() {
@@ -70,18 +85,27 @@ static const char *shortSourcePath(const char *full, char *buf, size_t bufLen) {
     return buf;
 }
 
+// Pass the exception to the filter we displaced, with the original record, so
+// the reporter sees the fault itself rather than wherever we happened to give
+// up. EXCEPTION_CONTINUE_SEARCH when there is nobody behind us, which leaves
+// WER and any attached debugger exactly as they were.
+static LONG chainToPreviousFilter(EXCEPTION_POINTERS *ep) {
+    return g_previousFilter ? g_previousFilter(ep) : EXCEPTION_CONTINUE_SEARCH;
+}
+
 // On an otherwise-unhandled crash, walk the faulting thread's stack, symbolize
 // it against the .pdb shipped next to the exe, and write a readable trace to
 // %TEMP%\CedarLogic_crashtrace.log. Turns "it just crashed" into an actual
 // function + file:line, which matters for a GUI app where the nastiest bugs
 // only surface through live interaction and can't be caught under a debugger.
 //
-// Writes the file and nothing else. A message box here pumps messages back into
-// a dead process, faults, and re-enters this handler over its own report.
+// Writes the file and hands the crash on. A message box here pumps messages
+// back into a dead process, faults, and re-enters this handler over its own
+// report.
 static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
     // Never reset: a second fault must not truncate the first one's report.
     static LONG entered = 0;
-    if (InterlockedExchange(&entered, 1) != 0) return EXCEPTION_CONTINUE_SEARCH;
+    if (InterlockedExchange(&entered, 1) != 0) return chainToPreviousFilter(ep);
 
     const std::string &logPath = g_crashLogPath;
     const DWORD code = ep->ExceptionRecord->ExceptionCode;
@@ -97,11 +121,11 @@ static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
                      "already used up.\n"
                      "  Almost always unbounded recursion.\n");
         if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
-        return EXCEPTION_CONTINUE_SEARCH;
+        return chainToPreviousFilter(ep);
     }
 
     FILE *f = fopen(logPath.c_str(), "wb"); // binary: clean '\n', no '\r\n'
-    if (f == NULL) return EXCEPTION_CONTINUE_SEARCH;
+    if (f == NULL) return chainToPreviousFilter(ep);
 
     HANDLE proc = GetCurrentProcess();
     // NO_PROMPTS: dbghelp otherwise opens its own dialogs from a dead process.
@@ -218,7 +242,7 @@ static LONG WINAPI writeCrashTrace(EXCEPTION_POINTERS *ep) {
     fflush(f);
     fclose(f);
 
-    return EXCEPTION_CONTINUE_SEARCH; // unchanged, so WER and any debugger still work
+    return chainToPreviousFilter(ep);
 }
 #else
 // POSIX signal handlers may only use async-signal-safe functions. In
@@ -241,7 +265,7 @@ static CrashSignalName crashSignalName(int sig) {
     }
 }
 
-static void posixCrashHandler(int sig, siginfo_t *, void *) {
+static void posixCrashHandler(int sig, siginfo_t *info, void *context) {
     int fd = open(g_crashLogPathRaw, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd >= 0) {
         write(fd, g_crashHeaderRaw, g_crashHeaderSize);
@@ -251,15 +275,44 @@ static void posixCrashHandler(int sig, siginfo_t *, void *) {
         write(fd, "\n\n", 2);
         close(fd);
     }
-    // Restore the default action and re-raise so the OS still produces its
-    // normal crash report / core dump.
-    sigaction(sig, &g_defaultSignalAction, NULL);
+
+    // Hand the same signal, with its original siginfo and context, to whoever
+    // handled it before us -- the reporter, where one is configured. Calling it
+    // rather than re-raising matters: a re-raised signal carries the context of
+    // the raise, so the report would name this line instead of the fault.
+    const struct sigaction *previous = NULL;
+    for (size_t i = 0; i < g_savedSignalActionCount; ++i) {
+        if (g_savedSignalActions[i].number == sig) {
+            previous = &g_savedSignalActions[i].action;
+            break;
+        }
+    }
+    if (previous != NULL) {
+        if ((previous->sa_flags & SA_SIGINFO) != 0 &&
+            previous->sa_sigaction != NULL) {
+            previous->sa_sigaction(sig, info, context);
+        } else if (previous->sa_handler != SIG_DFL &&
+                   previous->sa_handler != SIG_IGN &&
+                   previous->sa_handler != NULL) {
+            previous->sa_handler(sig);
+        }
+    }
+
+    // A handler normally terminates. If it returns, force the normal OS crash
+    // path instead of resuming at the fatal instruction and faulting again.
+    struct sigaction dfl;
+    memset(&dfl, 0, sizeof(dfl));
+    dfl.sa_handler = SIG_DFL;
+    sigemptyset(&dfl.sa_mask);
+    sigaction(sig, &dfl, NULL);
     kill(getpid(), sig);
 }
 #endif
 
 // Compute the report path (needs wx) and install the platform crash handler.
-// Called once at startup.
+// Called once at startup, and deliberately after the crash reporter has
+// started: both want the same hook, the last one to ask for it gets it, and
+// only this one knows how to pass the crash along afterwards.
 void installCrashHandler() {
     wxFileName fn(wxStandardPaths::Get().GetTempDir(), "CedarLogic_crashtrace.log");
     g_crashLogPath = fn.GetFullPath().ToStdString();
@@ -275,25 +328,30 @@ void installCrashHandler() {
     // a locally built copy symbolizes and a released one does not.
     wxFileName exe(wxStandardPaths::Get().GetExecutablePath());
     g_symbolSearchPath = exe.GetPath().ToStdString();
-    SetUnhandledExceptionFilter(writeCrashTrace);
+    g_previousFilter = SetUnhandledExceptionFilter(writeCrashTrace);
 #else
     g_crashLogPathRaw = g_crashLogPath.c_str();
     g_crashHeaderRaw = g_crashHeader.data();
     g_crashHeaderSize = g_crashHeader.size();
-    memset(&g_defaultSignalAction, 0, sizeof(g_defaultSignalAction));
-    g_defaultSignalAction.sa_handler = SIG_DFL;
-    sigemptyset(&g_defaultSignalAction.sa_mask);
 
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
     sa.sa_sigaction = posixCrashHandler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_SIGINFO;
-    sigaction(SIGSEGV, &sa, NULL);
-    sigaction(SIGABRT, &sa, NULL);
-    sigaction(SIGBUS,  &sa, NULL);
-    sigaction(SIGFPE,  &sa, NULL);
-    sigaction(SIGILL,  &sa, NULL);
+
+    static const int kFatalSignals[] = {SIGSEGV, SIGABRT, SIGBUS, SIGFPE, SIGILL};
+    for (size_t i = 0; i < sizeof(kFatalSignals) / sizeof(kFatalSignals[0]); ++i) {
+        struct sigaction previous;
+        memset(&previous, 0, sizeof(previous));
+        if (sigaction(kFatalSignals[i], &sa, &previous) != 0) continue;
+        if (g_savedSignalActionCount <
+            sizeof(g_savedSignalActions) / sizeof(g_savedSignalActions[0])) {
+            g_savedSignalActions[g_savedSignalActionCount].number = kFatalSignals[i];
+            g_savedSignalActions[g_savedSignalActionCount].action = previous;
+            ++g_savedSignalActionCount;
+        }
+    }
 #endif
 }
 
