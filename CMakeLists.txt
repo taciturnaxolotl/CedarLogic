@@ -723,11 +723,14 @@ set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
 # naming scheme left scattered across the machine.
 set(CPACK_NSIS_EXTRA_PREINSTALL_COMMANDS
     "!include \\\"${CMAKE_SOURCE_DIR}/cmake/cpack\\\\RemoveLegacyVersions.nsh\\\"
-    \\\${RemoveLegacyVersions}"
+    \\\${RemoveLegacyVersions}
+    !include \\\"${CMAKE_SOURCE_DIR}/cmake/cpack\\\\RestartAfterUpdate.nsh\\\"
+    \\\${WaitForCedarLogicToExit}"
 )
 set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS
     "!include \\\"${CMAKE_SOURCE_DIR}/cmake/cpack\\\\FileAssociation.nsh\\\"
-    \\\${registerExtension} \\\"$INSTDIR\\\\CedarLogic.exe\\\" \\\".cdl\\\" \\\"CedarLogic Project\\\""
+    \\\${registerExtension} \\\"$INSTDIR\\\\CedarLogic.exe\\\" \\\".cdl\\\" \\\"CedarLogic Project\\\"
+    \\\${RestartCedarLogic}"
 )
 set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
     "\\\${unregisterExtension} \\\".cdl\\\" \\\"CedarLogic Project\\\""
