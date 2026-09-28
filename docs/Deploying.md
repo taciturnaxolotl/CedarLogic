@@ -32,8 +32,8 @@ With the policy set:
   problem, so it makes no network request either
 - **Help ▸ Check for Updates...** is greyed out
 
-The program still reports crashes if a person chooses to, which is a separate
-action they take deliberately. Nothing else reaches the network.
+Crash reporting is independent of update checks. It starts automatically in a
+release built with a reporting address, unless the policy below disables it.
 
 ### Why this key
 
@@ -108,6 +108,31 @@ All of these fail silently, which is why `--update-status` exists.
 | Writing the policy under `HKCU` | Only `HKLM` is read. A per-user value would defeat the point. |
 | Writing it under `SOFTWARE\Cedarville University` | The policy lives under `SOFTWARE\Policies\...`, which is the admin-only tree. |
 | Running the Intune script in user context | `HKLM` is not writable by a standard user; the script fails or writes nothing. |
+
+## Turning off crash reporting (Windows)
+
+Release builds report fatal crashes automatically. To keep crash details on a
+managed machine, set `DisableCrashReporting` under the same policy key:
+
+```
+Key:   HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Cedarville University\CedarLogic
+Value: DisableCrashReporting
+Type:  REG_DWORD
+Data:  1
+```
+
+Any non-zero number, or the strings `1`, `true`, `yes`, or `on`, disables it.
+Remove the value or set it to `0` to restore reporting.
+
+Verify the effective setting instead of relying on the registry view:
+
+```powershell
+& 'C:\Program Files (x86)\CedarLogic\CedarLogic.exe' --crash-reporting-status
+```
+
+It exits 0 when reporting is active and 1 when it is unavailable, including when
+this policy disables it. Pass a file path after the flag to write the result from
+a context with no console.
 
 ## Every registry key CedarLogic touches (Windows)
 
