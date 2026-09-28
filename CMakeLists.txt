@@ -317,6 +317,11 @@ if(MSVC)
     add_compile_options(/utf-8)
 endif()
 
+# Strips the development logs. Set here rather than per target so it reaches the
+# logic library too, which was opening corelog.log relative to the working
+# directory in release builds (#124).
+add_compile_definitions($<$<CONFIG:Release>:_PRODUCTION_>)
+
 # Glob all the source files to be added when CedarLogic executable is added later.
 file(GLOB SRC_FILES CONFIGURE_DEPENDS
 	"${PROJECT_SOURCE_DIR}/src/*.cpp"
@@ -529,8 +534,6 @@ if(BUILD_TESTING)
     add_subdirectory("${PROJECT_SOURCE_DIR}/src/gui/route/tests/")
 endif()
 
-
-target_compile_definitions(CedarLogic PRIVATE "_PRODUCTION_")
 
 # Linux: Define GL_GLEXT_PROTOTYPES for OpenGL extension functions
 if(UNIX AND NOT APPLE)
