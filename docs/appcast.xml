@@ -7,30 +7,30 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 3.3.1</title>
-      <pubDate>Mon, 28 Sep 2026 16:00:27 +0000</pubDate>
-      <sparkle:version>3.3.1</sparkle:version>
-      <sparkle:shortVersionString>3.3.1</sparkle:shortVersionString>
+      <title>Version 3.3.2</title>
+      <pubDate>Wed, 30 Sep 2026 05:11:25 +0000</pubDate>
+      <sparkle:version>3.3.2</sparkle:version>
+      <sparkle:shortVersionString>3.3.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<p>Improved sentry crash handling to pass through more crashes and added a flag to crash the binary on demand.</p>]]></description>
+      <description><![CDATA[<p>minor release that fixes a potential issue with doubled wires in circuit files that can potential cause a crash</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.3.1/CedarLogic-3.3.1-Darwin.dmg"
-        sparkle:edSignature="FBK+nFRl+TUvu8e4ckg12agEL0vweqM8QRT6Qq1aJsvXToEBIIljCvdaIO+ZD2LZIrFg6S3RyeiRG5K+M95CCA=="
-        length="14794443"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.3.2/CedarLogic-3.3.2-Darwin.dmg"
+        sparkle:edSignature="EgoefnmIEOdRH7Eh+62+iuLWe0Ka7467R04yz2s1YFPMh4euuYGpsMVJC/CZ43CyT6yH8SWs41TZWY35PVJQBw=="
+        length="14796675"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 3.3.1</title>
-      <pubDate>Mon, 28 Sep 2026 16:00:27 +0000</pubDate>
-      <sparkle:version>3.3.1</sparkle:version>
-      <sparkle:shortVersionString>3.3.1</sparkle:shortVersionString>
-      <description><![CDATA[<p>Improved sentry crash handling to pass through more crashes and added a flag to crash the binary on demand.</p>]]></description>
+      <title>Version 3.3.2</title>
+      <pubDate>Wed, 30 Sep 2026 05:11:25 +0000</pubDate>
+      <sparkle:version>3.3.2</sparkle:version>
+      <sparkle:shortVersionString>3.3.2</sparkle:shortVersionString>
+      <description><![CDATA[<p>minor release that fixes a potential issue with doubled wires in circuit files that can potential cause a crash</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.3.1/CedarLogic-3.3.1-win32.exe"
-        sparkle:edSignature="RvbZt8qK9Pwa4BW83lHjOuuMp5g0gTycAyo1aUHKyvxOLWN1ywoyz5BB8aabBWWiKz6JFt9+cM2UoBlKdzItBg=="
-        length="20701992"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.3.2/CedarLogic-3.3.2-win32.exe"
+        sparkle:edSignature="wv6qMCN57d24XZrwHkrqDKs0W+GB0waekE6yE+ijLYH4rLWevEzczTGopNUtO4IHn36xFrDqJ/xDf43WxOvyAw=="
+        length="20732024"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
