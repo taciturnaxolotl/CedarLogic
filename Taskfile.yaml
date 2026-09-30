@@ -30,19 +30,55 @@ tasks:
     vars:
       PLATFORM: '{{if eq OS "darwin"}}macos{{else if eq OS "windows"}}windows{{else}}linux{{end}}'
       RUN: '{{.RUN | default ""}}'
-      REF: '{{.REF | default "master"}}'
+      REF: '{{.REF | default ""}}'
     cmds:
-      - rm -rf {{.SKIA_DIST}}
       - |
         rid="{{.RUN}}"
         if [ -z "$rid" ]; then
-          rid="$(gh run list --workflow skia.yml --branch {{.REF}} --status success \
-                   --limit 1 --json databaseId --jq '.[0].databaseId')"
+          # Skia is rebuilt rarely and artifacts expire after 90 days, so the
+          # newest successful run is usually not one you can still download
+          # from. Walk back until a run still has the artifact.
+          #
+          # Any branch, unless REF says otherwise: which branch built the
+          # toolchain does not matter, and since Skia is rebuilt on release the
+          # runs that still have artifacts sit on tags rather than on master.
+          for candidate in $(gh run list --workflow skia.yml --status success \
+                               {{if .REF}}--branch {{.REF}}{{end}} \
+                               --limit 20 --json databaseId --jq '.[].databaseId'); do
+            # Counted rather than grepped, and a failed call stops the search.
+            # Treating "could not ask" the same as "nothing there" would walk
+            # quietly past a good run and silently build against an older
+            # toolchain than the one asked for.
+            live="$(gh api "repos/{owner}/{repo}/actions/runs/$candidate/artifacts" \
+                      --jq '[.artifacts[] | select(.name == "skia-{{.PLATFORM}}" and .expired == false)] | length')" \
+              || { echo "could not read the artifacts of run $candidate" >&2; exit 1; }
+            if [ "$live" -gt 0 ]; then
+              rid="$candidate"
+              break
+            fi
+          done
         fi
-        [ -n "$rid" ] || { echo "no successful skia.yml run on {{.REF}}" >&2; exit 1; }
+        [ -n "$rid" ] || { echo "no skia.yml run still has a skia-{{.PLATFORM}} artifact{{if .REF}} on {{.REF}}{{end}}; re-run the Skia workflow" >&2; exit 1; }
+        # The dist records the run it came from, so asking again for the run
+        # already on disk costs a couple of API calls rather than the download.
+        # Checked against the sentinel header too, so a half-written dist is
+        # fetched again rather than trusted.
+        stamp="{{.SKIA_DIST}}/.run-id"
+        if [ -f "{{.SKIA_DIST}}/include/core/SkCanvas.h" ] &&
+           [ "$(cat "$stamp" 2>/dev/null)" = "$rid" ]; then
+          echo "skia-{{.PLATFORM}} from run $rid, already here"
+          exit 0
+        fi
         echo "skia-{{.PLATFORM}} from run $rid"
-        gh run download "$rid" -n skia-{{.PLATFORM}} -D {{.SKIA_DIST}}
-      - test -f {{.SKIA_DIST}}/include/core/SkCanvas.h
+        # Fetched beside the real one and moved into place only once it is
+        # whole. Clearing it up front meant a failed fetch left you with no
+        # Skia at all and a build that no longer configures.
+        rm -rf {{.SKIA_DIST}}.incoming
+        gh run download "$rid" -n skia-{{.PLATFORM}} -D {{.SKIA_DIST}}.incoming
+        test -f {{.SKIA_DIST}}.incoming/include/core/SkCanvas.h
+        echo "$rid" > {{.SKIA_DIST}}.incoming/.run-id
+        rm -rf {{.SKIA_DIST}}
+        mv {{.SKIA_DIST}}.incoming {{.SKIA_DIST}}
       - 'echo "SKIA_ROOT: $PWD/{{.SKIA_DIST}}"'
 
   configure:
