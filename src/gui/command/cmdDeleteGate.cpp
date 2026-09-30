@@ -15,6 +15,25 @@
 
 DECLARE_APP(MainApp);
 
+namespace {
+
+// A wire looping from a gate's input back to its output at the same point. Once
+// the rest of the wire is gone such a wire is left as an artifact, so deleting
+// the gate takes it too. (Joshua Lansford, 11/02/06.)
+bool isBufferLoop(GUICircuit *gCircuit, guiWire *wire) {
+	if (wire->numConnections() != 2) return false;
+	std::vector< wireConnection > conns = wire->getConnections();
+	if (conns[0].gid != conns[1].gid) return false;
+	guiGate *gate = gCircuit->getGate(conns[0].gid);
+	if (gate == nullptr) return false; // a wire naming a gate the circuit lost
+	float x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+	gate->getHotspotCoords(conns[0].connection, x1, y1);
+	gate->getHotspotCoords(conns[1].connection, x2, y2);
+	return x1 == x2 && y1 == y2;
+}
+
+}  // namespace
+
 cmdDeleteGate::cmdDeleteGate(GUICircuit* gCircuit, GUICanvas* gCanvas,
 		IDType gateId) :
 			klsCommand(true, "Delete Gate") {
@@ -52,41 +71,7 @@ bool cmdDeleteGate::Do() {
 			disconn->Do();
 
 			//----------------------------------------------------------------------------------------
-			//Joshua Lansford edit 11/02/06--Added so "buffer" ports on a gate don't contain
-			//wire artifacts after the rest of the wire has been deleted.  A buffer is created
-			//by haveing a input and output hotspot in the same location. 
-			//if the number of things the wire has left to connect is only two, then delete the wire.
-
-			//first thing we verify is that we only have two connections left.
-			if (gWire->numConnections() == 2) {
-				//now we get the gid from both those connections. The old code
-				//re-fetched the wire by id here and wondered in a comment why;
-				//the lookup returns the very pointer gWire already holds.
-				std::vector < wireConnection > connections = gWire->getConnections();
-				if (connections[0].gid == connections[1].gid) {
-
-					//now we have to make sure that the connections are the same pin by comparing their positions
-					guiGate* possibleBuffGate = gCircuit->getGate(connections[0].gid);
-					std::string* hotspot1Name = &connections[0].connection;
-					std::string* hotspot2Name = &connections[1].connection;
-
-					float x1 = 0, y1 = 0, x2 = 0, y2 = 0;
-					possibleBuffGate->getHotspotCoords(*hotspot1Name, x1, y1);
-					possibleBuffGate->getHotspotCoords(*hotspot2Name, x2, y2);
-
-					if (x1 == x2 && y1 == y2) {
-						//this wire has met the requierments for being cooked.
-						//so we will scedual it for being delted.
-						deleteWires.push_back(gWire->getID());
-					}
-				}
-			}
-			//coment on edit. I compiled and tested this edit.
-			//It doesn't delete wires that connect two different pins
-			//on one chip when a gate is deleted.  It does delete a wire
-			//connecting and input and a output that are in the same location
-			//when you delete another gate
-			//end of edit---------------the else on the following if was added as well------------------
+			if (isBufferLoop(gCircuit, gWire)) deleteWires.push_back(gWire->getID());
 			else if (gWire->numConnections() < 2) deleteWires.push_back(gWire->getID());
 		}
 		connWalk++;

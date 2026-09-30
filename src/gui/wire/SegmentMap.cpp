@@ -45,5 +45,32 @@ bool rehomeConnections(SegmentMap &segs, long deadID) {
 	return false;
 }
 
+bool dropGateConnections(SegmentMap &segs, unsigned long gid) {
+	bool gone = false;
+	for (SegmentMap::Store::iterator seg = segs.begin(); seg != segs.end(); seg++) {
+		vector< wireConnection > &conns = (seg->second).connections;
+		// Backwards, so erasing does not step over the next one.
+		for (size_t i = conns.size(); i-- > 0; ) {
+			if (conns[i].gid != gid) continue;
+			conns.erase(conns.begin() + i);
+			gone = true;
+		}
+	}
+	return gone;
+}
+
+long dropConnection(SegmentMap &segs, unsigned long gid, const string &pin) {
+	long from = -1;
+	for (SegmentMap::Store::iterator seg = segs.begin(); seg != segs.end(); seg++) {
+		vector< wireConnection > &conns = (seg->second).connections;
+		for (size_t i = conns.size(); i-- > 0; ) {
+			if (conns[i].gid != gid || conns[i].connection != pin) continue;
+			conns.erase(conns.begin() + i);
+			from = seg->first;
+		}
+	}
+	return from;
+}
+
 }  // namespace wire
 }  // namespace cl

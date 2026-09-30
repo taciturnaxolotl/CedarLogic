@@ -51,6 +51,11 @@ public:
 	// gate out of its wires, which is what makes gateOf() below total.
 	void removeConnection(IDType gid, string connection);
 
+	// Drop every trace of a gate, whichever pins and however many copies.
+	// GUICircuit::deleteGate asks this of every wire rather than asking the
+	// dying gate, which remembers only one wire per pin.
+	void removeGate(IDType gid);
+
 	// The circuit this wire belongs to; used to resolve a wireConnection's gid
 	// to a live guiGate* (see gateOf). Set by GUICircuit when the wire is created.
 	void setCircuit(GUICircuit* c) { gCircuit = c; }

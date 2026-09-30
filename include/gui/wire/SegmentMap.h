@@ -13,6 +13,7 @@
 
 #include <cstddef>
 #include <map>
+#include <string>
 #include <utility>
 #include "wireSegment.h"
 
@@ -76,6 +77,14 @@ private:
 // length to it, searching outward through the intersection graph. False when
 // there are connections and nowhere to put them.
 bool rehomeConnections(SegmentMap &segs, long deadID);
+
+// Take a gate out of every segment that names it, however many times. True when
+// something went.
+bool dropGateConnections(SegmentMap &segs, unsigned long gid);
+
+// The same for one pin, every copy of it. Returns a segment it was taken from,
+// or -1 when no segment named it; trimming the tree needs to know where.
+long dropConnection(SegmentMap &segs, unsigned long gid, const std::string &pin);
 
 }  // namespace wire
 }  // namespace cl

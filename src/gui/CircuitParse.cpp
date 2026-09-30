@@ -218,13 +218,33 @@ void CircuitParse::applyCircuitFile(const cl::CircuitFile &cf) {
 		// <input>/<output> blocks carried. Direction is irrelevant here — the old
 		// loader handled inputs and outputs identically.
 		std::unordered_map<string, vector<gateConnector>> connectorsByGate;
+		// Scoped to the page, not one wire: a pin carries one wire, so a second
+		// wire claiming it would overwrite the gate's note of the first. First
+		// claim wins. The claimant is kept so that a wire naming its own pin
+		// twice, which is harmless, is not reported as a clash.
+		std::map<std::pair<string, string>, string> claimedBy;
 		for (const cl::WireInstance &w : pg.wires) {
+			const string wireName = w.ids.empty() ? string("(no id)") : w.ids.front();
 			vector<IDType> wireIds;
 			for (const string &id : w.ids) wireIds.push_back(strtoull(id.c_str(), nullptr, 10));
-			std::set<std::pair<string, string>> seen; // distinct (gate, pin) endpoints
 			for (const cl::WireSegment &s : w.segments) {
 				for (const cl::WireConn &c : s.connects) {
-					if (!seen.insert(std::make_pair(c.gateUuid, c.pin)).second) continue;
+					const std::pair<string, string> pin(c.gateUuid, c.pin);
+					std::map<std::pair<string, string>, string>::const_iterator held =
+						claimedBy.find(pin);
+					if (held != claimedBy.end()) {
+						if (held->second == wireName) continue; // its own, already placed
+						cl::MigrationNotice n;
+						n.severity = cl::Severity::Warning;
+						n.summary = "Wire " + wireName + " connects to pin " + c.pin +
+						            " of gate " + c.gateUuid + ", which wire " +
+						            held->second + " already uses.";
+						n.detail = "That connection was dropped, because a pin carries one "
+						           "wire. Reconnect it if the other wire was the wrong one.";
+						applyNotices.push_back(std::move(n));
+						continue;
+					}
+					claimedBy[pin] = wireName;
 					gateConnector gc;
 					gc.connectionID = c.pin;
 					gc.wireIds = wireIds;
@@ -302,6 +322,9 @@ void CircuitParse::applyWireShape(const cl::WireInstance &w) {
 	}
 
 	map<long, wireSegment> shape;
+	// The routing reads these rather than the wire's own connection list, so a
+	// pin named twice leaves a copy a single removal never reaches.
+	std::set<std::pair<unsigned long, string>> placed;
 	for (const cl::WireSegment &ms : w.segments) {
 		wireSegment seg;
 		seg.verticalSeg = ms.vertical;
@@ -327,6 +350,7 @@ void CircuitParse::applyWireShape(const cl::WireInstance &w) {
 				continue;
 			}
 			nwc.connection = c.pin;
+			if (!placed.insert(std::make_pair(nwc.gid, nwc.connection)).second) continue;
 			seg.connections.push_back(nwc);
 		}
 		for (const cl::Intersection &x : ms.intersections)

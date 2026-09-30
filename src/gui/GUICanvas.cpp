@@ -1535,9 +1535,10 @@ klsCommand * GUICanvas::createGateWireConnectionCommand(IDType gateId, const str
 	guiWire *wire = getWire(wireId);
 	if (gate == nullptr || wire == nullptr) return nullptr;
 
-	// Make sure not already connected.
-	if (gate->isConnected(hotspot) &&
-		gate->getConnection(hotspot) == wire) {
+	// A pin carries one wire. Refusing only when the pin held *this* wire let a
+	// second wire overwrite the gate's entry, leaving the displaced wire with
+	// nothing to prune it. Join an occupied pin by connecting to its wire.
+	if (gate->isConnected(hotspot)) {
 		return nullptr;
 	}
 
@@ -1604,7 +1605,9 @@ klsCommand * GUICanvas::createGateConnectionCommand(IDType gate1Id, const string
 	}
 	else {
 		
-		// One of the gates is connected.
+		// Exactly one is connected, so the other joins its wire. When both are,
+		// the occupancy check above refuses: joining two nets would have to move
+		// a pin off the wire it already has.
 		if (gate1->isConnected(hotspot1)) {
 			return createGateWireConnectionCommand(gate2Id,
 				hotspot2, gate1->getConnection(hotspot1)->getID());

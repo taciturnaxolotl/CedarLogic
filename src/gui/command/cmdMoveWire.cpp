@@ -121,11 +121,18 @@ void cmdMoveWire::setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,
 		TranslationMap &gateids, TranslationMap &wireids) {
 
 	this->gCircuit = gCircuit;
-	wid = wireids[wid];
+	// find, not operator[]: a miss inserts a zero and hands it back, which wrote
+	// gate 0 into the segment as a real connection.
+	TranslationMap::const_iterator newWid = wireids.find(wid);
+	if (newWid != wireids.end()) wid = newWid->second;
 	map < long, wireSegment >::iterator segWalk = newSegList.begin();
 	while (segWalk != newSegList.end()) {
-		for (unsigned int i = 0; i < (segWalk->second).connections.size(); i++) {
-			(segWalk->second).connections[i].gid = gateids[(segWalk->second).connections[i].gid];
+		vector < wireConnection > &conns = (segWalk->second).connections;
+		// Backwards, so erasing does not step over the next one.
+		for (unsigned int i = conns.size(); i-- > 0; ) {
+			TranslationMap::const_iterator newGid = gateids.find(conns[i].gid);
+			if (newGid == gateids.end()) conns.erase(conns.begin() + i);
+			else conns[i].gid = newGid->second;
 		}
 		segWalk++;
 	}

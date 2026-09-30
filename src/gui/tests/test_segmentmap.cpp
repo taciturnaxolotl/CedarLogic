@@ -126,3 +126,71 @@ TEST_CASE("a default-constructed segment starts at the origin, horizontal, id 0"
 	CHECK(s.begin == GLPoint2f(0, 0));
 	CHECK(s.end == GLPoint2f(0, 0));
 }
+
+// A gate remembers one wire per pin, so when a wire is displaced from a pin the
+// gate can no longer name it and the old prune walked straight past it. These
+// cover asking the segments directly instead (issue #127).
+
+TEST_CASE("dropping a gate takes every segment that names it") {
+	SegmentMap segs;
+	segs.put(withLength(0));
+	segs.at(0).connections.push_back(conn(7, "OUT"));
+	segs.at(0).connections.push_back(conn(9, "IN"));
+	segs.put(withLength(1));
+	segs.at(1).connections.push_back(conn(7, "IN_1"));
+
+	CHECK(cl::wire::dropGateConnections(segs, 7));
+	CHECK(segs.at(0).connections.size() == 1);
+	CHECK(segs.at(0).connections[0].gid == 9);
+	CHECK(segs.at(1).connections.empty());
+}
+
+TEST_CASE("dropping a gate takes a pin listed twice on one segment") {
+	// The coincident DATA_IN/DATA_OUT pins on the RAM gates connect as a pair,
+	// and a pasted block replays the pair, so the same pin could be listed
+	// twice. Removing one copy per call left the other behind for good.
+	SegmentMap segs;
+	segs.put(withLength(0));
+	segs.at(0).connections.push_back(conn(7, "DATA_IN_0"));
+	segs.at(0).connections.push_back(conn(7, "DATA_IN_0"));
+	segs.at(0).connections.push_back(conn(8, "OUT"));
+
+	CHECK(cl::wire::dropGateConnections(segs, 7));
+	REQUIRE(segs.at(0).connections.size() == 1);
+	CHECK(segs.at(0).connections[0].gid == 8);
+}
+
+TEST_CASE("dropping one pin leaves the gate's other pins alone") {
+	SegmentMap segs;
+	segs.put(withLength(4));
+	segs.at(4).connections.push_back(conn(7, "DATA_IN_0"));
+	segs.at(4).connections.push_back(conn(7, "DATA_OUT_0"));
+	segs.at(4).connections.push_back(conn(7, "DATA_IN_0"));
+
+	// The segment it came from, which is what trimming the tree needs.
+	CHECK(cl::wire::dropConnection(segs, 7, "DATA_IN_0") == 4);
+	REQUIRE(segs.at(4).connections.size() == 1);
+	CHECK(segs.at(4).connections[0].connection == "DATA_OUT_0");
+}
+
+TEST_CASE("a connection taken from segment zero is not mistaken for none") {
+	// Segment 0 is a real id, so "no segment held it" has to be a value no
+	// segment can have. The old code used 0 for both and trimmed from whatever
+	// happened to be there.
+	SegmentMap segs;
+	segs.put(withLength(0));
+	segs.at(0).connections.push_back(conn(7, "OUT"));
+
+	CHECK(cl::wire::dropConnection(segs, 7, "OUT") == 0);
+	CHECK(cl::wire::dropConnection(segs, 7, "OUT") == -1);
+}
+
+TEST_CASE("dropping a gate that is not there changes nothing") {
+	SegmentMap segs;
+	segs.put(withLength(0));
+	segs.at(0).connections.push_back(conn(7, "OUT"));
+
+	CHECK_FALSE(cl::wire::dropGateConnections(segs, 42));
+	CHECK(cl::wire::dropConnection(segs, 7, "IN") == -1);
+	CHECK(segs.at(0).connections.size() == 1);
+}

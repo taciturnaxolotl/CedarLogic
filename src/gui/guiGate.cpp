@@ -152,10 +152,16 @@ void guiGate::addConnection(string c, guiWire* obj) {
 	connections[c] = obj;
 }
 
-void guiGate::removeConnection(string c, int &obj) {
-	if (connections.find(c) == connections.end()) return;
-	obj = connections[c]->getID();
-	connections.erase(c);
+void guiGate::removeConnection(string c, int &obj, const guiWire *owner) {
+	map< string, guiWire* >::iterator entry = connections.find(c);
+	if (entry == connections.end()) return;
+	// A hotspot holding someone else's wire is not ours to clear. Keyed by name
+	// alone, this dropped whatever the hotspot held, so disconnecting a wire
+	// that had already been displaced from the pin took the displacing wire's
+	// entry with it and left that wire unreachable from the gate.
+	if (owner != nullptr && entry->second != owner) return;
+	if (entry->second != nullptr) obj = entry->second->getID();
+	connections.erase(entry);
 }
 
 bool guiGate::isConnected(string c) {

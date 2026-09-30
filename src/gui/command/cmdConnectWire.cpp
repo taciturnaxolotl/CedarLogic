@@ -165,7 +165,7 @@ void cmdConnectWire::sendMessagesToDisconnect(GUICircuit *gCircuit,
 
 	// Remove the connection in the gui.
 	int temp;
-	gate->removeConnection(hotspot, temp);
+	gate->removeConnection(hotspot, temp, wire);
 	wire->removeConnection(gateId, hotspot);
 
 	// When disconnecting a gui hotspot from its underlying inputs/outputs,

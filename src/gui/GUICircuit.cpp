@@ -164,13 +164,13 @@ void GUICircuit::deleteGate(unsigned long gid, bool waitToUpdate) {
 		updateMenu = true;
 	}
 
-	// Take this gate out of every wire that names it before it stops existing.
-	// Commands normally disconnect first and this does nothing; it is here so
-	// that "no wire outlives a gate it is connected to" is a property of the
-	// circuit rather than a habit of its callers, which is what lets guiWire
-	// dereference gateOf() without a null check at thirteen call sites.
-	for (const auto &connection : gate->getConnections()) {
-		if (connection.second != nullptr) connection.second->removeConnection(gid, connection.first);
+	// Take this gate out of every wire that names it before it stops existing,
+	// which is what lets guiWire dereference gateOf() without a null check at
+	// thirteen call sites. Every wire is asked, not only the ones the dying gate
+	// knows about: a gate holds one wire per pin, so a wire displaced from a pin
+	// is missing from that list and used to outlive the gate.
+	for (const auto &entry : wireList) {
+		if (entry.second != nullptr) entry.second->removeGate(gid);
 	}
 
 	gateList.erase(gid);

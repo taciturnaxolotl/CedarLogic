@@ -160,9 +160,15 @@ void klsClipboard::copyBlock( GUICircuit* gCircuit, GUICanvas* gCanvas, vector <
 		wire->setCircuit(gCircuit); // so removeConnection/setSegmentMap can resolve gids to gates
 		// Set the IDs
 		wire->setIDs( source->getIDs() );
-		// Shove all the connections
+		// Shove all the connections. Skip any whose gate the circuit cannot
+		// resolve: addConnection reads the gate's id straight off the pointer,
+		// so a wire that had drifted out of step with its gate crashed the copy.
 		vector < wireConnection > wireConns = source->getConnections();
-		for (unsigned int i = 0; i < wireConns.size(); i++) wire->addConnection( gCircuit->getGate(wireConns[i].gid), wireConns[i].connection, true );
+		for (unsigned int i = 0; i < wireConns.size(); i++) {
+			guiGate *connGate = gCircuit->getGate(wireConns[i].gid);
+			if (connGate == nullptr) continue;
+			wire->addConnection(connGate, wireConns[i].connection, true);
+		}
 		// Now get the segment map copy
 		wire->setSegmentMap( source->getSegmentMap() );
 		// Now that we have a good copy of the wire object, we can trim the connections that we don't want to carry over

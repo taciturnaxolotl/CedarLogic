@@ -293,7 +293,12 @@ public:
 
 	// Every wire attached to this gate, by hotspot name.
 	const map< string, guiWire* >& getConnections() const { return connections; };
-	void removeConnection(string, int&);
+
+	// Let go of the wire on this hotspot. `owner` says which wire expects to be
+	// there; a hotspot holding a different one is left alone, so disconnecting
+	// one wire cannot take another wire's entry with it. Pass nullptr to remove
+	// whatever is there.
+	void removeConnection(string, int&, const guiWire *owner = nullptr);
 	bool isConnected(string);
 	bool isSelected() { return selected; };
 

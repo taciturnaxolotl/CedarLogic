@@ -114,6 +114,12 @@ void guiWire::addConnection(guiGate* iGate, string connection, bool openMode) {
 	// Fill all necessary items - need a pointer to the gate, an id for copy/paste
 	temp.gid = iGate->getID();
 	temp.connection = connection;
+	// A pin can be asked for twice: the RAM gates carry DATA_IN_n and DATA_OUT_n
+	// at one point, so connecting either connects both, and a paste replays it.
+	for (unsigned int i = 0; i < connectPoints.size(); i++) {
+		if (connectPoints[i].gid == temp.gid &&
+		    connectPoints[i].connection == temp.connection) return;
+	}
 	connectPoints.push_back(temp);
 	if (openMode) return; // On open, don't calc shape until the seg tree is explicity set
 	if (connectPoints.size() < 3) { setVerticalBar = true; calcShape(); return; }
@@ -156,35 +162,23 @@ void guiWire::addConnection(guiGate* iGate, string connection, bool openMode) {
 }
 
 void guiWire::removeConnection(IDType gid, string connection) {
-	// Find the connection I'm looking for and simply eradicate it
-	for (unsigned int i = 0; i < connectPoints.size(); i++) {
+	// Every copy, not the first: a pin listed twice left the leftover naming a
+	// gate that was about to stop existing.
+	for (unsigned int i = connectPoints.size(); i-- > 0; ) {
 		if (connectPoints[i].connection == connection && connectPoints[i].gid == gid) {
 			connectPoints.erase(connectPoints.begin() + i);
-			//calcShape();
-			break;
 		}
 	}
+	// The segments keep their own copy, and that is the one mergeSegments and a
+	// segment drag read. Cleared before the size test, because a wire left with
+	// one connection keeps the segments it already has.
+	long segID = cl::wire::dropConnection(shape_.segs, gid, connection);
 	if (connectPoints.size() < 2) return;
 	this->detachSubObjects(); // prevent coll checker pointers from invalidating
-	// Now I need to find the segment with this thing and update the tree
-	long segID = 0; bool found = false;
-	map < long, wireSegment >::iterator segWalk = shape_.segs.begin();
-	while (segWalk != shape_.segs.end() && !found) {
-		for (unsigned int i = 0; i < (segWalk->second).connections.size(); i++) {
-			if ((segWalk->second).connections[i].gid == gid && (segWalk->second).connections[i].connection == connection) {
-				// We found the match, remove it
-				segID = (segWalk->first); found = true;
-				(segWalk->second).connections.erase((segWalk->second).connections.begin() + i);
-				break;
-			}
-		}
-		segWalk++;
-	}
 
 	// Now trim the segment if necessary and walk back through the tree.
-	// Nothing to trim when no segment claimed the connection: segID is still 0,
-	// and indexing the map with it would invent a segment.
-	while (found && shape_.segs.has(segID) &&
+	// -1 when no segment claimed the connection, so there is nothing to trim.
+	while (segID != -1 && shape_.segs.has(segID) &&
 	       shape_.segs.at(segID).connections.size() == 0 && shape_.segs.at(segID).intersects.size() == 1) {
 		long oldSegID = segID;
 		const vector< long > &nextIDs = shape_.segs.at(oldSegID).intersects.begin()->second;
@@ -199,6 +193,24 @@ void guiWire::removeConnection(IDType gid, string connection) {
 		if (shape_.segs.at(segID).intersects[mapKey].size() == 0) shape_.segs.at(segID).intersects.erase(mapKey);
 	}
 	// Refresh the tree
+	mergeSegments();
+	calcBBox();
+}
+
+// Drop a gate outright, whichever pins it sat on. Asked of every wire when a
+// gate is deleted, so "no wire outlives a gate it names" holds however the two
+// came to disagree.
+void guiWire::removeGate(IDType gid) {
+	vector< string > pins;
+	for (unsigned int i = 0; i < connectPoints.size(); i++) {
+		if (connectPoints[i].gid == gid) pins.push_back(connectPoints[i].connection);
+	}
+	for (unsigned int i = 0; i < pins.size(); i++) removeConnection(gid, pins[i]);
+	// A segment can name a pin the wire itself never listed, which is how this
+	// went wrong in the first place. Nothing above would have reached those.
+	if (!cl::wire::dropGateConnections(shape_.segs, gid)) return;
+	if (connectPoints.size() < 2) return; // nothing left to route between
+	this->detachSubObjects(); // prevent coll checker pointers from invalidating
 	mergeSegments();
 	calcBBox();
 }
