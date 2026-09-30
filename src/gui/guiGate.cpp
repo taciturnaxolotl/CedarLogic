@@ -482,9 +482,13 @@ string guiGate::checkHotspots( GLfloat x, GLfloat y, GLfloat delta ) {
 
 
 void guiGate::getHotspotCoords(string hsName, float &x, float &y) {
+	// Defined before the lookup: two callers pass raw locals and use them
+	// whatever happens, so a name this gate does not have left them reading
+	// whatever was on the stack.
+	x = 0;
+	y = 0;
 
 	if( hotspots.find(hsName) == hotspots.end() ) {
-		//TODO: Couldn't find hotspot, so give a useful warning.
 		return;
 	}
 
@@ -496,6 +500,10 @@ void guiGate::getHotspotCoords(string hsName, float &x, float &y) {
 
 
 std::string guiGate::getHotspotPal(const std::string &hotspot) {
+
+	// A name this gate does not have reads as the origin, which would pair it
+	// with any pin that genuinely sits there.
+	if (hotspots.find(hotspot) == hotspots.end()) return "";
 
 	GLPoint2f coords;
 	getHotspotCoords(hotspot, coords.x, coords.y);
