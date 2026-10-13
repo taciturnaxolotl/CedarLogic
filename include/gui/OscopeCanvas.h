@@ -38,6 +38,8 @@ class OscopeFrame;
 // Engine-neutral rendering seam (Workstream G); defined in gui/render/.
 namespace cl { namespace render { class Scene; struct Transform; } }
 
+#include "render/CanvasGL.h"
+
 class OscopeCanvas: public wxGLCanvas
 {
 public:
@@ -95,6 +97,10 @@ private:
 
 	
 	OscopeFrame* parentFrame;
+
+	// This canvas's own GL context and Skia backend (see render/CanvasGL.h). It
+	// draws waveforms, so it takes the small Ganesh cache budget.
+	cl::render::CanvasGL* canvasGL;
 	
 	DECLARE_EVENT_TABLE()
 };

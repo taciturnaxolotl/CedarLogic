@@ -95,7 +95,6 @@ MainApp::MainApp()
     paletteDrag().showDragImage = false;
     mainframe = NULL;
     renderMode().doingBitmapExport = false;
-	glContext = NULL;
 #ifdef __WXGTK__
 	// On Linux with wayland, wxGTK doesn't position glCanvas frames correctly.
 	// This env var has to be set explicitly to instruct gtk to only use X11.
@@ -592,8 +591,6 @@ int MainApp::OnExit() {
 	// outlived the app.
 	WinSparkleUpdater_Cleanup();
 #endif
-	delete glContext;
-	glContext = NULL;
 #ifdef _WIN32
 	timeEndPeriod(1);
 #endif
@@ -620,55 +617,6 @@ const wxGLAttributes& glCanvasAttributes()
 		return a;
 	}();
 	return attrs;
-}
-
-void MainApp::SetCurrentCanvas(wxGLCanvas *canvas)
-{
-	if (!glContext) {
-#ifdef __WXOSX__
-		// macOS hands out a legacy 2.1 context unless asked otherwise, and there
-		// the shading language stops at GLSL 1.10 -- old enough that Skia's atlas
-		// path renderer emits gl_VertexID into a #version 110 shader, which fails
-		// to compile on every path-heavy frame before Skia falls back. 3.2 core is
-		// the newest profile macOS offers and the one Ganesh expects. Windows and
-		// Linux already hand out a modern compatibility context, so they keep the
-		// driver default.
-		//
-		// Except when simulating an old machine. The processor fallback draws
-		// with the fixed pipeline, which a core profile removes, so a forced
-		// failure has to take the legacy context too. Otherwise the test would
-		// cover a combination no real machine has: Windows and Linux, where the
-		// fallback actually runs, are on compatibility contexts already.
-		if (cl::render::forceGLFailure()) {
-			glContext = new wxGLContext(canvas);
-		} else {
-			wxGLContextAttrs ctxAttrs;
-			ctxAttrs.CoreProfile().EndList();
-			glContext = new wxGLContext(canvas, NULL, &ctxAttrs);
-		}
-#else
-		glContext = new wxGLContext(canvas);
-#endif
-	}
-	glContext->SetCurrent(*canvas);
-
-#ifdef __WXMSW__
-	// Turn vsync OFF (once; needs a current context). Every canvas -- main, oscope,
-	// minimap -- shares this GL context and ends its paint with SwapBuffers. With
-	// vsync on, each swap blocks the GUI thread until the next vblank (up to
-	// ~16ms), and this app repaints on demand rather than running a frame loop, so
-	// there is nothing to gain from pacing to the display. With the interval at 0
-	// SwapBuffers returns immediately (measured ~0.03ms), keeping the thread free
-	// for input and the simulation.
-	static bool s_vsyncSet = false;
-	if (!s_vsyncSet) {
-		s_vsyncSet = true;
-		typedef BOOL(WINAPI * SwapIntervalProc)(int);
-		SwapIntervalProc setSwap =
-			(SwapIntervalProc)wglGetProcAddress("wglSwapIntervalEXT");
-		if (setSwap) setSwap(0);
-	}
-#endif
 }
 
 #ifdef __WXOSX__

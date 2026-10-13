@@ -16,6 +16,7 @@ namespace render {
 
 class Scene;  // engine-neutral sink; the callback draws into a Skia-backed one
 struct Transform;
+class SkiaBackend;  // one per GL context; the window paths render through it
 
 // Point the font search at the app's resources root (a path ending in '/'), so a
 // bundled face is found wherever the app was installed rather than relative to
@@ -46,11 +47,13 @@ bool skiaRenderToRGB(int width, int height,
                      unsigned char* outRgb);
 
 // Render a scene straight into the currently-bound window framebuffer via Skia's
-// Ganesh GL backend, then flush (the caller presents with SwapBuffers). The GL
-// context must be current. `fboId` is the target framebuffer (0 = window).
+// Ganesh GL backend, then flush (the caller presents with SwapBuffers). `backend`
+// must be the one belonging to the canvas being painted, and that canvas's GL
+// context must be current -- CanvasGL owns both and keeps them together.
+// `fboId` is the target framebuffer (0 = window).
 // This is the live on-screen path (Workstream G3); returns false if Skia could
 // not adopt the GL context or wrap the framebuffer.
-bool skiaRenderWindow(int width, int height, int fboId,
+bool skiaRenderWindow(SkiaBackend& backend, int width, int height, int fboId,
                       const std::function<void(Scene&)>& draw,
                       float strokeScale = 1.0f);
 
@@ -60,7 +63,7 @@ bool skiaRenderWindow(int width, int height, int fboId,
 // on top. Built for the minimap, where panning the main canvas moves only the
 // viewport rectangle (the overlay) while the circuit thumbnail (the static
 // layer) is unchanged -- so a pan costs a blit, not a full circuit redraw.
-bool skiaRenderWindowCached(int width, int height, int fboId,
+bool skiaRenderWindowCached(SkiaBackend& backend, int width, int height, int fboId,
                             unsigned long long contentKey,
                             const std::function<void(Scene&)>& drawStatic,
                             const std::function<void(Scene&)>& drawOverlay,
@@ -81,7 +84,7 @@ bool skiaRenderWindowCached(int width, int height, int fboId,
 // per-mouse-move overlays (hover bulbs, drag boxes, wire hover) out of the cached
 // picture, so moving the mouse replays the circuit instead of re-recording it.
 // Like `drawGrid`, it runs against the full camera and sets its own viewport.
-bool skiaRenderWindowScene(int width, int height, int fboId,
+bool skiaRenderWindowScene(SkiaBackend& backend, int width, int height, int fboId,
                            unsigned long long sceneKey,
                            const Transform& camera,
                            const std::function<void(Scene&)>& drawGrid,

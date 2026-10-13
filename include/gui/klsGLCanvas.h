@@ -16,6 +16,7 @@ class klsGLCanvas;
 #include "MainApp.h"
 #include "wx/glcanvas.h"
 #include "klsMiniMap.h"
+#include "render/CanvasGL.h"
 // For GLPoint2f:
 
 // Included for floor() method:
@@ -197,7 +198,13 @@ protected:
 	// The minimap associated with this canvas
 	klsMiniMap* minimap;
 
+	// This canvas's own GL context and Skia backend, shared with no other canvas.
+	// See render/CanvasGL.h for the crash that bought.
+	cl::render::CanvasGL& glCtx() { return *canvasGL; }
+
 private:
+	cl::render::CanvasGL* canvasGL;   // owned; deleted in ~klsGLCanvas
+
 	wxPoint mouseScreenCoords;
 	wxPoint getMouseScreenCoords(void) { return mouseScreenCoords;  }
 

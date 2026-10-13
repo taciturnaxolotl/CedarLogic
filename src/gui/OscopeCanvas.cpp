@@ -46,10 +46,15 @@ OscopeCanvas::OscopeCanvas(wxWindow *parent, GUICircuit* gCircuit, wxWindowID id
 	dataDirty = false;
 	renderTimer = new wxTimer(this, ID_OSCOPE_RENDER_TIMER);
 	renderTimer->Start(OSCOPE_RENDER_INTERVAL_MS);
+	// Small Ganesh cache: this canvas draws waveforms, not circuits.
+	canvasGL = new cl::render::CanvasGL(this, /*smallCache=*/true);
 }
 
 OscopeCanvas::~OscopeCanvas(){
 	if (renderTimer) { renderTimer->Stop(); delete renderTimer; renderTimer = NULL; }
+	// While this window is still alive, so the GL context can be made current.
+	delete canvasGL;
+	canvasGL = NULL;
 	return;
 }
 
@@ -83,7 +88,8 @@ bool OscopeCanvas::OnRenderSkia() {
 	t.a = scaleX; t.c = 0; t.e = 0;
 	t.b = 0; t.d = scaleY; t.f = 0.25f * scaleY;   // world y=-0.25 -> device 0
 	OscopeCanvas* self = this;
-	return skiaRenderWindow(w, h, 0, [self, &t, numberOfWires](Scene& scene) {
+	return skiaRenderWindow(canvasGL->skia(), w, h, 0,
+	                        [self, &t, numberOfWires](Scene& scene) {
 		self->drawOscopeScene(scene, t, numberOfWires);
 	});
 }
@@ -166,14 +172,7 @@ void OscopeCanvas::drawOscopeScene(cl::render::Scene& scene,
 #endif  // WITH_SKIA
 
 void OscopeCanvas::OnPaint(wxPaintEvent& event){
-	wxPaintDC dc(this);
-	wxGetApp().SetCurrentCanvas(this);
-	// Skia sets its own GL state; nothing to initialise here.
-	OnRenderSkia();
-
-	// Show the new buffer:
-	glFlush();
-	SwapBuffers();
+	canvasGL->paint([this] { return OnRenderSkia(); });
 }
 
 void OscopeCanvas::UpdateData(void){

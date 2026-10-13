@@ -108,15 +108,38 @@ sk_sp<const GrGLInterface> makeEGLInterface() {
 // Where a bundled face may be found, set once at startup (see setFontSearchDir).
 // Empty until then, and empty in headless tools that never call it.
 std::string gFontSearchDir;
+
+// The default face, resolved once for the whole process. A typeface is CPU-side
+// and knows nothing about GL, so every backend shares one rather than each
+// canvas re-walking the font search order and paying for it again.
+sk_sp<SkFontMgr> gFontMgr;
+sk_sp<SkTypeface> gTypeface;
+SkFont* gFont = nullptr;
+bool gFontTried = false;
 }  // namespace
 
 void setFontSearchDir(const char* dir) {
 	gFontSearchDir = (dir && *dir) ? dir : "";
 }
 
-SkiaBackend& SkiaBackend::get() {
-	static SkiaBackend instance;
-	return instance;
+SkiaBackend::SkiaBackend(size_t cacheBudgetBytes)
+		: fCacheBudget(cacheBudgetBytes) {}
+
+SkiaBackend::~SkiaBackend() {
+	// Order matters, and the declaration order already arranges it: the caches
+	// hold GPU-backed objects, so they must let go before the context they were
+	// made on. Done by hand here as well, because the rule is easy to break by
+	// reordering fields and the symptom would be a crash on closing a tab.
+	fMinimapCache.reset();
+	fScenePicture.reset();
+}
+
+void SkiaBackend::abandon() {
+	fMinimapCache.reset();
+	fScenePicture.reset();
+	if (fContext) fContext->abandonContext();
+	fContext.reset();
+	fInterface.reset();
 }
 
 bool SkiaBackend::ensureContext() {
@@ -130,6 +153,9 @@ bool SkiaBackend::ensureContext() {
 	if (!fInterface) fInterface = makeEGLInterface();
 #endif
 	fContext = GrDirectContexts::MakeGL(fInterface);
+	// Cap the cache. Skia's default suits a process with one context; there is now
+	// one per canvas, and how many canvases exist is the user's choice.
+	if (fContext) fContext->setResourceCacheLimit(fCacheBudget);
 	return fContext != nullptr;
 }
 
@@ -169,8 +195,8 @@ sk_sp<SkSurface> SkiaBackend::rasterSurface(int width, int height) {
 }
 
 const SkFont* SkiaBackend::defaultFont() {
-	if (fFontTried) return fFont;
-	fFontTried = true;
+	if (gFontTried) return gFont;
+	gFontTried = true;
 
 	// Resolve a face at runtime, most-specific first, so text works with no
 	// configuration:
@@ -189,8 +215,8 @@ const SkFont* SkiaBackend::defaultFont() {
 	// eagerly walks its directory tree (every file, every depth) in the
 	// constructor. Handing it "." froze the first paint for as long as the
 	// working directory was large.
-	fFontMgr = SkFontMgr_New_Custom_Empty();
-	if (!fFontMgr) return fFont;
+	gFontMgr = SkFontMgr_New_Custom_Empty();
+	if (!gFontMgr) return gFont;
 
 	// Bold faces first: the GL renderer's baked arial.glf atlas is bold, so
 	// schematic labels read heavier than a book weight. Matching it keeps Skia
@@ -222,15 +248,15 @@ const SkFont* SkiaBackend::defaultFont() {
 	};
 	for (const char* path : candidates) {
 		if (!path || !*path) continue;
-		fTypeface = fFontMgr->makeFromFile(path, 0);
-		if (fTypeface) break;
+		gTypeface = gFontMgr->makeFromFile(path, 0);
+		if (gTypeface) break;
 	}
 
 #ifdef CEDAR_SKIA_FONTCONFIG
 	// Ask fontconfig for the system sans-serif. Hardcoded paths only ever covered
 	// Debian and Ubuntu; fontconfig is how every Linux answers this question, and
 	// it is the only answer on distros that have no /usr/share/fonts at all.
-	if (!fTypeface) {
+	if (!gTypeface) {
 #ifdef CEDAR_SKIA_FONTCONFIG_SCANNER
 		sk_sp<SkFontMgr> fc = SkFontMgr_New_FontConfig(
 			nullptr, SkFontScanner_Make_FreeType());   // post-m124 signature
@@ -241,32 +267,32 @@ const SkFont* SkiaBackend::defaultFont() {
 			// legacyMakeTypeface first: with a null family this is the request
 			// fontconfig actually resolves ("whatever the system defaults to"),
 			// where matchFamilyStyle wants a real family name.
-			fTypeface = fc->legacyMakeTypeface(nullptr, SkFontStyle::Bold());
-			if (!fTypeface) {
-				fTypeface = fc->matchFamilyStyle("sans-serif", SkFontStyle::Bold());
+			gTypeface = fc->legacyMakeTypeface(nullptr, SkFontStyle::Bold());
+			if (!gTypeface) {
+				gTypeface = fc->matchFamilyStyle("sans-serif", SkFontStyle::Bold());
 			}
-			if (fTypeface) fFontMgr = fc;
+			if (gTypeface) gFontMgr = fc;
 		}
 	}
 #endif
 
 	// Last resort: a directory of faces via CEDAR_FONT_DIR.
-	if (!fTypeface) {
+	if (!gTypeface) {
 		const char* dir = std::getenv("CEDAR_FONT_DIR");
 		if (dir && *dir) {
 			sk_sp<SkFontMgr> dm = SkFontMgr_New_Custom_Directory(dir);
 			if (dm) {
-				fTypeface = dm->matchFamilyStyle(nullptr, SkFontStyle::Normal());
-				if (!fTypeface) {
-					fTypeface = dm->legacyMakeTypeface(nullptr,
+				gTypeface = dm->matchFamilyStyle(nullptr, SkFontStyle::Normal());
+				if (!gTypeface) {
+					gTypeface = dm->legacyMakeTypeface(nullptr,
 					                                   SkFontStyle::Normal());
 				}
 			}
 		}
 	}
 
-	if (fTypeface) fFont = new SkFont(fTypeface, 12.0f);
-	return fFont;
+	if (gTypeface) gFont = new SkFont(gTypeface, 12.0f);
+	return gFont;
 }
 
 void SkiaBackend::probe(SkSurface* surface) {
@@ -298,8 +324,12 @@ void SkiaBackend::probe(SkSurface* surface) {
 }
 
 bool skiaProbeToPng(const char* path, int width, int height) {
-	SkiaBackend& backend = SkiaBackend::get();
-	sk_sp<SkSurface> surface = backend.rasterSurface(width, height);
+	// A backend of its own, and never a GL one: the probe draws into a raster
+	// surface, so it runs with no window and no GL context at all. That is the
+	// whole point of it -- evidence that Skia rasterizes on this machine, taken
+	// without needing a machine that can open a window.
+	SkiaBackend backend;
+	sk_sp<SkSurface> surface = SkiaBackend::rasterSurface(width, height);
 	if (!surface) return false;
 	backend.probe(surface.get());  // draws the path + text (no GPU flush needed)
 
@@ -317,11 +347,11 @@ bool skiaRenderToRGB(int width, int height,
                      const std::function<void(Scene&)>& draw,
                      unsigned char* outRgb) {
 	if (width <= 0 || height <= 0 || !outRgb) return false;
-	sk_sp<SkSurface> surface = SkiaBackend::get().rasterSurface(width, height);
+	sk_sp<SkSurface> surface = SkiaBackend::rasterSurface(width, height);
 	if (!surface) return false;
 	surface->getCanvas()->clear(SK_ColorWHITE);
 
-	SkiaScene scene(surface->getCanvas(), SkiaBackend::get().defaultFont());
+	SkiaScene scene(surface->getCanvas(), SkiaBackend::defaultFont());
 	draw(scene);
 
 	// Read back straight into a tightly packed RGB buffer: wxImage owns its data
@@ -341,11 +371,11 @@ bool skiaRenderToRGB(int width, int height,
 
 bool skiaRenderToPng(const char* path, int width, int height,
                      const std::function<void(Scene&)>& draw) {
-	sk_sp<SkSurface> surface = SkiaBackend::get().rasterSurface(width, height);
+	sk_sp<SkSurface> surface = SkiaBackend::rasterSurface(width, height);
 	if (!surface) return false;
 	surface->getCanvas()->clear(SK_ColorWHITE);
 
-	SkiaScene scene(surface->getCanvas(), SkiaBackend::get().defaultFont());
+	SkiaScene scene(surface->getCanvas(), SkiaBackend::defaultFont());
 	draw(scene);
 
 	sk_sp<SkImage> image = surface->makeImageSnapshot();
@@ -366,20 +396,20 @@ bool skiaRenderToPng(const char* path, int width, int height,
 // it is the same renderer with a different way out.
 class WindowFrame {
 public:
-	WindowFrame(int width, int height, int fboId)
+	WindowFrame(SkiaBackend& backend, int width, int height, int fboId)
 			: fWidth(width), fHeight(height) {
-		SkiaBackend& backend = SkiaBackend::get();
 		fSurface = backend.windowSurface(width, height, fboId);
 		if (fSurface) {
 			fCtx = backend.context();
-			// The GL context is shared with wx and the other canvases, so its
-			// state changes behind Skia's back between frames. Invalidate Skia's
-			// cached GL state each frame or stale bindings corrupt the render
-			// (flashing, stretched glyphs from a wrong texture/transform).
+			// The GL context belongs to one canvas now, but it is still shared
+			// with wx and with the processor fallback below, both of which set GL
+			// state behind Skia's back. Invalidate Skia's cached GL state each
+			// frame or stale bindings corrupt the render (flashing, stretched
+			// glyphs from a wrong texture/transform).
 			if (fCtx) fCtx->resetContext();
 			return;
 		}
-		fSurface = backend.rasterSurface(width, height);
+		fSurface = SkiaBackend::rasterSurface(width, height);
 	}
 
 	bool valid() const { return fSurface != nullptr; }
@@ -425,14 +455,13 @@ private:
 	GrDirectContext* fCtx = nullptr;   // null on the CPU path
 };
 
-bool skiaRenderWindow(int width, int height, int fboId,
+bool skiaRenderWindow(SkiaBackend& backend, int width, int height, int fboId,
                       const std::function<void(Scene&)>& draw, float strokeScale) {
-	SkiaBackend& backend = SkiaBackend::get();
-	WindowFrame frame(width, height, fboId);
+	WindowFrame frame(backend, width, height, fboId);
 	if (!frame.valid()) return false;
 	SkCanvas* canvas = frame.canvas();
 	canvas->clear(SK_ColorWHITE);
-	SkiaScene scene(canvas, backend.defaultFont(), strokeScale);
+	SkiaScene scene(canvas, SkiaBackend::defaultFont(), strokeScale);
 	draw(scene);
 	return frame.present();
 }
@@ -462,21 +491,20 @@ void SkiaBackend::setSceneCache(sk_sp<SkPicture> pic, unsigned long long key) {
 	fSceneKey = key;
 }
 
-bool skiaRenderWindowScene(int width, int height, int fboId,
+bool skiaRenderWindowScene(SkiaBackend& backend, int width, int height, int fboId,
                            unsigned long long sceneKey,
                            const Transform& camera,
                            const std::function<void(Scene&)>& drawGrid,
                            const std::function<void(Scene&)>& drawScene,
                            const std::function<void(Scene&)>& drawOverlay) {
-	SkiaBackend& backend = SkiaBackend::get();
-	WindowFrame frame(width, height, fboId);
+	WindowFrame frame(backend, width, height, fboId);
 	if (!frame.valid()) return false;
 	SkCanvas* canvas = frame.canvas();
 	canvas->clear(SK_ColorWHITE);
 
 	// Grid: camera-dependent (fills the viewport), so drawn live every frame.
 	{
-		SkiaScene grid(canvas, backend.defaultFont());
+		SkiaScene grid(canvas, SkiaBackend::defaultFont());
 		drawGrid(grid);
 	}
 
@@ -492,7 +520,7 @@ bool skiaRenderWindowScene(int width, int height, int fboId,
 		// Bake the camera's scale (and y-flip) into the picture; translation is
 		// applied at replay, so panning doesn't invalidate it.
 		pc->scale(camera.a, camera.d);
-		SkiaScene scene(pc, backend.defaultFont());
+		SkiaScene scene(pc, SkiaBackend::defaultFont());
 		drawScene(scene);   // wires + gates; must not setViewport
 		backend.setSceneCache(rec.finishRecordingAsPicture(), key);
 	}
@@ -507,20 +535,19 @@ bool skiaRenderWindowScene(int width, int height, int fboId,
 	// Interactive overlays, drawn live on top of the replayed picture (not cached,
 	// not part of sceneKey) so a mouse move doesn't invalidate the circuit picture.
 	if (drawOverlay) {
-		SkiaScene overlay(canvas, backend.defaultFont());
+		SkiaScene overlay(canvas, SkiaBackend::defaultFont());
 		drawOverlay(overlay);
 	}
 
 	return frame.present();
 }
 
-bool skiaRenderWindowCached(int width, int height, int fboId,
+bool skiaRenderWindowCached(SkiaBackend& backend, int width, int height, int fboId,
                             unsigned long long contentKey,
                             const std::function<void(Scene&)>& drawStatic,
                             const std::function<void(Scene&)>& drawOverlay,
                             float strokeScale) {
-	SkiaBackend& backend = SkiaBackend::get();
-	WindowFrame frame(width, height, fboId);
+	WindowFrame frame(backend, width, height, fboId);
 	if (!frame.valid()) return false;
 	SkCanvas* canvas = frame.canvas();
 	canvas->clear(SK_ColorWHITE);
@@ -530,14 +557,14 @@ bool skiaRenderWindowCached(int width, int height, int fboId,
 		canvas->drawImage(backend.minimapCacheImage(), 0, 0,
 		                  SkSamplingOptions{}, nullptr);
 	} else {
-		SkiaScene scene(canvas, backend.defaultFont(), strokeScale);
+		SkiaScene scene(canvas, SkiaBackend::defaultFont(), strokeScale);
 		drawStatic(scene);
 		// Snapshot the circuit layer (before the overlay) for reuse on pan.
 		backend.setMinimapCache(frame.surface()->makeImageSnapshot(), contentKey,
 		                        width, height);
 	}
 	// The moving overlay (viewport rectangle) is always redrawn on top.
-	SkiaScene overlay(canvas, backend.defaultFont(), strokeScale);
+	SkiaScene overlay(canvas, SkiaBackend::defaultFont(), strokeScale);
 	drawOverlay(overlay);
 	return frame.present();
 }
@@ -553,7 +580,7 @@ bool skiaRenderToSvg(const char* path, int width, int height,
 		std::unique_ptr<SkCanvas> canvas = SkSVGCanvas::Make(bounds, &out);
 		if (!canvas) return false;
 		canvas->drawColor(SK_ColorWHITE);   // GL export ground is white
-		SkiaScene scene(canvas.get(), SkiaBackend::get().defaultFont());
+		SkiaScene scene(canvas.get(), SkiaBackend::defaultFont());
 		draw(scene);
 	}
 	return true;
@@ -572,7 +599,7 @@ bool skiaRenderToPdf(const char* path, int width, int height,
 
 	SkCanvas* canvas = doc->beginPage((float)width, (float)height);
 	canvas->clear(SK_ColorWHITE);
-	SkiaScene scene(canvas, SkiaBackend::get().defaultFont());
+	SkiaScene scene(canvas, SkiaBackend::defaultFont());
 	draw(scene);
 	doc->endPage();
 	doc->close();
@@ -581,7 +608,7 @@ bool skiaRenderToPdf(const char* path, int width, int height,
 
 float measuredTextWidth(const char* utf8, float pixelHeight) {
 	if (!utf8 || !*utf8) return 0.0f;
-	const SkFont* base = SkiaBackend::get().defaultFont();
+	const SkFont* base = SkiaBackend::defaultFont();
 	if (!base) return 0.0f;
 	// Measure exactly the way SkiaScene::text draws: at kGlyphUnits, scaled down.
 	SkFont f(*base);
@@ -594,7 +621,7 @@ float measuredTextWidth(const char* utf8, float pixelHeight) {
 }
 
 float measuredTextHeight(float pixelHeight) {
-	const SkFont* base = SkiaBackend::get().defaultFont();
+	const SkFont* base = SkiaBackend::defaultFont();
 	if (!base) return 0.0f;
 	SkFont f(*base);
 	f.setSize(kGlyphUnits);

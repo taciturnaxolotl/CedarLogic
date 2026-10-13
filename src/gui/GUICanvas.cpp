@@ -400,7 +400,8 @@ bool GUICanvas::renderSkiaLive() {
 		s.setViewport(t);
 		self->drawOverlaysInto(s);
 	};
-	return skiaRenderWindowScene(w, h, 0, sceneKey, t, drawGrid, drawScene, drawOverlay);
+	return skiaRenderWindowScene(glCtx().skia(), w, h, 0, sceneKey, t,
+	                             drawGrid, drawScene, drawOverlay);
 #else
 	return false;
 #endif

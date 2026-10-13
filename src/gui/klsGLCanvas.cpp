@@ -95,12 +95,20 @@ klsGLCanvas::klsGLCanvas(wxWindow *parent, const wxString& name, wxWindowID id,
 	minimap = NULL;
 	
 	canvasLocked = false;
+
+	// Not opened until the first paint: a GL context cannot be made current on a
+	// canvas that has not been realized yet.
+	canvasGL = new cl::render::CanvasGL(this);
 }
 
 
 klsGLCanvas::~klsGLCanvas() {
 	scrollTimer->Stop();
 	delete scrollTimer;
+	// Before the wxGLCanvas base goes: CanvasGL needs this window alive to make
+	// its GL context current while Ganesh releases its GL objects.
+	delete canvasGL;
+	canvasGL = NULL;
 	return;
 }
 
@@ -173,33 +181,10 @@ GLPoint2f klsGLCanvas::mapToCanvas(wxPoint m) {
 
 
 void klsGLCanvas::wxOnPaint(wxPaintEvent& event) {
-	wxPaintDC dc(this);
-	wxGetApp().SetCurrentCanvas(this);
-	// With a context current, ask the driver what it is. Costs nothing after the
-	// first answer, and it is the one fact a "drawing is slow" report never
-	// carries. See render/RendererHealth.h.
-	cl::render::noteGLImplementation(
-		(const char*)glGetString(GL_VENDOR),
-		(const char*)glGetString(GL_RENDERER),
-		(const char*)glGetString(GL_VERSION));
-	// No GL state to set up here: Skia owns the pipeline and sets clear colour,
-	// blending, and pixel store per draw. (The old fixed-function setup would
-	// also be invalid under the core profile macOS now asks for.)
-	if (!renderSkiaLive()) {
-		// Neither the graphics driver nor the processor fallback could produce a
-		// frame. Clear anyway: an untouched back buffer swaps in as black, and a
-		// black canvas reads as a broken app rather than a renderer that gave up.
-		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-	}
-	// Outside the branch on purpose. The usual outcome now is that the fallback
-	// drew the frame, so nothing looks wrong except the speed, and the reason for
-	// the speed is exactly what wants saying.
+	glCtx().paint([this] { return renderSkiaLive(); });
+	// After paint() and regardless of how it went: the usual outcome is that the
+	// processor fallback drew the frame, so nothing looks wrong but the speed.
 	announceRendererFailure();
-
-	// Show the new buffer:
-	glFlush();
-	SwapBuffers();
 }
 
 // Tell the user, once per run, that the graphics driver could not be used and
@@ -240,7 +225,9 @@ void klsGLCanvas::wxOnCaptureLost(wxMouseCaptureLostEvent& WXUNUSED(event))
 
 void klsGLCanvas::wxOnSize(wxSizeEvent& event)
 {
-	wxGetApp().SetCurrentCanvas(this);
+	// Deliberately no GL work here: a size event can arrive while the window
+	// server is still mid-resize, and presenting a half-resized surface is what
+	// used to crash. The next paint re-attaches, having noticed the new shape.
 	Refresh();
 }
 
@@ -586,7 +573,8 @@ void klsGLCanvas::endDrag( mouseButton whichButton ) {
 
 
 void klsGLCanvas::wxKeyDown(wxKeyEvent& event) {
-	wxGetApp().SetCurrentCanvas(this);
+	// No GL work here, so the context is left alone. It used to be made current
+	// on every keystroke, which under one shared context re-attached a drawable.
 	// Give the subclassed handler first dibs on the event:
 	OnKeyDown( event );
 

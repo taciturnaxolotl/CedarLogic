@@ -18,6 +18,7 @@ class klsMiniMap;
 #include "wx/bitmap.h"
 #include "wx/dcmemory.h"
 #include "klsGLCanvas.h"
+#include "render/CanvasGL.h"
 #include <unordered_map>
 using namespace std;
 
@@ -30,7 +31,7 @@ public:
         const wxPoint& pos = wxDefaultPosition,
         const wxSize& size = wxDefaultSize,
         long style = 0, const wxString& name = "klsMiniMap");
-	virtual ~klsMiniMap() { return; };
+	virtual ~klsMiniMap();
 	
 	void setLists( unordered_map< unsigned long, guiGate* >* gateList, unordered_map< unsigned long, guiWire* >* wireList ) {
 		this->gateList = gateList;
@@ -60,6 +61,10 @@ private:
 	
 	GLPoint2f minCorner, maxCorner;
 	unsigned long long contentSig = 0;   // cache key: changes when the circuit does
+
+	// This canvas's own GL context and Skia backend (see render/CanvasGL.h). It
+	// draws one thumbnail, so it takes the small Ganesh cache budget.
+	cl::render::CanvasGL* canvasGL;
 DECLARE_EVENT_TABLE()
 };
 

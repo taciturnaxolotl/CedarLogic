@@ -36,6 +36,14 @@ klsMiniMap::klsMiniMap(wxWindow *parent, wxWindowID id,
         long style, const wxString& name)
 		: wxGLCanvas(parent, glCanvasAttributes(), id, pos, size, style|wxSUNKEN_BORDER, name) {
 	currentCanvas = NULL;
+	// Small Ganesh cache: this canvas only ever holds one thumbnail.
+	canvasGL = new cl::render::CanvasGL(this, /*smallCache=*/true);
+}
+
+klsMiniMap::~klsMiniMap() {
+	// While this window is still alive, so the GL context can be made current.
+	delete canvasGL;
+	canvasGL = NULL;
 }
 
 // Compute the fit box the thumbnail is drawn into (minCorner/maxCorner) and the
@@ -168,10 +176,8 @@ bool klsMiniMap::generateImageSkia() {
 		scene.polyline(box, 4, Stroke(Color(1.0f, 0.0f, 0.0f, 1.0f), 2.0f), true);
 	};
 
-	const bool ok = skiaRenderWindowCached(w, h, 0, contentSig,
-	                                       drawCircuit, drawViewportRect, strokeScale);
-	if (ok) SwapBuffers();
-	return ok;
+	return skiaRenderWindowCached(canvasGL->skia(), w, h, 0, contentSig,
+	                              drawCircuit, drawViewportRect, strokeScale);
 }
 #endif
 
@@ -182,11 +188,10 @@ void klsMiniMap::update(GLPoint2f origin, GLPoint2f endpoint) {
 }
 
 void klsMiniMap::OnPaint(wxPaintEvent& evt) {
-	wxGetApp().SetCurrentCanvas(this);
 	// setViewport() computes the fit box (minCorner/maxCorner) the Skia render and
 	// the mouse handler both read; it must run before generateImageSkia().
 	setViewport();
-	generateImageSkia();
+	canvasGL->paint([this] { return generateImageSkia(); });
 }
 
 void klsMiniMap::OnMouseEvent(wxMouseEvent& evt) {
