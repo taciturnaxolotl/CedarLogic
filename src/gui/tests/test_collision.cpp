@@ -174,3 +174,43 @@ TEST_CASE("a cell index beyond what an int can hold does not become one") {
 
 	for (auto *o : objs) delete o;
 }
+
+namespace {
+
+// A gate with one pin, laid out the way guiGate owns its hotspots: the pin is a
+// sub-object the gate deletes itself, after detaching it.
+struct PinnedGate : klsCollisionObject {
+	klsCollisionObject *pin;
+	explicit PinnedGate(float x) : klsCollisionObject(COLL_GATE) {
+		pin = new klsCollisionObject(COLL_GATE_HOTSPOT);
+		pin->setBBox(makeBox(x, 0, 1, 1));
+		insertSubObject(pin);
+		setBBox(makeBox(x, 0, 1, 1));
+	}
+	~PinnedGate() override {
+		detachSubObjects();
+		delete pin;
+	}
+};
+
+} // namespace
+
+// Checking a gate's pins against a second gate used to wipe the pins' overlap
+// records on this side only, so a third gate's pins went on naming them. Once
+// the first gate was deleted those names pointed at freed memory, and deleting
+// the third gate then walked into it (CEDARLOGIC-6).
+TEST_CASE("resetting overlaps forgets them on both sides") {
+	auto *a = new PinnedGate(0);
+	auto *b = new PinnedGate(0);
+	auto *c = new PinnedGate(0);
+
+	a->checkSubsToSubs(c);
+	REQUIRE(c->pin->getOverlaps().count(a->pin) == 1);
+
+	a->checkSubsToSubs(b);
+	CHECK(c->pin->getOverlaps().count(a->pin) == 0);
+
+	delete a;
+	delete c; // walks c's pin overlaps; must not reach a's freed pin
+	delete b;
+}

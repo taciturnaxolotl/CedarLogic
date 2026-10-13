@@ -215,13 +215,7 @@ void klsCollisionObject::detachSubObjects() {
 }
 
 void klsCollisionObject::detachFromCollisions() {
-	CollisionGroup badOverlaps = this->getOverlaps();
-	CollisionGroup::iterator remOver = badOverlaps.begin();
-	while( remOver != badOverlaps.end() ) {
-		(*remOver)->removeOverlap( this );
-		remOver++;
-	}
-	this->clearOverlaps();	
+	this->clearOverlaps();
 
 	// NOT a good idea: (Will cause recursive loop!)
 	// this->detachSubObjects()
@@ -240,7 +234,11 @@ bool klsCollisionObject::bboxHasChanged() {
 	return cData.bboxChanged;
 }
 
+// An overlap is recorded on both objects, so forgetting it on one side alone
+// leaves the other holding a pointer that outlives whatever it names.
 void klsCollisionObject::clearOverlaps() {
+	for (klsCollisionObject *other : cData.overlaps)
+		if (other != this) other->removeOverlap(this);
 	cData.overlaps.clear();
 }
 
