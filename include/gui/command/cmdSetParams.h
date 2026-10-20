@@ -3,7 +3,6 @@
 #include "klsCommand.h"
 #include <map>
 
-class guiGate;
 typedef std::map<std::string, std::string> ParameterMap;
 
 // Holds pointers to all of a gate's parameters
@@ -25,12 +24,6 @@ public:
 	bool Do();
 
 	bool Undo();
-
-	// Every logic param of the gate, including the ones a gate type keeps
-	// outside its param map (a RAM's memory cells). This is the set to snapshot
-	// when the gate is going to be rebuilt from nothing, as delete+undo and
-	// copy+paste do; the map alone lost a ROM's program on the way.
-	static ParameterMap fullLogicParams(guiGate *gate);
 
 	virtual std::string toString() const override;
 

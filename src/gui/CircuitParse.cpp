@@ -337,12 +337,7 @@ void CircuitParse::applyWireShape(const cl::WireInstance &w) {
 		for (const cl::WireConn &c : ms.connects) {
 			wireConnection nwc;
 			nwc.gid = strtoul(c.gateUuid.c_str(), nullptr, 10);
-			// Only a connection the gate itself holds goes into the shape. This
-			// shape is walked by routing code that resolves gates without checking,
-			// so a gate off this page crashed it; and a pin another wire already
-			// claimed (reported above) used to keep drawing attached here and be
-			// written out again on every save, which is how the clash got into the
-			// file to begin with.
+			// Only connections the gate itself holds: an off-page gate crashes routing, a lost pin claim would be re-saved.
 			guiGate *gate = gCircuit->getGate(nwc.gid);
 			if (gate == nullptr || gate->getConnection(c.pin) != wire) {
 				if (gCanvas->getGateList()->count(nwc.gid) == 0) {
@@ -387,8 +382,7 @@ void CircuitParse::parseGateToSend(string type, string ID, string position, vect
 	issa >> y;
 	guiGate* newGate = gCanvas->getCircuit()->createGate( type, id, true );
 	if (newGate == NULL) {
-		// A second gate with this id. Say so; it used to vanish without a word,
-		// after a core gate had already been made for it.
+		// A second gate with this id; report it rather than dropping it silently.
 		cl::MigrationNotice n;
 		n.severity = cl::Severity::Warning;
 		n.gateUuid = ID;
@@ -506,8 +500,7 @@ static cl::WireInstance buildWire(guiWire *w, GUICircuit *gCircuit) {
 		ws.begin = { s.begin.x, s.begin.y };
 		ws.end = { s.end.x, s.end.y };
 		for (const wireConnection &c : s.connections) {
-			// Only what the gate agrees to: a pin carries one wire, and a stale
-			// claim written here came back as a clash on every later open.
+			// Only what the gate agrees to, or a displaced wire's stale claim gets saved.
 			guiGate *g = gCircuit->getGate(c.gid);
 			if (g == nullptr || g->getConnection(c.connection) != w) continue;
 			ws.connects.push_back({ to_string(c.gid), c.connection });
@@ -560,7 +553,7 @@ bool CircuitParse::saveCircuitV3(string filename, vector< GUICanvas* > glc, unsi
 }
 
 bool CircuitParse::saveCircuit(string filename, vector< GUICanvas* > glc, unsigned int currPage) {
-	ostringstream* ossCircuit = new ostringstream();
+	ostringstream ossCircuit;
 
 	// This is a sentinal circuit definition that is ignored by Cedar Logic 2.0 and newer.
 	// Older versions of Cedar Logic will read this instead of the actual Circuit data.
@@ -568,7 +561,7 @@ bool CircuitParse::saveCircuit(string filename, vector< GUICanvas* > glc, unsign
 	// The second label has a link to the download for the latest version of Cedar Logic.
 	// I acknowledge that this is a hack...
 	// Versions of Cedar Logic 2.0 and newer have a <version> tag.
-	*ossCircuit << R"===(
+	ossCircuit << R"===(
 <circuit>
 <CurrentPage>0</CurrentPage>
 <page 0>
@@ -592,70 +585,64 @@ bool CircuitParse::saveCircuit(string filename, vector< GUICanvas* > glc, unsign
 
 	)===";
 
-	mParse = new XMLParser(ossCircuit);
+	XMLParser parser(&ossCircuit);
 
 	// The tag records the format's lineage, not which binary wrote the file, and
 	// readers compare only its major component. Writing our own version here
 	// made the export useless: every CedarLogic 2.x refuses a file claiming 3.x,
 	// and 1.x never reads this far -- it stops at the decoy above.
-	mParse->openTag("version");
-	mParse->writeTag("version", LAST_V2_VERSION_STRING);
-	mParse->closeTag("version");
+	parser.openTag("version");
+	parser.writeTag("version", LAST_V2_VERSION_STRING);
+	parser.closeTag("version");
 
-	mParse->openTag("circuit");
+	parser.openTag("circuit");
 	unordered_map < unsigned long, guiGate* >* gateList;
 	unordered_map < unsigned long, guiWire* >* wireList;
 
 	// Save which page was current:
 	//	NOTE: currently this tag is not implemented
-	mParse->openTag("CurrentPage");
+	parser.openTag("CurrentPage");
 	ostringstream oss;
 	oss << currPage;
-	mParse->writeTag("CurrentPage", oss.str());
-	mParse->closeTag("CurrentPage");
+	parser.writeTag("CurrentPage", oss.str());
+	parser.closeTag("CurrentPage");
 
 	for (unsigned int i = 0; i < glc.size(); i++) {
 		ostringstream oss;
 		oss << "page " << i;
 		string pageNumber = oss.str();
-		mParse->openTag(pageNumber);
+		parser.openTag(pageNumber);
 
 		// Save the page's last viewport
-		mParse->openTag("PageViewport");
+		parser.openTag("PageViewport");
 		oss.str("");
 		oss.clear();
 		GLPoint2f topLeft, bottomRight;
 		glc[i]->getViewport(topLeft, bottomRight);
 		oss << topLeft.x << "," << topLeft.y << "," << bottomRight.x << "," << bottomRight.y;
-		mParse->writeTag("PageViewport", oss.str());
-		mParse->closeTag("PageViewport");
+		parser.writeTag("PageViewport", oss.str());
+		parser.closeTag("PageViewport");
 
 		gateList = glc[i]->getGateList();
 		wireList = glc[i]->getWireList();
 		unordered_map< unsigned long, guiGate* >::iterator thisGate = gateList->begin();
 		while (thisGate != gateList->end()) {
-			(thisGate->second)->saveGate(mParse);
+			(thisGate->second)->saveGate(&parser);
 			thisGate++;
 		}
 		
 		unordered_map< unsigned long, guiWire* >::iterator thisWire = wireList->begin();
 		while (thisWire != wireList->end()) {
-			(thisWire->second)->saveWire(mParse);
+			(thisWire->second)->saveWire(&parser);
 			thisWire++;
 		}
 		
-		mParse->closeTag(pageNumber);
+		parser.closeTag(pageNumber);
 	}
 	
-	mParse->closeTag("circuit");
+	parser.closeTag("circuit");
 
-	// Through the same temp-and-rename path as v3, so a failed write leaves
-	// the file that was there before.
-	string text = ossCircuit->str();
-	delete mParse;
-	mParse = nullptr;
-	delete ossCircuit;
-	return writeToFile(filename, text);
+	return writeToFile(filename, ossCircuit.str());   // atomic, like v3
 }
 
 // Save in v1.x compatible format (no version tag, no sentinel, single wire IDs)
@@ -677,63 +664,59 @@ bool CircuitParse::saveCircuitLegacy(string filename, vector< GUICanvas* > glc, 
 		if (hasBusFeatures) break;
 	}
 
-	ostringstream* ossCircuit = new ostringstream();
-	mParse = new XMLParser(ossCircuit);
+	ostringstream ossCircuit;
+	XMLParser parser(&ossCircuit);
 
 	// v1.x format: no version tag, no sentinel - just circuit directly
-	mParse->openTag("circuit");
+	parser.openTag("circuit");
 	unordered_map < unsigned long, guiGate* >* gateList;
 	unordered_map < unsigned long, guiWire* >* wireList;
 
 	// Save which page was current
-	mParse->openTag("CurrentPage");
+	parser.openTag("CurrentPage");
 	ostringstream oss;
 	oss << currPage;
-	mParse->writeTag("CurrentPage", oss.str());
-	mParse->closeTag("CurrentPage");
+	parser.writeTag("CurrentPage", oss.str());
+	parser.closeTag("CurrentPage");
 
 	for (unsigned int i = 0; i < glc.size(); i++) {
 		ostringstream oss;
 		oss << "page " << i;
 		string pageNumber = oss.str();
-		mParse->openTag(pageNumber);
+		parser.openTag(pageNumber);
 
 		// Save the page's last viewport
-		mParse->openTag("PageViewport");
+		parser.openTag("PageViewport");
 		oss.str("");
 		oss.clear();
 		GLPoint2f topLeft, bottomRight;
 		glc[i]->getViewport(topLeft, bottomRight);
 		oss << topLeft.x << "," << topLeft.y << "," << bottomRight.x << "," << bottomRight.y;
-		mParse->writeTag("PageViewport", oss.str());
-		mParse->closeTag("PageViewport");
+		parser.writeTag("PageViewport", oss.str());
+		parser.closeTag("PageViewport");
 
 		gateList = glc[i]->getGateList();
 		wireList = glc[i]->getWireList();
 		unordered_map< unsigned long, guiGate* >::iterator thisGate = gateList->begin();
 		while (thisGate != gateList->end()) {
 			// Use legacy save method (single wire IDs)
-			(thisGate->second)->saveGateLegacy(mParse);
+			(thisGate->second)->saveGateLegacy(&parser);
 			thisGate++;
 		}
 
 		unordered_map< unsigned long, guiWire* >::iterator thisWire = wireList->begin();
 		while (thisWire != wireList->end()) {
 			// Use legacy save method (single wire ID)
-			(thisWire->second)->saveWireLegacy(mParse);
+			(thisWire->second)->saveWireLegacy(&parser);
 			thisWire++;
 		}
 
-		mParse->closeTag(pageNumber);
+		parser.closeTag(pageNumber);
 	}
 
-	mParse->closeTag("circuit");
+	parser.closeTag("circuit");
 
-	string text = ossCircuit->str();
-	delete mParse;
-	mParse = nullptr;
-	delete ossCircuit;
-	if (!writeToFile(filename, text)) return false;
+	if (!writeToFile(filename, ossCircuit.str())) return false;
 
 	// Return false only if there are bus features (backward compatibility warning)
 	if (hasBusFeatures) {

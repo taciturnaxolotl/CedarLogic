@@ -2,7 +2,7 @@
 #include "cmdDeleteGate.h"
 #include "../GateLibrary.h"
 #include <map>
-#include <algorithm>
+#include <set>
 #include "../gl_defs.h"
 #include "../GUICircuit.h"
 #include "../GUICanvas.h"
@@ -59,7 +59,7 @@ bool cmdDeleteGate::Do() {
 	if (gGate == nullptr) return false; //error: gate not found
 	std::map<std::string, GLPoint2f> gateConns = gGate->getHotspotList();
 	std::map<std::string, GLPoint2f>::iterator connWalk = gateConns.begin();
-	std::vector < int > deleteWires;
+	std::set < IDType > deleteWires;   // a set: a wire on two of this gate's pins is deleted once
 	//we will need to disconect all wires that connect to that gate from that gate
 	//we iterate over the connections
 	while (connWalk != gateConns.end()) {
@@ -72,18 +72,13 @@ bool cmdDeleteGate::Do() {
 			cmdList.push(std::unique_ptr<klsCommand>(disconn));
 			disconn->Do();
 
-			// Once per wire: a wire on two pins of this gate passes this test twice,
-			// and a second delete of a gone wire undid as a one-line wire later.
-			bool gone = isBufferLoop(gCircuit, gWire) || gWire->numConnections() < 2;
-			if (gone && std::find(deleteWires.begin(), deleteWires.end(), (int)gWire->getID()) == deleteWires.end()) {
-				deleteWires.push_back(gWire->getID());
-			}
+			if (isBufferLoop(gCircuit, gWire) || gWire->numConnections() < 2) deleteWires.insert(gWire->getID());
 		}
 		connWalk++;
 	}
 
-	for (unsigned int i = 0; i < deleteWires.size(); i++) {
-		cmdDeleteWire* delwire = new cmdDeleteWire(gCircuit, gCanvas, deleteWires[i]);
+	for (IDType wireId : deleteWires) {
+		cmdDeleteWire* delwire = new cmdDeleteWire(gCircuit, gCanvas, wireId);
 		cmdList.push(std::unique_ptr<klsCommand>(delwire));
 		delwire->Do();
 	}
@@ -91,7 +86,7 @@ bool cmdDeleteGate::Do() {
 	float x, y;
 	gGate->getGLcoords(x, y);
 	cmdList.push(std::unique_ptr<klsCommand>(new cmdMoveGate(gCircuit, gateId, x, y, x, y)));
-	ParameterMap logicParams = cmdSetParams::fullLogicParams(gGate);
+	ParameterMap logicParams = gGate->getLogicParamSnapshot();
 	cmdList.push(std::unique_ptr<klsCommand>(new cmdSetParams(gCircuit, gateId, paramSet(gGate->getAllGUIParams(), &logicParams), true)));
 
 	gateType = gGate->getLibraryGateName();

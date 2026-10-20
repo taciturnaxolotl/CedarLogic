@@ -123,8 +123,7 @@ void mergeSegments(SegmentMap &segs, const Hotspots &hs,
 					}
 					isectWalk++;
 				}
-				// The absorbed run's own reach counts too, or a run with no pin and no
-				// crossing of its own vanished from the join and the far run never met it.
+				// The absorbed run's own extent counts, or a bare middle run is lost from the join.
 				a.along(nSeg->begin) = std::min(a.along(nSeg->begin), std::min(a.along(cSeg->begin), a.along(cSeg->end)));
 				a.along(nSeg->end) = std::max(a.along(nSeg->end), std::max(a.along(cSeg->begin), a.along(cSeg->end)));
 				GLPoint2f hsPoint; float hsMin = FLT_MAX, hsMax = -FLT_MAX;

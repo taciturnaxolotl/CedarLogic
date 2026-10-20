@@ -22,14 +22,6 @@ paramSet::paramSet(ParameterMap *g, ParameterMap* l) {
 	lParams = l;
 };
 
-ParameterMap cmdSetParams::fullLogicParams(guiGate *gate) {
-	ParameterMap all = *gate->getAllLogicParams();
-	vector< pair<string, string> > extra;
-	gate->getTypeSpecificParams(extra);
-	for (const auto &p : extra) all[p.first] = p.second;
-	return all;
-}
-
 cmdSetParams::cmdSetParams(GUICircuit* gCircuit, unsigned long gid,
 		paramSet pSet, bool setMode) :
 			klsCommand(true, "Set Parameter") {
@@ -45,7 +37,7 @@ cmdSetParams::cmdSetParams(GUICircuit* gCircuit, unsigned long gid,
 		oldGUIParamList[paramWalk->first] = paramWalk->second;
 		paramWalk++;
 	}
-	oldLogicParamList = fullLogicParams(gate);
+	oldLogicParamList = gate->getLogicParamSnapshot();
 	// Now grab the new ones...
 	if (pSet.gParams != NULL) {
 		paramWalk = pSet.gParams->begin();

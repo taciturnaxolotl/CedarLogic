@@ -207,11 +207,7 @@ void GUICanvas::submitCommand(klsCommand *cmd) {
 	gCircuit->GetCommandProcessor()->Submit((wxCommand *)cmd);
 }
 
-// For a command whose effect is already on screen, such as a drag that just
-// ended: into the history, without running it. Submitting it ran Do on top of
-// the drag, moving the gates a second time and re-routing their wires there,
-// and the Undo that put the gates back did not put the wires back, so the
-// wire landed in a different shape from the one shown during the drag.
+// Record a command whose effect is already on screen (a finished drag) without running it again.
 void GUICanvas::storeCommand(klsCommand *cmd) {
 	cmd->setCanvas(this);
 	gCircuit->GetCommandProcessor()->Store((wxCommand *)cmd);
@@ -671,9 +667,7 @@ void GUICanvas::mouseRightDown(wxMouseEvent& event) {
 		if (hotGate != nullptr && hotGate->isConnected(hotspotHighlight)) {
 			// disconnect this wire
 			guiWire *hotWire = hotGate->getConnection(hotspotHighlight);
-			// A pin sharing its point with a pal (a RAM's data in and out) is
-			// disconnected together with it, so both count against what is left.
-			// Fewer than two ends left and the wire goes rather than dangling.
+			// A pal pin at the same point (RAM data in/out) leaves too; under two ends left, delete instead.
 			std::string pal = hotGate->getHotspotPal(hotspotHighlight);
 			long leaving = 1 + ((pal != "" && hotGate->getConnection(pal) == hotWire) ? 1 : 0);
 			if (hotWire->numConnections() - leaving >= 2)
@@ -943,8 +937,7 @@ void GUICanvas::OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool Ct
 }
 
 void GUICanvas::OnMouseUp(wxMouseEvent& event) {
-	// The base canvas reports every button here, and a middle-button pan or a
-	// right click during a left drag used to drop whatever was being dragged.
+	// Every button lands here; only the left one ends a drag.
 	if (!(event.LeftUp() || event.LeftDClick())) return;
 	GLPoint2f m = getMouseCoords();
 	SetCursor(wxCursor(wxCURSOR_ARROW));
@@ -1373,8 +1366,7 @@ void GUICanvas::cutSelectionToClipboard () {
 
 void GUICanvas::pasteBlockFromClipboard () {
 	if (this->isLocked()) return;
-	// One paste at a time: a second while the first is still on the cursor
-	// orphaned the first batch with no undo record.
+	// One paste at a time; a second would orphan the first.
 	if (isWithinPaste || currentDragState != DRAG_NONE) return;
 	
 	klsClipboard myClipboard;
@@ -1703,8 +1695,7 @@ void GUICanvas::rotateSelection() {
 				}
 			}
 
-			// Only rotate if gate has no connections. As a command, like the
-			// right-click rotation, so Ctrl+Z takes it back.
+			// Only rotate if gate has no connections; as a command so it can be undone.
 			if (!hasConnections) {
 				map < string, string > newParams(*(gateWalk->second->getAllGUIParams()));
 				ostringstream oss;

@@ -148,6 +148,15 @@ public:
 	// gate has none; guiGateRAM returns its memory contents.
 	virtual void getTypeSpecificParams(vector< pair<string, string> > &out) const {}
 
+	// Every logic param, type-specific ones included: what rebuilding this gate from nothing needs.
+	map < string, string > getLogicParamSnapshot() const {
+		map < string, string > all = lparams;
+		vector< pair<string, string> > extra;
+		getTypeSpecificParams(extra);
+		for (const auto &p : extra) all[p.first] = p.second;
+		return all;
+	}
+
 	void declareInput(string name) { isInput[name] = true; };
 	void declareOutput(string name) { isInput[name] = false; };
 
