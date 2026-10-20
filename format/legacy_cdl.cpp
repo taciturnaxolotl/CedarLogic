@@ -12,10 +12,16 @@ namespace {
 // A minimal XML DOM for the legacy format. Tag names may contain spaces (e.g.
 // "page 0"). A node keeps its direct text plus child elements; the legacy format
 // mixes them (e.g. <input><ID>IN_0</ID>30 </input> has a child and text "30").
+std::string trim(const std::string &s) {
+	size_t a = s.find_first_not_of(" \t\r\n");
+	if (a == std::string::npos) return "";
+	size_t b = s.find_last_not_of(" \t\r\n");
+	return s.substr(a, b - a + 1);
+}
+
 struct XmlNode {
 	std::string name;
-	std::string text;
-	std::string raw;   // text untrimmed, minus line breaks, as CedarLogic 2.x read it
+	std::string text;   // untrimmed; childText trims, a param value must not be
 	std::vector<XmlNode> kids;
 
 	const XmlNode *find(const std::string &n) const {
@@ -25,16 +31,9 @@ struct XmlNode {
 	}
 	std::string childText(const std::string &n) const {
 		const XmlNode *c = find(n);
-		return c ? c->text : std::string();
+		return c ? trim(c->text) : std::string();
 	}
 };
-
-std::string trim(const std::string &s) {
-	size_t a = s.find_first_not_of(" \t\r\n");
-	if (a == std::string::npos) return "";
-	size_t b = s.find_last_not_of(" \t\r\n");
-	return s.substr(a, b - a + 1);
-}
 
 struct XmlReader {
 	const std::string &s;
@@ -76,8 +75,7 @@ struct XmlReader {
 			if (s[i] == '<') {
 				if (i + 1 < s.size() && s[i + 1] == '/') {
 					readTagBody(); // closing tag; not validated against name
-					node.text = trim(unescape(text));
-					for (char c : unescape(text)) if (c != '\n' && c != '\r') node.raw += c;
+					node.text = unescape(text);
 					return node;
 				}
 				node.kids.push_back(parseElement());
@@ -123,12 +121,16 @@ GateInstance readGate(const XmlNode &g) {
 	gi.at = { pos[0], pos[1] };
 	for (const XmlNode &c : g.kids) {
 		if (c.name != "gparam" && c.name != "lparam") continue;
-		// As CedarLogic 2.x split it: the name is the first word, the value everything
-		// after the one space that follows it, so spaces inside or around a value survive.
-		size_t start = c.raw.find_first_not_of(" \t");
-		size_t sp = (start == std::string::npos) ? std::string::npos : c.raw.find_first_of(" \t", start);
-		std::string name = (start == std::string::npos) ? "" : c.raw.substr(start, sp - start);
-		std::string value = (sp == std::string::npos) ? "" : c.raw.substr(sp + 1);
+		// Split as CedarLogic 2.x did: it dropped line breaks, took the first word as the
+		// name and everything after the one space following it as the value, spaces and all.
+		std::string line;
+		for (char ch : c.text) if (ch != '\n' && ch != '\r') line += ch;
+		std::istringstream iss(line);
+		std::string name;
+		iss >> name;
+		std::string value;
+		std::getline(iss, value);
+		if (!value.empty()) value.erase(0, 1);
 		if (name == "angle" && c.name == "gparam") {
 			gi.angle = value.empty() ? 0.0 : parseDouble(value, "<gparam>angle");
 		} else {
@@ -228,7 +230,7 @@ CircuitFile readLegacyCdl(const std::string &text) {
 	CircuitFile cf;
 	cf.formatVersion = 3;
 	for (const XmlNode &n : forest)
-		if (n.name == "version") cf.generator = "imported from CedarLogic " + n.text;
+		if (n.name == "version") cf.generator = "imported from CedarLogic " + trim(n.text);
 
 	for (const XmlNode &child : circuit->kids)
 		if (child.name.rfind("page", 0) == 0) // "page N"

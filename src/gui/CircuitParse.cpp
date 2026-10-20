@@ -723,8 +723,7 @@ bool CircuitParse::saveCircuitLegacy(string filename, vector< GUICanvas* > glc, 
 	return true;
 }
 
-// CedarLogic 2.x reads # as the start of a comment, even mid-value, and its format
-// has no way to escape one, so a label with a # in it is cut short there.
+// Older CedarLogic reads # as a comment even mid-value, with no escape for it.
 void CircuitParse::noteLegacyLossyValues(vector< GUICanvas* > &glc) {
 	std::set<string> lossy;
 	auto check = [&](const map<string, string> &params) {
@@ -745,7 +744,7 @@ void CircuitParse::noteLegacyLossyValues(vector< GUICanvas* > &glc) {
 		if (shown++ == 5) { list += "\n  ..."; break; }
 		list += "\n  \"" + v + "\"";
 	}
-	warnings.push_back("Older CedarLogic (2.x) will cut these labels short at the #:" + list);
+	warnings.push_back("Older versions of CedarLogic will cut these labels short at the #:" + list);
 }
 
 // Write text to disk, translating errno into a friendly lastError on failure.
