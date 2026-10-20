@@ -15,7 +15,8 @@ public:
 	bool Undo();
 
 	// Adopt an additional sub-command.
-	void addCommand(klsCommand* cmd) { cmdList.push_back(std::unique_ptr<klsCommand>(cmd)); };
+	// A paste in which no gate could be made has no move to record; keep the null out of the list.
+	void addCommand(klsCommand* cmd) { if (cmd) cmdList.push_back(std::unique_ptr<klsCommand>(cmd)); };
 
 private:
 	std::vector<std::unique_ptr<klsCommand>> cmdList;
