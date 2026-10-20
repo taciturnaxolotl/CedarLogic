@@ -345,13 +345,13 @@ bool skiaProbeToPng(const char* path, int width, int height) {
 
 bool skiaRenderToRGB(int width, int height,
                      const std::function<void(Scene&)>& draw,
-                     unsigned char* outRgb) {
+                     unsigned char* outRgb, float strokeScale) {
 	if (width <= 0 || height <= 0 || !outRgb) return false;
 	sk_sp<SkSurface> surface = SkiaBackend::rasterSurface(width, height);
 	if (!surface) return false;
 	surface->getCanvas()->clear(SK_ColorWHITE);
 
-	SkiaScene scene(surface->getCanvas(), SkiaBackend::defaultFont());
+	SkiaScene scene(surface->getCanvas(), SkiaBackend::defaultFont(), strokeScale);
 	draw(scene);
 
 	// Read back straight into a tightly packed RGB buffer: wxImage owns its data
@@ -570,7 +570,7 @@ bool skiaRenderWindowCached(SkiaBackend& backend, int width, int height, int fbo
 }
 
 bool skiaRenderToSvg(const char* path, int width, int height,
-                     const std::function<void(Scene&)>& draw) {
+                     const std::function<void(Scene&)>& draw, float strokeScale) {
 	SkFILEWStream out(path);
 	if (!out.isValid()) return false;
 	{
@@ -580,14 +580,14 @@ bool skiaRenderToSvg(const char* path, int width, int height,
 		std::unique_ptr<SkCanvas> canvas = SkSVGCanvas::Make(bounds, &out);
 		if (!canvas) return false;
 		canvas->drawColor(SK_ColorWHITE);   // GL export ground is white
-		SkiaScene scene(canvas.get(), SkiaBackend::defaultFont());
+		SkiaScene scene(canvas.get(), SkiaBackend::defaultFont(), strokeScale);
 		draw(scene);
 	}
 	return true;
 }
 
 bool skiaRenderToPdf(const char* path, int width, int height,
-                     const std::function<void(Scene&)>& draw) {
+                     const std::function<void(Scene&)>& draw, float strokeScale) {
 	SkFILEWStream out(path);
 	if (!out.isValid()) return false;
 
@@ -599,7 +599,7 @@ bool skiaRenderToPdf(const char* path, int width, int height,
 
 	SkCanvas* canvas = doc->beginPage((float)width, (float)height);
 	canvas->clear(SK_ColorWHITE);
-	SkiaScene scene(canvas, SkiaBackend::defaultFont());
+	SkiaScene scene(canvas, SkiaBackend::defaultFont(), strokeScale);
 	draw(scene);
 	doc->endPage();
 	doc->close();

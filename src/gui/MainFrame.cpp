@@ -1296,7 +1296,16 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 	resBox->Add(screen2x, 0, wxALL, 5);
 	resBox->Add(print4x, 0, wxALL, 5);
 	resBox->Add(high6x, 0, wxALL, 5);
-	optionsSizer->Add(resBox, 1, wxLEFT | wxEXPAND, 10);
+	optionsSizer->Add(resBox, 1, wxLEFT | wxRIGHT | wxEXPAND, 10);
+
+	wxStaticBoxSizer* weightBox = new wxStaticBoxSizer(wxVERTICAL, &exportDialog, "Lines");
+	wxRadioButton* normalLines = new wxRadioButton(&exportDialog, wxID_ANY, "Normal", wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
+	wxRadioButton* boldLines = new wxRadioButton(&exportDialog, wxID_ANY, "Bold");
+	normalLines->SetValue(true);
+	weightBox->Add(normalLines, 0, wxALL, 5);
+	weightBox->Add(boldLines, 0, wxALL, 5);
+	optionsSizer->Add(weightBox, 1, wxLEFT | wxEXPAND, 10);
+	auto lineWeight = [boldLines]() { return boldLines->GetValue() ? 2.5f : 1.0f; };
 
 	mainSizer->Add(optionsSizer, 0, wxLEFT | wxRIGHT | wxEXPAND, 15);
 
@@ -1331,7 +1340,7 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 		bool noColor = bwRadio->GetValue();
 
 		// Render at native canvas size (1:1 with what the user sees)
-		wxBitmap bmp = getBitmap(showGrid, noColor, 1);
+		wxBitmap bmp = getBitmap(showGrid, noColor, 1, lineWeight());
 		wxImage img = bmp.ConvertToImage();
 
 		// Compute logical thumbnail size preserving aspect ratio
@@ -1360,6 +1369,8 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 	gridCheck->Bind(wxEVT_CHECKBOX, onOptionChange);
 	colorRadio->Bind(wxEVT_RADIOBUTTON, onOptionChange);
 	bwRadio->Bind(wxEVT_RADIOBUTTON, onOptionChange);
+	normalLines->Bind(wxEVT_RADIOBUTTON, onOptionChange);
+	boldLines->Bind(wxEVT_RADIOBUTTON, onOptionChange);
 
 	// Generate initial preview and size dialog to fit
 	updatePreview();
@@ -1375,7 +1386,7 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 	int multiplier = screen2x->GetValue() ? 2 : (print4x->GetValue() ? 4 : 6);
 
 	// Generate bitmap
-	wxBitmap bitmap = getBitmap(showGrid, useNoColor, multiplier);
+	wxBitmap bitmap = getBitmap(showGrid, useNoColor, multiplier, lineWeight());
 
 	// Handle action
 	if (result == wxID_APPLY) {
@@ -1403,7 +1414,7 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 				wxSize sz = currentCanvas->GetClientSize();
 				bool success = renderToSvgSkia(path, sz.GetWidth() * multiplier,
 				                               sz.GetHeight() * multiplier,
-				                               showGrid, useNoColor);
+				                               showGrid, useNoColor, multiplier * lineWeight());
 				if (!success) {
 					wxMessageBox("Failed to export SVG file.", "Export Error", wxOK | wxICON_ERROR);
 				}
@@ -1432,7 +1443,7 @@ void MainFrame::OnCopyToClipboard(wxCommandEvent& event) {
 	OnExportBitmap(event);
 }
 
-wxBitmap MainFrame::getBitmap(bool withGrid, bool noColor, int multiplier) {
+wxBitmap MainFrame::getBitmap(bool withGrid, bool noColor, int multiplier, float lineWeight) {
 	bool gridlineVisible = appConfig().appSettings.gridlineVisible;
 	appConfig().appSettings.gridlineVisible = withGrid;
 	renderMode().doingBitmapExport = true;
@@ -1454,7 +1465,8 @@ wxBitmap MainFrame::getBitmap(bool withGrid, bool noColor, int multiplier) {
 				[canvas, &style, w, h](cl::render::Scene &scene) {
 					canvas->renderToScene(scene, style, w, h);
 				},
-				circuitImage.GetData())) {
+				// Lines are sized in pixels, so they grow with the image or an export at 4x draws them 4x thinner.
+				circuitImage.GetData(), multiplier * lineWeight)) {
 			circuitImage.Clear(0xFF);   // white, so a failure exports blank not garbage
 		}
 	}
@@ -2000,7 +2012,7 @@ static cl::render::RenderStyle exportStyle(bool showGrid, bool noColor) {
 #endif
 
 bool MainFrame::renderToSvgSkia(const wxString &path, int width, int height,
-                                bool showGrid, bool noColor) {
+                                bool showGrid, bool noColor, float strokeScale) {
 #ifdef WITH_SKIA
 	if (currentCanvas == NULL) return false;
 	GUICanvas *canvas = currentCanvas;
@@ -2009,9 +2021,9 @@ bool MainFrame::renderToSvgSkia(const wxString &path, int width, int height,
 		path.ToStdString().c_str(), width, height,
 		[canvas, &style, width, height](cl::render::Scene &scene) {
 			canvas->renderToScene(scene, style, width, height);
-		});
+		}, strokeScale);
 #else
-	(void)path; (void)width; (void)height; (void)showGrid; (void)noColor;
+	(void)path; (void)width; (void)height; (void)showGrid; (void)noColor; (void)strokeScale;
 	return false;
 #endif
 }

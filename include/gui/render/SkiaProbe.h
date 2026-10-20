@@ -44,7 +44,7 @@ bool skiaRenderToPng(const char* path, int width, int height,
 // failed.
 bool skiaRenderToRGB(int width, int height,
                      const std::function<void(Scene&)>& draw,
-                     unsigned char* outRgb);
+                     unsigned char* outRgb, float strokeScale = 1.0f);
 
 // Render a scene straight into the currently-bound window framebuffer via Skia's
 // Ganesh GL backend, then flush (the caller presents with SwapBuffers). `backend`
@@ -96,7 +96,7 @@ bool skiaRenderWindowScene(SkiaBackend& backend, int width, int height, int fboI
 // that matches the GL golden, replacing the hand-rolled svgExport.cpp. Canvas is
 // `width` x `height` and filled white. Returns true on success.
 bool skiaRenderToSvg(const char* path, int width, int height,
-                     const std::function<void(Scene&)>& draw);
+                     const std::function<void(Scene&)>& draw, float strokeScale = 1.0f);
 
 // Render a scene into a single-page PDF at `path` -- resolution-independent
 // vector output for print. Same callback contract as skiaRenderToPng.
@@ -107,7 +107,7 @@ bool skiaRenderToSvg(const char* path, int width, int height,
 // dist is rebuilt with skia_enable_pdf actually taking effect. The app code is
 // backend-ready; only the supplied library is missing the piece.
 bool skiaRenderToPdf(const char* path, int width, int height,
-                     const std::function<void(Scene&)>& draw);
+                     const std::function<void(Scene&)>& draw, float strokeScale = 1.0f);
 
 // Advance width of a UTF-8 string as the Skia text path (Scene::text) renders it
 // at `pixelHeight`, using the same font. Lets non-Skia layout code (a label's hit

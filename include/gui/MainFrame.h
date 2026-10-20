@@ -184,7 +184,7 @@ public:
 	// built without WITH_SKIA.
 	bool renderToPngSkia(const wxString &path, int width, int height);
 	bool renderToSvgSkia(const wxString &path, int width, int height,
-	                     bool showGrid, bool noColor);
+	                     bool showGrid, bool noColor, float strokeScale = 1.0f);
 	bool renderToPdfSkia(const wxString &path, int width, int height,
 	                     bool showGrid, bool noColor);
 
@@ -229,7 +229,8 @@ public:
 	void PreGateDrag();
 
 	//Julian: Added to simplify exporting and copying to clipboard
-	wxBitmap getBitmap(bool withGrid, bool noColor = false, int multiplier = 2);
+	// `lineWeight` thickens every line on top of the resolution multiplier (1 = as on screen).
+	wxBitmap getBitmap(bool withGrid, bool noColor = false, int multiplier = 2, float lineWeight = 1.0f);
 	
 private:
     // helper function - creates a new thread (but doesn't run it)
