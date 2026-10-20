@@ -3726,7 +3726,7 @@
 		<caption>16-Bit Counting Register</caption>
 		<logic_type>REGISTER</logic_type>
 		<logic_param>INPUT_BITS 16</logic_param>
-		<logic_param>MAX_COUNT 65536</logic_param>
+		<logic_param>MAX_COUNT 65535</logic_param>
 		<logic_param>SYNC_CLEAR true</logic_param>
 		<logic_param>SYNC_LOAD true</logic_param>
 		<gui_type>REGISTER</gui_type>
