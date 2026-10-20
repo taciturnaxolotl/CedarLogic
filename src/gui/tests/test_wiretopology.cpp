@@ -263,3 +263,28 @@ TEST_CASE("an upright segment never joins a flat one it touches") {
 
 	CHECK(segs.size() == 2);
 }
+
+TEST_CASE("three runs on one line join whichever order their ids come in") {
+	// A bump flattened by a drag: the middle run has no pin and no crossing of
+	// its own. When it was absorbed into an outer run its reach was forgotten,
+	// so the other outer run never met it and the wire shrank to two stubs.
+	for (int order = 0; order < 2; order++) {
+		FakeHotspots hs;
+		hs.place(1, "OUT", GLPoint2f(-5, 0));
+		hs.place(2, "IN", GLPoint2f(10, 0));
+		SegmentMap segs;
+		long left = order ? 2 : 0, mid = 1, right = order ? 0 : 2;
+		segs.put(horizontal(left, 0, -5, 0));
+		segs.at(left).connections.push_back(conn(1, "OUT"));
+		segs.put(horizontal(mid, 0, 0, 5));
+		segs.put(horizontal(right, 0, 5, 10));
+		segs.at(right).connections.push_back(conn(2, "IN"));
+		long head = 0, next = 3;
+
+		cl::wire::mergeSegments(segs, hs, { conn(1, "OUT"), conn(2, "IN") }, head, next);
+
+		REQUIRE(segs.size() == 1);
+		CHECK(segs.begin()->second.begin.x == -5);
+		CHECK(segs.begin()->second.end.x == 10);
+	}
+}
