@@ -422,7 +422,7 @@ void Gate_BUS_END::connectInput(string inputID, IDType wireID) {
 	Gate::connectInput(inputID, wireID);
 	
 	// Grab the bus line from the back of the inputID.
-	int id = atoi(inputID.substr(inputID.find('_') + 1).c_str());
+	int id = atoi(inputID.substr(inputID.rfind('_') + 1).c_str());
 
 	// junctionIDs is only sized when INPUT_BITS arrives, and every gate carries
 	// an eight-wide ENABLE bus regardless, so a pin name can count straight past
@@ -442,7 +442,7 @@ IDType Gate_BUS_END::disconnectInput(string inputID) {
 	wireID = Gate::disconnectInput(inputID);
 
 	// Grab the bus line from the back of the inputID.
-	int id = atoi(inputID.substr(inputID.find('_') + 1).c_str());
+	int id = atoi(inputID.substr(inputID.rfind('_') + 1).c_str());
 
 	if (wireID != ID_NONE && id >= 0 && (size_t)id < junctionIDs.size()) {
 		// Unhook the wire from the Junction in the Circuit:

@@ -4,6 +4,7 @@
 #include <string>
 #include <cassert>
 #include <cmath>
+#include <cctype>
 using namespace std;
 #include "logic_gate.h"
 #include "logic_circuit.h"
@@ -31,6 +32,7 @@ Gate_RAM::Gate_RAM( ) : Gate() {
 	setParameter( "DATA_BITS", "0" );
 	
 	lastRead = (unsigned long)-1;
+	flushGuiMemory = false;
 }
 
 
@@ -125,7 +127,9 @@ bool Gate_RAM::setParameter( string paramName, string value ) {
 	} else if( paramName == "WRITE_FILE" ) {
 		outputMemoryFile(value);
 	} else if( paramName == "READ_FILE" ) {
-		if( value.substr( value.length() - 3 ) == "cdm" ){ 
+		string ext = value.length() >= 3 ? value.substr( value.length() - 3 ) : "";
+		for( char &c : ext ) c = tolower( (unsigned char)c );
+		if( ext == "cdm" ){
 			inputMemoryFile(value);
 		//*********************************************
 		//Edit by Joshua Lansford. 1/22/06
