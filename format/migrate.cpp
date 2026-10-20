@@ -3,6 +3,7 @@
 #include "circuit_file_io.hpp"
 
 #include <cctype>
+#include <map>
 #include <stdexcept>
 #include <string>
 
@@ -134,6 +135,32 @@ void applyDecoderWidth(CircuitFile &cf, std::vector<MigrationNotice> &out) {
 	}
 }
 
+// -- pin renames (every format) ---------------------------------------------
+// A library pin whose name changed. Files of any version may name the old one,
+// including v3 files saved before the rename, so this runs on every load. Same
+// pin, new name, so it is silent.
+struct PinRename {
+	const char *gate;
+	const char *from;
+	const char *to;
+};
+
+const PinRename kPinRenames[] = {
+	{ "BX_16X1_BUS_END", "Bus_in_0", "IN_0" },   // the 4- and 8-bit bus ends already say IN_0
+};
+
+void applyPinRenames(CircuitFile &cf) {
+	for (Page &pg : cf.pages) {
+		std::map<std::string, std::string> typeOf;   // gate uuid -> library name
+		for (const GateInstance &g : pg.gates) typeOf[g.uuid] = g.libName;
+		for (WireInstance &w : pg.wires)
+			for (WireSegment &s : w.segments)
+				for (WireConn &c : s.connects)
+					for (const PinRename &r : kPinRenames)
+						if (c.pin == r.from && typeOf[c.gateUuid] == r.gate) c.pin = r.to;
+	}
+}
+
 using Handler = void (*)(CircuitFile &, std::vector<MigrationNotice> &);
 
 const Handler kHandlers[] = { applyRenames, applyDecoderWidth };
@@ -164,6 +191,7 @@ LoadResult loadCircuit(const std::string &text) {
 	default:
 		throw std::runtime_error("loadCircuit: unrecognized .cdl format");
 	}
+	applyPinRenames(r.file);
 	return r;
 }
 

@@ -155,3 +155,18 @@ TEST_CASE("An absurd INPUT_BITS does not reach the shift") {
 	    " (lparam \"INPUT_BITS\" \"999999\"))))");
 	CHECK(migrate(huge).empty());
 }
+
+TEST_CASE("The 16-bit bus end's renamed first pin is carried over in any format") {
+	// Its bit 0 was named Bus_in_0 where the 4- and 8-bit ones say IN_0.
+	const std::string v3 =
+	    "(cedarlogic (version 3) (generator \"t\")"
+	    " (page 0 (gate \"BX_16X1_BUS_END\" (uuid \"1\") (at 0 0) (angle 0))"
+	    " (gate \"AA_TOGGLE\" (uuid \"2\") (at 0 0) (angle 0))"
+	    " (wire (ids \"5\") (seg \"0\" h (pts 0 0 1 0)"
+	    "   (connect \"1\" \"Bus_in_0\") (connect \"2\" \"Bus_in_0\")))))";
+	LoadResult r = loadCircuit(v3);
+	const std::vector<WireConn> &c = r.file.pages[0].wires[0].segments[0].connects;
+	CHECK(c[0].pin == "IN_0");       // the bus end's pin, renamed
+	CHECK(c[1].pin == "Bus_in_0");   // another gate's pin of the same name, left alone
+	CHECK(r.notices.empty());        // same pin, so nothing to tell the user
+}

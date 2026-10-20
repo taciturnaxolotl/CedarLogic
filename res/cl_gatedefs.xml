@@ -2154,7 +2154,7 @@
 	<gui_type>BUSEND</gui_type>
     <logic_param>INPUT_BITS 16</logic_param>
 		<input> 
-      <name>Bus_in_0</name>
+      <name>IN_0</name>
 		  <point>-2,-7.5</point> 
 		</input>
 		<input> 
