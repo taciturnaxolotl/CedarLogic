@@ -114,8 +114,8 @@ public:
 	void sendMessageToCore(klsMessage::Message message);
 	void parseMessage(klsMessage::Message message);
 	
-	void setSimulate(bool state) { simulate = state; };
-	bool getSimulate() { return simulate; };
+	void setReadyToStep(bool state) { readyToStep = state; };
+	bool isReadyToStep() { return readyToStep; };
 	
 	void printState();
 	
@@ -167,7 +167,7 @@ private:
 
 	bool movingGate;
 	bool drawingWire;
-	bool simulate;			// True when no step is in flight, so the next may be sent
+	bool readyToStep;		// No step in flight: off when one is sent, on when it reports done
 		
     long           m_Key;
     unsigned long  m_StartTime;

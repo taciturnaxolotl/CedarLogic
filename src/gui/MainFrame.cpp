@@ -973,7 +973,7 @@ void MainFrame::OnSimPump(wxThreadEvent& WXUNUSED(event)) {
 void MainFrame::OnTimer(wxTimerEvent& event) { stepSimulation(); }
 
 void MainFrame::stepSimulation() {
-	if (!(currentCanvas->getCircuit()->getSimulate())) return;
+	if (!(currentCanvas->getCircuit()->isReadyToStep())) return;
 	// Step as soon as a whole step's worth of wall time has accrued. Gating on
 	// refreshRate instead quantised the sim to the GUI poll interval: a 25ms step
 	// could only land on a ~16ms grid, giving alternating 16/32ms gaps forever.
@@ -1009,7 +1009,7 @@ void MainFrame::stepSimulation() {
 	gCircuit->lastNumSteps = (int)(elapsed / step);
 	gCircuit->catchingUp = stalled;
 	gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_STEPSIM, new klsMessage::Message_STEPSIM(elapsed / step)));
-	currentCanvas->getCircuit()->setSimulate(false);
+	currentCanvas->getCircuit()->setReadyToStep(false);
 	// After a dropped backlog the leftover is meaningless, so start clean.
 	simBridge().appSystemTime.Start(stalled ? 0 : elapsed % step);
 }
@@ -1044,22 +1044,22 @@ bool MainFrame::settleSimulation(int maxSteps) {
 	};
 
 	// One synchronized step: ask for it, then wait for the core's answer.
-	// getSimulate() goes back to true when MT_DONESTEP is drained, and draining
+	// isReadyToStep() goes back to true when MT_DONESTEP is drained, and draining
 	// that is also what applies the step's wire states, so it marks the point
 	// where the step is fully visible here.
 	auto stepOnce = [&]() {
-		gCircuit->setSimulate(false);
+		gCircuit->setReadyToStep(false);
 		gCircuit->sendMessageToCore(klsMessage::Message(
 			klsMessage::MT_STEPSIM, new klsMessage::Message_STEPSIM(1)));
 		const wxLongLong deadline =
 			wxGetLocalTimeMillis() + SETTLE_STEP_TIMEOUT_MS;
-		while (!gCircuit->getSimulate() && wxGetLocalTimeMillis() < deadline) {
+		while (!gCircuit->isReadyToStep() && wxGetLocalTimeMillis() < deadline) {
 			drainLogicMessages();
-			if (gCircuit->getSimulate()) break;
+			if (gCircuit->isReadyToStep()) break;
 			wxMilliSleep(1);
 		}
 		drainLogicMessages();   // anything queued behind the DONESTEP
-		return gCircuit->getSimulate();
+		return gCircuit->isReadyToStep();
 	};
 
 	// Apply anything the load left in flight, then let the first synchronized
@@ -1517,11 +1517,11 @@ void MainFrame::OnPause(wxCommandEvent& event) {
 }
 
 void MainFrame::OnStep(wxCommandEvent& event) {
-	if (!(currentCanvas->getCircuit()->getSimulate())) {
+	if (!(currentCanvas->getCircuit()->isReadyToStep())) {
 		return;
 	}
 	gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_STEPSIM, new klsMessage::Message_STEPSIM(1)));
-	currentCanvas->getCircuit()->setSimulate(false);
+	currentCanvas->getCircuit()->setReadyToStep(false);
 }
 
 void MainFrame::setToolIcon(int toolId, const wxBitmapBundle& icon, const char* sfSymbol) {

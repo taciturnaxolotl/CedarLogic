@@ -21,7 +21,7 @@ IMPLEMENT_DYNAMIC_CLASS(GUICircuit, wxDocument)
 
 GUICircuit::GUICircuit() {
 	nextGateID = nextWireID = 0;
-	simulate = true;
+	readyToStep = true;
 	panic = false;
 	pausing = false;
 	return;
@@ -49,7 +49,7 @@ void GUICircuit::reInitializeLogicCircuit() {
 	gateListVersion++;
 	wireList.clear();
 	nextGateID = nextWireID = 0;
-	simulate = true;
+	readyToStep = true;
 }
 
 guiGate* GUICircuit::createGate(string gateName, long id, bool noOscope) {
@@ -254,7 +254,7 @@ void GUICircuit::parseMessage(klsMessage::Message message) {
 			break;
 		}
 		case klsMessage::MT_DONESTEP: { // DONESTEP
-			simulate = true;
+			readyToStep = true;
 			int logicTime = message.as<klsMessage::Message_DONESTEP>().logicTime;
 			// Did the core take longer than the wall time it was catching up on?
 			// Keep a 3ms buffer. A step that was making up for a stall is exempt:
