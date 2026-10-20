@@ -671,7 +671,12 @@ void GUICanvas::mouseRightDown(wxMouseEvent& event) {
 		if (hotGate != nullptr && hotGate->isConnected(hotspotHighlight)) {
 			// disconnect this wire
 			guiWire *hotWire = hotGate->getConnection(hotspotHighlight);
-			if (hotWire->numConnections() > 2)
+			// A pin sharing its point with a pal (a RAM's data in and out) is
+			// disconnected together with it, so both count against what is left.
+			// Fewer than two ends left and the wire goes rather than dangling.
+			std::string pal = hotGate->getHotspotPal(hotspotHighlight);
+			long leaving = 1 + ((pal != "" && hotGate->getConnection(pal) == hotWire) ? 1 : 0);
+			if (hotWire->numConnections() - leaving >= 2)
 				submitCommand( new cmdDisconnectWire( gCircuit, hotWire->getID(), hotspotGate, hotspotHighlight ) );
 			else submitCommand( new cmdDeleteWire( gCircuit, this, hotWire->getID() ) );
 		}
