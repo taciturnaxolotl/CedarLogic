@@ -699,12 +699,10 @@ set(CPACK_PACKAGE_NAME "CedarLogic")
 # which CPack writes separately from CPACK_PACKAGE_VERSION.
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "CedarLogic")
 set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "CedarLogic")
-# This exceptionally weird line is hard to understand even with the documentation.
-# CMake thinks my executable is in the 'bin' subdirectory of the installation folder.
-# I don't like to put it there, so I need to manually tell it my programs are up one level.
-# Also, the combination of CMAKE and NSIS requires quadruple backslashes sometimes :(
-# UPDATE: You can change 'bin' to '.' by setting  CPACK_NSIS_EXECUTABLES_DIRECTORY.
-set(CPACK_PACKAGE_EXECUTABLES ..\\\\CedarLogic "CedarLogic" ..\\\\Uninstall "Uninstall CedarLogic")
+# The executable sits at the top of the install folder, not in bin, which is
+# where CPack's shortcuts and "run after install" would otherwise look.
+set(CPACK_NSIS_EXECUTABLES_DIRECTORY ".")
+set(CPACK_PACKAGE_EXECUTABLES CedarLogic "CedarLogic" Uninstall "Uninstall CedarLogic")
 set(CPACK_PACKAGE_VENDOR "Cedarville University")
 # set(CPACK_PACKAGE_VERSION_MAJOR "${CEDARLOGIC_MAJOR}")
 # set(CPACK_PACKAGE_VERSION_MINOR "${CEDARLOGIC_MINOR}")
@@ -735,6 +733,17 @@ set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS
 set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
     "\\\${unregisterExtension} \\\".cdl\\\" \\\"CedarLogic Project\\\""
 )
+# A "Create a Desktop shortcut" checkbox on the finish page, and the folder
+# page says what it is for, so it does not read as the place to ask for one.
+set(CPACK_NSIS_DEFINES
+    "!include \\\"${CMAKE_SOURCE_DIR}/cmake/cpack\\\\DesktopShortcut.nsh\\\"
+    !define MUI_DIRECTORYPAGE_TEXT_TOP \\\"Setup will install CedarLogic in the folder below. You can add a Desktop shortcut at the end; there is no need to change this.\\\"
+    !define MUI_DIRECTORYPAGE_TEXT_DESTINATION \\\"Program Folder\\\""
+)
+set(CPACK_NSIS_DELETE_ICONS_EXTRA
+    "Delete \\\"$DESKTOP\\\\CedarLogic.lnk\\\""
+)
+set(CPACK_NSIS_MUI_FINISHPAGE_RUN "CedarLogic.exe")
 
 # macOS DMG configuration
 if(APPLE)
