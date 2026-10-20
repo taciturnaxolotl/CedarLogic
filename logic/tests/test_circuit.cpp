@@ -1037,3 +1037,54 @@ TEST_CASE("no wire keeps a reference to a deleted gate") {
 	c.deleteGate(drv);
 	stepN(c, 3);
 }
+
+// The GUI re-sends a gate's whole parameter set on undo, including the ones
+// that declare its pins, so declaring a pin that already exists must be a
+// no-op. It used to reset the pin's wire, which cut the gate off from the
+// circuit with no warning: the wires kept updating it, it kept reading
+// nothing, and only reopening the file put it back.
+TEST_CASE("re-sending INPUT_BITS to a wired gate keeps it wired") {
+	Circuit c;
+	IDType gate = c.newGate("OR");
+	c.setGateParameter(gate, "INPUT_BITS", "2");
+	IDType d0 = makeDriver(c, 0), d1 = makeDriver(c, 0);
+	IDType w0 = c.newWire(), w1 = c.newWire(), wOut = c.newWire();
+	c.connectGateOutput(d0, "OUT_0", w0);
+	c.connectGateOutput(d1, "OUT_0", w1);
+	c.connectGateInput(gate, "IN_0", w0);
+	c.connectGateInput(gate, "IN_1", w1);
+	c.connectGateOutput(gate, "OUT", wOut);
+	stepN(c, 5);
+	REQUIRE(c.getWireState(wOut) == ZERO);
+
+	c.setGateParameter(gate, "INPUT_BITS", "2");
+	c.setGateParameter(d0, "OUTPUT_NUM", "1");
+	stepN(c, 5);
+	CHECK(c.getWireState(wOut) == ONE);
+}
+
+TEST_CASE("re-sending INPUT_BITS to a wired register keeps its outputs") {
+	// REGISTER declares its output bus from INPUT_BITS too, so the same resend
+	// used to forget the output wire and the last value sent on it.
+	Circuit c;
+	IDType reg = c.newGate("REGISTER");
+	c.setGateParameter(reg, "INPUT_BITS", "1");
+	c.setGateParameter(reg, "NO_HOLD", "true");
+	c.setGateParameter(reg, "SYNC_LOAD", "true");
+	IDType d = makeDriver(c, 1), clk = makeDriver(c, 0);
+	IDType wD = c.newWire(), wClk = c.newWire(), wQ = c.newWire();
+	c.connectGateOutput(d, "OUT_0", wD);
+	c.connectGateOutput(clk, "OUT_0", wClk);
+	c.connectGateInput(reg, "IN_0", wD);
+	c.connectGateInput(reg, "clock", wClk);
+	c.connectGateOutput(reg, "OUT_0", wQ);
+	stepN(c, 3);
+	pulseClock(c, clk);
+	REQUIRE(c.getWireState(wQ) == ONE);
+
+	c.setGateParameter(reg, "INPUT_BITS", "1");
+	c.setGateParameter(d, "OUTPUT_NUM", "0");
+	stepN(c, 3);
+	pulseClock(c, clk);
+	CHECK(c.getWireState(wQ) == ZERO);
+}

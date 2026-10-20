@@ -310,8 +310,10 @@ vector<ParamDescriptor> Gate::paramSchema() const {
 // Possibly declare the input as edge triggered, which will cause it
 // to be tracked to be able to check rising and falling edges.
 void Gate::declareInput( string inputID, bool edgeTriggered ) {
-	// Touch the item in the list, to make sure that it is created:
-	this->inputList[inputID].wireID = ID_NONE;
+	// Idempotent: INPUT_BITS gets re-sent to wired gates, and resetting the wire here silently detached them.
+	if( inputList.find( inputID ) == inputList.end() ) {
+		this->inputList[inputID].wireID = ID_NONE;
+	}
 
 	if( edgeTriggered ) {
 		edgeTriggeredInputs.insert( inputID );
@@ -324,8 +326,9 @@ void Gate::declareInput( string inputID, bool edgeTriggered ) {
 	}
 }
 
-// Register an output for this gate:
+// Register an output for this gate. Idempotent for the same reason as declareInput.
 void Gate::declareOutput( string name ) {
+	if( outputList.find( name ) != outputList.end() ) return;
 	outputList[ name ].wireID = ID_NONE;
 	outputList[ name ].lastEventState = HI_Z; // The GUI assumes HI_Z for all wires to begin with.
 	outputList[ name ].lastEventTime = TIME_NONE;
