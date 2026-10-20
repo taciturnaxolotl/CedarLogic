@@ -117,9 +117,7 @@ void Gate::updateGate( IDType myID, Circuit * theCircuit )
 	}
 		
 
-	// Update the last state of the edge-triggered inputs. Only a driven level
-	// counts: a clock seen floating before its driver's first event reached
-	// it is no history, or that first event would read as an edge.
+	// Remember edge-triggered inputs; only a driven level counts, or a load would see a false edge.
 	ID_SET< string >::iterator eInputs = edgeTriggeredInputs.begin();
 	while( eInputs != edgeTriggeredInputs.end() ) {
 		StateType now = getInputState( *eInputs );
@@ -137,8 +135,7 @@ void Gate::updateGate( IDType myID, Circuit * theCircuit )
 // Resend the last event to a (probably newly connected) wire:	
 void Gate::resendLastEvent( IDType myID, string outputID, Circuit * theCircuit ) {
 	if( outputList.find( outputID ) != outputList.end() ) {
-		// Tell the new wire what this output holds. An output that has never
-		// sent anything is still HI_Z, and the wire must hear that too.
+		// Tell the new wire what this output holds, including the HI_Z of one never driven.
 		GateOutput &out = outputList[outputID];
 		if( out.wireID != ID_NONE ) {
 			TimeType when = out.lastEventTime != TIME_NONE ? out.lastEventTime : theCircuit->getSystemTime();

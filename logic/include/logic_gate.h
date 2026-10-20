@@ -723,11 +723,11 @@ private:
 	string myID;
 	Circuit * myCircuit;
 
-	// All the wires hooked up to this particular junction gate:
-	// (Needs the counted wire deal in case you hook up a wire twice,
-	// and then unhook it once. We don't want to remove it from the set yet then.)
-	ID_SET< IDType > myWires;
+	// Each wire on this gate, with how many of its pins it occupies.
 	ID_MAP< IDType, unsigned long > myWireCounts;
+
+	// (Dis)connect every wire to the named junction, once per pin it occupies.
+	void relinkWires( const string &junctionName, bool connect );
 
 	// The shared junction IDs and usage counters:
 //	static ID_MAP< string, IDType > junctionIDs;

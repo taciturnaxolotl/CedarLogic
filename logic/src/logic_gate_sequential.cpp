@@ -4,6 +4,7 @@
 #include <string>
 #include <cassert>
 #include <cmath>
+#include <algorithm>
 using namespace std;
 #include "logic_gate.h"
 #include "logic_circuit.h"
@@ -191,43 +192,19 @@ void Gate_REGISTER::gateProcess( void ) {
 	// Set the output values:
 	setOutputState("carry_out", carryOut);
 	
-	//********************************
-	//Edit by Joshua Lansford 3/15/07
-	//While it makes the most sence
-	//to let the output of a latch or
-	//register to be unknown if
-	//it has latched an unknown input,
-	//in practicality it is a real pain.
-	//When implementing a finite state
-	//machine, it is a nusence if
-	//the whole thing is in an infinite
-	//state of unknowingness
-	// The pins get ZERO for it, but the GUI is still told, so the display can
-	// show the value was never really known. Decided before the squash.
-	if( outBus.size() != 0 ) {
-		bool oldUO = unknownOutputs;
-		unknownOutputs = false;
-		for( unsigned int i = 0; i < outBus.size(); i++ ) {
-			if( outBus[i] == UNKNOWN ) {
-				unknownOutputs = true;
-			}
-		}
-		if( oldUO != unknownOutputs ) {
+	// A latched unknown drives the pins as ZERO, so a state machine does not
+	// drown in unknowns (Joshua Lansford, 3/15/07); the GUI is still told.
+	if( !outBus.empty() ) {
+		bool sawUnknown = std::find( outBus.begin(), outBus.end(), UNKNOWN ) != outBus.end();
+		for( StateType &bit : outBus ) if( bit != ONE ) bit = ZERO;
+		setOutputBusState("OUT", outBus);
+		setOutputBusState("OUTINV", outBus);
+		if( sawUnknown != unknownOutputs ) {
+			unknownOutputs = sawUnknown;
 			listChangedParam("UNKNOWN_OUTPUTS");
 		}
 	}
-	for( vector< StateType >::iterator I = outBus.begin(); I != outBus.end(); ++I ){
-		if( *I != ONE ){
-			*I = ZERO;
-		}
-	}
-	//End of edit**********************
-	
-	if( outBus.size() != 0 ) {
-		setOutputBusState("OUT", outBus);
-		setOutputBusState("OUTINV", outBus);
-	}
-	
+
 	// Update the GUI's knowledge of our current value, if it has changed:
 	if( currentValue != oldCurrentValue ) {
 		listChangedParam("CURRENT_VALUE");

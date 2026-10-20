@@ -148,8 +148,7 @@ StateType Wire::getState() const
 // Connect a gate output to this wire:
 void Wire::connectInput( IDType gateID, string gateOutputID )
 {
-	// Only one wire input per gate & gateOutput is allowed. It starts as HI_Z,
-	// which is what the gate believes it has sent before its first event.
+	// One input per gate output, starting at HI_Z to match the gate's own belief.
 	WireInput newInput( gateID, gateOutputID, HI_Z );
 	
 	// Add it into the input list:

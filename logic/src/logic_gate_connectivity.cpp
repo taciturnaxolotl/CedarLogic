@@ -43,12 +43,7 @@ Gate_JUNCTION::Gate_JUNCTION( Circuit *newCircuit ) : Gate() {
 Gate_JUNCTION::~Gate_JUNCTION() {
 	if( !((*(myCircuit->getJunctionIDs())).empty() ) && ((*(myCircuit->getJunctionIDs())).find( myID ) != (*(myCircuit->getJunctionIDs())).end()) ) {
 		(*(myCircuit->getJunctionUseCounter()))[myID] -= 1;
-		// Unhook this gate's wires from the old junction, once per pin they sit on:
-		for( ID_MAP< IDType, unsigned long >::iterator w = myWireCounts.begin(); w != myWireCounts.end(); ++w ) {
-			for( unsigned long n = 0; n < w->second; n++ ) {
-				myCircuit->disconnectJunction( (*(myCircuit->getJunctionIDs()))[myID], w->first );
-			}
-		}
+		relinkWires( myID, false );
 
 		// If that junction is no longer used, then erase it:
 		if( (*(myCircuit->getJunctionUseCounter()))[myID] == 0 ) {
@@ -63,6 +58,16 @@ Gate_JUNCTION::~Gate_JUNCTION() {
 	}
 }
 
+
+void Gate_JUNCTION::relinkWires( const string &junctionName, bool connect ) {
+	IDType junction = (*(myCircuit->getJunctionIDs()))[junctionName];
+	for( const auto &w : myWireCounts ) {
+		for( unsigned long n = 0; n < w.second; n++ ) {
+			if( connect ) myCircuit->connectJunction( junction, w.first );
+			else myCircuit->disconnectJunction( junction, w.first );
+		}
+	}
+}
 
 // Handle gate events:
 void Gate_JUNCTION::gateProcess( void ) {
@@ -106,12 +111,7 @@ bool Gate_JUNCTION::setParameter( string paramName, string value ) {
 		// Decrement the old junction id counter:
 		if( !((*(myCircuit->getJunctionIDs())).empty() ) && ((*(myCircuit->getJunctionIDs())).find( myOldID ) != (*(myCircuit->getJunctionIDs())).end()) ) {
 			(*(myCircuit->getJunctionUseCounter()))[myOldID] -= 1;
-			// Unhook this gate's wires from the old junction, once per pin they sit on:
-			for( ID_MAP< IDType, unsigned long >::iterator w = myWireCounts.begin(); w != myWireCounts.end(); ++w ) {
-				for( unsigned long n = 0; n < w->second; n++ ) {
-					myCircuit->disconnectJunction( (*(myCircuit->getJunctionIDs()))[myOldID], w->first );
-				}
-			}
+			relinkWires( myOldID, false );
 
 			// If that junction is no longer used, then erase it:
 			if( (*(myCircuit->getJunctionUseCounter()))[myOldID] == 0 ) {
@@ -137,12 +137,7 @@ bool Gate_JUNCTION::setParameter( string paramName, string value ) {
 			(*(myCircuit->getJunctionUseCounter()))[myID] += 1;
 		}
 
-		// Add this gate's wires to the newly assigned junction, once per pin:
-		for( ID_MAP< IDType, unsigned long >::iterator w = myWireCounts.begin(); w != myWireCounts.end(); ++w ) {
-			for( unsigned long n = 0; n < w->second; n++ ) {
-				myCircuit->connectJunction( (*(myCircuit->getJunctionIDs()))[myID], w->first );
-			}
-		}
+		relinkWires( myID, true );
 
 		return false; // gateProcess() doesn't do anything anyway!
 	} else {
@@ -172,12 +167,7 @@ void Gate_JUNCTION::connectInput( string inputID, IDType wireID ) {
 
 	// Track this wire, so that it can move to a new junction if
 	// our name changes:
-	myWires.insert( wireID );
-	if( myWireCounts.find( wireID ) == myWireCounts.end() ) {
-		myWireCounts[wireID] = 1;
-	} else {
-		myWireCounts[wireID] += 1;
-	}
+	myWireCounts[wireID] += 1;
 
 //TODO: Decide whether or not it is a good idea to allow inputs
 // to be connected to the gate, or if they should all be outputs, to avoid
@@ -208,7 +198,6 @@ IDType Gate_JUNCTION::disconnectInput( string inputID ) {
 			if( count->second > 1 ) {
 				count->second -= 1;
 			} else {
-				myWires.erase( wireID );
 				myWireCounts.erase( count );
 			}
 		}

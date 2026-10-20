@@ -135,8 +135,7 @@ void Circuit::step(ID_SET< IDType > *changedWires)
 		processedEvents++;
 	}
 
-	// Anything past the cap stays queued and is applied next step. Dropping
-	// it left gates believing they had sent a value the wire never got.
+	// Events past the cap stay queued for the next step; never drop them.
 
 	// Insert the wires that have been disconnected (or were part of a junction that changed) within
 	// the last call to step() so that they will be properly updated:
