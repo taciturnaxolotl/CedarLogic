@@ -145,7 +145,8 @@ void klsClipboard::copyBlock( GUICircuit* gCircuit, GUICanvas* gCanvas, vector <
 		cmdTemp = new cmdCreateGate( gCanvas, gCircuit, gates[i], gGate->getLibraryGateName(), x, y);
 		oss << cmdTemp->toString() << endl;
 		delete cmdTemp;
-		cmdTemp = new cmdSetParams( gCircuit, gates[i], paramSet(gGate->getAllGUIParams(), gGate->getAllLogicParams()) );
+		ParameterMap logicParams = cmdSetParams::fullLogicParams(gGate);
+		cmdTemp = new cmdSetParams( gCircuit, gates[i], paramSet(gGate->getAllGUIParams(), &logicParams) );
 		oss << cmdTemp->toString() << endl;
 		delete cmdTemp;
 	}
