@@ -380,15 +380,26 @@ void CircuitParse::parseGateToSend(string type, string ID, string position, vect
 	issb >> id;
 	
 	string logicType = gateLibrary().libParser.getGateLogicType( type );
-	if ( logicType.size() > 0 )
-		gCanvas->getCircuit()->sendMessageToCore(klsMessage::Message(klsMessage::MT_CREATE_GATE, new klsMessage::Message_CREATE_GATE(gateLibrary().libraries[gateLibrary().gateNameToLibrary[type]][type].logicType, id)));
 	// Create gate for GUI
 	istringstream issa(position.substr(0,position.find(",")+1));
 	issa >> x;
 	issa.str(position.substr(position.find(",")+1,position.size()-position.find(",")-1));
 	issa >> y;
 	guiGate* newGate = gCanvas->getCircuit()->createGate( type, id, true );
-	if (newGate == NULL) return; // IN CASE OF ERROR
+	if (newGate == NULL) {
+		// A second gate with this id. Say so; it used to vanish without a word,
+		// after a core gate had already been made for it.
+		cl::MigrationNotice n;
+		n.severity = cl::Severity::Warning;
+		n.gateUuid = ID;
+		n.libName = type;
+		n.summary = "Gate " + ID + " (" + type + ") has the same id as a gate already loaded.";
+		n.detail = "That gate was dropped. Each gate in a file needs its own id.";
+		applyNotices.push_back(std::move(n));
+		return;
+	}
+	if ( logicType.size() > 0 )
+		gCanvas->getCircuit()->sendMessageToCore(klsMessage::Message(klsMessage::MT_CREATE_GATE, new klsMessage::Message_CREATE_GATE(gateLibrary().libraries[gateLibrary().gateNameToLibrary[type]][type].logicType, id)));
 	gCanvas->insertGate(id, newGate, x, y);
 
 	// Push the library's logic_params into the core first, the way cmdCreateGate
