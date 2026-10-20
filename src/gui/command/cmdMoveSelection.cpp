@@ -23,7 +23,6 @@ cmdMoveSelection::cmdMoveSelection(GUICircuit* gCircuit,
 	this->startY = startY;
 	this->endX = endX;
 	this->endY = endY;
-	wireMove = 1;
 }
 
 
@@ -53,12 +52,11 @@ bool cmdMoveSelection::Undo() {
 		gate->translateGLcoords(startX - endX, startY - endY);
 		gate->finalizeWirePlacements();
 	}
-	for (unsigned int i = 0; i < wireList.size() && wireMove < 0; i++) {
+	for (unsigned int i = 0; i < wireList.size(); i++) {
 		guiWire *wire = gCircuit->getWire(wireList[i]);
 		if (wire == nullptr) continue; // error, wire not found
 		wire->setSegmentMap(oldSegMaps[wireList[i]]);
 	}
-	wireMove = -1;
 	for (unsigned int i = 0; i < proxconnects.size(); i++) {
 		proxconnects[i]->Undo();
 	}

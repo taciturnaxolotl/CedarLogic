@@ -257,6 +257,7 @@ public:
 	// Tag a command with this canvas as its page, then submit it to the undo
 	// history. Stamping the page lets undo/redo switch to it (see MainFrame).
 	void submitCommand(klsCommand *cmd);
+	void storeCommand(klsCommand *cmd);
 
 private:
 

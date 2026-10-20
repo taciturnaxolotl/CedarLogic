@@ -207,6 +207,16 @@ void GUICanvas::submitCommand(klsCommand *cmd) {
 	gCircuit->GetCommandProcessor()->Submit((wxCommand *)cmd);
 }
 
+// For a command whose effect is already on screen, such as a drag that just
+// ended: into the history, without running it. Submitting it ran Do on top of
+// the drag, moving the gates a second time and re-routing their wires there,
+// and the Undo that put the gates back did not put the wires back, so the
+// wire landed in a different shape from the one shown during the drag.
+void GUICanvas::storeCommand(klsCommand *cmd) {
+	cmd->setCanvas(this);
+	gCircuit->GetCommandProcessor()->Store((wxCommand *)cmd);
+}
+
 // Render the page
 // Render the whole page into the engine-neutral Scene (Workstream G). Fits the
 // circuit's world bounding box into a deviceW x deviceH viewport (y-flipped for a
@@ -953,12 +963,12 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 		guiGate *anchor = preMove.size() > 0 ? getGate(preMove[0].id) : nullptr;
 		if (anchor != nullptr) {
 			anchor->getGLcoords(gX, gY);
-			movecommand = new cmdMoveSelection( gCircuit, preMove, preMoveWire, preMove[0].x, preMove[0].y, gX, gY );
 			for (unsigned int i = 0; i < preMove.size(); i++) {
 				if (guiGate *g = getGate(preMove[i].id)) g->updateConnectionMerges();
 			}
-			if (!isWithinPaste) submitCommand( movecommand );
-			if (!isWithinPaste) movecommand->Undo();
+			// After the merge, so the shape a redo restores is the one on screen.
+			movecommand = new cmdMoveSelection( gCircuit, preMove, preMoveWire, preMove[0].x, preMove[0].y, gX, gY );
+			if (!isWithinPaste) storeCommand( movecommand );
 		}
 		if (preMove.size() > 1) preMove.clear();
 	}
@@ -1121,7 +1131,7 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 								if (currentDragState == DRAG_SELECTION) {
 									if (movecommand == NULL) {
 										movecommand = new cmdMoveSelection(gCircuit, preMove, preMoveWire, 0, 0, 0, 0);
-										if (!isWithinPaste) submitCommand(movecommand);
+										if (!isWithinPaste) storeCommand(movecommand);
 									}
 									movecommand->getConnections()->push_back(std::unique_ptr<klsCommand>(createwire));
 								}

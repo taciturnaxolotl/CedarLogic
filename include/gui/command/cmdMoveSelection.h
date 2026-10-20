@@ -29,6 +29,5 @@ protected:
 	map<unsigned long, SegmentMap> oldSegMaps;
 	map<unsigned long, SegmentMap> newSegMaps;
 	float startX, startY, endX, endY;
-	int wireMove;
 	vector<std::unique_ptr<klsCommand>> proxconnects;
 };
