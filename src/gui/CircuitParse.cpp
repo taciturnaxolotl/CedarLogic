@@ -322,6 +322,7 @@ void CircuitParse::applyWireShape(const cl::WireInstance &w) {
 		return;
 	}
 
+	guiWire *wire = gCircuit->getWire(ids.front());
 	map<long, wireSegment> shape;
 	// The routing reads these rather than the wire's own connection list, so a
 	// pin named twice leaves a copy a single removal never reaches.
@@ -336,18 +337,23 @@ void CircuitParse::applyWireShape(const cl::WireInstance &w) {
 		for (const cl::WireConn &c : ms.connects) {
 			wireConnection nwc;
 			nwc.gid = strtoul(c.gateUuid.c_str(), nullptr, 10);
-			// This shape is walked later by routing code that resolves each of
-			// these gates and uses the result without checking. A file naming a
-			// gate that is not on this page crashed there, a long way from here,
-			// so drop the connection now and say so.
-			if (gCircuit->getGate(nwc.gid) == nullptr) {
-				cl::MigrationNotice n;
-				n.severity = cl::Severity::Warning;
-				n.summary = "A connection on wire " +
-				            (w.ids.empty() ? string("(no id)") : w.ids.front()) +
-				            " names gate " + c.gateUuid + ", which is not on this page.";
-				n.detail = "That connection was dropped. The rest of the wire loaded normally.";
-				applyNotices.push_back(std::move(n));
+			// Only a connection the gate itself holds goes into the shape. This
+			// shape is walked by routing code that resolves gates without checking,
+			// so a gate off this page crashed it; and a pin another wire already
+			// claimed (reported above) used to keep drawing attached here and be
+			// written out again on every save, which is how the clash got into the
+			// file to begin with.
+			guiGate *gate = gCircuit->getGate(nwc.gid);
+			if (gate == nullptr || gate->getConnection(c.pin) != wire) {
+				if (gCanvas->getGateList()->count(nwc.gid) == 0) {
+					cl::MigrationNotice n;
+					n.severity = cl::Severity::Warning;
+					n.summary = "A connection on wire " +
+					            (w.ids.empty() ? string("(no id)") : w.ids.front()) +
+					            " names gate " + c.gateUuid + ", which is not on this page.";
+					n.detail = "That connection was dropped. The rest of the wire loaded normally.";
+					applyNotices.push_back(std::move(n));
+				}
 				continue;
 			}
 			nwc.connection = c.pin;
@@ -359,7 +365,6 @@ void CircuitParse::applyWireShape(const cl::WireInstance &w) {
 		shape[seg.id] = seg;
 	}
 
-	guiWire *wire = gCircuit->getWire(ids.front());
 	wire->setIDs(ids);
 	wire->setSegmentMap(shape);
 }
@@ -478,7 +483,7 @@ static cl::GateInstance buildGate(guiGate *g) {
 	return gi;
 }
 
-static cl::WireInstance buildWire(guiWire *w) {
+static cl::WireInstance buildWire(guiWire *w, GUICircuit *gCircuit) {
 	cl::WireInstance wi;
 	for (IDType id : w->getIDs()) wi.ids.push_back(to_string(id));
 	map<long, wireSegment> segMap = w->getSegmentMap();
@@ -489,8 +494,13 @@ static cl::WireInstance buildWire(guiWire *w) {
 		ws.vertical = s.verticalSeg;
 		ws.begin = { s.begin.x, s.begin.y };
 		ws.end = { s.end.x, s.end.y };
-		for (const wireConnection &c : s.connections)
+		for (const wireConnection &c : s.connections) {
+			// Only what the gate agrees to: a pin carries one wire, and a stale
+			// claim written here came back as a clash on every later open.
+			guiGate *g = gCircuit->getGate(c.gid);
+			if (g == nullptr || g->getConnection(c.connection) != w) continue;
 			ws.connects.push_back({ to_string(c.gid), c.connection });
+		}
 		for (const auto &isect : s.intersects)
 			for (long segId : isect.second)
 				ws.intersections.push_back({ (double)isect.first, to_string(segId) });
@@ -509,7 +519,7 @@ static cl::CircuitFile buildCircuitFile(vector<GUICanvas*> &glc) {
 		for (const auto &entry : *glc[i]->getGateList())
 			pg.gates.push_back(buildGate(entry.second));
 		for (const auto &entry : *glc[i]->getWireList())
-			pg.wires.push_back(buildWire(entry.second));
+			pg.wires.push_back(buildWire(entry.second, glc[i]->getCircuit()));
 
 		// Both lists come out of unordered_map iteration, so without this two
 		// saves of an unchanged circuit reshuffle and every .cdl diff is noise.
