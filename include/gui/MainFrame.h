@@ -84,11 +84,11 @@ public:
     void OnOpen(wxCommandEvent& event);
     void OnSave(wxCommandEvent& event);
     void OnSaveAs(wxCommandEvent& event);
-    // The menu handlers above, as questions: did the work land on disk? A
-    // "save first?" prompt must know, or a cancelled Save As threw the work
-    // away along with its recovery snapshot.
+    // The menu handlers above, answering whether the work reached disk.
     bool saveDocument();
     bool saveDocumentAs();
+    bool writeDocument(const wxString &path);
+    bool settleUnsavedChanges();
 	void OnExportBitmap(wxCommandEvent& event);
 	void OnExportLegacy(wxCommandEvent& event);
 	void OnExportV2(wxCommandEvent& event);

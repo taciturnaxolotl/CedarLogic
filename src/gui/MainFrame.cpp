@@ -588,23 +588,9 @@ void MainFrame::OnClose(wxCloseEvent& event) {
 	pauseTimers();
 
 	// Allow the user to save the file, unless we are in the midst of terminating the app!!, KAS 4/26/07	
-	if (fileIsDirty() && !destroy) {
-		wxMessageDialog dialog( this, "Circuit has not been saved.  Would you like to save it?", "Save Circuit", wxYES_DEFAULT|wxYES_NO|wxCANCEL|wxICON_QUESTION);
-		switch (dialog.ShowModal()) {
-		case wxID_YES:
-			if (saveDocument()) destroy = true;  // postpone destruction until wxWidgets cleans up, KAS 4/26/07
-			else if (event.CanVeto()) event.Veto(); else destroy = true;
-			break;
-		case wxID_NO:
-			destroy = true;  // postpone destruction until wxWidgets cleans up, KAS 4/26/07
-			break;
-		case wxID_CANCEL:
-			if (event.CanVeto()) event.Veto(); else destroy = true;
-			break;
-		}			
-	} else {
-		destroy = true;      // postpone destruction until wxWidgets cleans up, KAS 4/26/07
-	}
+	// destroy postpones destruction until wxWidgets cleans up, KAS 4/26/07
+	if (destroy || settleUnsavedChanges() || !event.CanVeto()) destroy = true;
+	else event.Veto();
 	
 	resumeTimers(TIMER_POLL_MS);
 
@@ -645,16 +631,7 @@ void MainFrame::OnAbout(wxCommandEvent& WXUNUSED(event)) {
 
 void MainFrame::OnNew(wxCommandEvent& event) {
 
-	if (fileIsDirty()) {
-		wxMessageDialog dialog( this, "Circuit has not been saved.  Would you like to save it?", "Save Circuit", wxYES_DEFAULT|wxYES_NO|wxCANCEL|wxICON_QUESTION);
-		switch (dialog.ShowModal()) {
-		case wxID_YES:
-			if (!saveDocument()) return;
-			break;
-		case wxID_CANCEL:
-			return;
-		}			
-	}
+	if (!settleUnsavedChanges()) return;
 
 	pauseTimers();
 
@@ -705,16 +682,9 @@ void MainFrame::OnOpen(wxCommandEvent& event) {
 	
 
 	currentCanvas->getCircuit()->setSimulate(false);
-	if (fileIsDirty()) {
-		wxMessageDialog dialog( this, "Circuit has not been saved.  Would you like to save it?", "Save Circuit", wxYES_DEFAULT|wxYES_NO|wxCANCEL|wxICON_QUESTION);
-		switch (dialog.ShowModal()) {
-		case wxID_YES:
-			if (saveDocument()) break;
-			// fall through: not saved, so not opening either
-		case wxID_CANCEL:
-			currentCanvas->getCircuit()->setSimulate(true);
-			return;
-		}			
+	if (!settleUnsavedChanges()) {
+		currentCanvas->getCircuit()->setSimulate(true);
+		return;
 	}
 	
 	pauseTimers();
@@ -873,30 +843,37 @@ bool MainFrame::loadCircuitFile( string fileName, bool asCopy ){
 void MainFrame::OnSave(wxCommandEvent& WXUNUSED(event)) { saveDocument(); }
 void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) { saveDocumentAs(); }
 
+// True when it is fine to drop the current circuit: nothing unsaved, the user
+// said not to keep it, or it reached disk. Cancel or a failed save is false.
+bool MainFrame::settleUnsavedChanges() {
+	if (!fileIsDirty()) return true;
+	wxMessageDialog dialog( this, "Circuit has not been saved.  Would you like to save it?", "Save Circuit", wxYES_DEFAULT|wxYES_NO|wxCANCEL|wxICON_QUESTION);
+	switch (dialog.ShowModal()) {
+	case wxID_YES: return saveDocument();
+	case wxID_NO:  return true;
+	default:       return false;
+	}
+}
+
 bool MainFrame::saveDocument() {
-	if (openedFilename == "") return saveDocumentAs();
+	return openedFilename == "" ? saveDocumentAs() : writeDocument(openedFilename);
+}
+
+// Write the circuit to `path` and report the outcome. A "Warning:" result means
+// it was written with a caveat (bus features in v1.x) and counts as saved.
+bool MainFrame::writeDocument(const wxString &path) {
 	int format = chooseSaveFormat();
 	if (format == -1) return false;  // user cancelled
-	bool success = save((string)openedFilename, format);
-	// The work is on disk under its own name, so the snapshot is now the
-	// older copy of the two. Dropping it keeps a later crash from offering
-	// to "recover" something staler than the file they already have.
-	if (success) {
-		removeTempFile();
-		commandProcessor->MarkAsSaved();
-		recoveredUnsaved = false;   // it has a home now
-	} else if (lastSaveError.rfind("Warning:", 0) == 0) {
-		// The file was written, but with a caveat (e.g. bus features can't be
-		// represented in v1.x). Treat it as saved.
-		wxMessageBox(lastSaveError, "Save Warning", wxOK | wxICON_WARNING, this);
-		removeTempFile();
-		commandProcessor->MarkAsSaved();
-		recoveredUnsaved = false;
-	} else {
-		wxString errorMsg = "Failed to save file:\n\n" + lastSaveError;
-		wxMessageBox(errorMsg, "Save Error", wxOK | wxICON_ERROR, this);
+	bool written = save((string)path, format) || lastSaveError.rfind("Warning:", 0) == 0;
+	if (!written) {
+		wxMessageBox("Failed to save file:\n\n" + lastSaveError, "Save Error", wxOK | wxICON_ERROR, this);
 		return false;
 	}
+	if (!lastSaveError.empty())
+		wxMessageBox(lastSaveError, "Save Warning", wxOK | wxICON_WARNING, this);
+	removeTempFile();   // the file on disk is now the newer copy
+	commandProcessor->MarkAsSaved();
+	recoveredUnsaved = false;
 	return true;
 }
 
@@ -936,26 +913,11 @@ bool MainFrame::saveDocumentAs() {
 		? lastDirectory : wxFileName(recoveredFrom).GetPath());
 	if (dialog.ShowModal() != wxID_OK) return false;
 	wxString path = dialog.GetPath();
-	int format = chooseSaveFormat();
-	if (format == -1) return false;  // user cancelled
-	bool success = save((string)path, format);
-	if (success || lastSaveError.rfind("Warning:", 0) == 0) {
-		if (!success)
-			wxMessageBox(lastSaveError, "Save Warning", wxOK | wxICON_WARNING, this);
-		removeTempFile();
-		openedFilename = path;
-		recoveredFrom = "";   // it has a home of its own now
-		recoveredUnsaved = false;
-		// The document moved, so the lock follows it: drop the old one and
-		// mark the new file as ours.
-		documentLock.acquire(path.ToStdString());
-		this->SetTitle(VERSION_TITLE() + " - " + path );
-		commandProcessor->MarkAsSaved();
-	} else {
-		wxString errorMsg = "Failed to save file:\n\n" + lastSaveError;
-		wxMessageBox(errorMsg, "Save Error", wxOK | wxICON_ERROR, this);
-		return false;
-	}
+	if (!writeDocument(path)) return false;
+	openedFilename = path;
+	recoveredFrom = "";   // it has a home of its own now
+	documentLock.acquire(path.ToStdString());   // the lock follows the document
+	this->SetTitle(VERSION_TITLE() + " - " + path );
 	return true;
 }
 
@@ -1763,9 +1725,7 @@ void MainFrame::offerRecovery() {
 		// autosave refreshes it even if they never touch a gate.
 		autosaveStore::adopt(entry);
 		recoveredUnsaved = true;
-		// One recovery per launch. Loading the next would clear this one from
-		// the screen and, since it is now this session's own snapshot, from disk.
-		// The others are still there and will be offered next time.
+		// One recovery per launch: the next load would delete this adopted snapshot. The rest wait.
 		break;
 	}
 }
@@ -1811,10 +1771,7 @@ bool MainFrame::save(string filename, int format) {
 	else if (format == 2) success = cirp.saveCircuit(filename, canvases);
 	else success = cirp.saveCircuitV3(filename, canvases);
 
-	// Store the error message for the caller
-	if (!success) {
-		lastSaveError = cirp.getLastError();
-	}
+	lastSaveError = success ? "" : cirp.getLastError();   // stale on success would read as a warning
 
 	// Disabling timers from autosave thread caused an assertion fail.
 	//Resume system
