@@ -592,8 +592,8 @@ void MainFrame::OnClose(wxCloseEvent& event) {
 		wxMessageDialog dialog( this, "Circuit has not been saved.  Would you like to save it?", "Save Circuit", wxYES_DEFAULT|wxYES_NO|wxCANCEL|wxICON_QUESTION);
 		switch (dialog.ShowModal()) {
 		case wxID_YES:
-			OnSave(*((wxCommandEvent*)(&event)));
-			destroy = true;  // postpone destruction until wxWidgets cleans up, KAS 4/26/07
+			if (saveDocument()) destroy = true;  // postpone destruction until wxWidgets cleans up, KAS 4/26/07
+			else if (event.CanVeto()) event.Veto(); else destroy = true;
 			break;
 		case wxID_NO:
 			destroy = true;  // postpone destruction until wxWidgets cleans up, KAS 4/26/07
@@ -649,7 +649,7 @@ void MainFrame::OnNew(wxCommandEvent& event) {
 		wxMessageDialog dialog( this, "Circuit has not been saved.  Would you like to save it?", "Save Circuit", wxYES_DEFAULT|wxYES_NO|wxCANCEL|wxICON_QUESTION);
 		switch (dialog.ShowModal()) {
 		case wxID_YES:
-			OnSave(event);
+			if (!saveDocument()) return;
 			break;
 		case wxID_CANCEL:
 			return;
@@ -708,8 +708,8 @@ void MainFrame::OnOpen(wxCommandEvent& event) {
 		wxMessageDialog dialog( this, "Circuit has not been saved.  Would you like to save it?", "Save Circuit", wxYES_DEFAULT|wxYES_NO|wxCANCEL|wxICON_QUESTION);
 		switch (dialog.ShowModal()) {
 		case wxID_YES:
-			OnSave(event);
-			break;
+			if (saveDocument()) break;
+			// fall through: not saved, so not opening either
 		case wxID_CANCEL:
 			currentCanvas->getCircuit()->setSimulate(true);
 			return;
@@ -869,31 +869,34 @@ bool MainFrame::loadCircuitFile( string fileName, bool asCopy ){
 	return true;
 }
 
-void MainFrame::OnSave(wxCommandEvent& event) {
-	if (openedFilename == "") OnSaveAs(event);
-	else {
-		int format = chooseSaveFormat();
-		if (format == -1) return;  // user cancelled
-		bool success = save((string)openedFilename, format);
-		// The work is on disk under its own name, so the snapshot is now the
-		// older copy of the two. Dropping it keeps a later crash from offering
-		// to "recover" something staler than the file they already have.
-		if (success) {
-			removeTempFile();
-			commandProcessor->MarkAsSaved();
-			recoveredUnsaved = false;   // it has a home now
-		} else if (lastSaveError.rfind("Warning:", 0) == 0) {
-			// The file was written, but with a caveat (e.g. bus features can't be
-			// represented in v1.x). Treat it as saved.
-			wxMessageBox(lastSaveError, "Save Warning", wxOK | wxICON_WARNING, this);
-			removeTempFile();
-			commandProcessor->MarkAsSaved();
-			recoveredUnsaved = false;
-		} else {
-			wxString errorMsg = "Failed to save file:\n\n" + lastSaveError;
-			wxMessageBox(errorMsg, "Save Error", wxOK | wxICON_ERROR, this);
-		}
+void MainFrame::OnSave(wxCommandEvent& WXUNUSED(event)) { saveDocument(); }
+void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) { saveDocumentAs(); }
+
+bool MainFrame::saveDocument() {
+	if (openedFilename == "") return saveDocumentAs();
+	int format = chooseSaveFormat();
+	if (format == -1) return false;  // user cancelled
+	bool success = save((string)openedFilename, format);
+	// The work is on disk under its own name, so the snapshot is now the
+	// older copy of the two. Dropping it keeps a later crash from offering
+	// to "recover" something staler than the file they already have.
+	if (success) {
+		removeTempFile();
+		commandProcessor->MarkAsSaved();
+		recoveredUnsaved = false;   // it has a home now
+	} else if (lastSaveError.rfind("Warning:", 0) == 0) {
+		// The file was written, but with a caveat (e.g. bus features can't be
+		// represented in v1.x). Treat it as saved.
+		wxMessageBox(lastSaveError, "Save Warning", wxOK | wxICON_WARNING, this);
+		removeTempFile();
+		commandProcessor->MarkAsSaved();
+		recoveredUnsaved = false;
+	} else {
+		wxString errorMsg = "Failed to save file:\n\n" + lastSaveError;
+		wxMessageBox(errorMsg, "Save Error", wxOK | wxICON_ERROR, this);
+		return false;
 	}
+	return true;
 }
 
 // Ask which format to write an old-format file in. v3/new circuits save as v3
@@ -917,7 +920,7 @@ int MainFrame::chooseSaveFormat() {
 	return loadedFileFormat;  // keep the original format
 }
 
-void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) {
+bool MainFrame::saveDocumentAs() {
 
 	// After a recovery the circuit has no path of its own; suggest the name of
 	// the document it was recovered from rather than making them retype it.
@@ -930,28 +933,29 @@ void MainFrame::OnSaveAs(wxCommandEvent& WXUNUSED(event)) {
 	// to put the work back roughly where they lost it.
 	dialog.SetDirectory(recoveredFrom.empty()
 		? lastDirectory : wxFileName(recoveredFrom).GetPath());
-	if (dialog.ShowModal() == wxID_OK) {
-		wxString path = dialog.GetPath();
-		int format = chooseSaveFormat();
-		if (format == -1) return;  // user cancelled
-		bool success = save((string)path, format);
-		if (success || lastSaveError.rfind("Warning:", 0) == 0) {
-			if (!success)
-				wxMessageBox(lastSaveError, "Save Warning", wxOK | wxICON_WARNING, this);
-			removeTempFile();
-			openedFilename = path;
-			recoveredFrom = "";   // it has a home of its own now
-			recoveredUnsaved = false;
-			// The document moved, so the lock follows it: drop the old one and
-			// mark the new file as ours.
-			documentLock.acquire(path.ToStdString());
-			this->SetTitle(VERSION_TITLE() + " - " + path );
-			commandProcessor->MarkAsSaved();
-		} else {
-			wxString errorMsg = "Failed to save file:\n\n" + lastSaveError;
-			wxMessageBox(errorMsg, "Save Error", wxOK | wxICON_ERROR, this);
-		}
+	if (dialog.ShowModal() != wxID_OK) return false;
+	wxString path = dialog.GetPath();
+	int format = chooseSaveFormat();
+	if (format == -1) return false;  // user cancelled
+	bool success = save((string)path, format);
+	if (success || lastSaveError.rfind("Warning:", 0) == 0) {
+		if (!success)
+			wxMessageBox(lastSaveError, "Save Warning", wxOK | wxICON_WARNING, this);
+		removeTempFile();
+		openedFilename = path;
+		recoveredFrom = "";   // it has a home of its own now
+		recoveredUnsaved = false;
+		// The document moved, so the lock follows it: drop the old one and
+		// mark the new file as ours.
+		documentLock.acquire(path.ToStdString());
+		this->SetTitle(VERSION_TITLE() + " - " + path );
+		commandProcessor->MarkAsSaved();
+	} else {
+		wxString errorMsg = "Failed to save file:\n\n" + lastSaveError;
+		wxMessageBox(errorMsg, "Save Error", wxOK | wxICON_ERROR, this);
+		return false;
 	}
+	return true;
 }
 
 void MainFrame::OnOscope(wxCommandEvent& WXUNUSED(event)) {
