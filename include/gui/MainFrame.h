@@ -88,6 +88,8 @@ public:
     bool saveDocument();
     bool saveDocumentAs();
     bool writeDocument(const wxString &path);
+    bool saveAndReport(const wxString &path, int format, const wxString &action);
+    void exportCopy(const wxString &caption, int format);
     bool settleUnsavedChanges();
 	void OnExportBitmap(wxCommandEvent& event);
 	void OnExportLegacy(wxCommandEvent& event);
@@ -295,6 +297,7 @@ private:
 	unsigned int currentTempNum;
 
 	string lastSaveError; // Detailed error message from last save attempt
+	vector<string> lastSaveWarnings; // What the last successful save could not carry over
 	// Document a recovered snapshot came from, for the Save As default name.
 	// Empty unless this session started by recovering something.
 	string recoveredFrom;

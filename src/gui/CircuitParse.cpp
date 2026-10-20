@@ -642,11 +642,12 @@ bool CircuitParse::saveCircuit(string filename, vector< GUICanvas* > glc, unsign
 	
 	parser.closeTag("circuit");
 
-	return writeToFile(filename, ossCircuit.str());   // atomic, like v3
+	if (!writeToFile(filename, ossCircuit.str())) return false;   // atomic, like v3
+	noteLegacyLossyValues(glc);
+	return true;
 }
 
 // Save in v1.x compatible format (no version tag, no sentinel, single wire IDs)
-// Returns false if circuit uses bus features that can't be fully represented
 bool CircuitParse::saveCircuitLegacy(string filename, vector< GUICanvas* > glc, unsigned int currPage) {
 	bool hasBusFeatures = false;
 
@@ -717,12 +718,37 @@ bool CircuitParse::saveCircuitLegacy(string filename, vector< GUICanvas* > glc, 
 	parser.closeTag("circuit");
 
 	if (!writeToFile(filename, ossCircuit.str())) return false;
+	if (hasBusFeatures) warnings.push_back("Bus wires cannot be represented in the v1.x format.");
+	noteLegacyLossyValues(glc);
+	return true;
+}
 
-	// Return false only if there are bus features (backward compatibility warning)
-	if (hasBusFeatures) {
-		lastError = "Warning: Circuit uses bus features that cannot be represented in v1.x format.";
+// The old XML reader trims each value and treats # as a comment, so a label
+// with spaces at either end or a # in it comes back changed.
+void CircuitParse::noteLegacyLossyValues(vector< GUICanvas* > &glc) {
+	std::set<string> lossy;
+	auto check = [&](const map<string, string> &params) {
+		for (const auto &p : params) {
+			const string &v = p.second;
+			bool edges = !v.empty() && (isspace((unsigned char)v.front()) || isspace((unsigned char)v.back()));
+			if (edges || v.find('#') != string::npos) lossy.insert(v);
+		}
+	};
+	for (GUICanvas *canvas : glc) {
+		for (const auto &entry : *canvas->getGateList()) {
+			check(*entry.second->getAllGUIParams());
+			check(*entry.second->getAllLogicParams());
+		}
 	}
-	return !hasBusFeatures;
+	if (lossy.empty()) return;
+	string list;
+	int shown = 0;
+	for (const string &v : lossy) {
+		if (shown++ == 5) { list += "\n  ..."; break; }
+		list += "\n  \"" + v + "\"";
+	}
+	warnings.push_back("These labels will read back differently in older CedarLogic, which drops "
+	                   "spaces at the ends of a label and cuts it at a #:" + list);
 }
 
 // Write text to disk, translating errno into a friendly lastError on failure.

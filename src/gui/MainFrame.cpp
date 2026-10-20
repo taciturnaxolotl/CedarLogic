@@ -857,18 +857,26 @@ bool MainFrame::saveDocument() {
 	return openedFilename == "" ? saveDocumentAs() : writeDocument(openedFilename);
 }
 
-// Write the circuit to `path` and report the outcome. A "Warning:" result means
-// it was written with a caveat (bus features in v1.x) and counts as saved.
+// Save, then tell the user how it went: an error if it failed, its caveats if it
+// wrote with any. `action` is "Save" or "Export". True when the file was written.
+bool MainFrame::saveAndReport(const wxString &path, int format, const wxString &action) {
+	if (!save((string)path, format)) {
+		wxMessageBox("Failed to " + action.Lower() + " file:\n\n" + lastSaveError, action + " Error", wxOK | wxICON_ERROR, this);
+		return false;
+	}
+	if (!lastSaveWarnings.empty()) {
+		wxString text = "The file was written, but:";
+		for (const string &w : lastSaveWarnings) text += "\n\n" + wxString::FromUTF8(w);
+		wxMessageBox(text, action + " Warning", wxOK | wxICON_WARNING, this);
+	}
+	return true;
+}
+
+// Write the circuit to `path` as the document's own file.
 bool MainFrame::writeDocument(const wxString &path) {
 	int format = chooseSaveFormat();
 	if (format == -1) return false;  // user cancelled
-	bool written = save((string)path, format) || lastSaveError.rfind("Warning:", 0) == 0;
-	if (!written) {
-		wxMessageBox("Failed to save file:\n\n" + lastSaveError, "Save Error", wxOK | wxICON_ERROR, this);
-		return false;
-	}
-	if (!lastSaveError.empty())
-		wxMessageBox(lastSaveError, "Save Warning", wxOK | wxICON_WARNING, this);
+	if (!saveAndReport(path, format, "Save")) return false;
 	removeTempFile();   // the file on disk is now the newer copy
 	commandProcessor->MarkAsSaved();
 	recoveredUnsaved = false;
@@ -1409,67 +1417,14 @@ void MainFrame::OnExportBitmap(wxCommandEvent& event) {
 	}
 }
 
-void MainFrame::OnExportLegacy(wxCommandEvent& event) {
+void MainFrame::OnExportLegacy(wxCommandEvent& WXUNUSED(event)) { exportCopy("Export v1.x Compatible Circuit", 1); }
+void MainFrame::OnExportV2(wxCommandEvent& WXUNUSED(event)) { exportCopy("Export v2 (legacy XML) Circuit", 2); }
 
-	wxString caption = "Export v1.x Compatible Circuit";
-	wxString wildcard = "Circuit files (*.cdl)|*.cdl";
-	wxString defaultFilename = "";
-	wxFileDialog dialog(this, caption, wxEmptyString, defaultFilename, wildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+// Write a copy in an older format without changing the open document.
+void MainFrame::exportCopy(const wxString &caption, int format) {
+	wxFileDialog dialog(this, caption, wxEmptyString, "", "Circuit files (*.cdl)|*.cdl", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 	dialog.SetDirectory(lastDirectory);
-	if (dialog.ShowModal() == wxID_OK) {
-		wxString path = dialog.GetPath();
-
-		// Pause system during save
-		lock();
-
-		// Save in legacy format
-		CircuitParse cirp(currentCanvas);
-		bool success = cirp.saveCircuitLegacy((string)path, canvases);
-
-		// Resume system
-		if (!(toolBar->GetToolState(Tool_Lock))) {
-			unlock();
-		}
-
-		if (!success) {
-			// Check the error message to distinguish between I/O error and bus features
-			CircuitParse cirpCheck(currentCanvas);
-			string errorMsg = cirp.getLastError();
-
-			if (errorMsg.find("Warning:") == 0) {
-				// This is a bus features warning, file was saved successfully
-				wxMessageBox(errorMsg, "Export Warning", wxOK | wxICON_WARNING);
-			} else {
-				// This is an I/O error
-				wxString fullMsg = "Failed to export file:\n\n" + errorMsg;
-				wxMessageBox(fullMsg, "Export Error", wxOK | wxICON_ERROR);
-			}
-		}
-	}
-}
-
-// Export a copy in the v2 (pre-v3 XML) format without changing the open file.
-void MainFrame::OnExportV2(wxCommandEvent& event) {
-
-	wxString wildcard = "Circuit files (*.cdl)|*.cdl";
-	wxFileDialog dialog(this, "Export v2 (legacy XML) Circuit", wxEmptyString, "",
-	                    wildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-	dialog.SetDirectory(lastDirectory);
-	if (dialog.ShowModal() == wxID_OK) {
-		wxString path = dialog.GetPath();
-
-		lock();
-
-		CircuitParse cirp(currentCanvas);
-		bool success = cirp.saveCircuit((string)path, canvases);
-
-		if (!(toolBar->GetToolState(Tool_Lock))) unlock();
-
-		if (!success) {
-			wxMessageBox("Failed to export file:\n\n" + cirp.getLastError(),
-			             "Export Error", wxOK | wxICON_ERROR);
-		}
-	}
+	if (dialog.ShowModal() == wxID_OK) saveAndReport(dialog.GetPath(), format, "Export");
 }
 
 void MainFrame::OnCopyToClipboard(wxCommandEvent& event) {
@@ -1764,7 +1719,8 @@ bool MainFrame::save(string filename, int format) {
 	else if (format == 2) success = cirp.saveCircuit(filename, canvases);
 	else success = cirp.saveCircuitV3(filename, canvases);
 
-	lastSaveError = success ? "" : cirp.getLastError();   // stale on success would read as a warning
+	lastSaveError = success ? "" : cirp.getLastError();
+	lastSaveWarnings = success ? cirp.getWarnings() : vector<string>();
 
 	// Disabling timers from autosave thread caused an assertion fail.
 	//Resume system
