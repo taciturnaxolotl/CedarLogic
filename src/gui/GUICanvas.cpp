@@ -539,7 +539,7 @@ void GUICanvas::mouseLeftDown(wxMouseEvent& event) {
 				}
 				else if (!((event.ShiftDown()||event.ControlDown()))) {
 					wireHoverID = hitWire->getID();
-					if (hitWire->startSegDrag(snapMouse) && !(this->isLocked())) currentDragState = DRAG_WIRESEG;
+					if (!this->isLocked() && hitWire->startSegDrag(snapMouse)) currentDragState = DRAG_WIRESEG;
 					hitWire->unselect();
 				}
 				handled = true;	
@@ -928,6 +928,9 @@ void GUICanvas::OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool Ct
 }
 
 void GUICanvas::OnMouseUp(wxMouseEvent& event) {
+	// The base canvas reports every button here, and a middle-button pan or a
+	// right click during a left drag used to drop whatever was being dragged.
+	if (!(event.LeftUp() || event.LeftDClick())) return;
 	GLPoint2f m = getMouseCoords();
 	SetCursor(wxCursor(wxCURSOR_ARROW));
 	unordered_map < unsigned long, guiGate* >::iterator thisGate;
@@ -1207,6 +1210,8 @@ void GUICanvas::cancelDrag() {
 		newDragGate.reset();
 		collisionChecker.update();
 		paletteDrag().newGateToDrag = "";
+	} else if (currentDragState == DRAG_WIRESEG) {
+		if (guiWire *w = getWire(wireHoverID)) w->setSegmentMap(w->getOldSegmentMap());
 	} else if (isWithinPaste) {
 		// Cancel paste operation: undo all pasted gates/wires
 		pasteCommand->Undo();
