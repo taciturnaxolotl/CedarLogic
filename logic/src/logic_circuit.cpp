@@ -135,15 +135,8 @@ void Circuit::step(ID_SET< IDType > *changedWires)
 		processedEvents++;
 	}
 
-	// If we hit the event limit, drain remaining events at this timestep
-	// to prevent unbounded accumulation across steps.
-	if (processedEvents >= MAX_EVENTS_PER_STEP) {
-		while (!eventQueue.empty()) {
-			Event staleEvent = eventQueue.top();
-			if (staleEvent.eventTime > systemTime) break;
-			eventQueue.pop();
-		}
-	}
+	// Anything past the cap stays queued and is applied next step. Dropping
+	// it left gates believing they had sent a value the wire never got.
 
 	// Insert the wires that have been disconnected (or were part of a junction that changed) within
 	// the last call to step() so that they will be properly updated:

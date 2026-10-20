@@ -1225,3 +1225,25 @@ TEST_CASE("a never-driven output leaves its wire at HI_Z") {
 	stepN(c, 3);
 	CHECK(c.getWireState(bus) == HI_Z);
 }
+
+TEST_CASE("events past the per-step cap are applied later, not lost") {
+	// One driver fanning out to more buffers than one step will process.
+	Circuit c;
+	IDType drv = makeDriver(c, 1);
+	IDType w = c.newWire();
+	c.connectGateOutput(drv, "OUT_0", w);
+	const int fan = 12000;
+	std::vector<IDType> outs;
+	for (int i = 0; i < fan; i++) {
+		IDType b = c.newGate("BUFFER");
+		c.setGateParameter(b, "INPUT_BITS", "1");
+		c.connectGateInput(b, "IN_0", w);
+		IDType o = c.newWire();
+		c.connectGateOutput(b, "OUT_0", o);
+		outs.push_back(o);
+	}
+	stepN(c, 10);
+	int ones = 0;
+	for (IDType o : outs) if (c.getWireState(o) == ONE) ones++;
+	CHECK(ones == fan);
+}
