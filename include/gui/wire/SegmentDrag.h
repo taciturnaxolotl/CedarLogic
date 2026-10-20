@@ -5,9 +5,7 @@
    of the wire attached to it.
 
    The same deal as WireTopology: no gate, canvas or collision checker, so a
-   drag can be replayed from a shape and a set of hotspots alone. Picking which
-   segment is under the mouse is the caller's, since that needs the collision
-   checker; everything after that is here.
+   drag can be replayed from a shape and a set of hotspots alone.
 *****************************************************************************/
 
 #ifndef WIRE_SEGMENTDRAG_H_
@@ -20,6 +18,10 @@
 
 namespace cl {
 namespace wire {
+
+// The segment closest to `p`, measured the way hover is (a square of half-width
+// `reach` around the point), or -1 when none is that close. Ties go to the lower id.
+long segmentNear(const SegmentMap &segs, GLPoint2f p, float reach);
 
 // Lift every connection off `segID` onto its own stub and start dragging it.
 // The shape is snapshotted into `before` first, so a drag can be undone.

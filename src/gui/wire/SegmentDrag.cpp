@@ -19,6 +19,20 @@ namespace wire {
 //	Lifts every connection off the chosen segment onto its own stub, then
 //	starts dragging it. Which segment is under the mouse is the caller's to
 //	work out, since that needs the collision checker.
+long segmentNear(const SegmentMap &segs, GLPoint2f p, float reach) {
+	long best = -1;
+	float bestDist = reach;
+	for (const auto &entry : segs) {
+		const wireSegment &s = entry.second;
+		// Square distance: the gap to the nearest point of the segment, on each axis.
+		float dx = std::max({ s.begin.x - p.x, 0.0f, p.x - s.end.x });
+		float dy = std::max({ s.begin.y - p.y, 0.0f, p.y - s.end.y });
+		float d = std::max(dx, dy);
+		if (d < bestDist || (d == bestDist && best == -1)) { best = entry.first; bestDist = d; }
+	}
+	return best;
+}
+
 bool beginSegDrag(long segID, WireShape &shape, const Hotspots &hs, const klsBBox &mouse) {
 	wireSegment *picked = shape.segs.find(segID);
 	if (picked == NULL) return false; // nothing there to drag

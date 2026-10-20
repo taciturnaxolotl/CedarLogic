@@ -616,16 +616,12 @@ void guiWire::calcShape() {
 	calcBBox();
 }
 
-//	Takes a mouse pointer and finds the segment in question, initializing the segment drag operation
-bool guiWire::startSegDrag(klsCollisionObject* mouse) {
-	// Finding which segment is under the mouse needs the collision checker, so
-	// it stays here; everything after it does not.
-	CollisionGroup cg = this->checkSubsToObj(mouse);
-	if (cg.size() == 0) return false;
-	long segID = ((wireSegment*)(*cg.begin()))->id;
-	if (!shape_.segs.has(segID)) return false;
+// Grab the segment nearest `near` within `reach`; `anchor` is the point later moves are measured from.
+bool guiWire::startSegDrag(GLPoint2f near, float reach, klsCollisionObject* anchor) {
+	long segID = cl::wire::segmentNear(shape_.segs, near, reach);
+	if (segID == -1) return false;
 	this->detachSubObjects(); // prevent coll checker pointers from invalidating
-	if (!cl::wire::beginSegDrag(segID, shape_, hotspots(), mouse->getBBox())) {
+	if (!cl::wire::beginSegDrag(segID, shape_, hotspots(), anchor->getBBox())) {
 		this->calcBBox();
 		return false;
 	}

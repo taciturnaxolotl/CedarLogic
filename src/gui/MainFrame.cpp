@@ -1994,8 +1994,7 @@ bool MainFrame::dumpWireDrag(const std::string &gateA, const std::string &gateB,
 	dumpSegMapTo(f, sc.wire->getSegmentMap(), "create");
 
 	// Pick a segment (begin <= end always, so no abs needed) and grab its
-	// midpoint. A zero-size mouse box exactly on that segment selects it, the
-	// same point-box the canvas passes to startSegDrag/updateSegDrag (snapMouse).
+	// midpoint, with no reach: exactly on that segment selects it.
 	//
 	// The longest one is not enough on its own: a routed wire's longest segment
 	// is always the flat one, so dragging it never runs the upright half of the
@@ -2017,7 +2016,7 @@ bool MainFrame::dumpWireDrag(const std::string &gateA, const std::string &gateB,
 
 	klsCollisionObject mouse(COLL_MOUSEBOX);
 	klsBBox startBox; startBox.addPoint(mid); mouse.setBBox(startBox);
-	if (!sc.wire->startSegDrag(&mouse)) { f << "-- drag skipped (no segment under mouse) --\n"; return true; }
+	if (!sc.wire->startSegDrag(mid, 0.0f, &mouse)) { f << "-- drag skipped (no segment under mouse) --\n"; return true; }
 
 	// Drag perpendicular by a fixed grid delta (x for a vertical seg, y for a
 	// horizontal one) so the reshape is real and reproducible.

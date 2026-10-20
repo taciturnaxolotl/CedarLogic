@@ -226,3 +226,21 @@ TEST_CASE("reattaching a connection the wire does not hold changes nothing") {
 
 	CHECK(shape.segs.size() == before);
 }
+
+TEST_CASE("a click near a wire picks the segment it is nearest") {
+	// An L: flat from (0,0) to (10,0), upright from (10,0) to (10,10).
+	SegmentMap segs;
+	segs.put(wireSegment(GLPoint2f(0, 0), GLPoint2f(10, 0), false, 0));
+	segs.put(wireSegment(GLPoint2f(10, 0), GLPoint2f(10, 10), true, 1));
+
+	// Off the line but within reach: the hover highlights it, so the click must find it.
+	CHECK(cl::wire::segmentNear(segs, GLPoint2f(5, 0.4f), 0.5f) == 0);
+	CHECK(cl::wire::segmentNear(segs, GLPoint2f(10.4f, 5), 0.5f) == 1);
+	// Near the corner, whichever arm is closer wins.
+	CHECK(cl::wire::segmentNear(segs, GLPoint2f(9.6f, 0.1f), 0.5f) == 0);
+	CHECK(cl::wire::segmentNear(segs, GLPoint2f(9.9f, 0.4f), 0.5f) == 1);
+	// Out of reach.
+	CHECK(cl::wire::segmentNear(segs, GLPoint2f(5, 2), 0.5f) == -1);
+	// Exactly on it with no reach still counts.
+	CHECK(cl::wire::segmentNear(segs, GLPoint2f(5, 0), 0.0f) == 0);
+}
