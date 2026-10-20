@@ -85,7 +85,7 @@ if(BUILD_TESTING)
 		target_link_libraries(UpdateInfo PUBLIC wininet)
 	endif()
 
-	add_executable(test_logic tests/test.cpp tests/test_circuit.cpp)
+	add_executable(test_logic tests/test.cpp tests/test_circuit.cpp tests/test_fsm_junctions.cpp)
 	target_link_libraries(test_logic PRIVATE doctest::doctest Logic XMLParser UpdateInfo)
 
 	# Inject the fixture path so the XML reading test is independent of cwd.
