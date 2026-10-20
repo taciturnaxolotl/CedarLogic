@@ -1192,3 +1192,36 @@ TEST_CASE("a register tells the GUI when it latched an unknown value") {
 	}
 	CHECK(told);
 }
+
+// A gate starts out believing its output is HI_Z, and that is what a wire
+// attached to it must hold. The wire used to start at UNKNOWN, and an output
+// whose first value was HI_Z (a disabled tri-state buffer) saw nothing to
+// send, so a bus with such a buffer on it read UNKNOWN whenever every other
+// driver let go. Loading the file afresh happened to avoid it.
+TEST_CASE("a never-driven output leaves its wire at HI_Z") {
+	Circuit c;
+	IDType bus = c.newWire();
+	IDType a = makeDriver(c, 1);
+	c.connectGateOutput(a, "OUT_0", bus);
+	stepN(c, 3);
+	REQUIRE(c.getWireState(bus) == ONE);
+
+	// A tri-state buffer added to the running circuit, its enable already low.
+	IDType en = makeDriver(c, 0), in = makeDriver(c, 1);
+	IDType wEn = c.newWire(), wIn = c.newWire();
+	c.connectGateOutput(en, "OUT_0", wEn);
+	c.connectGateOutput(in, "OUT_0", wIn);
+	stepN(c, 3);
+	IDType buf = c.newGate("BUFFER");
+	c.setGateParameter(buf, "INPUT_BITS", "1");
+	c.setGateOutputParameter(buf, "OUT_0", "E_INPUT", "ENABLE_0");
+	c.connectGateInput(buf, "ENABLE_0", wEn);
+	c.connectGateInput(buf, "IN_0", wIn);
+	c.connectGateOutput(buf, "OUT_0", bus);
+	stepN(c, 3);
+	CHECK(c.getWireState(bus) == ONE);
+
+	c.deleteGate(a);
+	stepN(c, 3);
+	CHECK(c.getWireState(bus) == HI_Z);
+}

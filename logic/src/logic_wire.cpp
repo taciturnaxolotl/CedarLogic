@@ -148,9 +148,9 @@ StateType Wire::getState() const
 // Connect a gate output to this wire:
 void Wire::connectInput( IDType gateID, string gateOutputID )
 {
-	// Only one wire input per gate & gateOutput is allowed.
-	// (The input's state is initialized to "unknown".)
-	WireInput newInput( gateID, gateOutputID, UNKNOWN );
+	// Only one wire input per gate & gateOutput is allowed. It starts as HI_Z,
+	// which is what the gate believes it has sent before its first event.
+	WireInput newInput( gateID, gateOutputID, HI_Z );
 	
 	// Add it into the input list:
 	inputList.insert( newInput );

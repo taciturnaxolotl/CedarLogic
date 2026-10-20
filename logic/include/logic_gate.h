@@ -39,7 +39,8 @@ struct GateOutput {
 
 	string enableInput; // An input pin which is mapped as the enable pin for this output.
 
-	GateOutput() : wireID(ID_NONE), lastEventState(UNKNOWN), lastEventTime(TIME_NONE), inverted(false), enableInput("") {};
+	// HI_Z until the first event: an output that has never driven anything.
+	GateOutput() : wireID(ID_NONE), lastEventState(HI_Z), lastEventTime(TIME_NONE), inverted(false), enableInput("") {};
 };
 
 

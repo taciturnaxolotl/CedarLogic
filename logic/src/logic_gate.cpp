@@ -137,10 +137,12 @@ void Gate::updateGate( IDType myID, Circuit * theCircuit )
 // Resend the last event to a (probably newly connected) wire:	
 void Gate::resendLastEvent( IDType myID, string outputID, Circuit * theCircuit ) {
 	if( outputList.find( outputID ) != outputList.end() ) {
-		// If a wire is connected now, and there has been a previous event on this gate, then re-send it to the new wire:
-		if( ( outputList[outputID].wireID != ID_NONE ) && ( outputList[outputID].lastEventTime != TIME_NONE ) ) {
-			// Re-create the event!
-			theCircuit->createEvent(outputList[outputID].lastEventTime, outputList[outputID].wireID, myID, outputID, outputList[outputID].lastEventState );
+		// Tell the new wire what this output holds. An output that has never
+		// sent anything is still HI_Z, and the wire must hear that too.
+		GateOutput &out = outputList[outputID];
+		if( out.wireID != ID_NONE ) {
+			TimeType when = out.lastEventTime != TIME_NONE ? out.lastEventTime : theCircuit->getSystemTime();
+			theCircuit->createEvent( when, out.wireID, myID, outputID, out.lastEventState );
 		}
 	} else {
 		WARNING("Gate::resendLastEvent() - Invalid outputID.");
