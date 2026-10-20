@@ -285,9 +285,7 @@ void GUICircuit::parseMessage(klsMessage::Message message) {
 	}
 }
 
-// Straight into the logic thread's inbox, always. It runs messages in order and
-// the next step is not sent until this one is done, so an edit made mid-step
-// lands between the two steps without being held back here.
+// Straight into the logic thread's inbox; it runs messages in arrival order, so an edit lands between steps.
 void GUICircuit::sendMessageToCore(klsMessage::Message message) {
 	wxMutexLocker lock(simBridge().mexMessages);
 	simBridge().dGUItoLOGIC.push_back(message);

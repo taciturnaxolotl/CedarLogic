@@ -681,13 +681,12 @@ void MainFrame::OnNew(wxCommandEvent& event) {
 void MainFrame::OnOpen(wxCommandEvent& event) {
 	
 
-	currentCanvas->getCircuit()->setSimulate(false);
+	// No stepping while the dialogs are up; the flag is left alone, a step may still be in flight.
+	pauseTimers();
 	if (!settleUnsavedChanges()) {
-		currentCanvas->getCircuit()->setSimulate(true);
+		resumeTimers(TIMER_POLL_MS);
 		return;
 	}
-	
-	pauseTimers();
 
 	wxString caption = "Open a circuit";
 	wxString wildcard = "Circuit files (*.cdl)|*.cdl";
@@ -701,7 +700,6 @@ void MainFrame::OnOpen(wxCommandEvent& event) {
 		loadCircuitFile(dialog.GetPath().ToStdString());
 	}
     currentCanvas->Update(); // Render();
-	currentCanvas->getCircuit()->setSimulate(true);
 
 	resumeTimers(TIMER_POLL_MS);
 
@@ -1423,14 +1421,12 @@ void MainFrame::OnExportLegacy(wxCommandEvent& event) {
 
 		// Pause system during save
 		lock();
-		gCircuit->setSimulate(false);
 
 		// Save in legacy format
 		CircuitParse cirp(currentCanvas);
 		bool success = cirp.saveCircuitLegacy((string)path, canvases);
 
 		// Resume system
-		gCircuit->setSimulate(true);
 		if (!(toolBar->GetToolState(Tool_Lock))) {
 			unlock();
 		}
@@ -1463,12 +1459,10 @@ void MainFrame::OnExportV2(wxCommandEvent& event) {
 		wxString path = dialog.GetPath();
 
 		lock();
-		gCircuit->setSimulate(false);
 
 		CircuitParse cirp(currentCanvas);
 		bool success = cirp.saveCircuit((string)path, canvases);
 
-		gCircuit->setSimulate(true);
 		if (!(toolBar->GetToolState(Tool_Lock))) unlock();
 
 		if (!success) {
@@ -1759,7 +1753,6 @@ void MainFrame::autosave() {
 bool MainFrame::save(string filename, int format) {
 	//Pause system so that user can't modify during save
 	lock();
-	gCircuit->setSimulate(false);
 
 	// Disabling timers from autosave thread caused an assertion fail.
 	//pauseTimers();
@@ -1777,7 +1770,6 @@ bool MainFrame::save(string filename, int format) {
 	//Resume system
 	//resumeTimers(20);
 
-	gCircuit->setSimulate(true);
 	if (!(toolBar->GetToolState(Tool_Lock))) {
 		unlock();
 	}
