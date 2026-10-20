@@ -1126,3 +1126,14 @@ TEST_CASE("moving a gate input to another wire stops it following the old one") 
 	stepN(c, 3);
 	CHECK(c.getWireState(wOut) == ZERO);
 }
+
+TEST_CASE("connecting to an existing wire reports that wire's id") {
+	Circuit c;
+	IDType drv = makeDriver(c, 1);
+	IDType w = c.newWire(42);   // not 0, which is what a miss used to return
+	CHECK(c.connectGateOutput(drv, "OUT_0", w) == w);
+	IDType buf = c.newGate("BUFFER");
+	c.setGateParameter(buf, "INPUT_BITS", "1");
+	CHECK(c.connectGateInput(buf, "IN_0", w) == w);
+	CHECK(c.connectGateInput(buf, "ENABLE_0", 777) == 777);
+}

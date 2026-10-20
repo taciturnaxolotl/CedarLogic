@@ -33,8 +33,6 @@ void *threadLogic::Entry() {
 #ifndef _PRODUCTION_
 	logfile.open("logiclog.log");
 #endif
-	logicIDs = new map < IDType, IDType >;
-	
 	cir = new Circuit();
 	while (!TestDestroy()) {
 		// Block until the GUI queues a message (or we're asked to stop) rather
@@ -73,20 +71,18 @@ void threadLogic::checkMessages() {
 void threadLogic::OnExit() {
 	wxCriticalSectionLocker locker(simBridge().m_critsect);
 	delete cir;
-	delete logicIDs;
 	// Tell the main thread we can exit now
 	simBridge().m_semAllDone.Post();
 }
 
 bool threadLogic::parseMessage(klsMessage::Message input) {
 	string temp, type, pinID;
-	long id, wireID;
+	long id;
 	switch (input.mType) {
 	case klsMessage::MT_REINITIALIZE: {
 		// REINITIALIZE LOGIC CIRCUIT
 		delete cir;
 		cir = new Circuit();
-		logicIDs->clear();
 		break;
 	}
 	case klsMessage::MT_CREATE_GATE: {
@@ -101,7 +97,7 @@ bool threadLogic::parseMessage(klsMessage::Message input) {
 		// CREATE WIRE ID id
 		id = input.as<klsMessage::Message_CREATE_WIRE>().wireId;
 		// tell logic core to create wire id
-		(*logicIDs)[id] = cir->newWire( id );
+		cir->newWire( id );
 		break;
 	}
 	case klsMessage::MT_DELETE_GATE: {
@@ -113,7 +109,7 @@ bool threadLogic::parseMessage(klsMessage::Message input) {
 	case klsMessage::MT_DELETE_WIRE: {
 		// DELETE WIRE id
 		id = input.as<klsMessage::Message_DELETE_WIRE>().wireId;
-		cir->deleteWire((*logicIDs)[id]);
+		cir->deleteWire(id);
 		break;
 	}
 	case klsMessage::MT_SET_GATE_INPUT: {
@@ -125,12 +121,7 @@ bool threadLogic::parseMessage(klsMessage::Message input) {
 		if (msg.disconnect) {
 			cir->disconnectGateInput( id, pinID );
 		} else {
-			wireID = msg.wireId;
-			if (logicIDs->find(wireID) == logicIDs->end()) {
-				(*logicIDs)[wireID] = cir->connectGateInput( id, pinID, wireID );
-			} else {
-				cir->connectGateInput( id, pinID, (*logicIDs)[wireID] );
-			}
+			cir->connectGateInput( id, pinID, msg.wireId );
 		}
 		break;
 	}
@@ -150,12 +141,7 @@ bool threadLogic::parseMessage(klsMessage::Message input) {
 		if (msg.disconnect) {
 			cir->disconnectGateOutput( id, pinID );
 		} else {
-			wireID = msg.wireId;
-			if (logicIDs->find(wireID) == logicIDs->end()) {
-				(*logicIDs)[wireID] = cir->connectGateOutput( id, pinID, wireID );
-			} else {
-				cir->connectGateOutput( id, pinID, (*logicIDs)[wireID] );
-			}
+			cir->connectGateOutput( id, pinID, msg.wireId );
 		}
 		break;
 	}

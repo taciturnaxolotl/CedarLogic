@@ -443,7 +443,7 @@ void Circuit::deleteJunction( IDType theJunc ) {
 }
 
 IDType Circuit::connectGateInput( IDType gateID, const string &gateInputID, IDType wireID ) {
-	IDType returnWireID = 0;
+	IDType returnWireID = wireID;
 	
 	// First of all, create the wire if it doesn't already exist:
 	if( wireList.find(wireID) == wireList.end() ) {
@@ -481,7 +481,7 @@ IDType Circuit::connectGateInput( IDType gateID, const string &gateInputID, IDTy
 }
 
 IDType Circuit::connectGateOutput( IDType gateID, const string &gateOutputID, IDType wireID) {
-	IDType returnWireID = 0;
+	IDType returnWireID = wireID;
 	
 	// First of all, create the wire if it doesn't already exist:
 	if( wireList.find(wireID) == wireList.end() ) {

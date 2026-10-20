@@ -43,7 +43,6 @@ public:
     
 private:
 	Circuit* cir;
-	map < IDType, IDType >* logicIDs;
 	ofstream logfile;
 };
 
