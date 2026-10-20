@@ -90,7 +90,8 @@ if(BUILD_TESTING)
 
 	# Inject the fixture path so the XML reading test is independent of cwd.
 	target_compile_definitions(test_logic PRIVATE
-		"TESTXML_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/testxml.txt\"")
+		"TESTXML_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/testxml.txt\""
+		"GATEDEFS_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/../res/cl_gatedefs.xml\"")
 
 	if(ENABLE_SANITIZERS AND NOT MSVC)
 		target_compile_options(XMLParser PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)

@@ -100,6 +100,15 @@ bool Gate_PULSE::setParameter( string paramName, string value ) {
 	}
 }
 
+string Gate_PULSE::getParameter( string paramName ) {
+	if( paramName == "PULSE" ) {
+		ostringstream oss;
+		oss << pulseRemaining;
+		return oss.str();
+	}
+	return Gate::getParameter( paramName );
+}
+
 // **************************** END Pulse GATE ***********************************
 
 

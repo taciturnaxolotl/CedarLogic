@@ -319,6 +319,12 @@ string Gate_REGISTER::getParameter( string paramName ) {
 	} else if( paramName == "SYNC_CLEAR" ) {
 		oss << (syncClear ? "true" : "false");
 		return oss.str();
+	} else if( paramName == "SYNC_LOAD" ) {
+		oss << (syncLoad ? "true" : "false");
+		return oss.str();
+	} else if( paramName == "NO_HOLD" ) {
+		oss << (disableHold ? "true" : "false");
+		return oss.str();
 	} else {
 		return Gate_PASS::getParameter( paramName );
 	}

@@ -394,6 +394,8 @@ public:
 		auto s = Gate_N_INPUT::paramSchema();
 		s.push_back({ "SYNC_SET", ParamKind::BOOL });
 		s.push_back({ "SYNC_CLEAR", ParamKind::BOOL });
+		s.push_back({ "SYNC_LOAD", ParamKind::BOOL });
+		s.push_back({ "NO_HOLD", ParamKind::BOOL });
 		s.push_back({ "UNKNOWN_OUTPUTS", ParamKind::BOOL });
 		s.push_back({ "MAX_COUNT", ParamKind::BITS });
 		s.push_back({ "CURRENT_VALUE", ParamKind::BITS });
@@ -460,6 +462,13 @@ public:
 
 	// Set the pulse:
 	bool setParameter( string paramName, string value );
+	string getParameter( string paramName );
+
+	vector<ParamDescriptor> paramSchema() const override {
+		auto s = Gate::paramSchema();
+		s.push_back({ "PULSE", ParamKind::INT });
+		return s;
+	}
 private:
 	TimeType pulseRemaining;
 };
@@ -637,6 +646,9 @@ public:
 		auto s = Gate::paramSchema();
 		s.push_back({ "ADDRESS_BITS", ParamKind::BITS });
 		s.push_back({ "DATA_BITS", ParamKind::BITS });
+		s.push_back({ "READ_FILE", ParamKind::FILE });
+		s.push_back({ "WRITE_FILE", ParamKind::FILE });
+		s.push_back({ "lastRead", ParamKind::INT });
 		return s;
 	}
 

@@ -10,6 +10,7 @@
 #include "logic_circuit.h"
 #include "logic_values.h"
 #include <string>
+#include <fstream>
 
 namespace {
 
@@ -933,6 +934,7 @@ TEST_CASE("Every declared gate param round-trips through set/getParameter") {
 	for (const auto &entry : gateRegistry()) {
 		GATE_PTR g = entry.second.create(&c);
 		for (const ParamDescriptor &p : g->paramSchema()) {
+			if (p.kind == ParamKind::FILE) continue;   // setting one reads or writes a file
 			std::string v;
 			switch (p.kind) {
 			case ParamKind::INT:  v = "5"; break;
@@ -1282,4 +1284,39 @@ TEST_CASE("renaming a FROM carries a wire on two of its pins to the new net") {
 	c.setGateParameter(from, "JUNCTION_ID", "B");
 	stepN(c, 3);
 	CHECK(c.getWireState(w) == HI_Z);
+}
+
+// The schema is what typed validation would check a gate's params against, so
+// every param the shipped library sends must be in it, or validation would
+// refuse the library's own flip-flops. Read straight from the library file.
+TEST_CASE("every logic param in the gate library is in its gate's schema") {
+	std::ifstream in(GATEDEFS_PATH);
+	REQUIRE(in.is_open());
+	Circuit c;
+	std::string line, logicType;
+	int checked = 0;
+	auto between = [](const std::string &s, const char *open, const char *close) {
+		size_t a = s.find(open);
+		if (a == std::string::npos) return std::string();
+		a += std::string(open).size();
+		size_t b = s.find(close, a);
+		return b == std::string::npos ? std::string() : s.substr(a, b - a);
+	};
+	while (std::getline(in, line)) {
+		if (line.find("<gate>") != std::string::npos) logicType.clear();
+		std::string t = between(line, "<logic_type>", "</logic_type>");
+		if (!t.empty()) logicType = t;
+		std::string p = between(line, "<logic_param>", "</logic_param>");
+		if (p.empty() || logicType.empty()) continue;
+		std::string name = p.substr(0, p.find(' '));
+		auto reg = gateRegistry().find(logicType);
+		REQUIRE_MESSAGE(reg != gateRegistry().end(), "unknown logic type " << logicType);
+		bool listed = false;
+		for (const ParamDescriptor &d : reg->second.create(&c)->paramSchema())
+			if (d.name == name) listed = true;
+		INFO("logic type " << logicType << " param " << name);
+		CHECK(listed);
+		checked++;
+	}
+	CHECK(checked > 100);
 }
