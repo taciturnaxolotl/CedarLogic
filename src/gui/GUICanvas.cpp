@@ -1368,6 +1368,9 @@ void GUICanvas::cutSelectionToClipboard () {
 
 void GUICanvas::pasteBlockFromClipboard () {
 	if (this->isLocked()) return;
+	// One paste at a time: a second while the first is still on the cursor
+	// orphaned the first batch with no undo record.
+	if (isWithinPaste || currentDragState != DRAG_NONE) return;
 	
 	klsClipboard myClipboard;
 	pasteCommand = myClipboard.pasteBlock( gCircuit, this );
@@ -1695,11 +1698,14 @@ void GUICanvas::rotateSelection() {
 				}
 			}
 
-			// Only rotate if gate has no connections
+			// Only rotate if gate has no connections. As a command, like the
+			// right-click rotation, so Ctrl+Z takes it back.
 			if (!hasConnections) {
+				map < string, string > newParams(*(gateWalk->second->getAllGUIParams()));
 				ostringstream oss;
-				oss << rotatedClockwise(gateWalk->second->getGUIParam("angle"));
-				gateWalk->second->setGUIParam("angle", oss.str());
+				oss << rotatedClockwise(newParams["angle"]);
+				newParams["angle"] = oss.str();
+				submitCommand( new cmdSetParams(gCircuit, gateWalk->first, paramSet(&newParams, NULL) ) );
 			}
 		}
 		gateWalk++;

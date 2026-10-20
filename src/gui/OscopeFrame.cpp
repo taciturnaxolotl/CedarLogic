@@ -175,6 +175,7 @@ void OscopeFrame::OnLoad( wxCommandEvent& event ){
 		ifstream inFile(path.ToStdString());
 		string lineFile;
 		getline(inFile, lineFile, '\n');
+		if (!lineFile.empty() && lineFile.back() == '\r') lineFile.pop_back();   // written on Windows
 		if (lineFile != "OSCOPE LAYOUT FILE") return;
 		unsigned int numLines = 0;
 		inFile >> numLines;
@@ -186,6 +187,7 @@ void OscopeFrame::OnLoad( wxCommandEvent& event ){
 
 		for (unsigned int i = 0; i < numLines; i++) {
 			getline(inFile, lineFile, '\n');
+			if (!lineFile.empty() && lineFile.back() == '\r') lineFile.pop_back();
 			if (lineFile != NONE_STR) {
 				appendNewFeed(lineFile);
 			}
