@@ -149,7 +149,7 @@ public:
 	//	Takes a mouse pointer and finds the segment in question.
 	//	The segment is isolated between its nearest intersections
 	//	and set as the dragging segment.
-	bool startSegDrag(GLPoint2f near, float reach, klsCollisionObject* anchor);
+	bool startSegDrag(GLPoint2f point, float reach, klsCollisionObject* anchor);
 
 	//	The current dragging segment is moved to a new position
 	//	while the associated segments are added/modified to keep

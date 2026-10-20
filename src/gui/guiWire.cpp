@@ -598,9 +598,9 @@ void guiWire::calcShape() {
 	calcBBox();
 }
 
-// Grab the segment nearest `near` within `reach`; `anchor` is the point later moves are measured from.
-bool guiWire::startSegDrag(GLPoint2f near, float reach, klsCollisionObject* anchor) {
-	long segID = cl::wire::segmentNear(shape_.segs, near, reach);
+// Grab the segment nearest `point` within `reach`; `anchor` is the point later moves are measured from.
+bool guiWire::startSegDrag(GLPoint2f point, float reach, klsCollisionObject* anchor) {
+	long segID = cl::wire::segmentNear(shape_.segs, point, reach);
 	if (segID == -1) return false;
 	this->detachSubObjects(); // prevent coll checker pointers from invalidating
 	if (!cl::wire::beginSegDrag(segID, shape_, hotspots(), anchor->getBBox())) {
