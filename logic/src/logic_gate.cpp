@@ -117,10 +117,13 @@ void Gate::updateGate( IDType myID, Circuit * theCircuit )
 	}
 		
 
-	// Update the last state of the edge-triggered inputs:
+	// Update the last state of the edge-triggered inputs. Only a driven level
+	// counts: a clock seen floating before its driver's first event reached
+	// it is no history, or that first event would read as an edge.
 	ID_SET< string >::iterator eInputs = edgeTriggeredInputs.begin();
 	while( eInputs != edgeTriggeredInputs.end() ) {
-		edgeTriggeredLastState[ *eInputs ] = getInputState( *eInputs );
+		StateType now = getInputState( *eInputs );
+		if( now == ONE || now == ZERO ) edgeTriggeredLastState[ *eInputs ] = now;
 		eInputs++;
 	}
 	

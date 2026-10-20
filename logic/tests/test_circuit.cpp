@@ -1137,3 +1137,31 @@ TEST_CASE("connecting to an existing wire reports that wire's id") {
 	CHECK(c.connectGateInput(buf, "IN_0", w) == w);
 	CHECK(c.connectGateInput(buf, "ENABLE_0", 777) == 777);
 }
+
+// A circuit loads as one batch: gate, clock driver, wires, all before the
+// first step. The flip-flop is then first run while its clock wire is still
+// floating, and the driver's level lands a moment later. That arrival used to
+// count as a rising edge, so a saved counter advanced by one every time the
+// file was opened with its clock toggle left on.
+TEST_CASE("a clock already high at load is not an edge") {
+	Circuit c;
+	IDType reg = c.newGate("REGISTER");
+	c.setGateParameter(reg, "INPUT_BITS", "4");
+	c.setGateParameter(reg, "MAX_COUNT", "15");
+	c.setGateParameter(reg, "CURRENT_VALUE", "5");
+	IDType clk = makeDriver(c, 1), en = makeDriver(c, 1);
+	IDType wClk = c.newWire(), wEn = c.newWire();
+	c.connectGateOutput(clk, "OUT_0", wClk);
+	c.connectGateOutput(en, "OUT_0", wEn);
+	c.connectGateInput(reg, "clock", wClk);
+	c.connectGateInput(reg, "count_enable", wEn);
+	stepN(c, 5);
+	CHECK(c.getGateParameter(reg, "CURRENT_VALUE") == "5");
+
+	// The clock is still high, so the first pulse only brings it low; the
+	// second is the first real edge.
+	pulseClock(c, clk);
+	CHECK(c.getGateParameter(reg, "CURRENT_VALUE") == "5");
+	pulseClock(c, clk);
+	CHECK(c.getGateParameter(reg, "CURRENT_VALUE") == "6");
+}
