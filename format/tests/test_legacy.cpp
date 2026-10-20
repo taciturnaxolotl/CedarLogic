@@ -176,3 +176,19 @@ TEST_CASE("readLegacyCdl rejects input with no circuit") {
 TEST_CASE("readLegacyCdl rejects an unterminated document") {
 	CHECK_THROWS(readLegacyCdl("<circuit><page 0><gate><ID>0</ID>"));
 }
+
+TEST_CASE("Spaces at the ends of a param value survive, as they did in CedarLogic 2.x") {
+	// Junction names are compared exactly, so "A " and "A" are different nets.
+	const std::string src =
+	    "<circuit><page 0><gate><ID>0</ID><type>DE_TO</type>"
+	    "<position>0,0</position>"
+	    "<lparam>JUNCTION_ID  A </lparam>"
+	    "<gparam>angle 0.0</gparam>"
+	    "</gate></page 0></circuit>";
+	CircuitFile cf = readLegacyCdl(src);
+	REQUIRE(cf.pages.size() == 1);
+	const GateInstance &g = cf.pages[0].gates[0];
+	REQUIRE(g.params.size() == 1);
+	CHECK(g.params[0].name == "JUNCTION_ID");
+	CHECK(g.params[0].value == " A ");
+}

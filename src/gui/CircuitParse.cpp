@@ -723,15 +723,13 @@ bool CircuitParse::saveCircuitLegacy(string filename, vector< GUICanvas* > glc, 
 	return true;
 }
 
-// The old XML reader trims each value and treats # as a comment, so a label
-// with spaces at either end or a # in it comes back changed.
+// CedarLogic 2.x reads # as the start of a comment, even mid-value, and its format
+// has no way to escape one, so a label with a # in it is cut short there.
 void CircuitParse::noteLegacyLossyValues(vector< GUICanvas* > &glc) {
 	std::set<string> lossy;
 	auto check = [&](const map<string, string> &params) {
 		for (const auto &p : params) {
-			const string &v = p.second;
-			bool edges = !v.empty() && (isspace((unsigned char)v.front()) || isspace((unsigned char)v.back()));
-			if (edges || v.find('#') != string::npos) lossy.insert(v);
+			if (p.second.find('#') != string::npos) lossy.insert(p.second);
 		}
 	};
 	for (GUICanvas *canvas : glc) {
@@ -747,8 +745,7 @@ void CircuitParse::noteLegacyLossyValues(vector< GUICanvas* > &glc) {
 		if (shown++ == 5) { list += "\n  ..."; break; }
 		list += "\n  \"" + v + "\"";
 	}
-	warnings.push_back("These labels will read back differently in older CedarLogic, which drops "
-	                   "spaces at the ends of a label and cuts it at a #:" + list);
+	warnings.push_back("Older CedarLogic (2.x) will cut these labels short at the #:" + list);
 }
 
 // Write text to disk, translating errno into a friendly lastError on failure.

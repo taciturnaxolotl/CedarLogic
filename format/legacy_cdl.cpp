@@ -15,6 +15,7 @@ namespace {
 struct XmlNode {
 	std::string name;
 	std::string text;
+	std::string raw;   // text untrimmed, minus line breaks, as CedarLogic 2.x read it
 	std::vector<XmlNode> kids;
 
 	const XmlNode *find(const std::string &n) const {
@@ -76,6 +77,7 @@ struct XmlReader {
 				if (i + 1 < s.size() && s[i + 1] == '/') {
 					readTagBody(); // closing tag; not validated against name
 					node.text = trim(unescape(text));
+					for (char c : unescape(text)) if (c != '\n' && c != '\r') node.raw += c;
 					return node;
 				}
 				node.kids.push_back(parseElement());
@@ -121,9 +123,12 @@ GateInstance readGate(const XmlNode &g) {
 	gi.at = { pos[0], pos[1] };
 	for (const XmlNode &c : g.kids) {
 		if (c.name != "gparam" && c.name != "lparam") continue;
-		size_t sp = c.text.find(' ');
-		std::string name = c.text.substr(0, sp);
-		std::string value = (sp == std::string::npos) ? "" : c.text.substr(sp + 1);
+		// As CedarLogic 2.x split it: the name is the first word, the value everything
+		// after the one space that follows it, so spaces inside or around a value survive.
+		size_t start = c.raw.find_first_not_of(" \t");
+		size_t sp = (start == std::string::npos) ? std::string::npos : c.raw.find_first_of(" \t", start);
+		std::string name = (start == std::string::npos) ? "" : c.raw.substr(start, sp - start);
+		std::string value = (sp == std::string::npos) ? "" : c.raw.substr(sp + 1);
 		if (name == "angle" && c.name == "gparam") {
 			gi.angle = value.empty() ? 0.0 : parseDouble(value, "<gparam>angle");
 		} else {
