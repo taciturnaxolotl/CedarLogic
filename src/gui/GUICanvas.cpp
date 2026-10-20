@@ -1063,35 +1063,18 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 //			}
 		}
 
-		// If we are dragging something...
+		// Finish a connect drag: pin to wire, pin to pin, or (Ctrl-drag from a wire) wire to pin.
 		if (currentDragState == DRAG_CONNECT) {
-
-			// Oh yeah, we only drag from gates...
-			if (currentConnectionSource.isGate) {
-
-				wxCommand *command = nullptr;
-
-				// Target is a wire...
-				if (drawWireHover) {
-					command = createGateWireConnectionCommand(
-						currentConnectionSource.objectID,
-						currentConnectionSource.connection, wireHoverID);
-				}
-				else {
-
-					// Target is a gate...
-					if (hotspotHighlight.size() > 0) {
-						command = createGateConnectionCommand(
-							currentConnectionSource.objectID,
-							currentConnectionSource.connection,
-							hotspotGate, hotspotHighlight);
-					}
-				}
-
-				if (command != nullptr) {
-					submitCommand((klsCommand *)command);
-				}
+			const ConnectionSource &src = currentConnectionSource;
+			klsCommand *command = nullptr;
+			if (src.isGate && drawWireHover) {
+				command = createGateWireConnectionCommand(src.objectID, src.connection, wireHoverID);
+			} else if (src.isGate && hotspotHighlight.size() > 0) {
+				command = createGateConnectionCommand(src.objectID, src.connection, hotspotGate, hotspotHighlight);
+			} else if (!src.isGate && hotspotHighlight.size() > 0) {
+				command = createGateWireConnectionCommand(hotspotGate, hotspotHighlight, src.objectID);
 			}
+			if (command != nullptr) submitCommand(command);
 		}
 
 		collisionChecker.update();
