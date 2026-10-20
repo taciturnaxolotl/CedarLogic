@@ -370,8 +370,9 @@ bool MainApp::OnInit()
         // "Continue anyway": fall through and try to start normally.
     }
 
-    // create the main application window
-    MainFrame *frame = new MainFrame(VERSION_TITLE(), cmdFilename);
+    // create the main application window. A headless run loads the file itself,
+    // synchronously; handing it to the frame as well loaded it twice.
+    MainFrame *frame = new MainFrame(VERSION_TITLE(), renderMode().headlessRender ? string() : cmdFilename);
 
     if (renderMode().headlessRender && (wireShape || wireDrag || wireMerge)) {
         // Wire-router test path: two gates + a wire, dump the routed segment map
