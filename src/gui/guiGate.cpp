@@ -464,20 +464,16 @@ string guiGate::checkHotspots( GLfloat x, GLfloat y, GLfloat delta ) {
 	mBox.extendRight( delta );
 	mouse.setBBox( mBox );
 
-	// Check if any hotspots hit the mouse:
-	CollisionGroup results = this->checkSubsToObj( &mouse );
-	CollisionGroup::iterator rs = results.begin();
-	while( rs != results.end() ) {
-		// If there were any hotspots that hit, then return
-		// the first one to the caller:
-		if( (*rs)->getType() == COLL_GATE_HOTSPOT ) {
-			return ((gateHotspot*) *rs)->name;
-		}
-
-		rs++;
+	// The nearest pin within reach: zones of close pins overlap, and the first found may not be under the cursor.
+	string best;
+	float bestDist = 0;
+	for (klsCollisionObject *hit : this->checkSubsToObj( &mouse )) {
+		if( hit->getType() != COLL_GATE_HOTSPOT ) continue;
+		GLPoint2f at = ((gateHotspot*) hit)->getLocation();
+		float d = std::max(std::fabs(at.x - x), std::fabs(at.y - y));
+		if (best.empty() || d < bestDist) { best = ((gateHotspot*) hit)->name; bestDist = d; }
 	}
-
-	return "";
+	return best;
 }
 
 

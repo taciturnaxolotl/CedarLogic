@@ -24,6 +24,8 @@ struct ApplicationSettings {
 	int refreshRate;
 	int autosaveSeconds;   // 0 disables autosave entirely
 	float wireConnRadius;
+	float pinHitZone;    // screen pixels around the mouse that reach a pin
+	float wireHitZone;   // screen pixels around the mouse that reach a wire
 	bool wireConnVisible;
 	bool gridlineVisible;
 	bool rightClickRotate;

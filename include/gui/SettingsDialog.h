@@ -12,6 +12,8 @@ public:
 
 	bool getWireConnVisible() const;
 	double getWireConnRadius() const;
+	int getPinHitZone() const;
+	int getWireHitZone() const;
 	bool getGridlineVisible() const;
 	bool getRightClickRotate() const;
 	int getRefreshRate() const;
@@ -20,6 +22,8 @@ public:
 private:
 	wxCheckBox* wireConnVisibleCtrl;
 	wxSpinCtrlDouble* wireConnRadiusCtrl;
+	wxSpinCtrl* pinHitZoneCtrl;
+	wxSpinCtrl* wireHitZoneCtrl;
 	wxCheckBox* gridlineVisibleCtrl;
 	wxCheckBox* rightClickRotateCtrl;
 	wxSpinCtrl* refreshRateCtrl;

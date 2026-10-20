@@ -87,9 +87,7 @@ struct ConnectionSource {
 
 // The amount of area that will react as a hotspot
 #define HOTSPOT_SCREEN_RADIUS 3.0
-#define HOTSPOT_SCREEN_DELTA  5.0
-#define WIRE_HOVER_SCREEN_DELTA 5.0
-#define MOUSE_HOVER_DELTA 4.5
+#define MOUSE_HOVER_DELTA 4.5   // the gate zone; pin and wire zones are in Preferences
 // Click-vs-drag dead zone (screen pixels, scaled by zoom): the pointer must
 // leave this radius around the press point before a selected gate starts moving,
 // so a click with a little jitter selects instead of nudging it a grid cell over.
@@ -257,13 +255,19 @@ public:
 	// Tag a command with this canvas as its page, then submit it to the undo
 	// history. Stamping the page lets undo/redo switch to it (see MainFrame).
 	void submitCommand(klsCommand *cmd);
+	// Hit zones in world units at the current zoom, from Preferences.
+	float pinReach();
+	float wireReach();
+	// Put the pointer's collision boxes at `m`.
+	void placeMouse(GLPoint2f m);
 	void storeCommand(klsCommand *cmd);
 
 private:
 
 	// Contains all collision information for the page
 	klsCollisionChecker collisionChecker;
-	klsCollisionObject* mouse;
+	klsCollisionObject* mouse;      // the gate zone around the pointer
+	klsCollisionObject* reach;      // the larger of the pin and wire zones, to find their candidates
 	klsCollisionObject* snapMouse;
 	klsCollisionObject* dragselectbox;
 	
@@ -279,6 +283,7 @@ private:
 	// Hotspot and wire highlights:
 	unsigned long hotspotGate; // The gate in which a hotspot is highlighted.
 	string hotspotHighlight; // The hotSpot to highlight when rendering. If == "", then none are highlighted.
+	float hotspotDist = 0;   // how far the pointer is from it, so a nearer pin can take over
 	vector < GLPoint2f > potentialConnectionHotspots; // Points to highlight for connection when moving a gate.
 	bool drawWireHover; // Whether or not to draw a wire hover X value.
 	unsigned long wireHoverID;

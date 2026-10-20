@@ -11,7 +11,7 @@ SettingsDialog::SettingsDialog(wxWindow* parent)
 
 	auto& settings = appConfig().appSettings;
 
-	wxFlexGridSizer* grid = new wxFlexGridSizer(6, 2, 8, 12);
+	wxFlexGridSizer* grid = new wxFlexGridSizer(8, 2, 8, 12);
 	grid->AddGrowableCol(1, 1);
 
 	grid->Add(new wxStaticText(this, wxID_ANY, "Wire Connection Points"), 0, wxALIGN_CENTER_VERTICAL);
@@ -22,6 +22,15 @@ SettingsDialog::SettingsDialog(wxWindow* parent)
 	grid->Add(new wxStaticText(this, wxID_ANY, "Wire Connection Radius"), 0, wxALIGN_CENTER_VERTICAL);
 	wireConnRadiusCtrl = new wxSpinCtrlDouble(this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 0.05, 1.0, settings.wireConnRadius, 0.01);
 	grid->Add(wireConnRadiusCtrl, 0, wxEXPAND);
+
+	// How far from a pin or wire, in screen pixels, the mouse still reaches it.
+	grid->Add(new wxStaticText(this, wxID_ANY, "Pin Hit Zone (pixels)"), 0, wxALIGN_CENTER_VERTICAL);
+	pinHitZoneCtrl = new wxSpinCtrl(this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 2, 20, (int)settings.pinHitZone);
+	grid->Add(pinHitZoneCtrl, 0, wxEXPAND);
+
+	grid->Add(new wxStaticText(this, wxID_ANY, "Wire Hit Zone (pixels)"), 0, wxALIGN_CENTER_VERTICAL);
+	wireHitZoneCtrl = new wxSpinCtrl(this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 2, 20, (int)settings.wireHitZone);
+	grid->Add(wireHitZoneCtrl, 0, wxEXPAND);
 
 	grid->Add(new wxStaticText(this, wxID_ANY, "Display Gridlines"), 0, wxALIGN_CENTER_VERTICAL);
 	gridlineVisibleCtrl = new wxCheckBox(this, wxID_ANY, "");
@@ -55,6 +64,8 @@ SettingsDialog::SettingsDialog(wxWindow* parent)
 
 bool SettingsDialog::getWireConnVisible() const { return wireConnVisibleCtrl->GetValue(); }
 double SettingsDialog::getWireConnRadius() const { return wireConnRadiusCtrl->GetValue(); }
+int SettingsDialog::getPinHitZone() const { return pinHitZoneCtrl->GetValue(); }
+int SettingsDialog::getWireHitZone() const { return wireHitZoneCtrl->GetValue(); }
 bool SettingsDialog::getGridlineVisible() const { return gridlineVisibleCtrl->GetValue(); }
 bool SettingsDialog::getRightClickRotate() const { return rightClickRotateCtrl->GetValue(); }
 int SettingsDialog::getAutosaveSeconds() const {

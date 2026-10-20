@@ -951,6 +951,8 @@ void MainFrame::OnPreferences(wxCommandEvent& event) {
 	if (dlg.ShowModal() == wxID_OK) {
 		appConfig().appSettings.wireConnVisible = dlg.getWireConnVisible();
 		appConfig().appSettings.wireConnRadius = (float)dlg.getWireConnRadius();
+		appConfig().appSettings.pinHitZone = (float)dlg.getPinHitZone();
+		appConfig().appSettings.wireHitZone = (float)dlg.getWireHitZone();
 		appConfig().appSettings.gridlineVisible = dlg.getGridlineVisible();
 		appConfig().appSettings.rightClickRotate = dlg.getRightClickRotate();
 		appConfig().appSettings.refreshRate = dlg.getRefreshRate();
@@ -1548,6 +1550,8 @@ void MainFrame::saveSettings() {
 	conf->Write("AutosaveSeconds", settings.autosaveSeconds);
 	conf->Write("LastDirectory", lastDirectory);
 	conf->Write("WireConnRadius", settings.wireConnRadius);
+	conf->Write("PinHitZone", settings.pinHitZone);
+	conf->Write("WireHitZone", settings.wireHitZone);
 	conf->Write("WireConnVisible", settings.wireConnVisible);
 	conf->Write("GridlineVisible", settings.gridlineVisible);
 	conf->Write("RightClickRotate", settings.rightClickRotate);

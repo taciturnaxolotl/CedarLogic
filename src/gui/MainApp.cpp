@@ -568,6 +568,8 @@ void MainApp::loadSettings() {
 	conf->Read("TimeStep", &appConfig().appSettings.timePerStep, 25); // ms
 	appConfig().timeStepMod = appConfig().appSettings.timePerStep;
 	conf->Read("WireConnRadius", &appConfig().appSettings.wireConnRadius, 0.18f);
+	conf->Read("PinHitZone", &appConfig().appSettings.pinHitZone, 5.0f);
+	conf->Read("WireHitZone", &appConfig().appSettings.wireHitZone, 5.0f);
 	conf->Read("WireConnVisible", &appConfig().appSettings.wireConnVisible, true);
 	conf->Read("GridlineVisible", &appConfig().appSettings.gridlineVisible, true);
 	conf->Read("RightClickRotate", &appConfig().appSettings.rightClickRotate, true);

@@ -79,8 +79,10 @@ GUICanvas::GUICanvas(wxWindow *parent, GUICircuit* gCircuit, wxWindowID id,
 	
 	// Add mouse object to collision checker
 	mouse = new klsCollisionObject( COLL_MOUSEBOX );
+	reach = new klsCollisionObject( COLL_MOUSEBOX );
 	snapMouse = new klsCollisionObject( COLL_MOUSEBOX );
 	collisionChecker.addObject( mouse );
+	collisionChecker.addObject( reach );
 	
 	// Add drag selection box to collision checker
 	dragselectbox = new klsCollisionObject( COLL_SELBOX );
@@ -104,6 +106,7 @@ GUICanvas::GUICanvas(wxWindow *parent, GUICircuit* gCircuit, wxWindowID id,
 
 GUICanvas::~GUICanvas() {
 	delete snapMouse;
+	delete reach;
 	delete mouse;
 	delete dragselectbox;
 }
@@ -202,6 +205,24 @@ void GUICanvas::removeWire(unsigned long wireId) {
 
 // Tag a command with this canvas, then submit it, so undo/redo can return to
 // the page the edit happened on.
+static klsBBox boxAround(GLPoint2f m, float delta) {
+	klsBBox b;
+	b.addPoint(m);
+	b.extendTop(delta);
+	b.extendBottom(delta);
+	b.extendLeft(delta);
+	b.extendRight(delta);
+	return b;
+}
+
+float GUICanvas::pinReach() { return (float)(appConfig().appSettings.pinHitZone * getZoom()); }
+float GUICanvas::wireReach() { return (float)(appConfig().appSettings.wireHitZone * getZoom()); }
+
+void GUICanvas::placeMouse(GLPoint2f m) {
+	mouse->setBBox(boxAround(m, (float)(MOUSE_HOVER_DELTA * getZoom())));
+	reach->setBBox(boxAround(m, std::max({ (float)(MOUSE_HOVER_DELTA * getZoom()), pinReach(), wireReach() })));
+}
+
 void GUICanvas::submitCommand(klsCommand *cmd) {
 	cmd->setCanvas(this);
 	gCircuit->GetCommandProcessor()->Submit((wxCommand *)cmd);
@@ -497,23 +518,16 @@ void GUICanvas::mouseLeftDown(wxMouseEvent& event) {
 	if (isWithinPaste) return;
 	
 	// Update the mouse collision object
-	klsBBox mBox;
-	float delta = MOUSE_HOVER_DELTA * getZoom();
-	mBox.addPoint( m );
-	mBox.extendTop( delta );
-	mBox.extendBottom( delta );
-	mBox.extendLeft( delta );
-	mBox.extendRight( delta );
-	mouse->setBBox( mBox );
+	placeMouse( m );
 	
 	// Do a collision detection on all first-level objects.
 	// The map collisionChecker.overlaps now contains
 	// all of the objects involved in any collisions.
 	collisionChecker.update();
 
-	// Loop through all objects hit by the mouse
+	// Loop through all objects within reach of the mouse
 	//	Favor wires over gates
-	CollisionGroup hitThings = mouse->getOverlaps();
+	CollisionGroup hitThings = reach->getOverlaps();
 	CollisionGroup::iterator hit = hitThings.begin();
 	while( hit != hitThings.end() && !handled ) {
 		//*************************************
@@ -530,7 +544,7 @@ void GUICanvas::mouseLeftDown(wxMouseEvent& event) {
 			guiWire* hitWire = ((guiWire*)(*hit));
 			bool wasSelected = hitWire->isSelected();
 			hitWire->unselect();
-			if ( hitWire->hover( m.x, m.y, WIRE_HOVER_SCREEN_DELTA * getZoom() )) {
+			if ( hitWire->hover( m.x, m.y, wireReach() )) {
 				hitWire->select();
 				if ((event.ShiftDown()||event.ControlDown()) && wasSelected) hitWire->unselect();
 				if (!((event.ShiftDown()||event.ControlDown()))) {
@@ -545,7 +559,7 @@ void GUICanvas::mouseLeftDown(wxMouseEvent& event) {
 				}
 				else if (!((event.ShiftDown()||event.ControlDown()))) {
 					wireHoverID = hitWire->getID();
-					if (!this->isLocked() && hitWire->startSegDrag(m, WIRE_HOVER_SCREEN_DELTA * getZoom(), snapMouse)) currentDragState = DRAG_WIRESEG;
+					if (!this->isLocked() && hitWire->startSegDrag(m, wireReach(), snapMouse)) currentDragState = DRAG_WIRESEG;
 					hitWire->unselect();
 				}
 				handled = true;	
@@ -639,14 +653,7 @@ void GUICanvas::mouseRightDown(wxMouseEvent& event) {
 	if (isWithinPaste || (currentDragState != DRAG_NONE)) return; // Left mouse up is the next event we are looking for
 
 	// Update the mouse collision object
-	klsBBox mBox;
-	float delta = MOUSE_HOVER_DELTA * getZoom();
-	mBox.addPoint( m );
-	mBox.extendTop( delta );
-	mBox.extendBottom( delta );
-	mBox.extendLeft( delta );
-	mBox.extendRight( delta );
-	mouse->setBBox( mBox );
+	placeMouse( m );
 	
 	// Do a collision detection on all first-level objects.
 	// The map collisionChecker.overlaps now contains
@@ -762,14 +769,7 @@ void GUICanvas::OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool Ct
 	}
 
 	// Update the mouse as a collision object:
-	klsBBox mBox;
-	float delta = MOUSE_HOVER_DELTA * getZoom();
-	mBox.addPoint( m );
-	mBox.extendTop( delta );
-	mBox.extendBottom( delta );
-	mBox.extendLeft( delta );
-	mBox.extendRight( delta );
-	mouse->setBBox( mBox );
+	placeMouse( m );
 
 	klsBBox smBox;
 	smBox.addPoint( mSnap );
@@ -833,25 +833,32 @@ void GUICanvas::OnMouseMove( GLdouble glX, GLdouble glY, bool ShiftDown, bool Ct
 	if (drawWireHover) shouldRender = true;
 	drawWireHover = false;
 
-	CollisionGroup hitThings = mouse->getOverlaps();
+	CollisionGroup hitThings = reach->getOverlaps();
 	CollisionGroup::iterator hit = hitThings.begin();
 	while( hit != hitThings.end()) {
 		if ((*hit)->getType() == COLL_GATE) {
 			guiGate* hitGate = ((guiGate*)(*hit));
 			
-			// Update the hotspot hover variables:
-			if( hotspotHighlight.size() == 0 ) {
-				if (currentDragState != DRAG_NEWGATE || hitGate->getID() != newDragGate->getID()) hotspotHighlight = hitGate->checkHotspots( m.x, m.y, HOTSPOT_SCREEN_DELTA * getZoom() );
-				if( hotspotHighlight.size() > 0 ) {
-					if (currentDragState != DRAG_NEWGATE || hitGate->getID() != newDragGate->getID()) hotspotGate = hitGate->getID();
-					shouldRender = true;
+			// Highlight the nearest pin on any gate within reach, not the first gate found.
+			if (currentDragState != DRAG_NEWGATE || hitGate->getID() != newDragGate->getID()) {
+				string pin = hitGate->checkHotspots( m.x, m.y, pinReach() );
+				if (!pin.empty()) {
+					float px, py;
+					hitGate->getHotspotCoords(pin, px, py);
+					float d = std::max(std::fabs(px - m.x), std::fabs(py - m.y));
+					if (hotspotHighlight.empty() || d < hotspotDist) {
+						hotspotHighlight = pin;
+						hotspotGate = hitGate->getID();
+						hotspotDist = d;
+						shouldRender = true;
+					}
 				}
 			}
 			
 		}
 		if ((*hit)->getType() == COLL_WIRE && !drawWireHover && currentDragState != DRAG_WIRESEG) { // Check for wire hover
 			guiWire* hitWire = ((guiWire*)(*hit));
-			drawWireHover = hitWire->hover( m.x, m.y, WIRE_HOVER_SCREEN_DELTA * getZoom() );
+			drawWireHover = hitWire->hover( m.x, m.y, wireReach() );
 			wireHoverID = hitWire->getID();
 			if (drawWireHover) shouldRender = true;
 		}
@@ -947,7 +954,7 @@ void GUICanvas::OnMouseUp(wxMouseEvent& event) {
 
 	// Update the drag select box coordinates for wire source detection:
 	klsBBox dBox;
-	float delta = HOTSPOT_SCREEN_DELTA * getZoom();
+	float delta = pinReach();
 	dBox.addPoint( getDragStartCoords( BUTTON_LEFT ) );
 	dBox.extendTop( delta );
 	dBox.extendBottom( delta );
