@@ -12,6 +12,7 @@
 #include "cmdDeleteWire.h"
 #include "cmdMoveGate.h"
 #include "cmdSetParams.h"
+#include "cmdCreateGate.h"
 
 DECLARE_APP(MainApp);
 
@@ -112,5 +113,8 @@ bool cmdDeleteGate::Undo() {
 		cmdList.top()->Undo();
 		cmdList.pop();
 	}
+
+	// The core gate is brand new, so it needs its pin settings like a freshly placed one.
+	cmdCreateGate::sendHotspotParams(gCircuit, gateId, gateType);
 	return true;
 }

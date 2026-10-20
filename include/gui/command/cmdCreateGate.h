@@ -16,6 +16,11 @@ public:
 
 	bool Undo();
 
+	// Send the library's per-pin settings (INVERTED, E_INPUT) to the core. Every path
+	// that creates a core gate must call this after the gate's params, which create the pins.
+	static void sendHotspotParams(GUICircuit *gCircuit, unsigned long gid,
+		const std::string &gateType);
+
 	virtual std::string toString() const override;
 
 	virtual void setPointers(GUICircuit* gCircuit, GUICanvas* gCanvas,

@@ -57,39 +57,31 @@ bool cmdCreateGate::Do() {
 
 	// Must set hotspot params after the gate's params, because sometimes logic_params will create
 	// the hotspots!
-	if (logicType.size() > 0) {
-		// Loop through the hotspots and pass logic core hotspot settings:
-		LibraryGate libGate;
-		gateLibrary().libParser.getGate(gateType, libGate);
-		for (unsigned int i = 0; i < libGate.hotspots.size(); i++) {
-
-			// Send the isInverted message:
-			if (libGate.hotspots[i].isInverted) {
-				if (libGate.hotspots[i].isInput) {
-					gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_SET_GATE_INPUT_PARAM, new klsMessage::Message_SET_GATE_INPUT_PARAM(gid, libGate.hotspots[i].name, "INVERTED", "TRUE")));
-				}
-				else {
-					gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_SET_GATE_OUTPUT_PARAM, new klsMessage::Message_SET_GATE_OUTPUT_PARAM(gid, libGate.hotspots[i].name, "INVERTED", "TRUE")));
-				}
-			}
-
-			// Send the logicEInput message:
-			if (libGate.hotspots[i].logicEInput != "") {
-				if (libGate.hotspots[i].isInput) {
-					gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_SET_GATE_INPUT_PARAM, new klsMessage::Message_SET_GATE_INPUT_PARAM(gid, libGate.hotspots[i].name, "E_INPUT", libGate.hotspots[i].logicEInput)));
-				}
-				else {
-					gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_SET_GATE_OUTPUT_PARAM, new klsMessage::Message_SET_GATE_OUTPUT_PARAM(gid, libGate.hotspots[i].name, "E_INPUT", libGate.hotspots[i].logicEInput)));
-				}
-			}
-		} // for( loop through the hotspots )
-	} // if( logic type is non-null )
+	sendHotspotParams(gCircuit, gid, gateType);
 
 
 	for (unsigned int i = 0; i < proxconnects.size(); i++) {
 		proxconnects[i]->Do();
 	}
 	return true;
+}
+
+void cmdCreateGate::sendHotspotParams(GUICircuit *gCircuit, unsigned long gid, const string &gateType) {
+	if (gateLibrary().libParser.getGateLogicType(gateType).size() == 0) return;
+
+	LibraryGate libGate;
+	gateLibrary().libParser.getGate(gateType, libGate);
+	for (const lgHotspot &hs : libGate.hotspots) {
+		auto send = [&](const string &param, const string &value) {
+			if (hs.isInput) {
+				gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_SET_GATE_INPUT_PARAM, new klsMessage::Message_SET_GATE_INPUT_PARAM(gid, hs.name, param, value)));
+			} else {
+				gCircuit->sendMessageToCore(klsMessage::Message(klsMessage::MT_SET_GATE_OUTPUT_PARAM, new klsMessage::Message_SET_GATE_OUTPUT_PARAM(gid, hs.name, param, value)));
+			}
+		};
+		if (hs.isInverted) send("INVERTED", "TRUE");
+		if (hs.logicEInput != "") send("E_INPUT", hs.logicEInput);
+	}
 }
 
 bool cmdCreateGate::Undo() {

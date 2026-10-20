@@ -33,6 +33,7 @@
 #include "GUICircuit.h"
 #include "GUICanvas.h"
 #include "command/cmdSetParams.h"
+#include "command/cmdCreateGate.h"
 #include <algorithm>
 #include <map>
 #include <set>
@@ -414,31 +415,7 @@ void CircuitParse::parseGateToSend(string type, string ID, string position, vect
 			newGate->setGUIParam( params[i].paramName, params[i].paramValue );
 		}
 	}
-	if( logicType.size() > 0 ) {
-		// Loop through the hotspots and pass logic core hotspot settings:
-		LibraryGate libGate;
-		gateLibrary().libParser.getGate(type, libGate);
-		for( unsigned int i = 0; i < libGate.hotspots.size(); i++ ) {
-
-			// Send the isInverted message:
-			if( libGate.hotspots[i].isInverted ) {
-				if ( libGate.hotspots[i].isInput ) {
-					gCanvas->getCircuit()->sendMessageToCore(klsMessage::Message(klsMessage::MT_SET_GATE_INPUT_PARAM, new klsMessage::Message_SET_GATE_INPUT_PARAM(id, libGate.hotspots[i].name, "INVERTED", "TRUE")));
-				} else {
-					gCanvas->getCircuit()->sendMessageToCore(klsMessage::Message(klsMessage::MT_SET_GATE_OUTPUT_PARAM, new klsMessage::Message_SET_GATE_OUTPUT_PARAM(id, libGate.hotspots[i].name, "INVERTED", "TRUE")));
-				}
-			}
-
-			// Send the logicEInput message:
-			if( libGate.hotspots[i].logicEInput != "" ) {
-				if ( libGate.hotspots[i].isInput ) {
-					gCanvas->getCircuit()->sendMessageToCore(klsMessage::Message(klsMessage::MT_SET_GATE_INPUT_PARAM, new klsMessage::Message_SET_GATE_INPUT_PARAM(id, libGate.hotspots[i].name, "E_INPUT", libGate.hotspots[i].logicEInput)));
-				} else {
-					gCanvas->getCircuit()->sendMessageToCore(klsMessage::Message(klsMessage::MT_SET_GATE_OUTPUT_PARAM, new klsMessage::Message_SET_GATE_OUTPUT_PARAM(id, libGate.hotspots[i].name, "E_INPUT", libGate.hotspots[i].logicEInput)));
-				}
-			}
-		} // for( loop through the hotspots )
-	} // if( logic type is non-null )
+	cmdCreateGate::sendHotspotParams(gCanvas->getCircuit(), id, type);
 
 
 	// Connect inputs and outputs.
