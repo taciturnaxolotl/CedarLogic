@@ -27,6 +27,7 @@ bool cmdDeleteWire::Do() {
 
 	guiWire *wire = gCircuit->getWire(wireIds[0]);
 	if (wire == nullptr) return false; //error: wire not found
+	deleted = true;
 
 	wireIds = wire->getIDs();
 
@@ -51,6 +52,7 @@ bool cmdDeleteWire::Do() {
 }
 
 bool cmdDeleteWire::Undo() {
+	if (!deleted) return false;
 
 	guiWire* gWire = gCircuit->createWire(wireIds);
 

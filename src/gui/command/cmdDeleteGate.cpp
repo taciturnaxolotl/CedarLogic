@@ -2,6 +2,7 @@
 #include "cmdDeleteGate.h"
 #include "../GateLibrary.h"
 #include <map>
+#include <algorithm>
 #include "../gl_defs.h"
 #include "../GUICircuit.h"
 #include "../GUICanvas.h"
@@ -71,9 +72,12 @@ bool cmdDeleteGate::Do() {
 			cmdList.push(std::unique_ptr<klsCommand>(disconn));
 			disconn->Do();
 
-			//----------------------------------------------------------------------------------------
-			if (isBufferLoop(gCircuit, gWire)) deleteWires.push_back(gWire->getID());
-			else if (gWire->numConnections() < 2) deleteWires.push_back(gWire->getID());
+			// Once per wire: a wire on two pins of this gate passes this test twice,
+			// and a second delete of a gone wire undid as a one-line wire later.
+			bool gone = isBufferLoop(gCircuit, gWire) || gWire->numConnections() < 2;
+			if (gone && std::find(deleteWires.begin(), deleteWires.end(), (int)gWire->getID()) == deleteWires.end()) {
+				deleteWires.push_back(gWire->getID());
+			}
 		}
 		connWalk++;
 	}
@@ -87,7 +91,8 @@ bool cmdDeleteGate::Do() {
 	float x, y;
 	gGate->getGLcoords(x, y);
 	cmdList.push(std::unique_ptr<klsCommand>(new cmdMoveGate(gCircuit, gateId, x, y, x, y)));
-	cmdList.push(std::unique_ptr<klsCommand>(new cmdSetParams(gCircuit, gateId, paramSet(gGate->getAllGUIParams(), gGate->getAllLogicParams()), true)));
+	ParameterMap logicParams = cmdSetParams::fullLogicParams(gGate);
+	cmdList.push(std::unique_ptr<klsCommand>(new cmdSetParams(gCircuit, gateId, paramSet(gGate->getAllGUIParams(), &logicParams), true)));
 
 	gateType = gGate->getLibraryGateName();
 

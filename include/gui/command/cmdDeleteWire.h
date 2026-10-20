@@ -17,6 +17,7 @@ public:
 	bool Undo();
 
 private:
+	bool deleted = false;   // Do found the wire; Undo has something to put back
 	std::vector<IDType> wireIds;
 	std::stack<std::unique_ptr<klsCommand>> cmdList;
 };
