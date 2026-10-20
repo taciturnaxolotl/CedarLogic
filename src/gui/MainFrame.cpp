@@ -690,7 +690,8 @@ void MainFrame::OnNew(wxCommandEvent& event) {
 	this->SetTitle(VERSION_TITLE()); // KAS
 	removeTempFile();
 	currentTempNum++;
-    openedFilename = "";
+	documentLock.release();   // the document is no longer open here
+	openedFilename = "";
 	recoveredFrom = "";
 	recoveredUnsaved = false;
 	loadedFileFormat = 3;  // a fresh circuit saves as v3
@@ -1762,6 +1763,10 @@ void MainFrame::offerRecovery() {
 		// autosave refreshes it even if they never touch a gate.
 		autosaveStore::adopt(entry);
 		recoveredUnsaved = true;
+		// One recovery per launch. Loading the next would clear this one from
+		// the screen and, since it is now this session's own snapshot, from disk.
+		// The others are still there and will be offered next time.
+		break;
 	}
 }
 

@@ -49,6 +49,9 @@ void GUICircuit::reInitializeLogicCircuit() {
 		simBridge().wireStateBuffer.clear();
 	}
 
+	// Edits held back for the old circuit must not land on the new one.
+	messageQueue.clear();
+
 	// Clearing the maps destroys everything in them.
 	gateList.clear();
 	gateListVersion++;
