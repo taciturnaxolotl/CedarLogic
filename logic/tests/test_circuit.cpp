@@ -1264,3 +1264,22 @@ TEST_CASE("connecting a junction pin to the wire it already holds does not doubl
 	stepN(c, 3);
 	CHECK(c.getWireState(w2) == HI_Z);
 }
+
+TEST_CASE("renaming a FROM carries a wire on two of its pins to the new net") {
+	Circuit c;
+	IDType from = c.newGate("FROM"), to = c.newGate("TO");
+	c.setGateParameter(from, "JUNCTION_ID", "A");
+	c.setGateParameter(to, "JUNCTION_ID", "A");
+	IDType drv = makeDriver(c, 1);
+	IDType wSrc = c.newWire(), w = c.newWire();
+	c.connectGateOutput(drv, "OUT_0", wSrc);
+	c.connectGateInput(to, "IN_0", wSrc);
+	c.connectGateInput(from, "IN_0", w);
+	c.connectGateInput(from, "IN_1", w);
+	stepN(c, 3);
+	REQUIRE(c.getWireState(w) == ONE);
+
+	c.setGateParameter(from, "JUNCTION_ID", "B");
+	stepN(c, 3);
+	CHECK(c.getWireState(w) == HI_Z);
+}

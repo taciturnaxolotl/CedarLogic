@@ -43,11 +43,11 @@ Gate_JUNCTION::Gate_JUNCTION( Circuit *newCircuit ) : Gate() {
 Gate_JUNCTION::~Gate_JUNCTION() {
 	if( !((*(myCircuit->getJunctionIDs())).empty() ) && ((*(myCircuit->getJunctionIDs())).find( myID ) != (*(myCircuit->getJunctionIDs())).end()) ) {
 		(*(myCircuit->getJunctionUseCounter()))[myID] -= 1;
-		// Unhook this gate's wires from the old junction:
-		ID_SET< IDType >::iterator thisWire = myWires.begin();
-		while( thisWire != myWires.end() ) {
-			myCircuit->disconnectJunction( (*(myCircuit->getJunctionIDs()))[myID], *thisWire );
-			thisWire++;
+		// Unhook this gate's wires from the old junction, once per pin they sit on:
+		for( ID_MAP< IDType, unsigned long >::iterator w = myWireCounts.begin(); w != myWireCounts.end(); ++w ) {
+			for( unsigned long n = 0; n < w->second; n++ ) {
+				myCircuit->disconnectJunction( (*(myCircuit->getJunctionIDs()))[myID], w->first );
+			}
 		}
 
 		// If that junction is no longer used, then erase it:
@@ -106,11 +106,11 @@ bool Gate_JUNCTION::setParameter( string paramName, string value ) {
 		// Decrement the old junction id counter:
 		if( !((*(myCircuit->getJunctionIDs())).empty() ) && ((*(myCircuit->getJunctionIDs())).find( myOldID ) != (*(myCircuit->getJunctionIDs())).end()) ) {
 			(*(myCircuit->getJunctionUseCounter()))[myOldID] -= 1;
-			// Unhook this gate's wires from the old junction:
-			ID_SET< IDType >::iterator thisWire = myWires.begin();
-			while( thisWire != myWires.end() ) {
-				myCircuit->disconnectJunction( (*(myCircuit->getJunctionIDs()))[myOldID], *thisWire );
-				thisWire++;
+			// Unhook this gate's wires from the old junction, once per pin they sit on:
+			for( ID_MAP< IDType, unsigned long >::iterator w = myWireCounts.begin(); w != myWireCounts.end(); ++w ) {
+				for( unsigned long n = 0; n < w->second; n++ ) {
+					myCircuit->disconnectJunction( (*(myCircuit->getJunctionIDs()))[myOldID], w->first );
+				}
 			}
 
 			// If that junction is no longer used, then erase it:
@@ -137,11 +137,11 @@ bool Gate_JUNCTION::setParameter( string paramName, string value ) {
 			(*(myCircuit->getJunctionUseCounter()))[myID] += 1;
 		}
 
-		// Add this gate's wires to the newly assigned junction:
-		ID_SET< IDType >::iterator thisWire = myWires.begin();
-		while( thisWire != myWires.end() ) {
-			myCircuit->connectJunction( (*(myCircuit->getJunctionIDs()))[myID], *thisWire );
-			thisWire++;
+		// Add this gate's wires to the newly assigned junction, once per pin:
+		for( ID_MAP< IDType, unsigned long >::iterator w = myWireCounts.begin(); w != myWireCounts.end(); ++w ) {
+			for( unsigned long n = 0; n < w->second; n++ ) {
+				myCircuit->connectJunction( (*(myCircuit->getJunctionIDs()))[myID], w->first );
+			}
 		}
 
 		return false; // gateProcess() doesn't do anything anyway!
