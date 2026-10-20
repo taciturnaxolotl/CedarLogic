@@ -7,7 +7,7 @@
 
    ---- Threading model ----------------------------------------------------
    Two locks nest in a fixed order: take m_critsect first, then mexMessages --
-   both message-drain sites (threadLogic::checkMessages and MainFrame::OnIdle)
+   both message-drain sites (threadLogic::checkMessages and MainFrame::drainLogicMessages)
    do exactly that. Preserve that order; the reverse risks deadlock.
 
    Drain protocol: each drain site takes mexMessages only long enough to swap
@@ -34,11 +34,8 @@ public:
 	// pointers below and wraps the message-drain sections.
 	wxCriticalSection m_critsect;
 
-	// Posted by a background thread as it exits so OnQuit can block on teardown.
+	// Posted by the logic thread as it exits so OnQuit can block on teardown.
 	wxSemaphore m_semAllDone;
-	// GUI <-> logic run/step signaling semaphores.
-	wxSemaphore simulate;
-	wxSemaphore readyToSend;
 
 	// Guards the two message queues (both directions of GUI <-> logic).
 	wxMutex mexMessages;
@@ -57,10 +54,6 @@ public:
 
 	// Stopwatch for timing between step calls.
 	wxStopWatch appSystemTime;
-
-	// The last exiting thread should post to m_semAllDone if this is true
-	// (guarded by m_critsect).
-	bool m_waitingUntilAllDone = false;
 
 	threadLogic* logicThread = nullptr;
 };
