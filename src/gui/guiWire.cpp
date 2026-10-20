@@ -304,27 +304,9 @@ void guiWire::drawToScene(cl::render::Scene& scene,
 			                       renderInfo.vertexPoints[i].y), r, s.color);
 }
 
+// The same test startSegDrag grabs with, so whatever lights up can be grabbed.
 bool guiWire::hover(float cx, float cy, float delta) {
-
-	// Set up the mouse as a collision object:
-	klsCollisionObject mouse(COLL_MOUSEBOX);
-	klsBBox mBox = mouse.getBBox();
-	mBox.addPoint(GLPoint2f(cx, cy));
-	mBox.extendTop(delta);
-	mBox.extendBottom(delta);
-	mBox.extendLeft(delta);
-	mBox.extendRight(delta);
-	mouse.setBBox(mBox);
-
-	// Check if any segments collide with the mouse:
-	if (this->overlaps(&mouse)) {
-		CollisionGroup cg = this->checkSubsToObj(&mouse);
-		if (!cg.empty()) {
-			return true;
-		}
-	}
-
-	return false;
+	return cl::wire::segmentNear(shape_.segs, GLPoint2f(cx, cy), delta) != -1;
 }
 
 // Return the begin point of the initial vertical bar seg shape_.segs.at(shape_.head).  All other segs

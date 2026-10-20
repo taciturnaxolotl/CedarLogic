@@ -545,7 +545,6 @@ void GUICanvas::mouseLeftDown(wxMouseEvent& event) {
 				}
 				else if (!((event.ShiftDown()||event.ControlDown()))) {
 					wireHoverID = hitWire->getID();
-					// Same reach as the hover that highlighted it, so a highlighted wire is always grabbed.
 					if (!this->isLocked() && hitWire->startSegDrag(m, WIRE_HOVER_SCREEN_DELTA * getZoom(), snapMouse)) currentDragState = DRAG_WIRESEG;
 					hitWire->unselect();
 				}
