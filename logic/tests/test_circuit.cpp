@@ -1247,3 +1247,20 @@ TEST_CASE("events past the per-step cap are applied later, not lost") {
 	for (IDType o : outs) if (c.getWireState(o) == ONE) ones++;
 	CHECK(ones == fan);
 }
+
+TEST_CASE("connecting a junction pin to the wire it already holds does not double-link it") {
+	Circuit c;
+	IDType node = c.newGate("NODE");
+	IDType drv = makeDriver(c, 1);
+	IDType w1 = c.newWire(), w2 = c.newWire();
+	c.connectGateOutput(drv, "OUT_0", w1);
+	c.connectGateInput(node, "N_in0", w1);
+	c.connectGateInput(node, "N_in1", w2);
+	c.connectGateInput(node, "N_in1", w2);   // again, as a re-sent connect would
+	stepN(c, 3);
+	REQUIRE(c.getWireState(w2) == ONE);
+
+	c.disconnectGateInput(node, "N_in1");
+	stepN(c, 3);
+	CHECK(c.getWireState(w2) == HI_Z);
+}

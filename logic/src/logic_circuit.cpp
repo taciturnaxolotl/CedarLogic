@@ -455,14 +455,13 @@ IDType Circuit::connectGateInput( IDType gateID, const string &gateInputID, IDTy
 		return returnWireID;
 	}
 	// A pin holds one wire; leave the old one cleanly rather than letting it keep naming this gate.
+	// The same wire again is nothing to do: a junction gate would register it twice.
 	IDType previous = theGate->getInputWire( gateInputID );
-	if( previous != ID_NONE && previous != wireID ) {
-		disconnectGateInput( gateID, gateInputID );
+	if( previous != wireID ) {
+		if( previous != ID_NONE ) disconnectGateInput( gateID, gateInputID );
+		theGate->connectInput( gateInputID, wireID );
+		theWire->connectOutput( gateID, gateInputID );
 	}
-	theGate->connectInput( gateInputID, wireID );
-	
-	// Hook the wire output to the gateID:
-	theWire->connectOutput( gateID, gateInputID );
 	
 	//TODO: Should trigger some kind of event since the wire now is connected to this here gate,
 	// and therefore the gate's input has changed!
