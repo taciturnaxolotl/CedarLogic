@@ -113,6 +113,12 @@ bool cmdSetParams::Undo() {
 		if (lg.dlgParams[i].type == "FILE_IN" || lg.dlgParams[i].type == "FILE_OUT") dontSendMessages.push_back(lg.dlgParams[i].name);
 	}
 	while (paramWalk != oldLogicParamList.end()) {
+		// Only what Do changed; the old list is a snapshot of everything, and re-sending
+		// the rest drags live core state (a counter's CURRENT_VALUE, say) backwards.
+		if (newLogicParamList.find(paramWalk->first) == newLogicParamList.end()) {
+			paramWalk++;
+			continue;
+		}
 		gate->setLogicParam(paramWalk->first, paramWalk->second);
 		bool found = false;
 		for (unsigned int i = 0; i < dontSendMessages.size() && !found; i++) {
@@ -126,7 +132,7 @@ bool cmdSetParams::Undo() {
 		gate->setGUIParam(paramWalk->first, paramWalk->second);
 		paramWalk++;
 	}
-	if (!fromString && gate->getGUIType() == "TO") gCircuit->getOscope()->UpdateMenu();
+	if (!fromString && gate->getGUIType() == "TO" && gCircuit->getOscope() != NULL) gCircuit->getOscope()->UpdateMenu();
 	return true;
 }
 
