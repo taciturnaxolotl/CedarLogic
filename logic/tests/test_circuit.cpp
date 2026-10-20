@@ -1165,3 +1165,30 @@ TEST_CASE("a clock already high at load is not an edge") {
 	pulseClock(c, clk);
 	CHECK(c.getGateParameter(reg, "CURRENT_VALUE") == "6");
 }
+
+TEST_CASE("a register tells the GUI when it latched an unknown value") {
+	// The pins still come out ZERO, so a state machine does not drown in
+	// unknowns, but the flag the GUI uses to draw the digits blue must be set.
+	Circuit c;
+	IDType reg = c.newGate("REGISTER");
+	c.setGateParameter(reg, "INPUT_BITS", "1");
+	c.setGateParameter(reg, "NO_HOLD", "true");
+	c.setGateParameter(reg, "SYNC_LOAD", "true");
+	IDType clk = makeDriver(c, 0);
+	IDType wD = c.newWire(), wClk = c.newWire(), wQ = c.newWire();   // wD has no driver
+	c.connectGateOutput(clk, "OUT_0", wClk);
+	c.connectGateInput(reg, "IN_0", wD);
+	c.connectGateInput(reg, "clock", wClk);
+	c.connectGateOutput(reg, "OUT_0", wQ);
+	stepN(c, 3);
+	c.clearParamUpdateList();
+	pulseClock(c, clk);
+
+	CHECK(c.getWireState(wQ) == ZERO);
+	CHECK(c.getGateParameter(reg, "UNKNOWN_OUTPUTS") == "true");
+	bool told = false;
+	for (const changedParam &p : c.getParamUpdateList()) {
+		if (p.gateID == reg && p.paramName == "UNKNOWN_OUTPUTS") told = true;
+	}
+	CHECK(told);
+}

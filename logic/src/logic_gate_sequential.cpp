@@ -202,19 +202,9 @@ void Gate_REGISTER::gateProcess( void ) {
 	//machine, it is a nusence if
 	//the whole thing is in an infinite
 	//state of unknowingness
-	for( vector< StateType >::iterator I = outBus.begin(); I != outBus.end(); ++I ){
-		if( *I != ONE ){
-			*I = ZERO;
-		}
-	}		
-	//End of edit**********************
-	
+	// The pins get ZERO for it, but the GUI is still told, so the display can
+	// show the value was never really known. Decided before the squash.
 	if( outBus.size() != 0 ) {
-		setOutputBusState("OUT", outBus);
-		setOutputBusState("OUTINV", outBus);
-		
-		// Check if any of the outputs are "unknown" state, and send that info on
-		// to the GUI:
 		bool oldUO = unknownOutputs;
 		unknownOutputs = false;
 		for( unsigned int i = 0; i < outBus.size(); i++ ) {
@@ -222,10 +212,20 @@ void Gate_REGISTER::gateProcess( void ) {
 				unknownOutputs = true;
 			}
 		}
-		// Update the GUI's knowledge of our unknown outputs state, if it has changed:
 		if( oldUO != unknownOutputs ) {
 			listChangedParam("UNKNOWN_OUTPUTS");
 		}
+	}
+	for( vector< StateType >::iterator I = outBus.begin(); I != outBus.end(); ++I ){
+		if( *I != ONE ){
+			*I = ZERO;
+		}
+	}
+	//End of edit**********************
+	
+	if( outBus.size() != 0 ) {
+		setOutputBusState("OUT", outBus);
+		setOutputBusState("OUTINV", outBus);
 	}
 	
 	// Update the GUI's knowledge of our current value, if it has changed:
