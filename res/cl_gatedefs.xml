@@ -2153,8 +2153,10 @@
     <logic_type>BUS_END</logic_type>
 	<gui_type>BUSEND</gui_type>
     <logic_param>INPUT_BITS 16</logic_param>
+# Should be IN_0 like the 4- and 8-bit bus ends, but saved circuits name this pin and
+# older versions look it up exactly, so renaming it would disconnect bit 0 there.
 		<input> 
-      <name>IN_0</name>
+      <name>Bus_in_0</name>
 		  <point>-2,-7.5</point> 
 		</input>
 		<input> 

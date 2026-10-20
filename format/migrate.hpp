@@ -31,7 +31,7 @@ struct LoadResult {
 };
 
 // Detect the format, parse it, and (for legacy files) run the migration handlers.
-// v3 files pass through unmigrated, apart from library pin renames, which apply to every format. Throws std::runtime_error on unreadable input.
+// v3 files pass through unmigrated. Throws std::runtime_error on unreadable input.
 LoadResult loadCircuit(const std::string &text);
 
 // Run the migration handlers over an already-parsed file, rewriting it in place
