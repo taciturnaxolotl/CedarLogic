@@ -1088,3 +1088,41 @@ TEST_CASE("re-sending INPUT_BITS to a wired register keeps its outputs") {
 	pulseClock(c, clk);
 	CHECK(c.getWireState(wQ) == ZERO);
 }
+
+TEST_CASE("moving a gate output to another wire releases the old wire") {
+	// The old wire kept the output as a driver, frozen at the last value it
+	// was sent, so it would show that value for the rest of the session.
+	Circuit c;
+	IDType drv = makeDriver(c, 1);
+	IDType wA = c.newWire(), wB = c.newWire();
+	c.connectGateOutput(drv, "OUT_0", wA);
+	stepN(c, 3);
+	REQUIRE(c.getWireState(wA) == ONE);
+
+	c.connectGateOutput(drv, "OUT_0", wB);
+	stepN(c, 3);
+	CHECK(c.getWireState(wA) == HI_Z);
+	CHECK(c.getWireState(wB) == ONE);
+}
+
+TEST_CASE("moving a gate input to another wire stops it following the old one") {
+	Circuit c;
+	IDType buf = c.newGate("BUFFER");
+	c.setGateParameter(buf, "INPUT_BITS", "1");
+	IDType dA = makeDriver(c, 1), dB = makeDriver(c, 0);
+	IDType wA = c.newWire(), wB = c.newWire(), wOut = c.newWire();
+	c.connectGateOutput(dA, "OUT_0", wA);
+	c.connectGateOutput(dB, "OUT_0", wB);
+	c.connectGateInput(buf, "IN_0", wA);
+	c.connectGateOutput(buf, "OUT_0", wOut);
+	stepN(c, 3);
+	REQUIRE(c.getWireState(wOut) == ONE);
+
+	c.connectGateInput(buf, "IN_0", wB);
+	stepN(c, 3);
+	CHECK(c.getWireState(wOut) == ZERO);
+	c.setGateParameter(dA, "OUTPUT_NUM", "0");
+	c.setGateParameter(dA, "OUTPUT_NUM", "1");
+	stepN(c, 3);
+	CHECK(c.getWireState(wOut) == ZERO);
+}

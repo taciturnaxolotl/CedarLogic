@@ -461,6 +461,11 @@ IDType Circuit::connectGateInput( IDType gateID, const string &gateInputID, IDTy
 		WARNING("Circuit::connectGateInput() - Wire not found.");
 		return returnWireID;
 	}
+	// A pin holds one wire; leave the old one cleanly rather than letting it keep naming this gate.
+	IDType previous = theGate->getInputWire( gateInputID );
+	if( previous != ID_NONE && previous != wireID ) {
+		disconnectGateInput( gateID, gateInputID );
+	}
 	theGate->connectInput( gateInputID, wireID );
 	
 	// Hook the wire output to the gateID:
@@ -493,6 +498,11 @@ IDType Circuit::connectGateOutput( IDType gateID, const string &gateOutputID, ID
 	if( theWire == nullptr ) {
 		WARNING("Circuit::connectGateOutput() - Wire not found.");
 		return returnWireID;
+	}
+	// As above; here the old wire would otherwise keep this output as a driver frozen at its last value.
+	IDType previous = theGate->getOutputWire( gateOutputID );
+	if( previous != ID_NONE && previous != wireID ) {
+		disconnectGateOutput( gateID, gateOutputID );
 	}
 	theWire->connectInput( gateID, gateOutputID );
 
