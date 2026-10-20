@@ -168,14 +168,12 @@ private:
 	bool movingGate;
 	bool drawingWire;
 	bool simulate;			// Simulation state
-	bool waitToSendMessage; // If false, then message is sent immediately
 		
     long           m_Key;
     unsigned long  m_StartTime;
     unsigned long  m_LastTime;
     unsigned long  m_LastRedraw;
  
-    vector < klsMessage::Message > messageQueue;
 };
 
 #endif /*GUICIRCUIT_H*/

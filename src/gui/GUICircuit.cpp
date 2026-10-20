@@ -22,7 +22,6 @@ IMPLEMENT_DYNAMIC_CLASS(GUICircuit, wxDocument)
 GUICircuit::GUICircuit() {
 	nextGateID = nextWireID = 0;
 	simulate = true;
-	waitToSendMessage = true;
 	panic = false;
 	pausing = false;
 	return;
@@ -33,11 +32,7 @@ GUICircuit::~GUICircuit() {
 }
 
 void GUICircuit::reInitializeLogicCircuit() {
-	// do not wait to send messages to the core for reinit
-	bool iswaiting = waitToSendMessage;
-	waitToSendMessage = false;
 	sendMessageToCore(klsMessage::Message(klsMessage::MT_REINITIALIZE));
-	waitToSendMessage = iswaiting;
 	// Indexes first, then the owners. buslineToWire only borrows, and leaving it
 	// populated past the wires it points at is exactly the SIGSEGV in issue #100:
 	// syncWireStates() walked it on the next step after a file open and wrote
@@ -49,15 +44,11 @@ void GUICircuit::reInitializeLogicCircuit() {
 		simBridge().wireStateBuffer.clear();
 	}
 
-	// Held-back edits belong to the old circuit.
-	messageQueue.clear();
-
 	// Clearing the maps destroys everything in them.
 	gateList.clear();
 	gateListVersion++;
 	wireList.clear();
 	nextGateID = nextWireID = 0;
-	waitToSendMessage = false;
 	simulate = true;
 }
 
@@ -279,9 +270,6 @@ void GUICircuit::parseMessage(klsMessage::Message message) {
 				panic = true;
 				lateSteps = 0;
 			}
-			// Now we can send the waiting messages
-			for (unsigned int i = 0; i < messageQueue.size(); i++) sendMessageToCore(messageQueue[i]);
-			messageQueue.clear();
 			// Sync wire states and always refresh
 			syncWireStates();
 			gCanvas->Refresh();
@@ -297,25 +285,13 @@ void GUICircuit::parseMessage(klsMessage::Message message) {
 	}
 }
 
+// Straight into the logic thread's inbox, always. It runs messages in order and
+// the next step is not sent until this one is done, so an edit made mid-step
+// lands between the two steps without being held back here.
 void GUICircuit::sendMessageToCore(klsMessage::Message message) {
 	wxMutexLocker lock(simBridge().mexMessages);
-
-	bool queuedForLogic = false;
-	if (waitToSendMessage) {
-
-		if (simulate) {
-			simBridge().dGUItoLOGIC.push_back(message);
-			queuedForLogic = true;
-		} else{
-			messageQueue.push_back(message);
-		}
-	} else{
-		simBridge().dGUItoLOGIC.push_back(message);
-		queuedForLogic = true;
-	}
-	// Wake the logic thread if we actually gave it work (it blocks on this
-	// condition rather than polling). Signaled under mexMessages, held here.
-	if (queuedForLogic) simBridge().msgForLogic.Signal();
+	simBridge().dGUItoLOGIC.push_back(message);
+	simBridge().msgForLogic.Signal();   // the logic thread blocks on this; mexMessages is held
 }
 
 
