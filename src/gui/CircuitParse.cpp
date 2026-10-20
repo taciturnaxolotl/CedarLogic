@@ -649,68 +649,13 @@ bool CircuitParse::saveCircuit(string filename, vector< GUICanvas* > glc, unsign
 	
 	mParse->closeTag("circuit");
 
-	// Clear any previous error
-	lastError = "";
-
-	// Attempt to open file for writing
-	errno = 0;  // Clear errno before operation
-	ofstream outfile(filename.c_str());
-	if (!outfile.good()) {
-		int errnum = errno;
-		if (errnum == EACCES || errnum == EPERM) {
-			lastError = "Permission denied. You don't have write access to this location.";
-		} else if (errnum == ENOSPC) {
-			lastError = "Disk full. Free up space and try again.";
-		} else if (errnum == EROFS) {
-			lastError = "Read-only filesystem. Choose a different location.";
-		} else if (errnum == ENOENT) {
-			lastError = "Directory doesn't exist. Check the file path.";
-		} else if (errnum != 0) {
-			lastError = string("Cannot open file: ") + strerror(errnum);
-		} else {
-			lastError = "Cannot open file for writing.";
-		}
-		return false;
-	}
-
-	// Write the circuit data
-	errno = 0;
-	outfile << ossCircuit->str();
-	if (outfile.fail()) {
-		int errnum = errno;
-		outfile.close();
-		if (errnum == ENOSPC) {
-			lastError = "Disk full while writing. The file may be incomplete.";
-		} else if (errnum == EIO) {
-			lastError = "I/O error while writing. Check your disk or network connection.";
-		} else if (errnum != 0) {
-			lastError = string("Write failed: ") + strerror(errnum);
-		} else {
-			lastError = "Write operation failed.";
-		}
-		return false;
-	}
-
-	// Close the file (this flushes buffers and may reveal errors)
-	errno = 0;
-	outfile.close();
-	if (outfile.fail()) {
-		int errnum = errno;
-		if (errnum == ENOSPC) {
-			lastError = "Disk full while closing file. The file may be incomplete.";
-		} else if (errnum == EIO) {
-			lastError = "I/O error while closing file. Data may not be saved correctly.";
-		} else if (errnum == EDQUOT) {
-			lastError = "Disk quota exceeded. Free up space or request more quota.";
-		} else if (errnum != 0) {
-			lastError = string("Error closing file: ") + strerror(errnum);
-		} else {
-			lastError = "Failed to close file properly. Data may not be saved.";
-		}
-		return false;
-	}
-
-	return true;
+	// Through the same temp-and-rename path as v3, so a failed write leaves
+	// the file that was there before.
+	string text = ossCircuit->str();
+	delete mParse;
+	mParse = nullptr;
+	delete ossCircuit;
+	return writeToFile(filename, text);
 }
 
 // Save in v1.x compatible format (no version tag, no sentinel, single wire IDs)
@@ -784,81 +729,12 @@ bool CircuitParse::saveCircuitLegacy(string filename, vector< GUICanvas* > glc, 
 
 	mParse->closeTag("circuit");
 
-	// Clear any previous error
-	lastError = "";
-
-	// Attempt to open file for writing
-	errno = 0;  // Clear errno before operation
-	ofstream outfile(filename.c_str());
-	if (!outfile.good()) {
-		int errnum = errno;
-		if (errnum == EACCES || errnum == EPERM) {
-			lastError = "Permission denied. You don't have write access to this location.";
-		} else if (errnum == ENOSPC) {
-			lastError = "Disk full. Free up space and try again.";
-		} else if (errnum == EROFS) {
-			lastError = "Read-only filesystem. Choose a different location.";
-		} else if (errnum == ENOENT) {
-			lastError = "Directory doesn't exist. Check the file path.";
-		} else if (errnum != 0) {
-			lastError = string("Cannot open file: ") + strerror(errnum);
-		} else {
-			lastError = "Cannot open file for writing.";
-		}
-		delete mParse;
-		mParse = nullptr;
-		delete ossCircuit;
-		return false;
-	}
-
-	// Write the circuit data
-	errno = 0;
-	outfile << ossCircuit->str();
-	if (outfile.fail()) {
-		int errnum = errno;
-		outfile.close();
-		if (errnum == ENOSPC) {
-			lastError = "Disk full while writing. The file may be incomplete.";
-		} else if (errnum == EIO) {
-			lastError = "I/O error while writing. Check your disk or network connection.";
-		} else if (errnum != 0) {
-			lastError = string("Write failed: ") + strerror(errnum);
-		} else {
-			lastError = "Write operation failed.";
-		}
-		delete mParse;
-		mParse = nullptr;
-		delete ossCircuit;
-		return false;
-	}
-
-	// Close the file (this flushes buffers and may reveal errors)
-	errno = 0;
-	outfile.close();
-	if (outfile.fail()) {
-		int errnum = errno;
-		if (errnum == ENOSPC) {
-			lastError = "Disk full while closing file. The file may be incomplete.";
-		} else if (errnum == EIO) {
-			lastError = "I/O error while closing file. Data may not be saved correctly.";
-		} else if (errnum == EDQUOT) {
-			lastError = "Disk quota exceeded. Free up space or request more quota.";
-		} else if (errnum != 0) {
-			lastError = string("Error closing file: ") + strerror(errnum);
-		} else {
-			lastError = "Failed to close file properly. Data may not be saved.";
-		}
-		delete mParse;
-		mParse = nullptr;
-		delete ossCircuit;
-		return false;
-	}
-
+	string text = ossCircuit->str();
 	delete mParse;
 	mParse = nullptr;
 	delete ossCircuit;
+	if (!writeToFile(filename, text)) return false;
 
-	// If we got here, file was saved successfully
 	// Return false only if there are bus features (backward compatibility warning)
 	if (hasBusFeatures) {
 		lastError = "Warning: Circuit uses bus features that cannot be represented in v1.x format.";
