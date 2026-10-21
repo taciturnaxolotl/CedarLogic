@@ -7,30 +7,140 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 3.3.2</title>
-      <pubDate>Wed, 30 Sep 2026 05:11:25 +0000</pubDate>
-      <sparkle:version>3.3.2</sparkle:version>
-      <sparkle:shortVersionString>3.3.2</sparkle:shortVersionString>
+      <title>Version 3.4.0</title>
+      <pubDate>Wed, 21 Oct 2026 02:45:13 +0000</pubDate>
+      <sparkle:version>3.4.0</sparkle:version>
+      <sparkle:shortVersionString>3.4.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<p>minor release that fixes a potential issue with doubled wires in circuit files that can potential cause a crash</p>]]></description>
+      <description><![CDATA[<p>This release fixes a ton of little desync bugs between the editor and sim which caused odd visual glitches</p>
+<h2>New</h2>
+<ul>
+  <li><b>Thicker lines in exported images</b> (#127). Exports at 2x, 4x and 6x drew lines one pixel wide which made them super thin.</li>
+  <li><b>Adjustable hit zones.</b> Preferences has <b>Pin Hit Zone</b> and <b>Wire Hit Zone</b>, so you can set how close the mouse has to be to start a wire or grab one.</li>
+  <li><b>Desktop shortcut from the Windows installer.</b> The last page of the installer has a <b>Create a Desktop shortcut</b> box, and a <b>Run CedarLogic</b> box.</li>
+  <li><b>Cmd-drag (Ctrl-drag on Windows and Linux) from a wire to a pin</b> connects them. It used to draw the green line and then do nothing.</li>
+</ul>
+<h2>Fixes</h2>
+<h3>Gates showing the wrong value</h3>
+<ul>
+  <li>Undoing the deletion of a gate brought it back without its inverted pins.</li>
+  <li>Undoing a rotation or any parameter change could disconnect the gate from its wires inside the simulator, leaving it stuck at unknown. It also rewound live values such as a counter's count.</li>
+  <li>Moving a pin onto a different wire left the old wire stuck at its last value.</li>
+  <li>Opening a file no longer clocks every flip-flop whose clock input is already high. A saved counter used to count up by one each time it was opened.</li>
+  <li>A disabled tri-state buffer or ROM added to a running circuit no longer makes its bus read unknown once nothing else is driving it.</li>
+  <li>Large circuits (thousands of gates) no longer lose signals on busy steps.</li>
+  <li>Registers and LED displays show their digits in blue again when the value they latched was never known.</li>
+  <li>The 16-bit counter counts to 65535 and wraps, instead of sitting on 0 for an extra clock.</li>
+</ul>
+<h3>Losing work</h3>
+<ul>
+  <li>Answering <b>Yes</b> to "save first?" and then cancelling the save dialog no longer closes the window or clears the circuit anyway, and no longer deletes the crash-recovery copy with it.</li>
+  <li>Saving as V1 or V2 is now safe against a full disk or a crash part way through, like V3 already was.</li>
+  <li>A RAM or ROM keeps its contents through delete and undo, and through copy and paste.</li>
+  <li>Recovering two crashed sessions in one launch no longer throws the first one away.</li>
+  <li>A pin that two wires claimed could switch to the other wire after the file was reopened. Saved files now record only the wire actually on the pin.</li>
+  <li>Opening a V1 or V2 file keeps spaces at the ends of labels, so named links such as <code>A </code> and <code>A</code> stay separate.</li>
+  <li>Exporting to V1 or V2 warns when a label contains <code>#</code>, which older CedarLogic cuts off.</li>
+</ul>
+<h3>Editing</h3>
+<ul>
+  <li>A gate dropped after dragging keeps the wire shape shown during the drag, instead of the wire jumping.</li>
+  <li>Clicking just beside a highlighted wire grabs it, instead of doing nothing and clearing the selection.</li>
+  <li>Panning with the middle button, or right-clicking, while dragging no longer drops what you were dragging. Escape during a wire drag puts the wire back.</li>
+  <li>Straightening a wire by dragging no longer makes it vanish while still connected.</li>
+  <li>Undoing the deletion of a gate whose wire looped back to itself restores the wire whole.</li>
+  <li>Right-clicking a RAM's data pin removes the wire instead of leaving one end dangling.</li>
+  <li>Rotating with <b>R</b> can be undone, and a second paste while the first is still on the cursor is ignored instead of losing the first.</li>
+  <li>Undoing a paste that made no gates no longer crashes.</li>
+  <li>A file with two gates sharing an id says so instead of quietly losing one.</li>
+  <li><b>File > New</b> releases the lock on the file it closed.</li>
+  <li>Oscilloscope layouts saved on Windows open on macOS and Linux.</li>
+</ul>
+<h3>Crashes</h3>
+<ul>
+  <li>Deleting a gate no longer crashes after its pins have overlapped another gate's.</li>
+  <li>The canvas no longer crashes when its window is tiled on macOS.</li>
+</ul>
+<h2>Internal</h2>
+<ul>
+  <li>New tests drive a NOR state machine through thousands of clock cycles, and check each library gate's parameters against the simulator.</li>
+  <li>Simpler message handling between the editor and the simulator thread, and a fix for a step that could start while another was still running.</li>
+  <li>Headless <code>--render</code> loads its file once.</li>
+</ul>
+<p><!-- footer --></p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.3.2/CedarLogic-3.3.2-Darwin.dmg"
-        sparkle:edSignature="EgoefnmIEOdRH7Eh+62+iuLWe0Ka7467R04yz2s1YFPMh4euuYGpsMVJC/CZ43CyT6yH8SWs41TZWY35PVJQBw=="
-        length="14796675"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.4.0/CedarLogic-3.4.0-Darwin.dmg"
+        sparkle:edSignature="XTv/C5vxp0xDmvlTck+5kQIL6dH58TunD3l2iBy9WQ3H/h7snm+njebVLQdsC8spr7VyMypuG3Ee5JjjyZQfAw=="
+        length="14043596"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 3.3.2</title>
-      <pubDate>Wed, 30 Sep 2026 05:11:25 +0000</pubDate>
-      <sparkle:version>3.3.2</sparkle:version>
-      <sparkle:shortVersionString>3.3.2</sparkle:shortVersionString>
-      <description><![CDATA[<p>minor release that fixes a potential issue with doubled wires in circuit files that can potential cause a crash</p>]]></description>
+      <title>Version 3.4.0</title>
+      <pubDate>Wed, 21 Oct 2026 02:45:13 +0000</pubDate>
+      <sparkle:version>3.4.0</sparkle:version>
+      <sparkle:shortVersionString>3.4.0</sparkle:shortVersionString>
+      <description><![CDATA[<p>This release fixes a ton of little desync bugs between the editor and sim which caused odd visual glitches</p>
+<h2>New</h2>
+<ul>
+  <li><b>Thicker lines in exported images</b> (#127). Exports at 2x, 4x and 6x drew lines one pixel wide which made them super thin.</li>
+  <li><b>Adjustable hit zones.</b> Preferences has <b>Pin Hit Zone</b> and <b>Wire Hit Zone</b>, so you can set how close the mouse has to be to start a wire or grab one.</li>
+  <li><b>Desktop shortcut from the Windows installer.</b> The last page of the installer has a <b>Create a Desktop shortcut</b> box, and a <b>Run CedarLogic</b> box.</li>
+  <li><b>Cmd-drag (Ctrl-drag on Windows and Linux) from a wire to a pin</b> connects them. It used to draw the green line and then do nothing.</li>
+</ul>
+<h2>Fixes</h2>
+<h3>Gates showing the wrong value</h3>
+<ul>
+  <li>Undoing the deletion of a gate brought it back without its inverted pins.</li>
+  <li>Undoing a rotation or any parameter change could disconnect the gate from its wires inside the simulator, leaving it stuck at unknown. It also rewound live values such as a counter's count.</li>
+  <li>Moving a pin onto a different wire left the old wire stuck at its last value.</li>
+  <li>Opening a file no longer clocks every flip-flop whose clock input is already high. A saved counter used to count up by one each time it was opened.</li>
+  <li>A disabled tri-state buffer or ROM added to a running circuit no longer makes its bus read unknown once nothing else is driving it.</li>
+  <li>Large circuits (thousands of gates) no longer lose signals on busy steps.</li>
+  <li>Registers and LED displays show their digits in blue again when the value they latched was never known.</li>
+  <li>The 16-bit counter counts to 65535 and wraps, instead of sitting on 0 for an extra clock.</li>
+</ul>
+<h3>Losing work</h3>
+<ul>
+  <li>Answering <b>Yes</b> to "save first?" and then cancelling the save dialog no longer closes the window or clears the circuit anyway, and no longer deletes the crash-recovery copy with it.</li>
+  <li>Saving as V1 or V2 is now safe against a full disk or a crash part way through, like V3 already was.</li>
+  <li>A RAM or ROM keeps its contents through delete and undo, and through copy and paste.</li>
+  <li>Recovering two crashed sessions in one launch no longer throws the first one away.</li>
+  <li>A pin that two wires claimed could switch to the other wire after the file was reopened. Saved files now record only the wire actually on the pin.</li>
+  <li>Opening a V1 or V2 file keeps spaces at the ends of labels, so named links such as <code>A </code> and <code>A</code> stay separate.</li>
+  <li>Exporting to V1 or V2 warns when a label contains <code>#</code>, which older CedarLogic cuts off.</li>
+</ul>
+<h3>Editing</h3>
+<ul>
+  <li>A gate dropped after dragging keeps the wire shape shown during the drag, instead of the wire jumping.</li>
+  <li>Clicking just beside a highlighted wire grabs it, instead of doing nothing and clearing the selection.</li>
+  <li>Panning with the middle button, or right-clicking, while dragging no longer drops what you were dragging. Escape during a wire drag puts the wire back.</li>
+  <li>Straightening a wire by dragging no longer makes it vanish while still connected.</li>
+  <li>Undoing the deletion of a gate whose wire looped back to itself restores the wire whole.</li>
+  <li>Right-clicking a RAM's data pin removes the wire instead of leaving one end dangling.</li>
+  <li>Rotating with <b>R</b> can be undone, and a second paste while the first is still on the cursor is ignored instead of losing the first.</li>
+  <li>Undoing a paste that made no gates no longer crashes.</li>
+  <li>A file with two gates sharing an id says so instead of quietly losing one.</li>
+  <li><b>File > New</b> releases the lock on the file it closed.</li>
+  <li>Oscilloscope layouts saved on Windows open on macOS and Linux.</li>
+</ul>
+<h3>Crashes</h3>
+<ul>
+  <li>Deleting a gate no longer crashes after its pins have overlapped another gate's.</li>
+  <li>The canvas no longer crashes when its window is tiled on macOS.</li>
+</ul>
+<h2>Internal</h2>
+<ul>
+  <li>New tests drive a NOR state machine through thousands of clock cycles, and check each library gate's parameters against the simulator.</li>
+  <li>Simpler message handling between the editor and the simulator thread, and a fix for a step that could start while another was still running.</li>
+  <li>Headless <code>--render</code> loads its file once.</li>
+</ul>
+<p><!-- footer --></p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.3.2/CedarLogic-3.3.2-win32.exe"
-        sparkle:edSignature="wv6qMCN57d24XZrwHkrqDKs0W+GB0waekE6yE+ijLYH4rLWevEzczTGopNUtO4IHn36xFrDqJ/xDf43WxOvyAw=="
-        length="20732024"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.4.0/CedarLogic-3.4.0-win32.exe"
+        sparkle:edSignature="tyv+4X8Sl4Vek8Q4iXWiEhkla0OryVZ/X3CJdN0Uc2z7VdCxsvT9vcm94xGW5NP02NBkQqhZRw4pQTPdQSZvCA=="
+        length="20766456"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
