@@ -737,7 +737,7 @@ set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
 # page says what it is for, so it does not read as the place to ask for one.
 set(CPACK_NSIS_DEFINES
     "!include \\\"${CMAKE_SOURCE_DIR}/cmake/cpack\\\\DesktopShortcut.nsh\\\"
-    !define MUI_DIRECTORYPAGE_TEXT_TOP \\\"Setup will install CedarLogic in the folder below. You can add a Desktop shortcut at the end; there is no need to change this.\\\"
+    !define MUI_DIRECTORYPAGE_TEXT_TOP \\\"Setup will install CedarLogic in the folder below. You shouldn't normally need to change this location.\\\"
     !define MUI_DIRECTORYPAGE_TEXT_DESTINATION \\\"Program Folder\\\""
 )
 set(CPACK_NSIS_DELETE_ICONS_EXTRA
