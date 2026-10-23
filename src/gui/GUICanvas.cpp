@@ -81,12 +81,8 @@ GUICanvas::GUICanvas(wxWindow *parent, GUICircuit* gCircuit, wxWindowID id,
 	mouse = new klsCollisionObject( COLL_MOUSEBOX );
 	reach = new klsCollisionObject( COLL_MOUSEBOX );
 	snapMouse = new klsCollisionObject( COLL_MOUSEBOX );
-	collisionChecker.addObject( mouse );
-	collisionChecker.addObject( reach );
-	
-	// Add drag selection box to collision checker
 	dragselectbox = new klsCollisionObject( COLL_SELBOX );
-	collisionChecker.addObject( dragselectbox );
+	addPointerObjects();
 
 	SetDropTarget(new DnDText(this));
 
@@ -112,6 +108,13 @@ GUICanvas::~GUICanvas() {
 }
 
 // Clears the circuit by selecting all gates and wires and then running a delete command
+// The pointer's boxes live in the collision checker, so whatever clears it must put them all back.
+void GUICanvas::addPointerObjects() {
+	collisionChecker.addObject( mouse );
+	collisionChecker.addObject( reach );
+	collisionChecker.addObject( dragselectbox );
+}
+
 void GUICanvas::clearCircuit() {
 	selectedGates.clear();
 	selectedWires.clear();
@@ -121,12 +124,7 @@ void GUICanvas::clearCircuit() {
 	collisionChecker.clear();
 	gateList.clear();
 	wireList.clear();
-
-	// Add mouse object to collision checker
-	collisionChecker.addObject( mouse );
-	
-	// Add drag selection box to collision checker
-	collisionChecker.addObject( dragselectbox );
+	addPointerObjects();
 	
 	hotspotHighlight = "";
 	potentialConnectionHotspots.clear();

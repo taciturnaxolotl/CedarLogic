@@ -260,6 +260,7 @@ public:
 	float wireReach();
 	// Put the pointer's collision boxes at `m`.
 	void placeMouse(GLPoint2f m);
+	void addPointerObjects();
 	void storeCommand(klsCommand *cmd);
 
 private:
