@@ -339,6 +339,13 @@ file(GLOB SRC_FILES CONFIGURE_DEPENDS
 	"${PROJECT_SOURCE_DIR}/include/gui/command/*.h"
 )
 
+# One crash handler per platform; see CrashPlatform.h.
+if(WIN32)
+	list(FILTER SRC_FILES EXCLUDE REGEX "/CrashTracePosix\\.cpp$")
+else()
+	list(FILTER SRC_FILES EXCLUDE REGEX "/CrashTraceWin\\.cpp$")
+endif()
+
 # Skia backend translation units (SkiaScene/SkiaBackend). Only these TUs include
 # Skia and need C++17, so raise the standard per-source rather than on the whole
 # target: the legacy app code keeps its historical standard, avoiding C++17

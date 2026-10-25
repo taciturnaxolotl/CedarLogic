@@ -259,3 +259,18 @@ if(ENABLE_SANITIZERS AND NOT MSVC)
 endif()
 
 add_test(NAME crashissue_tests COMMAND test_crashissue)
+
+# The POSIX crash handler, run against real crashes in a forked child. Not
+# sanitized: the sanitizers install signal handlers of their own.
+if(NOT WIN32)
+	find_package(Threads REQUIRED)
+	add_executable(test_crashtraceposix
+		"${CMAKE_CURRENT_SOURCE_DIR}/test_crashtraceposix.cpp"
+		"${PROJECT_SOURCE_DIR}/src/gui/CrashTracePosix.cpp"
+	)
+	target_include_directories(test_crashtraceposix PRIVATE
+		"${PROJECT_SOURCE_DIR}/include/gui"
+	)
+	target_link_libraries(test_crashtraceposix PRIVATE doctest::doctest Threads::Threads)
+	add_test(NAME crashtraceposix_tests COMMAND test_crashtraceposix)
+endif()

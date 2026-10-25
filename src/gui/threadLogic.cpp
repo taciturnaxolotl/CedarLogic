@@ -10,6 +10,7 @@
 
 #include "threadLogic.h"
 #include "SimBridge.h"
+#include "CrashTrace.h"
 #include "MainApp.h"
 #include <sstream>
 #include "wx/timer.h"
@@ -29,6 +30,7 @@ threadLogic::threadLogic() : wxThread() {
 }
 
 void *threadLogic::Entry() {
+	cl::crash::giveThisThreadASignalStack();
 	// This is the main function of the thread, so now we can init
 #ifndef _PRODUCTION_
 	logfile.open("logiclog.log");
