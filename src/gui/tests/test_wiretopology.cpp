@@ -288,3 +288,28 @@ TEST_CASE("three runs on one line join whichever order their ids come in") {
 		CHECK(segs.begin()->second.end.x == 10);
 	}
 }
+
+TEST_CASE("two runs a hair apart still join into one wire") {
+	// Issue #129: a trunk dropped as zero length must not strand its two runs.
+	const float hair = 0.0000029f;
+	FakeHotspots hs;
+	hs.place(1, "OUT", GLPoint2f(-3, 5));
+	hs.place(2, "IN", GLPoint2f(3, 5 + hair));
+	SegmentMap segs;
+	segs.put(vertical(0, 0, 5, 5 + hair));
+	segs.put(horizontal(1, 5 + hair, 0, 3));
+	segs.at(1).connections.push_back(conn(2, "IN"));
+	segs.put(horizontal(2, 5, -3, 0));
+	segs.at(2).connections.push_back(conn(1, "OUT"));
+	segs.at(0).intersects[5 + hair].push_back(1);
+	segs.at(0).intersects[5].push_back(2);
+	segs.at(1).intersects[0].push_back(0);
+	segs.at(2).intersects[0].push_back(0);
+	long head = 0, next = 3;
+
+	cl::wire::mergeSegments(segs, hs, { conn(1, "OUT"), conn(2, "IN") }, head, next);
+
+	REQUIRE(segs.size() == 1);
+	CHECK(segs.begin()->second.begin.x == -3);
+	CHECK(segs.begin()->second.end.x == 3);
+}

@@ -102,14 +102,8 @@ void mergeSegments(SegmentMap &segs, const Hotspots &hs,
 			wireSegment* nSeg = &(walkNewSegs->second);
 			// Only merge with segs of same orientation
 			if (!a.matches(*nSeg)) { walkNewSegs++; continue; }
-			// Now check channel, if not the same then don't bother
-			if (a.across(cSeg->begin) != a.across(nSeg->begin)) { walkNewSegs++; continue; }
-			// Now a valid check can be made on endpoints.  Consider that begin's
-			//	coordinate along the axis is always less than end's
-			if ((a.along(cSeg->begin) >= a.along(nSeg->begin) - EQUALRANGE && a.along(cSeg->begin) <= a.along(nSeg->end) + EQUALRANGE) ||
-				(a.along(cSeg->end) >= a.along(nSeg->begin) - EQUALRANGE && a.along(cSeg->end) <= a.along(nSeg->end) + EQUALRANGE) ||
-				(a.along(nSeg->begin) >= a.along(cSeg->begin) - EQUALRANGE && a.along(nSeg->begin) <= a.along(cSeg->end) + EQUALRANGE) ||
-				(a.along(nSeg->end) >= a.along(cSeg->begin) - EQUALRANGE && a.along(nSeg->end) <= a.along(cSeg->end) + EQUALRANGE)) {
+			if (!nearly(a.across(cSeg->begin), a.across(nSeg->begin))) { walkNewSegs++; continue; }
+			if (spansTouch(a.along(cSeg->begin), a.along(cSeg->end), a.along(nSeg->begin), a.along(nSeg->end))) {
 				// Bounds are checked and the segments need merged.  Always merge to the segment
 				//	already in the new seg list.  Begin point becomes min of the begin points,
 				//	end point becomes max of the end points, connections are pushed on the vector

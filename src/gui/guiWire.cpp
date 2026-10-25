@@ -676,12 +676,9 @@ void guiWire::generateRenderInfo() {
 		// Save the intersection points for non-elbows:
 		map < GLfloat, vector< long > >::iterator isectWalk = (segWalk->second).intersects.begin();
 		while (isectWalk != (segWalk->second).intersects.end()) {
-			if ((segWalk->second).isVertical()) {
-				if (isectWalk->first == (segWalk->second).begin.y || isectWalk->first == (segWalk->second).end.y) { isectWalk++; continue; }
-			}
-			else {
-				if (isectWalk->first == (segWalk->second).begin.x || isectWalk->first == (segWalk->second).end.x) { isectWalk++; continue; }
-			}
+			const SegAxis axis = (segWalk->second).axis();
+			if (nearly(isectWalk->first, axis.along((segWalk->second).begin)) ||
+			    nearly(isectWalk->first, axis.along((segWalk->second).end))) { isectWalk++; continue; }
 			for (unsigned int i = 0; i < (isectWalk->second).size(); i++) {
 				x = ((segWalk->second).isVertical() ? (segWalk->second).begin.x : isectWalk->first);
 				y = ((segWalk->second).isVertical() ? isectWalk->first : (segWalk->second).begin.y);

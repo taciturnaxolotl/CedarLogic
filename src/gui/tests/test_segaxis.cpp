@@ -7,6 +7,8 @@
 
 #include "wireSegment.h"
 
+#include <cmath>
+
 namespace {
 
 wireSegment upright() { return wireSegment(GLPoint2f(0, 0), GLPoint2f(0, 5), true, 0); }
@@ -78,4 +80,25 @@ TEST_CASE("the mouse edge read is left for upright and top for flat") {
 	klsBBox point = boxSpanning(5, 5, 5, 5);
 	CHECK(h.acrossEdge(point) == 5);
 	CHECK(v.acrossEdge(point) == 5);
+}
+
+TEST_CASE("a quarter turn is exact, so a turned gate's pins stay on the grid") {
+	// The old 0.0174533 for pi/180 left a pin on a gate turned 180 degrees 3e-6 off its line.
+	CHECK(sinCosDegrees(0).sin == 0);    CHECK(sinCosDegrees(0).cos == 1);
+	CHECK(sinCosDegrees(90).sin == 1);   CHECK(sinCosDegrees(90).cos == 0);
+	CHECK(sinCosDegrees(180).sin == 0);  CHECK(sinCosDegrees(180).cos == -1);
+	CHECK(sinCosDegrees(270).sin == -1); CHECK(sinCosDegrees(270).cos == 0);
+	CHECK(sinCosDegrees(-90).sin == -1); CHECK(sinCosDegrees(-90).cos == 0);
+	CHECK(sinCosDegrees(450).sin == 1);  CHECK(sinCosDegrees(450).cos == 0);
+	CHECK(sinCosDegrees(45).sin == doctest::Approx(std::sqrt(0.5)));
+	CHECK(sinCosDegrees(45).cos == doctest::Approx(std::sqrt(0.5)));
+}
+
+TEST_CASE("the shared tolerance treats a hair as the same and a step as different") {
+	CHECK(nearly(5.0f, 5.0000029f));
+	CHECK_FALSE(nearly(5.0f, 5.01f));
+	CHECK(spansTouch(0, 5, 5.001f, 9));      // meet within tolerance
+	CHECK(spansTouch(0, 10, 3, 4));          // one inside the other
+	CHECK_FALSE(spansTouch(0, 5, 5.01f, 9)); // a real gap
+	CHECK(spansTouch(5, 0, 9, 5.001f));      // ends given high first
 }

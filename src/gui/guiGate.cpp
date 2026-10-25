@@ -87,9 +87,8 @@ void guiGate::updateBBoxes( bool noUpdateWires ) {
 	// fanned out from 0,0). Computing the matrix on the CPU makes gate
 	// placement independent of GL/context state, so it is correct on every
 	// page and every platform.
-	double rad = angle * DEG2RAD;
-	double c = cos(rad);
-	double s = sin(rad);
+	const SinCos turn = sinCosDegrees(angle);
+	const double s = turn.sin, c = turn.cos;
 
 	// M = Translate(x, y) * RotateZ(angle), stored column-major.
 	mModel[0] = c;    mModel[4] = -s;   mModel[8]  = 0.0; mModel[12] = x;
@@ -373,8 +372,8 @@ void guiGate::calcBBox( void ) {
 			if (arc.isLabel != labelOnly) continue;
 			const int segs = 24;
 			for (int i = 0; i <= segs; i++) {
-				float d = (arc.startDeg + arc.sweepDeg * (float)i / (float)segs) * DEG2RAD;
-				add( GLPoint2f(arc.cx + arc.r * sin(d), arc.cy + arc.r * cos(d)) );
+				const SinCos at = sinCosDegrees(arc.startDeg + arc.sweepDeg * (float)i / (float)segs);
+				add( GLPoint2f(arc.cx + arc.r * at.sin, arc.cy + arc.r * at.cos) );
 			}
 		}
 		for (unsigned int c = 0; c < circles.size(); c++) {
