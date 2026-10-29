@@ -1,27 +1,5 @@
-// CanvasGL -- one GL context, and one Skia backend on it, per canvas.
-//
-// wxGLContext::SetCurrent is three calls on macOS, not one:
-//
-//     [context setView: canvas]; [context update]; [context makeCurrentContext];
-//
-// The app used to share a single context between the main canvas, the minimap
-// and the oscope, so every paint of every canvas re-pointed that context at a
-// different NSView and re-attached its drawable. Usually harmless. But the
-// window server can drive a redisplay synchronously, from inside the
-// CoreAnimation transaction that is itself resizing the view: tile a window and
-// AppKit posts a tile-resize notification, commits a transaction in the handler,
-// and that forces a display on the GL backing layer, straight into our paint
-// handler. Re-attaching a drawable there and then presenting it asks AppKit to
-// flush a surface whose geometry is half-updated, which it did by copying out of
-// bounds (EXC_BAD_ACCESS in memmove under -[NSCGLSurface flushRect:], macOS
-// 26.2).
-//
-// So: a context per canvas, never re-pointed, and a drawable re-attached only
-// when the canvas actually changed shape. makeCurrent() is then just "make it
-// current" on every frame that did not resize, which is nearly all of them.
-//
-// The Skia backend rides along because a GrDirectContext is bound to the GL
-// context it was built on; neither can outlive or migrate off the other.
+// CanvasGL -- one GL context and Skia backend per canvas, presented only through paint().
+// On macOS a paint that reshapes the drawable does not present; it repaints later (CEDARLOGIC-5).
 
 #ifndef CL_RENDER_CANVASGL_H
 #define CL_RENDER_CANVASGL_H
@@ -44,7 +22,8 @@ public:
 	~CanvasGL();
 
 	// One frame, start to finish, and the only way a canvas presents: make the
-	// context current, run `draw`, then flush and swap. If `draw` returns false
+	// context current, run `draw`, then flush and swap (on macOS a reshape skips the
+	// frame and schedules another). If `draw` returns false
 	// the frame is cleared to white rather than presenting an undefined buffer.
 	// Call only from an EVT_PAINT handler; it constructs the wxPaintDC.
 	void paint(const std::function<bool()>& draw);
@@ -58,20 +37,27 @@ private:
 	CanvasGL(const CanvasGL&);
 	CanvasGL& operator=(const CanvasGL&);
 
+	// Client size plus backing scale: the scale moves alone across displays.
+	struct Shape {
+		wxSize size;
+		double scale = 0.0;   // no real canvas is zero-scale, so the first paint attaches
+		bool operator==(const Shape& o) const { return size == o.size && scale == o.scale; }
+	};
+	enum class Current { Failed, Same, Reshaped };
+	// Present gate after a reshape: Blocked until a later run-loop turn, then Released for one frame.
+	enum class Gate { Open, Blocked, Released };
+
 	bool ensureContext();
-	// Make the context current, re-attaching the drawable only if the canvas
-	// changed shape. Private so that nothing can make current without presenting.
-	bool makeCurrent();
+	// Re-attaches only on a new shape; private so nothing makes current outside paint().
+	Current makeCurrent();
+	void blockPresent();
 
 	wxGLCanvas* fCanvas;
 	wxGLContext* fContext;
-	// Canvas shape as of the last drawable attach. Both halves matter: the
-	// backing scale moves on its own when a window crosses to a display of a
-	// different density without changing size. The initial zero scale is a shape
-	// no real canvas has, so the first makeCurrent() always attaches.
-	wxSize fAttachedSize;
-	double fAttachedScale;
+	Shape fAttached;
 	bool fContextFailed;   // creation failed once; do not retry every frame
+	Gate fGate = Gate::Open;
+	unsigned fGateGeneration = 0;   // a stale release from an earlier reshape is ignored
 #ifdef WITH_SKIA
 	SkiaBackend* fSkia;    // owned; destroyed with the GL context current
 #endif

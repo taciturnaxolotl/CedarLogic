@@ -1,9 +1,12 @@
-// CanvasGL -- see CanvasGL.h for why each canvas owns its own GL context.
+// CanvasGL -- see CanvasGL.h.
 
 #include "render/CanvasGL.h"
 
+#include <cstdio>
+
 #include "wx/dcclient.h"
 
+#include "CrashReporter.h"
 #include "render/RendererHealth.h"
 #ifdef WITH_SKIA
 #include "render/SkiaBackend.h"
@@ -13,9 +16,7 @@ namespace cl {
 namespace render {
 namespace {
 
-// Make `ctx` current without re-pointing its drawable. On macOS that is a real
-// distinction, and the whole reason this class exists; elsewhere SetCurrent is
-// already nothing more than a make-current call.
+// Make current without re-pointing the drawable, which SetCurrent does on macOS.
 bool makeCurrentOnly(wxGLContext* ctx, wxGLCanvas* canvas) {
 #ifdef __WXOSX__
 	(void)canvas;
@@ -25,6 +26,13 @@ bool makeCurrentOnly(wxGLContext* ctx, wxGLCanvas* canvas) {
 	return ctx->SetCurrent(*canvas);
 #endif
 }
+
+#ifdef __WXOSX__
+// AppKit may hand back an unbacked surface inside the resize transaction.
+constexpr bool kSkipPresentOnReshape = true;
+#else
+constexpr bool kSkipPresentOnReshape = false;
+#endif
 
 #ifdef __WXMSW__
 // Swap interval 0, so a swap does not block the GUI thread until the next
@@ -44,8 +52,6 @@ void disableVSync() {
 CanvasGL::CanvasGL(wxGLCanvas* canvas, bool smallCache)
 		: fCanvas(canvas),
 		  fContext(nullptr),
-		  fAttachedSize(0, 0),
-		  fAttachedScale(0.0),
 		  fContextFailed(false)
 #ifdef WITH_SKIA
 		  , fSkia(new SkiaBackend(smallCache ? kSkiaCacheBudgetSmall
@@ -56,10 +62,7 @@ CanvasGL::CanvasGL(wxGLCanvas* canvas, bool smallCache)
 
 CanvasGL::~CanvasGL() {
 #ifdef WITH_SKIA
-	// Ganesh deletes GL objects as it goes, so its context has to be current for
-	// that to land anywhere. Current without re-attaching: re-pointing a view
-	// that is already being torn down is the hazard this class exists to avoid.
-	// If there is no context the objects were never made, or die with it.
+	// Ganesh frees GL objects as it goes, so make current (without re-attaching).
 	if (!fContext || !makeCurrentOnly(fContext, fCanvas)) fSkia->abandon();
 	delete fSkia;
 	fSkia = nullptr;
@@ -109,28 +112,49 @@ bool CanvasGL::ensureContext() {
 	return true;
 }
 
-bool CanvasGL::makeCurrent() {
-	if (!ensureContext()) return false;
+CanvasGL::Current CanvasGL::makeCurrent() {
+	if (!ensureContext()) return Current::Failed;
 
-	const wxSize size = fCanvas->GetClientSize();
-	const double scale = fCanvas->GetContentScaleFactor();
-	if (size == fAttachedSize && scale == fAttachedScale)
-		return makeCurrentOnly(fContext, fCanvas);
+	const Shape now{fCanvas->GetClientSize(), fCanvas->GetContentScaleFactor()};
+	if (now == fAttached)
+		return makeCurrentOnly(fContext, fCanvas) ? Current::Same : Current::Failed;
 
-	// Shape changed, so the drawable has to be re-pointed at the canvas. This is
-	// the only call that does, and it runs on a resize rather than on a frame.
-	if (!fContext->SetCurrent(*fCanvas)) return false;
-	fAttachedSize = size;
-	fAttachedScale = scale;
+	if (!fContext->SetCurrent(*fCanvas)) return Current::Failed;
+	fAttached = now;
 #ifdef __WXMSW__
 	disableVSync();   // needs a current context, which it now is
 #endif
-	return true;
+	return Current::Reshaped;
+}
+
+// The canvas owns this object and wx drops a handler's pending calls when it is
+// destroyed, so capturing `this` in CallAfter cannot outlive it.
+void CanvasGL::blockPresent() {
+	if (fGate != Gate::Blocked) {
+		char msg[64];
+		snprintf(msg, sizeof msg, "present deferred at %dx%d @%.2f",
+		         fAttached.size.x, fAttached.size.y, fAttached.scale);
+		cl::crash::breadcrumb("canvas", msg);
+	}
+	fGate = Gate::Blocked;
+	const unsigned generation = ++fGateGeneration;
+	fCanvas->CallAfter([this, generation] {
+		if (generation != fGateGeneration) return;
+		fGate = Gate::Released;
+		fCanvas->Refresh(false);
+	});
 }
 
 void CanvasGL::paint(const std::function<bool()>& draw) {
 	wxPaintDC dc(fCanvas);   // wx requires one in every paint handler, used or not
-	if (!makeCurrent()) return;
+	const Current current = makeCurrent();
+	if (current == Current::Failed) return;
+	if (kSkipPresentOnReshape && current == Current::Reshaped) blockPresent();
+	if (fGate == Gate::Blocked) return;
+	if (fGate == Gate::Released) {
+		cl::crash::breadcrumb("canvas", "presenting first frame after reshape");
+		fGate = Gate::Open;
+	}
 	// Once a context is current, record what the driver calls itself. Only the
 	// first answer sticks, so this is free after the first frame.
 	noteGLImplementation((const char*)glGetString(GL_VENDOR),

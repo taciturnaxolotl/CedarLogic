@@ -3,9 +3,7 @@
 //
 // One instance per GL context, never fewer: a GrDirectContext is bound to the
 // GL context it was built on. Every GL canvas owns a context and one of these
-// through CanvasGL, which is also where the reason lives (a shared context had
-// to be re-pointed at a different drawable every paint, and that tore a frame
-// in half when the window server resized the window mid-paint).
+// through CanvasGL.
 //
 // Font state is the exception and stays process-wide: a typeface is CPU-side,
 // so the static accessors below are shared by every backend and by the

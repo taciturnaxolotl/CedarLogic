@@ -92,6 +92,13 @@ void stopReporter() {
     sentry_close();
 }
 
+void breadcrumb(const char* category, const char* message) {
+    if (!g_started) return;
+    sentry_value_t crumb = sentry_value_new_breadcrumb("default", message);
+    sentry_value_set_by_key(crumb, "category", sentry_value_new_string(category));
+    sentry_add_breadcrumb(crumb);
+}
+
 Status status() {
     Status st;
     st.built = true;
@@ -110,6 +117,7 @@ Status status() {
 
 void startReporter() {}
 void stopReporter() {}
+void breadcrumb(const char*, const char*) {}
 Status status() { return Status(); }
 
 #endif

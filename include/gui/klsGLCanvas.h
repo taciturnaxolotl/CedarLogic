@@ -198,8 +198,7 @@ protected:
 	// The minimap associated with this canvas
 	klsMiniMap* minimap;
 
-	// This canvas's own GL context and Skia backend, shared with no other canvas.
-	// See render/CanvasGL.h for the crash that bought.
+	// This canvas's own GL context and Skia backend, shared with no other canvas (CEDARLOGIC-5).
 	cl::render::CanvasGL& glCtx() { return *canvasGL; }
 
 private:

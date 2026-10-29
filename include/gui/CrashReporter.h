@@ -31,6 +31,10 @@ void startReporter();
 // Flush whatever is queued and shut down. Called once on the way out.
 void stopReporter();
 
+// Leave a trail entry that rides along with the next crash report. A no-op when
+// reporting is off.
+void breadcrumb(const char* category, const char* message);
+
 // What reporting is doing and why. Facts only: the wording lives with the
 // command-line flag that prints it, the way describeUpdatePolicy() and
 // `--update-status` already divide the same job.
