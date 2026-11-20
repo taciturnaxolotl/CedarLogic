@@ -159,7 +159,7 @@ bool Gate_RAM::setParameter( string paramName, string value ) {
 		unsigned long addressOfNewData = 0;
 		addressExtractor >> addressOfNewData;
 		
-		unsigned long newData;
+		unsigned long newData = 0;   // empty text leaves it untouched
 		iss >> newData;
 		
 		if( readMemory( addressOfNewData ) != newData ){
