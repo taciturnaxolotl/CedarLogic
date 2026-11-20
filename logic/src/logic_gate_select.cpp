@@ -43,31 +43,12 @@ void Gate_MUX::gateProcess( void ) {
 }
 
 
-// Set the parameters:
-bool Gate_MUX::setParameter( string paramName, string value ) {
-	istringstream iss(value);
-	if( paramName == "INPUT_BITS" ) {
-		iss >> inBits;
-
-		// Declare the selection pins!		
-		if( inBits > 0 ) {
-			// The number of selection bits is the ceiling of
-			// the log base 2 of the number of input bits.
-			selBits = (unsigned long)ceil( log((double)inBits) / log(2.0) );
-			declareInputBus( "SEL", selBits );
-		} else {
-			selBits = 0;
-		}
-
-		//NOTE: Don't return "true" from this, because
-		// you shouldn't be setting this param during simulation while
-		// anything is connected anyhow!
-		// Also, allow the Gate_N_INPUT class to change the number of inputs:
-		return Gate_N_INPUT::setParameter( paramName, value );
-	} else {
-		return Gate_N_INPUT::setParameter( paramName, value );
+void Gate_MUX::inputBitsChanged() {
+	// The number of selection bits is the ceiling of log2 of the input count.
+	selBits = (inBits > 0) ? (unsigned long)ceil( log((double)inBits) / log(2.0) ) : 0;
+	if( selBits > 0 ) {
+		declareInputBus( "SEL", selBits );
 	}
-	return false;
 }
 
 
@@ -154,32 +135,12 @@ void Gate_DECODER::gateProcess( void ) {
 }
 
 
-// Set the parameters:
-bool Gate_DECODER::setParameter( string paramName, string value ) {
-	istringstream iss(value);
-	if( paramName == "INPUT_BITS" ) {
-		iss >> inBits;
-
-		// Declare the selection pins!
-		if( inBits > 0 ) {
-			// One output per input combination: 2^inBits, not inBits^2. (The
-			// old code used pow(inBits, 2), which only coincides at inBits 2 and
-			// 4 and left a 3-bit decoder with a phantom 9th output.)
-			outBits = 1UL << inBits;
-			declareOutputBus( "OUT", outBits );
-		} else {
-			outBits = 0;
-		}
-
-		//NOTE: Don't return "true" from this, because
-		// you shouldn't be setting this param during simulation while
-		// anything is connected anyhow!
-		// Also, allow the Gate_N_INPUT class to change the number of inputs:
-		return Gate_N_INPUT::setParameter( paramName, value );
-	} else {
-		return Gate_N_INPUT::setParameter( paramName, value );
+void Gate_DECODER::inputBitsChanged() {
+	// One output per input combination: 2^inBits, not inBits^2.
+	outBits = (inBits > 0) ? (1UL << inBits) : 0;
+	if( outBits > 0 ) {
+		declareOutputBus( "OUT", outBits );
 	}
-	return false;
 }
 
 
@@ -248,33 +209,12 @@ void Gate_PRI_ENCODER::gateProcess(void) {
 }
 
 
-// Set the parameters:
-bool Gate_PRI_ENCODER::setParameter(string paramName, string value) {
-	istringstream iss(value);
-	if (paramName == "INPUT_BITS") {
-		iss >> inBits;
-
-		// Declare the selection pins!		
-		if (inBits > 0) {
-			// The number of output bits is the log base 2 of the
-			// number of input bits.
-			outBits = (unsigned long)ceil(log((double)inBits) / log(2.0));
-			declareOutputBus("OUT", outBits);
-		}
-		else {
-			outBits = 0;
-		}
-
-		//NOTE: Don't return "true" from this, because
-		// you shouldn't be setting this param during simulation while
-		// anything is connected anyhow!
-		// Also, allow the Gate_N_INPUT class to change the number of inputs:
-		return Gate_N_INPUT::setParameter(paramName, value);
+void Gate_PRI_ENCODER::inputBitsChanged() {
+	// The number of output bits is the ceiling of log2 of the input count.
+	outBits = (inBits > 0) ? (unsigned long)ceil( log((double)inBits) / log(2.0) ) : 0;
+	if( outBits > 0 ) {
+		declareOutputBus( "OUT", outBits );
 	}
-	else {
-		return Gate_N_INPUT::setParameter(paramName, value);
-	}
-	return false;
 }
 
 

@@ -80,26 +80,11 @@ void Gate_ADDER::gateProcess( void ) {
 }
 
 
-// Set the parameters:
-bool Gate_ADDER::setParameter( string paramName, string value ) {
-	istringstream iss(value);
-	if( paramName == "INPUT_BITS" ) {
-		iss >> inBits;
-
-		// Declare the second input pins:
-		if( inBits > 0 ) {
-			declareInputBus( "IN_B", inBits );
-		}
-
-		//NOTE: Don't return "true" from this, because
-		// you shouldn't be setting this param during simulation while
-		// anything is connected anyhow!
-		// Also, allow the Gate_PASS class to change the number of inputs:
-		return Gate_PASS::setParameter( paramName, value );
-	} else {
-		return Gate_PASS::setParameter( paramName, value );
+void Gate_ADDER::inputBitsChanged() {
+	Gate_PASS::inputBitsChanged();
+	if( inBits > 0 ) {
+		declareInputBus( "IN_B", inBits );
 	}
-	return false;
 }
 
 
@@ -158,26 +143,10 @@ void Gate_COMPARE::gateProcess( void ) {
 }
 
 
-// Set the parameters:
-bool Gate_COMPARE::setParameter( string paramName, string value ) {
-	istringstream iss(value);
-	if( paramName == "INPUT_BITS" ) {
-		iss >> inBits;
-
-		// Declare the second input pins:
-		if( inBits > 0 ) {
-			declareInputBus( "IN_B", inBits );
-		}
-
-		//NOTE: Don't return "true" from this, because
-		// you shouldn't be setting this param during simulation while
-		// anything is connected anyhow!
-		// Also, allow the Gate_N_INPUT class to change the number of inputs:
-		return Gate_N_INPUT::setParameter( paramName, value );
-	} else {
-		return Gate_N_INPUT::setParameter( paramName, value );
+void Gate_COMPARE::inputBitsChanged() {
+	if( inBits > 0 ) {
+		declareInputBus( "IN_B", inBits );
 	}
-	return false;
 }
 
 

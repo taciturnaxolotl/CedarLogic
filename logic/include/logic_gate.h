@@ -307,6 +307,9 @@ public:
 	vector<ParamDescriptor> paramSchema() const override;
 
 protected:
+	// Called after INPUT_BITS sets inBits and the IN bus; declare any pins sized by it.
+	virtual void inputBitsChanged() {}
+
 	// The number of input bits:
 	unsigned long inBits;
 };
@@ -323,8 +326,7 @@ public:
 	// Handle gate events:
 	void gateProcess( void );
 
-	// Set the parameters:
-	bool setParameter( string paramName, string value );
+	void inputBitsChanged() override;
 };
 
 
@@ -389,6 +391,8 @@ public:
 
 	// Get the parameters:
 	string getParameter( string paramName );
+
+	void inputBitsChanged() override;
 
 	vector<ParamDescriptor> paramSchema() const override {
 		auto s = Gate_N_INPUT::paramSchema();
@@ -483,8 +487,7 @@ public:
 	// Handle gate events:
 	void gateProcess( void );
 
-	// Set the parameters:
-	bool setParameter( string paramName, string value );
+	void inputBitsChanged() override;
 
 protected:
 	unsigned long selBits;
@@ -500,8 +503,7 @@ public:
 	// Handle gate events:
 	void gateProcess( void );
 
-	// Set the parameters:
-	bool setParameter( string paramName, string value );
+	void inputBitsChanged() override;
 
 protected:
 	unsigned long outBits;
@@ -517,8 +519,7 @@ public:
 	// Handle gate events:
 	void gateProcess(void);
 
-	// Set the parameters:
-	bool setParameter(string paramName, string value);
+	void inputBitsChanged() override;
 
 protected:
 	unsigned long outBits;
@@ -570,8 +571,7 @@ public:
 	// Handle gate events:
 	void gateProcess( void );
 
-	// Set the parameters:
-	bool setParameter( string paramName, string value );
+	void inputBitsChanged() override;
 };
 
 
@@ -590,8 +590,7 @@ public:
 	// Handle gate events:
 	void gateProcess( void );
 
-	// Set the parameters:
-	bool setParameter( string paramName, string value );
+	void inputBitsChanged() override;
 };
 
 

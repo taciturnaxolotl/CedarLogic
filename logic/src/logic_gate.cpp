@@ -612,22 +612,17 @@ Gate_N_INPUT::Gate_N_INPUT() : Gate() {
 
 // Set the parameters:
 bool Gate_N_INPUT::setParameter( string paramName, string value ) {
-	istringstream iss(value);
 	if( paramName == "INPUT_BITS" ) {
+		istringstream iss(value);
 		iss >> inBits;
-
-		// Declare the address pins!		
 		if( inBits > 0 ) {
 			declareInputBus( "IN", inBits );
 		}
-
-		//NOTE: Don't return "true" from this, because
-		// you shouldn't be setting this param during simulation while
-		// anything is connected anyhow!
-	} else {
-		return Gate::setParameter( paramName, value );
+		inputBitsChanged();
+		// No re-evaluation: widths are set before anything is wired.
+		return false;
 	}
-	return false;
+	return Gate::setParameter( paramName, value );
 }
 
 
@@ -682,26 +677,10 @@ void Gate_PASS::gateProcess( void ) {
 };
 
 
-// Set the parameters:
-bool Gate_PASS::setParameter( string paramName, string value ) {
-	istringstream iss(value);
-	if( paramName == "INPUT_BITS" ) {
-		iss >> inBits;
-
-		// Declare the output pins:
-		if( inBits > 0 ) {
-			declareOutputBus( "OUT", inBits );
-		}
-
-		//NOTE: Don't return "true" from this, because
-		// you shouldn't be setting this param during simulation while
-		// anything is connected anyhow!
-		// Also, allow the Gate_N_INPUT class to change the number of inputs:
-		return Gate_N_INPUT::setParameter( paramName, value );
-	} else {
-		return Gate_N_INPUT::setParameter( paramName, value );
+void Gate_PASS::inputBitsChanged() {
+	if( inBits > 0 ) {
+		declareOutputBus( "OUT", inBits );
 	}
-	return false;
 }
 
 

@@ -249,32 +249,21 @@ bool Gate_REGISTER::setParameter( string paramName, string value ) {
 
 		disableHold = (setVal == "true");
 		return false;
-	} else if( paramName == "INPUT_BITS" ) {
-		iss >> inBits;
-
-		// Declare the inverted output pins:
-		if( inBits > 0 ) {
-			declareOutputBus( "OUTINV", inBits );
-
-			// Make all of the OUTINV pins inverted:
-			ostringstream oss;
-			for( unsigned long i = 0; i < inBits; i++ ) {
-				oss.str("");
-				oss.clear();
-				oss << "OUTINV_" << i;
-				setOutputInverted( oss.str(), true );
-			}
-		}
-
-		//NOTE: Don't return "true" from this, because
-		// you shouldn't be setting this param during simulation while
-		// anything is connected anyhow!
-		// Also, allow the Gate_PASS class to change the number of inputs:
-		return Gate_PASS::setParameter( paramName, value );
 	} else {
 		return Gate_PASS::setParameter( paramName, value );
 	}
 	return false;
+}
+
+
+void Gate_REGISTER::inputBitsChanged() {
+	Gate_PASS::inputBitsChanged();
+	if( inBits > 0 ) {
+		declareOutputBus( "OUTINV", inBits );
+		for( unsigned long i = 0; i < inBits; i++ ) {
+			setOutputInverted( "OUTINV_" + to_string( i ), true );
+		}
+	}
 }
 
 
