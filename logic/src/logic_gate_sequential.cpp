@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cmath>
 #include <algorithm>
+#include <climits>
 using namespace std;
 #include "logic_gate.h"
 #include "logic_circuit.h"
@@ -113,7 +114,8 @@ void Gate_REGISTER::gateProcess( void ) {
 				outBus = ulong_to_bus( currentValue, inBits );
 			} else {
 				// Increment the counter:
-				currentValue = (currentValue + 1) % (maxCount + 1);
+				// maxCount + 1 wraps to 0 at ULONG_MAX, where plain overflow is the right wrap.
+				currentValue = (maxCount == ULONG_MAX) ? currentValue + 1 : (currentValue + 1) % (maxCount + 1);
 				outBus = ulong_to_bus( currentValue, inBits );
 			}
 		}

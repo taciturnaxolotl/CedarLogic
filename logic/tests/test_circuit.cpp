@@ -1397,3 +1397,21 @@ TEST_CASE("EQUIVALENCE is inverted parity at any width") {
 	CHECK(xnor({ 1, 1, 1 }) == ZERO);
 	CHECK(xnor({ 1, 1, 0 }) == ONE);
 }
+
+// MAX_COUNT is free text; at ULONG_MAX, maxCount + 1 wrapped to zero and the
+// up-count divided by it (SIGFPE on x86).
+TEST_CASE("REGISTER counts up with MAX_COUNT at ULONG_MAX") {
+	Circuit c;
+	IDType reg = c.newGate("REGISTER");
+	c.setGateParameter(reg, "INPUT_BITS", "4");
+	c.setGateParameter(reg, "MAX_COUNT", "18446744073709551615");
+	IDType en = makeDriver(c, 1), clk = makeDriver(c, 0);
+	IDType wEn = c.newWire(), wClk = c.newWire();
+	c.connectGateOutput(en, "OUT_0", wEn);
+	c.connectGateOutput(clk, "OUT_0", wClk);
+	c.connectGateInput(reg, "count_enable", wEn);
+	c.connectGateInput(reg, "clock", wClk);
+	stepN(c, 3);
+	for (int i = 0; i < 3; i++) pulseClock(c, clk);
+	CHECK(c.getGateParameter(reg, "CURRENT_VALUE") == "3");
+}
