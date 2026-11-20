@@ -358,18 +358,6 @@ public:
 	void gateProcess( void );
 };
 
-// ****************** EQUIVALENCE Gate **************
-class Gate_EQUIVALENCE : public Gate_N_INPUT
-{
-public:
-	// Initialize the gate's interface:
-	Gate_EQUIVALENCE();
-	
-	// Handle gate events:
-	void gateProcess( void );
-};
-	
-
 // ******************* XOR Gate *********************
 class Gate_XOR : public Gate_N_INPUT
 {
@@ -378,6 +366,18 @@ public:
 	Gate_XOR();
 	
 	// Handle gate events:
+	void gateProcess( void );
+
+protected:
+	// ONE for an odd count of ONEs, UNKNOWN if any input is not a clean level.
+	StateType parity();
+};
+
+
+// ******************* EQUIVALENCE (XNOR) Gate *********************
+class Gate_EQUIVALENCE : public Gate_XOR
+{
+public:
 	void gateProcess( void );
 };
 

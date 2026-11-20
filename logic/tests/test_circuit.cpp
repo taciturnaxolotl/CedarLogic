@@ -1347,3 +1347,53 @@ TEST_CASE("width params clamp instead of hanging") {
 	c.setGateParameter(drv, "OUTPUT_BITS", "-1");
 	CHECK(c.getGateParameter(drv, "OUTPUT_BITS") == "0");
 }
+
+// A gate can be evaluated before its width arrives, or a file can say 0.
+// These read index -1 (ADDER, REGISTER shift) or turned log(0) into an
+// integer (PRI_ENCODER). Under ASan/UBSan the old code fails here.
+TEST_CASE("zero-width gates survive evaluation") {
+	struct Poke { const char *type; std::vector<const char *> pins; };
+	for (const Poke &p : std::vector<Poke>{
+	         { "ADDER", { "carry_in" } },
+	         { "PRI_ENCODER", { "ENABLE" } },
+	         { "DECODER", { "ENABLE" } },
+	         { "COMPARE", { "in_A_equal_B" } },
+	         { "REGISTER", { "shift_enable", "carry_in", "clock" } } }) {
+		INFO(p.type);
+		Circuit c;
+		IDType g = c.newGate(p.type);
+		c.setGateParameter(g, "INPUT_BITS", "0");
+		IDType hi = makeDriver(c, 1), clk = makeDriver(c, 0);
+		IDType wHi = c.newWire(), wClk = c.newWire();
+		c.connectGateOutput(hi, "OUT_0", wHi);
+		c.connectGateOutput(clk, "OUT_0", wClk);
+		for (const char *pin : p.pins)
+			c.connectGateInput(g, pin, std::string(pin) == "clock" ? wClk : wHi);
+		stepN(c, 3);
+		pulseClock(c, clk);
+		CHECK(c.getGateParameter(g, "INPUT_BITS") == "0");
+	}
+}
+
+// XNOR is inverted parity at any width, so a one-input one is a NOT gate
+// instead of a read past the end of its inputs.
+TEST_CASE("EQUIVALENCE is inverted parity at any width") {
+	auto xnor = [](std::vector<int> in) {
+		Circuit c;
+		IDType g = c.newGate("EQUIVALENCE");
+		c.setGateParameter(g, "INPUT_BITS", std::to_string(in.size()));
+		IDType wOut = c.newWire();
+		c.connectGateOutput(g, "OUT", wOut);
+		for (size_t i = 0; i < in.size(); i++) {
+			IDType d = makeDriver(c, in[i]), w = c.newWire();
+			c.connectGateOutput(d, "OUT_0", w);
+			c.connectGateInput(g, "IN_" + std::to_string(i), w);
+		}
+		stepN(c, 5);
+		return c.getWireState(wOut);
+	};
+	CHECK(xnor({ 1 }) == ZERO);
+	CHECK(xnor({ 0 }) == ONE);
+	CHECK(xnor({ 1, 1, 1 }) == ZERO);
+	CHECK(xnor({ 1, 1, 0 }) == ONE);
+}

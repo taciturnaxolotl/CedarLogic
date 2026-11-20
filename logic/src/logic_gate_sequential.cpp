@@ -54,6 +54,9 @@ Gate_REGISTER::Gate_REGISTER() : Gate_PASS() {
 
 // Handle gate events:
 void Gate_REGISTER::gateProcess( void ) {
+	// Shifting reads the end bits of a bus that has none.
+	if( inBits == 0 ) return;
+
 	vector< StateType > outBus;
 	StateType carryOut = ZERO; // Assume that carry out is reset.
 

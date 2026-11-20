@@ -172,8 +172,6 @@ void Gate_PRI_ENCODER::gateProcess(void) {
 
 	vector< StateType > outBus(outBits, ZERO); // All bits are 0
 
-	int outBusSize = (unsigned long)ceil(log((double)inBits) / log(2.0)); // The size of output will be lg of input size
-
 	bool enabled = true;
 	bool isValid = false;
 
@@ -188,7 +186,7 @@ void Gate_PRI_ENCODER::gateProcess(void) {
 		for (int i = inBus.size()-1; i > 0; i--) {
 			if (inBus[i] == ONE) {
 				// If this bit is one, then we found MSB for output
-				outBus = ulong_to_bus(i, outBusSize);
+				outBus = ulong_to_bus(i, outBits);
 				break;
 			}
 		}
