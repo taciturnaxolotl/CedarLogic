@@ -680,6 +680,7 @@ protected:
 	unsigned long addressBits;
 
 	map< unsigned long, unsigned long > memory;
+	unsigned long readMemory( unsigned long address ) const;
 	
 	//This is the last location that a read has
 	//taken place from.

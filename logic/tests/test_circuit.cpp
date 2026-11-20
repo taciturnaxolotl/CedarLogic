@@ -1415,3 +1415,38 @@ TEST_CASE("REGISTER counts up with MAX_COUNT at ULONG_MAX") {
 	for (int i = 0; i < 3; i++) pulseClock(c, clk);
 	CHECK(c.getGateParameter(reg, "CURRENT_VALUE") == "3");
 }
+
+namespace {
+struct RamProbe : Circuit {
+	struct Peek : Gate_RAM {
+		static size_t words(Gate *g) { return (static_cast<Gate_RAM *>(g)->*(&Peek::memory)).size(); }
+	};
+	size_t words(IDType id) { return Peek::words(getGate(id).get()); }
+};
+} // namespace
+
+// Reading used memory[], which made an entry for every address read, so a
+// counter sweeping the address bus grew memory without bound, and every
+// entry was saved with the circuit.
+TEST_CASE("RAM reads do not create memory entries") {
+	RamProbe c;
+	IDType ram = c.newGate("RAM");
+	c.setGateParameter(ram, "ADDRESS_BITS", "3");
+	c.setGateParameter(ram, "DATA_BITS", "4");
+	IDType we = makeDriver(c, 0), wWe = c.newWire();
+	c.connectGateOutput(we, "OUT_0", wWe);
+	c.connectGateInput(ram, "write_enable", wWe);
+	IDType addr = c.newGate("DRIVER");
+	c.setGateParameter(addr, "OUTPUT_BITS", "3");
+	for (int i = 0; i < 3; i++) {
+		IDType w = c.newWire();
+		c.connectGateOutput(addr, "OUT_" + std::to_string(i), w);
+		c.connectGateInput(ram, "ADDRESS_" + std::to_string(i), w);
+	}
+	for (int a = 0; a < 8; a++) {
+		c.setGateParameter(addr, "OUTPUT_NUM", std::to_string(a));
+		stepN(c, 3);
+		CHECK(c.getGateParameter(ram, "Address:" + std::to_string(a)) == "0");
+	}
+	CHECK(c.words(ram) == 0);
+}
