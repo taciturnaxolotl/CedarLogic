@@ -106,7 +106,7 @@ void Gate_RAM::gateProcess( void ) {
 bool Gate_RAM::setParameter( string paramName, string value ) {
 	istringstream iss(value);
 	if( paramName == "ADDRESS_BITS" ) {
-		iss >> addressBits;
+		addressBits = parseWidth( value );
 
 		// Declare the address pins!		
 		if( addressBits > 0 ) {
@@ -117,7 +117,7 @@ bool Gate_RAM::setParameter( string paramName, string value ) {
 		// you shouldn't be setting this param during simulation while
 		// anything is connected anyhow!
 	} else if( paramName == "DATA_BITS" ) {
-		iss >> dataBits;
+		dataBits = parseWidth( value );
 
 		// Declare the data input and output pins!
 		if( dataBits > 0 ) {

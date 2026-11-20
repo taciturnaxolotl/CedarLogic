@@ -203,6 +203,10 @@ protected:
 		this->outputList[outputID].enableInput = inputID;
 	};
 
+	// Parse a pin count from library or file text, clamping bad values into 0..maxWidth.
+	static unsigned long parseWidth( const string &value, unsigned long maxWidth = MAX_BUS_WIDTH );
+	static const unsigned long MAX_BUS_WIDTH = 32;
+
 	// A helper function that allows you to convert a bus into a unsigned long:
 	// (HI_Z, etc. is interpreted as ZERO.)
 	unsigned long bus_to_ulong( vector< StateType > busStates );
@@ -309,6 +313,7 @@ public:
 protected:
 	// Called after INPUT_BITS sets inBits and the IN bus; declare any pins sized by it.
 	virtual void inputBitsChanged() {}
+	virtual unsigned long maxInputBits() const { return MAX_BUS_WIDTH; }
 
 	// The number of input bits:
 	unsigned long inBits;
@@ -504,6 +509,8 @@ public:
 	void gateProcess( void );
 
 	void inputBitsChanged() override;
+	// Outputs grow as 2^inBits.
+	unsigned long maxInputBits() const override { return 12; }
 
 protected:
 	unsigned long outBits;

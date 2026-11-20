@@ -140,7 +140,7 @@ bool Gate_DRIVER::setParameter( string paramName, string value ) {
 		iss >> output_num;
 		return true; // Update the gate during the next step!
 	} else if( paramName == "OUTPUT_BITS" ) {
-		iss >> outBits;
+		outBits = parseWidth( value );
 
 		// Declare the output pins!		
 		if( outBits > 0 ) {

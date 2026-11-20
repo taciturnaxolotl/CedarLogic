@@ -442,15 +442,13 @@ IDType Gate_BUS_END::disconnectInput(string inputID) {
 }
 
 bool Gate_BUS_END::setParameter(string paramName, string value) {
-
-	istringstream iss(value);
 	if (paramName == "INPUT_BITS") {
 
 		if (busWidth != 0) {
 			return false;
 		}
 
-		iss >> busWidth;
+		busWidth = parseWidth( value );
 
 		// Declare the address pins!		
 		if (busWidth > 0) {

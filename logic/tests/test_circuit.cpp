@@ -1320,3 +1320,30 @@ TEST_CASE("every logic param in the gate library is in its gate's schema") {
 	}
 	CHECK(checked > 100);
 }
+
+// Widths arrive from .cdl files as text. "-1" through operator>> became
+// ULONG_MAX and hung the load declaring pins; so did any huge value.
+TEST_CASE("width params clamp instead of hanging") {
+	Circuit c;
+	IDType andG = c.newGate("AND");
+	c.setGateParameter(andG, "INPUT_BITS", "-1");
+	CHECK(c.getGateParameter(andG, "INPUT_BITS") == "0");
+	c.setGateParameter(andG, "INPUT_BITS", "4294967296");
+	CHECK(c.getGateParameter(andG, "INPUT_BITS") == "32");
+	c.setGateParameter(andG, "INPUT_BITS", "abc");
+	CHECK(c.getGateParameter(andG, "INPUT_BITS") == "0");
+
+	IDType dec = c.newGate("DECODER");
+	c.setGateParameter(dec, "INPUT_BITS", "64");
+	CHECK(c.getGateParameter(dec, "INPUT_BITS") == "12");
+
+	IDType ram = c.newGate("RAM");
+	c.setGateParameter(ram, "DATA_BITS", "-3");
+	CHECK(c.getGateParameter(ram, "DATA_BITS") == "0");
+	c.setGateParameter(ram, "ADDRESS_BITS", "99999999999");
+	CHECK(c.getGateParameter(ram, "ADDRESS_BITS") == "32");
+
+	IDType drv = c.newGate("DRIVER");
+	c.setGateParameter(drv, "OUTPUT_BITS", "-1");
+	CHECK(c.getGateParameter(drv, "OUTPUT_BITS") == "0");
+}

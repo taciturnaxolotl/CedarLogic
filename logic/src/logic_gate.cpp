@@ -553,6 +553,14 @@ void Gate::listChangedParam( string paramName ) {
 
 
 
+// "-1" through operator>> would wrap to ULONG_MAX and declare pins forever.
+unsigned long Gate::parseWidth( const string &value, unsigned long maxWidth ) {
+	istringstream iss( value );
+	long long width = 0;
+	if( !(iss >> width) || width < 0 ) return 0;
+	return ( (unsigned long long)width > maxWidth ) ? maxWidth : (unsigned long)width;
+}
+
 // A helper function that allows you to convert a bus into a unsigned long:
 // (HI_Z, etc. is interpreted as ZERO.)
 unsigned long Gate::bus_to_ulong( vector< StateType > busStates ) {
@@ -613,8 +621,7 @@ Gate_N_INPUT::Gate_N_INPUT() : Gate() {
 // Set the parameters:
 bool Gate_N_INPUT::setParameter( string paramName, string value ) {
 	if( paramName == "INPUT_BITS" ) {
-		istringstream iss(value);
-		iss >> inBits;
+		inBits = parseWidth( value, maxInputBits() );
 		if( inBits > 0 ) {
 			declareInputBus( "IN", inBits );
 		}
