@@ -1,0 +1,30 @@
+# Maintainer: Kieran Klukas <me@dunkirk.sh>
+pkgname=cedarlogic-bin
+pkgver=3.4.2
+pkgrel=1
+pkgdesc="Digital logic simulator for education"
+arch=('x86_64')
+url="https://github.com/taciturnaxolotl/CedarLogic"
+license=('GPL-3.0-or-later')
+depends=('gtk3' 'libglvnd' 'fontconfig' 'cairo' 'pango' 'gdk-pixbuf2' 'glib2'
+         'libpng' 'zlib' 'wayland' 'libxkbcommon' 'libx11' 'gcc-libs' 'glibc'
+         'hicolor-icon-theme')
+provides=('cedarlogic')
+conflicts=('cedarlogic')
+# The debug info is already split out and uploaded to Sentry. The symbol table
+# is kept on purpose, so a crash trace can still name the function.
+options=('!strip' '!debug')
+source=("$url/releases/download/v$pkgver/CedarLogic-$pkgver-Linux.tar.gz")
+sha256sums=('dbbcb4857726a1c52d07da4e24b59fcd22a035f847c15f43803be751714a3da0')
+
+package() {
+    cd "CedarLogic-$pkgver-Linux"
+    install -Dm755 -t "$pkgdir/usr/bin" bin/CedarLogic bin/crashpad_handler
+    install -Dm644 share/applications/CedarLogic.desktop \
+        "$pkgdir/usr/share/applications/CedarLogic.desktop"
+    install -Dm644 share/mime/packages/CedarLogic.xml \
+        "$pkgdir/usr/share/mime/packages/CedarLogic.xml"
+    install -Dm644 share/icons/hicolor/64x64/apps/CedarLogic.png \
+        "$pkgdir/usr/share/icons/hicolor/64x64/apps/CedarLogic.png"
+    cp -r share/CedarLogic "$pkgdir/usr/share/CedarLogic"
+}

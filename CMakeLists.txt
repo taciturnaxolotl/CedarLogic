@@ -768,6 +768,8 @@ if(APPLE)
     # that puts the icons where the arrow points.
     set(CPACK_DMG_BACKGROUND_IMAGE "${CMAKE_SOURCE_DIR}/res/macos/dmg-background.tiff")
     set(CPACK_DMG_DS_STORE_SETUP_SCRIPT "${CMAKE_SOURCE_DIR}/res/macos/dmg-setup.applescript")
+elseif(UNIX AND NOT EMSCRIPTEN)
+    include(LinuxPackaging)
 endif()
 
 include(CPack)

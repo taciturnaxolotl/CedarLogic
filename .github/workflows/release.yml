@@ -298,7 +298,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libgtk-3-dev libglu1-mesa-dev ccache \
-            libgl1-mesa-dev libfontconfig1-dev libcurl4-openssl-dev
+            libgl1-mesa-dev libfontconfig1-dev libcurl4-openssl-dev rpm
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2.24
@@ -349,7 +349,20 @@ jobs:
       - name: Package
         run: |
           cd build
-          cpack -G TGZ
+          cpack -G "TGZ;DEB;RPM"
+
+      # Install the .deb on the oldest system it targets, so a dependency the
+      # package forgot to declare fails here instead of on someone's machine.
+      - name: Check packages
+        run: |
+          dpkg-deb --info build/cedarlogic_*.deb
+          rpm -qp --requires build/cedarlogic-*.rpm
+          sudo apt-get install -y ./build/cedarlogic_*.deb
+          missing=$(ldd /usr/bin/CedarLogic | grep 'not found' || true)
+          if [ -n "$missing" ]; then
+            echo "Installed CedarLogic cannot find: $missing" >&2
+            exit 1
+          fi
 
       - name: Upload Linux Archive
         uses: actions/upload-artifact@v7
@@ -358,6 +371,8 @@ jobs:
           path: |
             build/CedarLogic-*-Linux.tar.gz
             build/CedarLogic-*-Linux.debug.gz
+            build/cedarlogic_*.deb
+            build/cedarlogic-*.rpm
 
   build-macos:
     needs: skia
@@ -628,6 +643,9 @@ jobs:
     needs: [build-windows, build-linux, build-macos, build-wasm]
     runs-on: ubuntu-24.04
     if: github.ref_type == 'tag'
+    # Read by step conditions, which cannot see secrets directly.
+    env:
+      AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
     permissions:
       contents: write
       id-token: write
@@ -772,3 +790,28 @@ jobs:
           else
             npm publish --access public
           fi
+
+      # The AUR package repackages the Linux tarball just published, so only its
+      # version and checksum change per release. Prereleases stay off the AUR:
+      # everyone who installed it would be upgraded to the release candidate.
+      - name: Prepare AUR package
+        if: env.AUR_SSH_PRIVATE_KEY != '' && !contains(env.VERSION, '-')
+        run: |
+          VER="${{ steps.version.outputs.version }}"
+          SUM=$(awk -v f="CedarLogic-$VER-Linux.tar.gz" '$2 == f { print $1 }' dist/checksums.txt)
+          [ -n "$SUM" ] || { echo "No checksum for the Linux tarball" >&2; exit 1; }
+          sed -e "s/^pkgver=.*/pkgver=$VER/" -e "s/^pkgrel=.*/pkgrel=1/" \
+              -e "s/^sha256sums=.*/sha256sums=('$SUM')/" \
+              packaging/aur/PKGBUILD > aur-PKGBUILD
+          cat aur-PKGBUILD
+
+      - name: Publish AUR package
+        if: env.AUR_SSH_PRIVATE_KEY != '' && !contains(env.VERSION, '-')
+        uses: KSXGitHub/github-actions-deploy-aur@v4.2.0
+        with:
+          pkgname: cedarlogic-bin
+          pkgbuild: aur-PKGBUILD
+          commit_username: Kieran Klukas
+          commit_email: me@dunkirk.sh
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: Update to ${{ steps.version.outputs.version }}

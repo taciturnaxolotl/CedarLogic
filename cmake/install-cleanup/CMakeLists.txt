@@ -5,14 +5,19 @@
 # CedarLogic installs nothing to lib/ on any platform, so everything there came
 # from the dependency. That is the whole rule -- naming the individual libraries
 # only works until the next version adds one.
+#
+# Paths go through DESTDIR: a staged install (a distro build, or CPack's .deb
+# and .rpm) has a prefix of /usr, and without it this would sweep the build
+# machine's own /usr/lib.
 install(CODE [[
-    file(REMOVE_RECURSE "${CMAKE_INSTALL_PREFIX}/lib")
+    set(_root "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}")
+    file(REMOVE_RECURSE "${_root}/lib")
     # crashpad puts its handler in bin/ too. On Linux that is where ours goes,
     # so only the copies nothing looks at are removed.
     if(NOT CMAKE_INSTALL_PREFIX STREQUAL "")
-        file(GLOB _ours "${CMAKE_INSTALL_PREFIX}/bin/CedarLogic*")
+        file(GLOB _ours "${_root}/bin/CedarLogic*")
         if(NOT _ours)
-            file(REMOVE_RECURSE "${CMAKE_INSTALL_PREFIX}/bin")
+            file(REMOVE_RECURSE "${_root}/bin")
         endif()
     endif()
 ]])

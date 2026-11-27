@@ -9,7 +9,9 @@
 | --- | --- |
 | Windows | `CedarLogic-__VERSION__-win32.exe` (installer) |
 | macOS | `CedarLogic-__VERSION__-Darwin.dmg` (signed and notarized) |
-| Linux | `CedarLogic-__VERSION__-Linux.tar.gz` |
+| Linux (Debian, Ubuntu) | `cedarlogic___VERSION___amd64.deb` |
+| Linux (Fedora, openSUSE) | `cedarlogic-__VERSION__-1.x86_64.rpm` |
+| Linux (other) | `CedarLogic-__VERSION__-Linux.tar.gz` |
 | Web / embedding | `CedarLogic-__VERSION__-wasm.tar.gz`, also on [npm](https://www.npmjs.com/package/@cedarville/cedarlogic-engine) |
 
 CedarLogic updates itself automatically on Windows and macOS so you only need
