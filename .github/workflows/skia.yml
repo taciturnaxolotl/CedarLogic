@@ -42,7 +42,7 @@ jobs:
         include:
           - { name: linux,   os: ubuntu-22.04, args: linux }
           - { name: windows, os: windows-2022, args: windows }
-          - { name: macos,   os: macos-14,     args: macos }
+          - { name: macos,   os: macos-26,     args: macos }
     steps:
       - name: Checkout CedarLogic (GN args only)
         uses: actions/checkout@v7
