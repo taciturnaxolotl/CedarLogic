@@ -7,30 +7,30 @@
     <language>en</language>
     <!-- macOS -->
     <item>
-      <title>Version 3.4.2</title>
-      <pubDate>Mon, 26 Oct 2026 01:46:15 +0000</pubDate>
-      <sparkle:version>3.4.2</sparkle:version>
-      <sparkle:shortVersionString>3.4.2</sparkle:shortVersionString>
+      <title>Version 3.4.3</title>
+      <pubDate>Fri, 27 Nov 2026 21:07:19 +0000</pubDate>
+      <sparkle:version>3.4.3</sparkle:version>
+      <sparkle:shortVersionString>3.4.3</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[]]></description>
+      <description><![CDATA[<p>Fairly small release that fixes a few fuzzing issues (thank you @leviholliday) and also adds deb and rpm packages! There is also proper infrastructure now to support adding an AUR package once registration opens back up.</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.4.2/CedarLogic-3.4.2-Darwin.dmg"
-        sparkle:edSignature="J9IqE4vm30mR4R6k1AfToTstHiaNPKX1JtlX35ELRRLRZfe3RnSC0yAb/BMeN1yAllw/3Af93j9S4Y4kpp0CDQ=="
-        length="14044703"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.4.3/CedarLogic-3.4.3-Darwin.dmg"
+        sparkle:edSignature="70bf3OWS5VW0xKJ8TOmprWkCML7iQb/ddUgRo5GqmEO2liRCrFZxCPvlM83h2N19e+yUZYA9p3GOICqy0I6eCA=="
+        length="14269908"
         type="application/octet-stream"
         sparkle:os="macos"/>
     </item>
     <!-- Windows -->
     <item>
-      <title>Version 3.4.2</title>
-      <pubDate>Mon, 26 Oct 2026 01:46:15 +0000</pubDate>
-      <sparkle:version>3.4.2</sparkle:version>
-      <sparkle:shortVersionString>3.4.2</sparkle:shortVersionString>
-      <description><![CDATA[]]></description>
+      <title>Version 3.4.3</title>
+      <pubDate>Fri, 27 Nov 2026 21:07:19 +0000</pubDate>
+      <sparkle:version>3.4.3</sparkle:version>
+      <sparkle:shortVersionString>3.4.3</sparkle:shortVersionString>
+      <description><![CDATA[<p>Fairly small release that fixes a few fuzzing issues (thank you @leviholliday) and also adds deb and rpm packages! There is also proper infrastructure now to support adding an AUR package once registration opens back up.</p>]]></description>
       <enclosure
-        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.4.2/CedarLogic-3.4.2-win32.exe"
-        sparkle:edSignature="HZUEKg04m++pV/t0I7Ka+rsw9k/sEXZW31N52JCJxIRf0Mjlrb04d3D825fu1c9J4Nc17OK9+NbfLepp7IkhDw=="
-        length="20787664"
+        url="https://github.com/taciturnaxolotl/CedarLogic/releases/download/v3.4.3/CedarLogic-3.4.3-win32.exe"
+        sparkle:edSignature="+1IonuZ4W59jwm4JCjLIYLNoXtm2DFyf5fSsgIvREvfcmuSB3iVukemhWMHD5wk3/A/qxbivv//CpMrS4z8TCw=="
+        length="20795352"
         type="application/octet-stream"
         sparkle:os="windows"
         sparkle:installerArguments="/S"/>
